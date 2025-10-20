@@ -325,7 +325,8 @@ def acquire_XS_spectral_data(
     y: float,
     max_collection_time: float,
     target_counts: int,
-    elements: Optional[List[str]] = None
+    elements: Optional[List[str]] = None,
+    msa_file_export_path = None
 ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[float], Optional[float]]:
     """
     Acquire an EDS spectrum (and optionally background) at given coordinates.
@@ -343,6 +344,8 @@ def acquire_XS_spectral_data(
     elements : list of str, optional
         Element symbols for quantification. If provided, a background spectrum
         will be quantified using these elements.
+    msa_file_export_path: str | None, optional
+        If a path is provided, it exports a .msa spectral file with all the metadata. Default: None
 
     Returns
     -------
@@ -396,9 +399,17 @@ def acquire_XS_spectral_data(
     spectrum_data = phenom_spectrum.spectrum.data
     real_time = phenom_spectrum.metadata.realTime
     live_time = phenom_spectrum.metadata.liveTime
+    
+    if msa_file_export_path is not None:
+        import os
+        base_dir = os.path.dirname(msa_file_export_path)
+        if os.path.exists(base_dir):
+            ppi.Spectroscopy.WriteMsaFile(phenom_spectrum, msa_file_export_path)
+        else:
+            print(f"msa file could not be exported because the provided path does not exist: {base_dir}")
 
     return spectrum_data, background_data, real_time, live_time
-
+    
 # =============================================================================
 # Focus and Image Adjustment
 # =============================================================================

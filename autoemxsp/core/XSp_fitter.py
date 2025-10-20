@@ -89,7 +89,6 @@ from scipy.integrate import quad, trapezoid
 from scipy.optimize import root_scalar
 from pymatgen.core import Element
 
-
 # =============================================================================
 # lmfit import and patching
 # =============================================================================
@@ -141,6 +140,7 @@ def patch_lmfit_fast_mode():
         warnings.warn(
             "⚠️ lmfit fast mode patch could not find uncertainty calculation method. "
             "This probably means lmfit internals changed. Patch may be ineffective."
+            "Latest lmfit version tested with patch is 1.3.4."
         )
 
     # ---- Patch the covariance transform too (optional for speed) ----
@@ -149,7 +149,7 @@ def patch_lmfit_fast_mode():
     else:
         warnings.warn(
             "⚠️ Covariance transform method '_int2ext_cov_x' not found in Minimizer. "
-            "Future lmfit versions may require patch updates."
+            "Latest lmfit version tested with patch is 1.3.4."
         )
 
     Minimizer._fastmode_patched = True

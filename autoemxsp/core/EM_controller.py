@@ -284,6 +284,8 @@ class EM_Controller:
         Current (x, y) position in the sample coordinate system.
     _last_EM_adjustment_time : float
         Timestamp of the last EM adjustment (autofocus/brightness)
+    _is_first_sprectrum_acq : bool
+        Flag for indicating acquisition of first spectrum. Used to export .msa spectral file
 
     Notes
     -----
@@ -398,6 +400,7 @@ class EM_Controller:
         self._current_pos = self._center_pos
         self._bulk_offset_cntr = 0
         self._last_EM_adjustment_time: float = 0.0
+        self._is_first_sprectrum_acq = True
     
     #%% Microscope initialization, functions called only once
     # =============================================================================
@@ -970,9 +973,15 @@ class EM_Controller:
         EMError
             If the spectrum acquisition fails.
         """
+        if self._is_first_sprectrum_acq:
+            msa_file_path = os.path.join(os.path.dirname(self.results_dir), cnst.MSA_SP_FILENAME)
+            self._is_first_sprectrum_acq = False
+        else:
+            msa_file_path = None
+            
         try:
             spectrum_data, background_data, real_time, live_time = EM_driver.acquire_XS_spectral_data(
-                self.analyzer, x, y, max_acquisition_time, target_acquisition_counts
+                self.analyzer, x, y, max_acquisition_time, target_acquisition_counts, msa_file_export_path = msa_file_path
             )
             return spectrum_data, background_data, real_time, live_time
         except Exception as e:

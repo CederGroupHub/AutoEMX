@@ -151,7 +151,12 @@ def batch_quantify_and_analyze(
         
     quant_results = []
     for sample_ID in sample_IDs:
-        sample_dir = get_sample_dir(results_path, sample_ID)
+        try:
+            sample_dir = get_sample_dir(results_path, sample_ID)
+        except Exception as e:
+            logging.warning("Failed to get sample directory for %s: %s", sample_ID, e)
+            continue
+        
         spectral_info_f_path = os.path.join(sample_dir, f"{cnst.ACQUISITION_INFO_FILENAME}.json")
         data_path = os.path.join(sample_dir, f"{cnst.DATA_FILENAME}{cnst.DATA_FILEEXT}")
         

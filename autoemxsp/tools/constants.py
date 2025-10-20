@@ -123,6 +123,7 @@ PAR_SEGMENTATION_MODELS_DIR = 'particle_segmentation_models'
 STD_FILENAME = 'Stds'
 ACQUISITION_INFO_FILENAME = 'Comp_analysis_configs'
 DATA_FILENAME = 'Data'
+MSA_SP_FILENAME = "EM_metadata.msa"
 PARTICLE_STATS_FILENAME = 'Par_size_stats'
 PARTICLE_SIZES_FILENAME = 'Par_sizes'
 PARTICLE_STAT_HIST_FILENAME = 'Par_size_distribution_hist'

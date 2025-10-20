@@ -128,7 +128,11 @@ def batch_fit_spectra(sample_IDs,
     extracted_par_vals = {}
     for sample_ID in sample_IDs:
         logging.info(f"Processing sample '{sample_ID}'...")
-        sample_dir = get_sample_dir(samples_path, sample_ID)
+        try:
+            sample_dir = get_sample_dir(samples_path, sample_ID)
+        except Exception as e:
+            logging.warning("Failed to get sample directory for %s: %s", sample_ID, e)
+            continue
         data_filename = cnst.STDS_MEAS_FILENAME if is_standard else cnst.DATA_FILENAME
         data_path = os.path.join(sample_dir, f"{data_filename}.csv")
 

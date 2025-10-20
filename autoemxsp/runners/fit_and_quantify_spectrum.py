@@ -164,7 +164,12 @@ def fit_and_quantify_spectrum(
         parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         results_path = os.path.join(parent_dir, cnst.RESULTS_DIR)
         
-    sample_dir = get_sample_dir(results_path, sample_ID)
+    try:
+        sample_dir = get_sample_dir(results_path, sample_ID)
+    except Exception as e:
+        logging.warning("Failed to get sample directory for %s: %s", sample_ID, e)
+        return
+
     spectral_info_f_path = os.path.join(sample_dir, f"{cnst.ACQUISITION_INFO_FILENAME}.json")
     data_filename = cnst.STDS_MEAS_FILENAME if is_standard else cnst.DATA_FILENAME
     data_path = os.path.join(sample_dir, f"{data_filename}.csv")
