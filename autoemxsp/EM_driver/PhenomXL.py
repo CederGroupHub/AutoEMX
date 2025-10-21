@@ -24,11 +24,16 @@ If replacing with another API:
     - Units in parameters/returns must be consistent across implementations.
     - Error handling should remain explicit and informative (raise `EMError`).
 
+
+This code has been tested with the following microscope:
+- **Phenom User Interface Version**: 2.0.2-rel
+- **Phenom Type**: PhenomXL
+- **Phenom Software Version**: 6.8.4.rel.e2fd11083c.28328
+
 Created: Tue Jul 29 13:18:16 2025  
 Author: Andrea
 
-Python Version: 3.11
-Dependencies: numpy, cv2, PyPhenom==2.0, autoemxsp.tools.utils
+PyPhenom version: 
 """
 
 import numpy as np
