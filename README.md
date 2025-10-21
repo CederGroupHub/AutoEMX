@@ -85,7 +85,7 @@ AutoEMXSp supports three main automated workflows:
 
 1. **Experimental Standard Collection** — acquire and fit X-ray spectra from known-composition samples to generate reference peak-to-background ratios.
 2. **Sample Acquisition & Analysis** — acquire spectra from unknown samples, quantify them, and perform compositional phase analysis.
-3. **Particle Size Statistical Analysis** - control EM to search for particles and collect statistics on their size distribution.
+3. **Particle Size Statistical Analysis** -  search for particles and collect statistics on their size distribution.
 
 ---
 
@@ -184,7 +184,7 @@ collect_particle_statistics(samples)
 
 ## 🆕 Coming Soon
 Here’s what’s planned for future releases of **AutoEMXSp**:
-- ⚡ GPU acceleration for faster spectral fitting
+- ⚡ Parallelization for faster spectral fitting
 - 🐍 Verify with the latest **Python** version for improved compatibility with current scientific libraries
 - 📏 New scripts for **spectral parameter calibration** to extend the `XSp_calibs` library to your own instrument.
 - 🤖 Integration of ML models for particle segmentation and improved size distribution analysis
@@ -205,12 +205,12 @@ AutoEMXSp/
 │   │   └── custom_fnctns.py        # Customizable clustering plot function
 │   ├── EM_driver/              # Electron Microscope driver (⚠️ adapt to your own instrument)
 │   ├── XSp_calibs/             # X-ray spectral calibrations (⚠️ adapt to your own instrument)
-│   ├── scripts/                # Helper scripts (see Scripts below)
+│   ├── scripts/                # Helper scripts (see full list below)
 │   └── Results/                # Example acquired data (used for unit tests)
 │
 ├── examples/                  # Example scripts for fitting, quantification and compositional analysis of example data
 ├── tests/                     # Unit tests for fitting, quantification, compositional analysis and image processing
-│                               # (Acquisition tests require proper EM drivers & calibration)
+│                               # (Acquisition tests require proper EM drivers)
 ├── paper_data/                # Raw paper data uploaded on Git LFS (Dowload instructions in Paper Data section below)
 │
 ├── LICENSE.txt
@@ -231,7 +231,7 @@ Each script is tailored for a specific task in spectral acquisition, calibration
 - **Run_Analysis.py** — Launch customized machine-learning analysis on previously quantified data.  
 
 ### 🛠️ Miscellaneous
-- **Collect_Particle_Statistics.py** - Analyse sample collecting particle size statistics and distribution.
+- **Collect_Particle_Statistics.py** - Analyse sample, collecting particle size statistics and distribution.
 - **Fit_Quant_Single_Spectrum.py** — Fit and optionally quantify a single spectrum. Prints fitting parameters and plots fitted spectrum for detailed inspection of model performance.  
 - **Run_Experimental_Standard_Collection.py** — Acquire and fit experimental standards.  
 - **Run_SDD_Calibration.py** — Perform calibration of the SDD detector.
@@ -257,7 +257,7 @@ Please contact me at agiunto@lbl.gov
 
 ## 📄 License
 
-This project is licensed under an academic, nonprofit, internal, research & development, NON-COMMERCIAL USE ONLY,
+This project is licensed under a NON-COMMERCIAL USE ONLY,
 LICENSE — see the LICENSE file for details.
 
 ---
@@ -266,7 +266,7 @@ LICENSE — see the LICENSE file for details.
 
 If you use **AutoEMXSp** in your research, please cite the following publication:
 
-> A. Giunto, Y. Fei, P. Nevatia, B. Rendy, N. Szymanski and G. Ceder
+> A. Giunto, Y. Fei, P. Nevatia, B. Rendy, N. Szymanski and G. Ceder;
 > *Harnessing Automated SEM-EDS and Machine Learning to Unlock High-Throughput Compositional Characterization of Powder Materials*, 2025.  
 > DOI: [https://doi.org/10.21203/rs.3.rs-7837297/v1](https://doi.org/10.21203/rs.3.rs-7837297/v1)
 
