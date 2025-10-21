@@ -77,11 +77,6 @@ pip install autoemxsp
 pip install git+https://github.com/CederGroupHub/AutoEMXSp
 ```
 
-### Using conda
-```bash
-conda install -c conda-forge autoemxsp
-```
-
 ---
 
 ## 🖥 Quick Start
