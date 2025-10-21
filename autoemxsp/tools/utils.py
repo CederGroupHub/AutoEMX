@@ -2,76 +2,57 @@
 # -*- coding: utf-8 -*-
 """
 Utility Functions for EDS Spectrum Analysis and Data Handling
+================
+
+A collection of general-purpose utility functions and lightweight classes for data handling,
+visualization, and file management within the EDS analysis and modeling framework.
+
+This module is designed to be self-contained and importable across different parts
+of the project, covering tasks from compositional conversions to structured file
+loading and formatted console output.
+
+-------------------------------------------------------------------------------
+
+Main Features
+--------------
+
+**Compositional Conversions**
+- `atomic_to_weight_fr()`: Convert atomic fractions to weight fractions.
+- `weight_to_atomic_fr()`: Convert weight fractions to atomic fractions.
+  *Both functions use `pymatgen.Element` for accurate atomic mass values.*
+
+**Formula Handling**
+- `get_std_comp_from_formula()`: Parse chemical formulas into standardized element dictionaries.
+- `to_latex_formula()`: Convert a chemical formula into LaTeX format (e.g. ``Fe2O3`` → ``Fe$_2$O$_3$``).
+
+**String and Table Utilities**
+- `print_nice_1d_row()`: Print a formatted 1D table row (with adjustable width and alignment).
+- `print_element_fractions_table()`: Display element names with their atomic and weight percentages.
+- `print_single_separator()`: Print a single horizontal line separator.
+- `print_double_separator()`: Print a double horizontal line separator for clear sectioning.
+- `AlphabetMapper`: Map integers to alphabetic letters (0 → 'A', 25 → 'Z', etc.).
+
+**Image Utilities**
+- `draw_scalebar()`: Draw a scale bar on an image using OpenCV, with optional text label and styling.
+
+**File and Directory Handling**
+- `get_sample_dir()`: Locate a directory named after a given sample ID, with optional recursive search.
+- `make_unique_path()`: Generate a unique file or directory path if one already exists (e.g., ``file_1.png``).
+- `load_configurations_from_json()`: Reconstruct configuration dataclasses and metadata from a JSON file.
+- `extract_spectral_data()`: Extract spectra, quantification data, and coordinates from a `Data.csv` file.
+- `load_msa()`: Load and parse a `.msa` spectral file, returning energy and intensity arrays.
+
+**User Interaction**
+- `Prompt_User`: Display a Tkinter prompt window for manual user confirmation (e.g., proceed/stop execution).
+
+**Error Handling**
+- `EDSError`: Custom exception class for handling EDS-related errors gracefully.
 
 Created on Fri Jun 28 11:50:53 2024
 
 @author: Andrea Giunto
 
-This module provides a collection of utility functions and classes to support 
-X-ray energy-dispersive spectroscopy (EDS) analysis workflows, especially in 
-combination with the main spectrum modeling and fitting modules.
-
-Main Features
--------------
-- **Compositional Conversions:**  
-  Functions to convert between atomic and weight fractions, parse chemical formulas, 
-  and generate LaTeX representations for chemical formulas, using `pymatgen`.
-
-- **String and Table Utilities:**  
-  Functions for formatted printing of tables and separators for clear console output.
-  Includes an `AlphabetMapper` class for converting integer indices to Excel-style 
-  column labels (e.g., A, B, ..., Z, AA, AB, ...).
-  
-- **Image Utilities:**  
-  Function to draw a scale bar on an image
-
-- **File and Directory Handling:**  
-  Functions to locate sample directories within a results folder and to load 
-  .msa/.msg spectral data files (especially from Thermo Fisher Phenom systems), 
-  including metadata parsing and energy scale calculation.
-
-- **Miscellaneous Tools:**  
-  - A simple Tkinter-based GUI prompt for user interaction during workflows.
-  - Custom exception classes for clearer error handling in EDS/SEM applications.
-
-Typical Usage
--------------
-This module is intended to be imported by higher-level scripts or modules that 
-perform EDS spectrum modeling and data analysis. Example usages include:
-
-- Converting between atomic and weight fractions for quantification:
-    >>> atomic_to_weight_fr([0.5, 0.5], ['K', 'Cl'])
-    >>> weight_to_atomic_fr([0.5, 0.5], ['K', 'Cl'])
-
-- Parsing and standardizing chemical formulas:
-    >>> get_std_comp_from_formula('LiCoO2')
-
-- Formatting output in the console:
-    >>> print_nice_1d_row('W_fr', [0.123, 0.456, 0.789])
-    >>> print_single_separator()
-
-- Loading EDS spectra from MSA files:
-    >>> energy, counts, meta = load_msa('my_spectrum.msa')
-
-- Prompting the user for action during a workflow:
-    >>> Prompt_User("Pause", "Please reposition the sample and press OK.").run()
-
-- Handling custom errors in EDS/SEM processing:
-    >>> raise EDSError("Detector not found", code=404)
-
-Dependencies
-------------
-- numpy
-- pymatgen
-- tkinter (for GUI prompts)
-- Standard Python libraries: os, sys, re
-
-Notes
------
-This module is designed for flexibility and ease of use in scientific data analysis 
-and should be adapted as needed for specific workflows or instrument environments.
 """
-#TODO update docs with new functions
 
 # Standard library imports
 import os
@@ -82,6 +63,8 @@ import warnings
 import tkinter as tk
 import pandas as pd
 import ast
+import unicodedata
+import difflib
 
 # Third-party imports
 import cv2
@@ -597,56 +580,99 @@ def make_unique_path(parent_dir: str, base_name: str, extension: str = None) -> 
 
     return unique_path
 
-
-def get_sample_dir(results_path: str, sample_ID: str) -> str:
+def get_sample_dir(
+    results_path: str,
+    sample_ID: str,
+    case_insensitive: bool = True,
+    verbose: bool = False,
+) -> str:
     """
-    Find the directory for a given sample_ID inside results_path or any of its subdirectories.
+    Find a directory named `sample_ID` under `results_path` or its subdirectories.
 
-    If the sample_ID folder exists both directly under results_path and in a subdirectory,
-    raises a RuntimeError due to ambiguity.
+    Strategy:
+      1. Walk the entire directory tree under results_path and collect exact matches.
+      2. If multiple matches -> raise RuntimeError (ambiguous).
+      3. If none -> show close matches and raise FileNotFoundError.
 
     Parameters
     ----------
     results_path : str
-        The root directory to search in.
+        Root directory to search from.
     sample_ID : str
-        The folder name to search for.
+        Directory name to search for (exact match).
+    case_insensitive : bool, optional
+        Whether to ignore case when matching. Default is True.
+    verbose : bool, optional
+        Print additional debug information. Default is False.
 
     Returns
     -------
     sample_dir : str
-        The full path to the sample_ID directory.
+        Full path to the matched directory.
 
     Raises
     ------
     RuntimeError
-        If the sample_ID folder exists both in root and a subdirectory.
+        If multiple matches are found.
     FileNotFoundError
-        If the sample_ID folder is not found.
+        If no match is found.
     """
-    sample_dir = os.path.join(results_path, sample_ID)
-    found_in_root = os.path.isdir(sample_dir)
-    found_in_subdir: Optional[str] = None
+    results_path = os.path.abspath(os.path.expanduser(results_path))
+    if verbose:
+        print(f"[get_sample_dir] Searching for '{sample_ID}' under '{results_path}'", file=sys.stderr)
+    
+    def _norm_name(s: str) -> str:
+        """Normalize unicode and collapse case for comparison on most systems."""
+        return unicodedata.normalize("NFKC", s).strip()
+    
+    # Normalize the sample ID for comparison
+    sample_norm = _norm_name(sample_ID)
+    def match_name(name: str) -> bool:
+        name_norm = _norm_name(name)
+        return name_norm.lower() == sample_norm.lower() if case_insensitive else name_norm == sample_norm
 
+    # Walk recursively and collect matches
+    matches: List[str] = []
     for root, dirs, _ in os.walk(results_path):
-        if root == results_path:
-            continue  # Skip top-level
-        if sample_ID in dirs:
-            found_in_subdir = os.path.join(root, sample_ID)
-            break  # Stop at first occurrence
+        for d in dirs:
+            if match_name(d):
+                matches.append(os.path.abspath(os.path.join(root, d)))
 
-    if found_in_root and found_in_subdir:
-        print(f"WARNING: '{sample_ID}' folder exists both in '{results_path}' and in subdirectory '{found_in_subdir}'", file=sys.stderr)
-        raise RuntimeError(f"Ambiguous '{sample_ID}' folder location.")
-
-    if found_in_root:
-        return sample_dir
-    elif found_in_subdir:
-        return found_in_subdir
+    matches = sorted(set(matches))
+    if len(matches) == 1:
+        return matches[0]
+    elif len(matches) > 1:
+        raise RuntimeError(f"Ambiguous '{sample_ID}' — found in multiple locations:\n" + "\n".join(matches))
     else:
-        raise FileNotFoundError(f"'{sample_ID}' folder not found in '{os.path.abspath(results_path)}' or its subdirectories.")
+        # No exact match found — suggest close matches
+        all_dir_names = []
+        for root, dirs, _ in os.walk(results_path):
+            all_dir_names.extend(dirs)
+        all_dir_names = sorted(set(all_dir_names))
+        close = difflib.get_close_matches(sample_ID, all_dir_names, n=5, cutoff=0.6)
 
+        debug_msg_lines = [
+            f"'{sample_ID}' folder not found in '{results_path}' or its subdirectories."
+        ]
+        if close:
+            debug_msg_lines.append(f"Did you mean one of: {close}?")
+        else:
+            debug_msg_lines.append("No similar directory names found.")
 
+        if verbose:
+            debug_msg_lines.append("\nSome directories under the search root (first 50):")
+            listed = 0
+            for root, dirs, _ in os.walk(results_path):
+                for d in dirs:
+                    debug_msg_lines.append(os.path.join(root, d))
+                    listed += 1
+                    if listed >= 50:
+                        break
+                if listed >= 50:
+                    break
+
+        raise FileNotFoundError("\n".join(debug_msg_lines))
+        
 
 def load_msa(filepath: str) -> Tuple[np.ndarray, np.ndarray, Dict[str, str]]:
     """
