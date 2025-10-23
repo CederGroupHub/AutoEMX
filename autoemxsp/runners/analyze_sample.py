@@ -166,6 +166,7 @@ def analyze_sample(
         return
     
     # --- Modify Clustering Configuration
+    forced_key = clustering_cfg.FORCED_K_METHOD_KEY
     if quant_flags_accepted is not None:
         clustering_cfg.quant_flags_accepted = quant_flags_accepted
     clustering_cfg.max_analytical_error_percent = max_analytical_error_percent
@@ -174,12 +175,18 @@ def analyze_sample(
     if clustering_features is not None:
         clustering_cfg.features = clustering_features
     if isinstance(k_forced, int):
+        # Forces the k to be the provided number of clusters
         clustering_cfg.k = k_forced
-        clustering_cfg.k_finding_method = 'forced'
-    elif k_finding_method == 'forced':
-        raise ValueError(f"'k_finding_method' must be one of {clustering_cfg.ALLOWED_K_FINDING_METHODS}, but not 'forced', if 'k_forced' is set to None")
+        clustering_cfg.k_finding_method = forced_key
+    elif k_finding_method == forced_key:
+        raise ValueError(f"'k_finding_method' must be one of {clustering_cfg.ALLOWED_K_FINDING_METHODS}, but not {forced_key}, if 'k_forced' is set to None")
     elif k_finding_method is not None:
+        # If k_forced is None, and a k_finding_method is defined, it forces the recomputation of k, despite of the values loaded from from clustering_cfg
+        clustering_cfg.k = k_forced
         clustering_cfg.k_finding_method = k_finding_method
+    else:
+        # If a finding method is not specified and k_forced is None, simply loads the default values from clustering_cfg
+        pass
 
     # --- Modify Plot Configuration
     plot_cfg.show_unused_comps_clust = show_unused_compositions_cluster_plot

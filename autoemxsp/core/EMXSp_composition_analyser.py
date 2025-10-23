@@ -2227,10 +2227,10 @@ class EMXSp_Composition_Analyzer:
                 # Cluster determined to stem from a single phase
                 pass
             elif len(self.ref_formulae) > 1:
-                max_mix_raw_conf, mixtures_dicts = self._identify_mixture_from_refs(cluster_data)
+                max_mix_raw_conf, mixtures_dicts = self._identify_mixture_from_refs(cluster_data, cluster_ID = i)
                 max_mix_conf = max(max_mix_conf, max_mix_raw_conf)
             if not is_cluster_single_phase and max_mix_conf < 0.5:
-                mix_nmf_conf, mixture_dict = self._identify_mixture_nmf(cluster_data)
+                mix_nmf_conf, mixture_dict = self._identify_mixture_nmf(cluster_data, cluster_ID = i)
                 if mixture_dict is not None:
                     mixtures_dicts.append(mixture_dict)
                 max_mix_conf = max(max_mix_conf, mix_nmf_conf)
@@ -2238,7 +2238,7 @@ class EMXSp_Composition_Analyzer:
         return clusters_assigned_mixtures
     
     
-    def _identify_mixture_from_refs(self, X: 'np.ndarray') -> Tuple[float, List[Dict]]:
+    def _identify_mixture_from_refs(self, X: 'np.ndarray', cluster_ID: int = None) -> Tuple[float, List[Dict]]:
         """
         Identify mixtures within a cluster by testing all pairs of reference phases using constrained optimization.
     
@@ -2250,6 +2250,8 @@ class EMXSp_Composition_Analyzer:
         ----------
         X : np.ndarray
             Cluster data (compositions), shape (n_samples, n_features).
+        cluster_ID : int
+            Current cluster ID. Used for violin plot name
     
         Returns
         -------
@@ -2257,6 +2259,8 @@ class EMXSp_Composition_Analyzer:
             The highest confidence score among all tested mixtures.
         mixtures_dicts : list of Dict
             List of mixture descriptions for all successful reference pairs.
+        cluster_ID : int
+            Current cluster ID. Used for violin plot name
     
         Notes
         -----
@@ -2290,7 +2294,7 @@ class EMXSp_Composition_Analyzer:
             recon_er = self._calc_reconstruction_error(X, W, H)
     
             # If the pair yields an acceptable reconstruction error, store the result
-            pair_dict, conf = self._get_mixture_dict_with_conf(W, ref_w_r, recon_er, ref_names)
+            pair_dict, conf = self._get_mixture_dict_with_conf(W, ref_w_r, recon_er, ref_names, cluster_ID)
             if pair_dict is not None:
                 mixtures_dicts.append(pair_dict)
                 max_confidence = max(max_confidence, conf)
@@ -2350,7 +2354,8 @@ class EMXSp_Composition_Analyzer:
         W: 'np.ndarray',
         ref_w_r: float,
         reconstruction_error: float,
-        ref_names: List[str]
+        ref_names: List[str],
+        cluster_ID: int = None
     ) -> Tuple[Optional[Dict], float]:
         """
         Evaluate if a cluster is a mixture of two reference phases, and compute a confidence score.
@@ -2369,6 +2374,8 @@ class EMXSp_Composition_Analyzer:
             Reconstruction error for the mixture fit.
         ref_names : list of str
             Names of the two reference phases.
+        cluster_ID : int
+            Current cluster ID. Used for violin plot name
     
         Returns
         -------
@@ -2409,7 +2416,7 @@ class EMXSp_Composition_Analyzer:
             mol_frs_norm_stddevs = np.std(W_mol_frs, axis=0)
             
             if save_violin_plot:
-                self._save_violin_plot_powder_mixture(W_mol_frs, ref_names)
+                self._save_violin_plot_powder_mixture(W_mol_frs, ref_names, cluster_ID)
             
             # Store mixture information
             mixture_dict = {
@@ -2514,7 +2521,8 @@ class EMXSp_Composition_Analyzer:
     def _identify_mixture_nmf(
         self,
         X: 'np.ndarray',
-        n_components: int = 2
+        n_components: int = 2,
+        cluster_ID: int = None
     ) -> Tuple[float, Optional[Dict]]:
         """
         Identify a mixture within a cluster using unconstrained NMF (Non-negative Matrix Factorization).
@@ -2535,6 +2543,8 @@ class EMXSp_Composition_Analyzer:
             Confidence score for the mixture (0 if not acceptable).
         mixture_dict : Dict or None
             Dictionary describing the mixture if reconstruction is acceptable, else None.
+        cluster_ID : int
+            Current cluster ID. Used for violin plot name
     
         Notes
         -----
@@ -2561,7 +2571,7 @@ class EMXSp_Composition_Analyzer:
         ref_w_r = ref_weights[0] / ref_weights[1]
 
         # If pair of bases yields an acceptable reconstruction error, store the mixture info
-        mixture_dict, conf = self._get_mixture_dict_with_conf(W, ref_w_r, recon_er, ref_names)  # Returns (None, 0) if error is too high
+        mixture_dict, conf = self._get_mixture_dict_with_conf(W, ref_w_r, recon_er, ref_names, cluster_ID)  # Returns (None, 0) if error is too high
 
         return conf, mixture_dict
     
@@ -3272,8 +3282,9 @@ class EMXSp_Composition_Analyzer:
     
     def _save_violin_plot_powder_mixture(
         self,
-        W_mol_frs,
-        ref_names
+        W_mol_frs: List[float],
+        ref_names: List[str],
+        cluster_ID : int
     ) -> None:
         """
         Generate and save a violin plot visualizing the distribution of precursor molar fractions in a binary powder mixture.
@@ -3293,6 +3304,8 @@ class EMXSp_Composition_Analyzer:
             Measured molar fractions of the precursors for the current cluster, represented as a binary mixture of two powders.
         ref_names : list(str)
             Chemical formulas (or names) of the two parent phases forming the mixture.
+        cluster_ID : int
+            Current cluster ID. Used for violin plot name
         """
     
         # --- Plot styling ---
@@ -3373,7 +3386,7 @@ class EMXSp_Composition_Analyzer:
         # Save figure
         fig.savefig(
             os.path.join(self.analysis_dir,
-                         cnst.POWDER_MIXTURE_PLOT_FILENAME + f"_{ref_names[0]}_{ref_names[1]}" + cnst.CLUSTERING_PLOT_FILEEXT),
+                         cnst.POWDER_MIXTURE_PLOT_FILENAME + f"_cl{cluster_ID}_{ref_names[0]}_{ref_names[1]}" + cnst.CLUSTERING_PLOT_FILEEXT),
             dpi=300,
             bbox_inches='tight',
             pad_inches=0
