@@ -373,8 +373,8 @@ class EM_Controller:
             self.init_wd = measurement_cfg.working_distance
         else:
             self.init_wd = EM_driver.typical_wd
-        self._min_wd = self.init_wd - 1  # in mm
-        self._max_wd = self.init_wd + 1  # in mm
+        self._min_wd = self.init_wd - measurement_cfg.working_distance_tolerance  # in mm
+        self._max_wd = self.init_wd + measurement_cfg.working_distance_tolerance  # in mm
 
         # Image width and height in pixels
         self.im_width = EM_driver.im_width

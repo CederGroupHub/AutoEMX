@@ -191,6 +191,7 @@ def batch_acquire_and_analyze(
     sample_substrate_shape: str = 'circle',
     sample_substrate_width_mm: float = 12,
     working_distance: float = 5, #mm
+    working_distance_tolerance: float = 1, #mm
     beam_energy: float = 15.0,
     spectrum_lims: Tuple[float, float] = (14, 1100),
     use_instrument_background: bool = False,
@@ -263,6 +264,9 @@ def batch_acquire_and_analyze(
     working_distance : float, optional
         Working distance in mm for acquisition. If None, taken from microscope driver.
         Default is `5.0` (MeasurementConfig.working_distance).
+    working_distance_tolerance : float, optional
+        Defines maximum accepted deviation of working distance from its typical value, in mm.
+            Used to prevent gross mistakes from EM autofocus. Default: 1 mm. 
     beam_energy : float, optional
         Electron beam energy in keV.
         Default is `15.0` (MeasurementConfig.beam_energy_keV).
@@ -372,6 +376,7 @@ def batch_acquire_and_analyze(
         type=measurement_type,
         mode=measurement_mode,
         working_distance = working_distance,
+        working_distance_tolerance = working_distance_tolerance,
         beam_energy_keV=beam_energy,
         is_manual_navigation=is_manual_navigation,
         max_acquisition_time=max_XSp_acquisition_time,

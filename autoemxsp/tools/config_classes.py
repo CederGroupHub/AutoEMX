@@ -203,6 +203,8 @@ class MeasurementConfig:
         type (str): Measurement type. Allowed: 'EDS' (implemented), 'WDS' (not implemented).
         mode (str): Measurement mode (e.g., 'point'). Defines set of measurement parameters (i.e., beam current), determining detector calibration parameters
         working_distance (Optional[float]): Working distance to use for current measurement, in mm. Takes it from EM_driver if left unspecified. 
+        working_distance_tolerance (Optional[float]): Defines maximum accepted deviation of working distance from its typical value, in mm.
+            Used to prevent gross mistakes from EM autofocus. Default: 1 mm. 
         beam_energy_keV (float): Electron beam energy in keV.
         beam_current (Optional[float]): Beam current; must be provided at initialization or via detector channel calibration file.
         emergence_angle (Optional[float]): Emergence angle; updated from microscope driver file if not provided.
@@ -220,6 +222,7 @@ class MeasurementConfig:
     type: str = "EDS"
     mode: str = "point"
     working_distance: float = None # mm
+    working_distance_tolerance: float = 1 # mm
     beam_energy_keV: float = 15.0  # in keV
     beam_current: Optional[float] = None  # Provide at initialization or via calibration
     emergence_angle: Optional[float] = None  # Updated from microscope driver if not provided
@@ -547,12 +550,14 @@ class PlotConfig:
     Attributes:
         show_unused_comps_clust (bool): Whether to plot unused data points in clustering plot.
         els_excluded_clust_plot (List[str]): Elements to exclude in cluster plot when more than 3 elements are present.
+        show_legend_clustering bool : Whether to show the legend in the clustering plot. Default: False
         save_plots (bool): Whether to save plots to disk.
         show_plots (bool): Whether to display plots interactively.
         use_custom_plots (bool): Whether to use custom plotting routines.
     """
     show_unused_comps_clust: bool = True
     els_excluded_clust_plot: List[str] = field(default_factory=list)
+    show_legend_clustering: bool = False
     save_plots: bool = True
     show_plots: bool = False
     use_custom_plots: bool = False

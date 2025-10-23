@@ -3259,8 +3259,9 @@ class EMXSp_Composition_Analyzer:
         ax.set_yticks(ticks)
         ax.set_yticklabels(ticks_labels)
         ax.set_title(f'{self.clustering_cfg.method} clustering {self.sample_cfg.ID}')
-
-        ax.legend(fontsize = fontsize)
+        
+        if getattr(self.plot_cfg, 'show_legend_clustering', None):
+            ax.legend(fontsize = fontsize)
         
         # plt.ion()
         # plt.show()
