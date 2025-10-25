@@ -35,6 +35,7 @@ min_bckgrnd_cnts = 5
 
 run_analysis = True
 
+num_CPU_cores = None # If None, selects automatically half the available cores
 quantify_only_unquantified_spectra = False
 interrupt_fits_bad_spectra = True
 is_known_precursor_mixture = True
@@ -52,8 +53,9 @@ comp_analyzer = batch_quantify_and_analyze(
     results_path=results_path,
     output_filename_suffix=output_filename_suffix,
     max_analytical_error=max_analytical_error,
-    run_analysis=run_analysis,
+    num_CPU_cores = num_CPU_cores,
     quantify_only_unquantified_spectra=quantify_only_unquantified_spectra,
     interrupt_fits_bad_spectra=interrupt_fits_bad_spectra,
-    is_known_precursor_mixture = is_known_precursor_mixture
+    is_known_precursor_mixture = is_known_precursor_mixture,
+    run_analysis=run_analysis,
 )

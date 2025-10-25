@@ -71,6 +71,7 @@ import pandas as pd
 import warnings
 import time
 import logging
+import traceback
 from typing import List, Optional
 
 from autoemxsp.tools.utils import (
@@ -99,6 +100,7 @@ def batch_quantify_and_analyze(
     use_instrument_background: bool = False,
     max_analytical_error: float = 5,
     run_analysis: bool = True,
+    num_CPU_cores: int = None,
     quantify_only_unquantified_spectra: bool = False,
     interrupt_fits_bad_spectra: bool = False,
     is_known_precursor_mixture: Optional[bool] = None,
@@ -126,6 +128,8 @@ def batch_quantify_and_analyze(
         Maximum allowed analytical error for analysis.
     run_analysis : bool, optional
         Whether to run clustering/statistical analysis after quantification.
+    num_CPU_cores : bool | None, optional
+        Number of CPU cores to use during fitting and quantification. If None, half of the available cores are used.
     quantify_only_unquantified_spectra : bool, optional
         If True, only quantify spectra that lack analytical error.
     interrupt_fits_bad_spectra : bool, optional
@@ -224,6 +228,8 @@ def batch_quantify_and_analyze(
         else:
             indices_to_quantify = list(original_df.index)
             logging.info(f"Quantifying all {len(original_df)} spectra.")
+        if num_CPU_cores is not None:
+            quant_cfg.num_CPU_cores = num_CPU_cores
             
         # Subset the data for quantification
         spectral_data_sub = {key: [spectral_data[key][i] for i in indices_to_quantify] for key in cnst.LIST_SPECTRAL_DATA_QUANT_KEYS}
@@ -262,7 +268,10 @@ def batch_quantify_and_analyze(
         try:
             comp_analyzer.run_quantification()
         except Exception as e:
-            logging.warning(f"Error during spectral quantification for '{sample_ID}'. Skipping sample: {e}")
+            tb_str = traceback.format_exc()  # get full traceback as a string
+            logging.warning(
+                f"Error during spectral quantification for '{sample_ID}'. Skipping sample.\nFull traceback:\n{tb_str}"
+            )
             continue
 
         if quantify_only_unquantified_spectra:

@@ -67,6 +67,7 @@ min_bckgrnd_cnts = 5
 
 run_clustering_analysis = True
 
+num_CPU_cores = None # If None, selects automatically half the available cores
 quantify_only_unquantified_spectra = False # Set to True if running on Data.csv file that has already been quantified. Used to quantify discarded unqiantified spectra
 interrupt_fits_bad_spectra = True # Interrupts the fit and quantification of spectra when it finds they will lead to large quantification errors. Used to speed up computations
 
@@ -82,7 +83,8 @@ comp_analyzer = batch_quantify_and_analyze(
     results_path=results_path,
     output_filename_suffix=output_filename_suffix,
     max_analytical_error=max_analytical_error,
-    run_analysis=run_clustering_analysis,
+    num_CPU_cores = num_CPU_cores,
     quantify_only_unquantified_spectra=quantify_only_unquantified_spectra,
     interrupt_fits_bad_spectra=interrupt_fits_bad_spectra,
+    run_analysis=run_clustering_analysis,
 )

@@ -181,7 +181,6 @@ collect_particle_statistics(samples)
 
 ## 🆕 Coming Soon
 Here’s what’s planned for future releases of **AutoEMXSp**:
-- ⚡ Parallelization for faster spectral fitting
 - 🐍 Verify with the latest **Python** version for improved compatibility with current scientific libraries
 - 📏 New scripts for **spectral parameter calibration** to extend the `XSp_calibs` library to your own instrument.
 - 🤖 Integration of ML models for particle segmentation and improved size distribution analysis

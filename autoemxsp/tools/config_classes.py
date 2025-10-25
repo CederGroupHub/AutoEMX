@@ -26,6 +26,7 @@ Each dataclass includes attribute documentation and input validation.
 """
 import re
 import numpy as np
+import multiprocessing
 from dataclasses import dataclass, field
 from typing import Any, List, Optional, Tuple, Dict
 
@@ -263,6 +264,7 @@ class QuantConfig:
     use_instrument_background: bool = False
     interrupt_fits_bad_spectra: bool = True
     min_bckgrnd_cnts: Optional[int] = 5  # Can be None
+    num_CPU_cores: Optional[int] = None
     
     ALLOWED_METHODS = ['PB']
     
@@ -270,6 +272,11 @@ class QuantConfig:
         if self.method not in self.ALLOWED_METHODS:
             raise ValueError(f"Quantification method must be one of {self.ALLOWED_METHODS}, got '{self.method}'."
                              "Currently no other method is implemented.")
+            
+        # Automatically select half of available CPU cores if not specified
+        if self.num_CPU_cores is None:
+            total_cores = multiprocessing.cpu_count()
+            self.num_CPU_cores = max(1, total_cores // 2)
 
 
 @dataclass

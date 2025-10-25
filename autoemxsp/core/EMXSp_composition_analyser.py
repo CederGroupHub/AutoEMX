@@ -55,6 +55,8 @@ import traceback
 from datetime import datetime
 from dataclasses import asdict
 from typing import Any, Optional, Tuple, List, Dict, Iterable, Union
+from joblib import Parallel, delayed
+import multiprocessing
 
 # Third-party imports
 import numpy as np
@@ -677,8 +679,9 @@ class EMXSp_Composition_Analyzer:
             start_quant_time = time.time()
                             
         # Check if spectrum is worth fitting
-        if not self._is_spectrum_valid_for_fitting(spectrum, background):
-            return None
+        is_sp_valid_for_fitting, quant_flag, comment = self._is_spectrum_valid_for_fitting(spectrum, background)
+        if not is_sp_valid_for_fitting:
+            return None, quant_flag, comment
         
         # Initialize class to quantify spectrum
         quantifier = XSp_Quantifier(
@@ -712,23 +715,23 @@ class EMXSp_Composition_Analyzer:
         except Exception as e:
             is_fit_valid = False
             print(f"{type(e).__name__}: {e}")
-            traceback.print_exc()  # prints the full traceback
-            self._check_fit_quant_validity(is_fit_valid, None, None, None)
-            return None
+            traceback.print_exc()
+            quant_flag, comment = self._check_fit_quant_validity(is_fit_valid, None, None, None)
+            return None, quant_flag, comment
         
         fit_results_dict, are_all_ref_peaks_present = self._assemble_fit_info(quantifier)
         
         if are_all_ref_peaks_present:
-            self._check_fit_quant_validity(is_fit_valid, bad_quant_flag, quantifier, min_bckgrnd_ref_lines)
+            quant_flag, comment = self._check_fit_quant_validity(is_fit_valid, bad_quant_flag, quantifier, min_bckgrnd_ref_lines)
         else:
-            self.spectral_data[cnst.COMMENTS_DF_KEY].append("Reference peak missing")
-            self.spectral_data[cnst.QUANT_FLAG_DF_KEY].append(10)
+            comment = "Reference peak missing"
+            quant_flag = 10
         
         if verbose:
             fit_time = time.time() - start_quant_time
             print(f"Fitting took {fit_time:.2f} s")
     
-        return fit_results_dict
+        return fit_results_dict, quant_flag, comment
     
     
     def _assemble_fit_info(self, quantifier):
@@ -831,8 +834,9 @@ class EMXSp_Composition_Analyzer:
             start_quant_time = time.time()
                             
         # Check if spectrum is worth fitting
-        if not self._is_spectrum_valid_for_fitting(spectrum, background):
-            return None
+        is_sp_valid_for_fitting, quant_flag, comment = self._is_spectrum_valid_for_fitting(spectrum, background)
+        if not is_sp_valid_for_fitting:
+            return None, quant_flag, comment
         
         # Initialize class to quantify spectrum
         quantifier = XSp_Quantifier(
@@ -865,14 +869,14 @@ class EMXSp_Composition_Analyzer:
                 print_result=False,
                 interrupt_fits_bad_spectra=self.quant_cfg.interrupt_fits_bad_spectra
             )
-            is_quant_fit_valid = True
+            is_quant_fit_valid = True if quant_result is not None else False
         except Exception as e:
             print(f"{type(e).__name__}: {e}")
             is_quant_fit_valid = False
-            self._check_fit_quant_validity(is_quant_fit_valid, None, None, None)
-            return None
+            quant_flag, comment = self._check_fit_quant_validity(is_quant_fit_valid, None, None, None)
+            return None, quant_flag, comment
         else:
-            self._check_fit_quant_validity(is_quant_fit_valid, bad_quant_flag, quantifier, min_bckgrnd_ref_lines)
+            quant_flag, comment = self._check_fit_quant_validity(is_quant_fit_valid, bad_quant_flag, quantifier, min_bckgrnd_ref_lines)
         
         if verbose and quant_result:
             quantification_time = time.time() - start_quant_time
@@ -881,7 +885,7 @@ class EMXSp_Composition_Analyzer:
             print(f"An. er.: {quant_result[cnst.AN_ER_KEY]*100:.2f}%")
             print(f"Quantification took {quantification_time:.2f} s")
     
-        return quant_result
+        return quant_result, quant_flag, comment
 
 
     def _check_fit_quant_validity(
@@ -890,25 +894,31 @@ class EMXSp_Composition_Analyzer:
         bad_quant_flag: int,
         quantifier: Any,
         min_bckgrnd_ref_lines: Any
-    ) -> None:
+    ) -> tuple[int, str]:
         """
-        Append comments and flags to spectral data based on fit and quantification outcome.
+        Determine the quantification flag and comment for a spectrum based on fit outcomes.
     
         Parameters
         ----------
-        is_quant_fit_valid : bool,
-            Whether an error occurred during fit or quantification
+        is_quant_fit_valid : bool
+            Whether the spectrum fit and quantification succeeded without errors.
         bad_quant_flag : int
-            Flag returned by fit and quantification indicating the type of issue detected.
-            (1: poor fit, 2: high analytical error, 3: excessive absorption, -1: non-converged fit)
+            Indicator of the type of issue detected during fitting:
+            - 1: poor fit
+            - 2: excessively high analytical error
+            - 3: excessive absorption
+            - -1: non-converged fit
         quantifier : object
-            The quantifier instance used for this spectrum (may be used for further checks).
+            The quantifier instance used for this spectrum; may be used for additional checks.
         min_bckgrnd_ref_lines : Any
             Reference value for background lines, used for further spectrum checks.
     
         Returns
         -------
-        None
+        quant_flag : int
+            Numerical flag representing the spectrum quality after fit/quantification.
+        comment : str
+            Human-readable comment describing the outcome or issue detected.
         """
         # Prefix for comments if fit was interrupted
         start_str_comments = 'Fit interrupted due to ' if not is_quant_fit_valid else ''
@@ -916,36 +926,37 @@ class EMXSp_Composition_Analyzer:
         if bad_quant_flag == 1:
             if self.verbose and is_quant_fit_valid:
                 print("Flagged for poor fit")
-            self.spectral_data[cnst.COMMENTS_DF_KEY].append(start_str_comments + "poor fit")
-            self.spectral_data[cnst.QUANT_FLAG_DF_KEY].append(4)
+            comment = start_str_comments + "poor fit"
+            quant_flag = 4
         elif bad_quant_flag == 2:
             if self.verbose and is_quant_fit_valid:
                 print("Flagged for excessively high analytical error")
-            self.spectral_data[cnst.COMMENTS_DF_KEY].append(start_str_comments + "excessively high analytical error")
-            self.spectral_data[cnst.QUANT_FLAG_DF_KEY].append(5)
+            comment = start_str_comments + "excessively high analytical error"
+            quant_flag = 5
         elif bad_quant_flag == 3:
             if self.verbose and is_quant_fit_valid:
                 print("Flagged for excessive X-ray absorption")
-            self.spectral_data[cnst.COMMENTS_DF_KEY].append(start_str_comments + "excessive X-ray absorption")
-            self.spectral_data[cnst.QUANT_FLAG_DF_KEY].append(6)
+            comment = start_str_comments + "excessive X-ray absorption"
+            quant_flag = 6
         elif not is_quant_fit_valid:
-            self.spectral_data[cnst.COMMENTS_DF_KEY].append("Fit interrupted for unknown reasons")
-            self.spectral_data[cnst.QUANT_FLAG_DF_KEY].append(9)
+            comment = "Fit interrupted for unknown reasons"
+            quant_flag = 9
         else:
             # Fit completed with no apparent issue; check for low background counts, etc.
-            self._flag_spectrum_for_clustering(min_bckgrnd_ref_lines, quantifier)
+            _, quant_flag, comment = self._flag_spectrum_for_clustering(min_bckgrnd_ref_lines, quantifier)
     
-        # If fit did not converge, append convergence comment and flag
-        if bad_quant_flag == -1:
-            self.spectral_data[cnst.COMMENTS_DF_KEY][-1] += " - Quantification did not converge."
-            self.spectral_data[cnst.QUANT_FLAG_DF_KEY][-1] = -1  # Signal non-convergence
+        # If fit was good but did not converge, append convergence comment and flag
+        if bad_quant_flag == -1 and quant_flag == 0:
+            comment += " - Quantification did not converge."
+            quant_flag = -1  # Signal non-convergence
         
+        return quant_flag, comment
         
     def _is_spectrum_valid_for_fitting(
         self, 
         spectrum: np.ndarray, 
         background: np.ndarray = None
-    ) -> bool:
+    ) -> tuple[bool, int, str]:
         """
         Check if a spectrum is valid for quantification fitting.
     
@@ -968,6 +979,10 @@ class EMXSp_Composition_Analyzer:
         -------
         is_spectrum_valid : bool
             True if the spectrum is valid for fitting, False otherwise.
+        quant_flag : int
+            Numerical flag representing the spectrum quality after fit/quantification.
+        comment : str
+            Human-readable comment describing the outcome or issue detected.
     
         Notes
         -----
@@ -975,19 +990,21 @@ class EMXSp_Composition_Analyzer:
         - Uses constants from `cnst` for comment and flag keys.
         """
         is_spectrum_valid = True
-    
+        quant_flag = None
+        comment = None
+        
         if spectrum is None:
             # Check if spectrum data is present
             is_spectrum_valid = False
-            self.spectral_data[cnst.COMMENTS_DF_KEY].append("No spectral data present")
-            self.spectral_data[cnst.QUANT_FLAG_DF_KEY].append(1)
+            comment = "No spectral data present"
+            quant_flag = 1
             if self.verbose:
                 print("Error during spectrum collection. No quantification was done.")
         elif np.sum(spectrum) < 0.9 * self.measurement_cfg.target_acquisition_counts:
             # Skip quantification of spectrum when counts are too low
             is_spectrum_valid = False
-            self.spectral_data[cnst.COMMENTS_DF_KEY].append("Total counts too low")
-            self.spectral_data[cnst.QUANT_FLAG_DF_KEY].append(2)
+            comment = "Total counts too low"
+            quant_flag = 2
             if self.verbose:
                 print(f"Quantification skipped due to spectrum counts lower than 90% of the target counts of {self.measurement_cfg.target_acquisition_counts}")
         else:
@@ -1006,20 +1023,20 @@ class EMXSp_Composition_Analyzer:
             min_vals = np.sort(spectrum_smooth)[:n_vals_considered]
             if all(min_vals < self.quant_cfg.min_bckgrnd_cnts):
                 is_spectrum_valid = False
-                self.spectral_data[cnst.COMMENTS_DF_KEY].append("Background counts too low")
-                self.spectral_data[cnst.QUANT_FLAG_DF_KEY].append(3)
+                comment = "Background counts too low"
+                quant_flag = 3
                 if self.verbose:
                     print(f"Quantification skipped due to at least {n_vals_considered} spectrum points with E < {en_threshold} keV having a count lower than {self.quant_cfg.min_bckgrnd_cnts}")
                     print("This generally indicates an excessive absorption of X-rays before they reach the detector, which compromises accurate measurements of PB ratios.")
     
-        return is_spectrum_valid
+        return is_spectrum_valid, quant_flag, comment
     
     
     def _flag_spectrum_for_clustering(
         self,
         min_bckgrnd_ref_lines: float,
         quantifier: Any,
-    ) -> bool:
+    ) -> tuple[bool, int, str]:
         """
         Check spectrum validity for clustering based on substrate peak intensities and background counts.
     
@@ -1041,6 +1058,10 @@ class EMXSp_Composition_Analyzer:
         -------
         is_spectrum_valid : bool
             True if the spectrum passes all checks, False otherwise.
+        quant_flag : int
+            Numerical flag representing the spectrum quality after fit/quantification.
+        comment : str
+            Human-readable comment describing the outcome or issue detected.
     
         Notes
         -----
@@ -1063,10 +1084,8 @@ class EMXSp_Composition_Analyzer:
         for el, peak_int in els_substrate_intensities.items():
             if peak_int > sub_peak_int_thresh_cnts:
                 is_spectrum_valid = False
-                self.spectral_data[cnst.COMMENTS_DF_KEY].append(
-                    f"{el} {peak_int:.0f} counts > {sub_peak_int_threshold} % of total counts"
-                )
-                self.spectral_data[cnst.QUANT_FLAG_DF_KEY].append(7)
+                comment = f"{el} {peak_int:.0f} counts > {sub_peak_int_threshold} % of total counts"
+                quant_flag = 7
                 if self.verbose:
                     print(f"Intensity of substrate element {el} is {peak_int:.0f} cnts, larger than {sub_peak_int_threshold}% of total counts")
                     print("This is likely to lead to large quantification errors.")
@@ -1074,19 +1093,19 @@ class EMXSp_Composition_Analyzer:
     
         # Check that background intensity is high enough
         if is_spectrum_valid:
-            self.spectral_data[cnst.COMMENTS_DF_KEY].append(f"{min_bckgrnd_ref_lines:.1f} min. ref. bckgrnd counts")
+            comment = f"{min_bckgrnd_ref_lines:.1f} min. ref. bckgrnd counts"
             # Spectrum is not valid if any of the reference peaks has average counts lower than self.quant_cfg.min_bckgrnd_cnts
             if min_bckgrnd_ref_lines < self.quant_cfg.min_bckgrnd_cnts:
                 is_spectrum_valid = False
-                self.spectral_data[cnst.COMMENTS_DF_KEY][-1] += ', too low'
-                self.spectral_data[cnst.QUANT_FLAG_DF_KEY].append(8)
+                comment += ', too low'
+                quant_flag = 8
                 if self.verbose:
                     print(f"Counts below a reference peak are on average < {self.quant_cfg.min_bckgrnd_cnts}")
                     print("This is likely to lead to large quantification errors.")
             else:
-                self.spectral_data[cnst.QUANT_FLAG_DF_KEY].append(0)  # Quantification is ok
+                quant_flag = 0  # Quantification is ok
     
-        return is_spectrum_valid  # Not used, but returned for completeness
+        return is_spectrum_valid, quant_flag, comment  # Not used, but returned for completeness
     
     
     #%% Spectra acquisition and quantification routines
@@ -1174,8 +1193,6 @@ class EMXSp_Composition_Analyzer:
                     if sum(spectrum_data) < 0.95 * self.measurement_cfg.target_acquisition_counts:
                         if quantify:
                             self.spectra_quant.append(None)
-                            self.spectral_data[cnst.COMMENTS_DF_KEY].append("Total counts too low")
-                            self.spectral_data[cnst.QUANT_FLAG_DF_KEY].append(2)
                         if self.verbose:
                                 print('Current particle is unlikely to be part of the sample.\nSkipping to the next particle.')
                                 print('Increase measurement_cfg.max_acquisition_time if this behavior is undesired.')
@@ -1217,10 +1234,13 @@ class EMXSp_Composition_Analyzer:
     
     def _fit_and_quantify_spectra(self, quantify: bool = True) -> None:
         """
-        Fit and )optionally) quantify all collected spectra that have not yet been processed.
+        Fit and (optionally) quantify all collected spectra that have not yet been processed.
         
         Used when spectral acquisition and quantification are performed separately,
          or when measuring standards, for which quantify msut be set to False.
+         
+        Parallelizes spectral fitting and quantification, in a robust way that preserves the
+        order of spectra regardless of any internal reordering inside the fitting function.
          
         Parameters
         ----------
@@ -1235,46 +1255,64 @@ class EMXSp_Composition_Analyzer:
           - Prints results and timing information if self.verbose is True.
           - Appends each quantification result to self.spectra_quant.
         """
-        # Get position of first spectrum to be quantified
-        quant_sp_cntr = len(self.spectra_quant)
-    
+        
+        """
+        Parallel, robust version that preserves the order of spectra regardless of
+        any internal reordering inside the fitting function.
+        """
+        
         # Quantify all spectra that have not been quantified yet
+        quant_sp_cntr = len(self.spectra_quant)
         tot_spectra_collected = len(self.spectral_data[cnst.SPECTRUM_DF_KEY])
         n_spectra_to_quant = tot_spectra_collected - quant_sp_cntr
-        if self.verbose and n_spectra_to_quant>0:
+    
+        if self.verbose and n_spectra_to_quant > 0:
             print_single_separator()
             quant_str = "quantification" if quantify else "fitting"
-            print(f"Starting {quant_str} of {n_spectra_to_quant} spectra")
-        for i in range(quant_sp_cntr, tot_spectra_collected):
+            print(f"Starting {quant_str} of {n_spectra_to_quant} spectra on up to {self.quant_cfg.num_CPU_cores} cores")
     
-            # Get spectral (and background) data
+        # Worker returns (index, result) tuple
+        def _process_one(i):
             spectrum = self.spectral_data[cnst.SPECTRUM_DF_KEY][i]
-            if self.quant_cfg.use_instrument_background:
-                background = self.spectral_data[cnst.BACKGROUND_DF_KEY][i]
-            else:
-                background = None
-    
+            background = (
+                self.spectral_data[cnst.BACKGROUND_DF_KEY][i]
+                if self.quant_cfg.use_instrument_background
+                else None
+            )
             sp_collection_time = self.spectral_data[cnst.LIVE_TIME_DF_KEY][i]
+            sp_id = f"{i}/{tot_spectra_collected - 1}"
     
-            # Quantify spectrum. Returns dictionary containing calculated composition in atomic fractions + analytical error
             if quantify:
-                result = self._fit_quantify_spectrum(
-                                        spectrum,
-                                        background,
-                                        sp_collection_time,
-                                        sp_id = f'{i}/{tot_spectra_collected - 1}'
-                            )
+                result, quant_flag, comment = self._fit_quantify_spectrum(spectrum, background, sp_collection_time, sp_id)
             else:
-                result = self._fit_exp_std_spectrum(
-                                        spectrum,
-                                        background,
-                                        sp_collection_time,
-                                        sp_id = f'{i}/{tot_spectra_collected - 1}'
-                            )
+                result, quant_flag, comment = self._fit_exp_std_spectrum(spectrum, background, sp_collection_time, sp_id)
     
-            # Store result
-            self.spectra_quant.append(result)
+            return i, result, quant_flag, comment
     
+        n_cores = min(self.quant_cfg.num_CPU_cores, multiprocessing.cpu_count())
+    
+        # Run in parallel
+        results_with_idx = Parallel(n_jobs=n_cores, backend="loky")(
+            delayed(_process_one)(i) for i in range(quant_sp_cntr, tot_spectra_collected)
+        )
+    
+        # Sort results by original spectrum index to guarantee correct order
+        results_with_idx.sort(key=lambda x: x[0])
+        
+        # Unpack into separate lists
+        _, results_in_order, quant_flags_in_order, comments_in_order = zip(*results_with_idx)
+        
+        # Convert from tuples to lists
+        results_in_order = list(results_in_order)
+        quant_flags_in_order = list(quant_flags_in_order)
+        comments_in_order = list(comments_in_order)
+    
+        # Append to global spectra_quant
+        self.spectra_quant.extend(results_in_order)
+        self.spectral_data[cnst.COMMENTS_DF_KEY].extend(comments_in_order)
+        self.spectral_data[cnst.QUANT_FLAG_DF_KEY].extend(quant_flags_in_order)
+
+
     #%% Find number of clusters in kmeans
     # ============================================================================= 
     def _find_optimal_k(self, compositions_df, k, compute_k_only_once = False):
