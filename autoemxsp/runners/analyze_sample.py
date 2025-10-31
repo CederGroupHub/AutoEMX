@@ -39,9 +39,10 @@ ref_formulae : list of str, optional
 els_excluded_clust_plot : list of str, optional
     Elements to exclude from cluster plot.
 clustering_features : list of str, optional
-    Features to use for clustering.
+    Features to use for clustering. 
 k_finding_method : str, optional
-    Method for determining optimal number of clusters.
+    Method for determining optimal number of clusters. Set to "forced" if a value of 'k' is specified manually.
+        Allowed methods are "silhouette", "calinski_harabasz", "elbow".
 k_forced : int, optional
     Forced number of clusters.
 max_analytical_error_percent : float, optional
@@ -113,7 +114,8 @@ def analyze_sample(
     clustering_features : list of str, optional
         Features to use for clustering.
     k_finding_method : str, optional
-        Method for determining optimal number of clusters.
+        Method for determining optimal number of clusters. Set to "forced" if a value of 'k' is specified manually.
+            Allowed methods are "silhouette", "calinski_harabasz", "elbow".
     k_forced : int, optional
         Forced number of clusters.
     max_analytical_error_percent : float, optional
