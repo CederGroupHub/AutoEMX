@@ -417,6 +417,7 @@ def batch_acquire_and_analyze(
         elements = sample['els']
         center_pos = sample['pos']
         ref_formulae = sample.get('cnd', [])
+        smpl_type = sample.get('type', sample_type)
         
         print_double_separator()
         logging.info(f"Sample '{sample_ID}'")
@@ -424,7 +425,7 @@ def batch_acquire_and_analyze(
         sample_cfg = SampleConfig(
             ID=sample_ID,
             elements=elements,
-            type=sample_type,
+            type=smpl_type,
             center_pos=center_pos,
             half_width_mm=sample_halfwidth
         )

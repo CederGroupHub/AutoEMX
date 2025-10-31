@@ -1640,7 +1640,7 @@ class EM_Sample_Finder:
             r = int(self._sample_half_width_mm / navcam_pixel_size)
             Ctape_coords = None
             if self.verbose:
-                print(f'The C tape could not be automatically detected. Using {tuple(self._center_pos)} instead.')
+                print(f'The C tape could not be automatically detected. Using {tuple(float(x) for x in self._center_pos)} instead.')
 
         # Draw detected circle on image
         cv2.circle(stub_im, (x, y), r, (0, 255, 0), 1)
