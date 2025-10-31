@@ -149,9 +149,9 @@ class EMXSp_Composition_Analyzer:
 
     Attributes
     ----------
-    All configuration objects are stored as attributes with the same name as their parameter.
+    TO COMPLETE
     """
-
+    #TODO
     def __init__(
         self,
         microscope_cfg: MicroscopeConfig,
@@ -254,7 +254,7 @@ class EMXSp_Composition_Analyzer:
             self.all_els_substrate = list(dict.fromkeys(sample_substrate_cfg.elements)) #remove any eventual duplicate, keeping original order
             detectable_els_substrate = [el for el in self.all_els_substrate if el not in calibs.undetectable_els] # remove undetectable elements
             self.detectable_els_substrate = [el for el in detectable_els_substrate if el not in self.detectable_els_sample] #remove any eventual duplicate
-            self.is_particle = True if sample_cfg.type == cnst.S_POWDER_SAMPLE_TYPE else False
+            self._apply_geom_factors = True if sample_cfg.is_surface_rough else False
         
         
         # --- Fitting and Quantification
@@ -454,8 +454,7 @@ class EMXSp_Composition_Analyzer:
         This method determines how the `XSp_std_dict` attribute is initialised
         based on the sample configuration and measurement type:
     
-        - If the sample is a powder sample (`S_POWDER_SAMPLE_TYPE`) and the
-          measurement is of a known powder mixture, the standards dictionary
+        - If the measurement is of a known powder mixture, the standards dictionary
           is compiled from reference data using `_compile_standards_from_references()`.
     
         - Otherwise, the standards dictionary is expected to be loaded directly
@@ -466,10 +465,9 @@ class EMXSp_Composition_Analyzer:
         None
             This method modifies the `self.XSp_std_dict` attribute in place.
         """
-        is_powder_sample = self.sample_cfg.type == cnst.S_POWDER_SAMPLE_TYPE
         is_known_mixture = getattr(self.powder_meas_cfg, "is_known_powder_mixture_meas", False)
     
-        if is_powder_sample and is_known_mixture:
+        if is_known_mixture:
             self.XSp_std_dict = self._compile_standards_from_references()
         else:
             # Standards dictionary will be loaded directly within the `XSp_Quantifier`
@@ -699,7 +697,7 @@ class EMXSp_Composition_Analyzer:
             els_sample=self.all_els_sample,
             els_substrate=self.detectable_els_substrate,
             els_w_fr=self.exp_stds_cfg.w_frs,
-            is_particle=self.is_particle,
+            is_particle=self._apply_geom_factors,
             sp_collection_time=sp_collection_time,
             max_undetectable_w_fr=self.undetectable_an_er,
             fit_tol=self.quant_cfg.fit_tolerance,
@@ -854,7 +852,7 @@ class EMXSp_Composition_Analyzer:
             els_sample=self.all_els_sample,
             els_substrate=self.detectable_els_substrate,
             els_w_fr=self.sample_cfg.w_frs,
-            is_particle=self.is_particle,
+            is_particle=self._apply_geom_factors,
             sp_collection_time=sp_collection_time,
             max_undetectable_w_fr=self.undetectable_an_er,
             fit_tol=self.quant_cfg.fit_tolerance,
@@ -1189,7 +1187,7 @@ class EMXSp_Composition_Analyzer:
                     print(f"Acquisition took {collection_time:.2f} s")
                 
                 # Contamination check: skip quantification if counts are too low (only at first measurement spot)
-                if i==0 and self.sample_cfg.type == cnst.S_POWDER_SAMPLE_TYPE:
+                if i==0 and self.sample_cfg.is_particle_acquisition:
                     if sum(spectrum_data) < 0.95 * self.measurement_cfg.target_acquisition_counts:
                         if quantify:
                             self.spectra_quant.append(None)
@@ -1835,7 +1833,11 @@ class EMXSp_Composition_Analyzer:
             # Save data using the elemental fraction employed as feature
             cluster_points = compositions_df[labels == i].to_numpy()
             n_points_per_cluster.append(len(cluster_points))
-            els_std_dev_per_cluster.append(np.std(cluster_points, axis=0, ddof=1))
+            if len(cluster_points) > 1:
+                els_std_dev_per_cluster.append(np.std(cluster_points, axis=0, ddof=1))
+            else:
+                # Append NaN or zero or skip
+                els_std_dev_per_cluster.append(np.full(cluster_points.shape[1], np.nan))
             distances = np.linalg.norm(cluster_points - centroid, axis=1)
             wcss_per_cluster.append(np.sum(distances ** 2))
             rms_dist_cluster.append(np.sqrt(np.mean(distances ** 2)))
@@ -1844,7 +1846,11 @@ class EMXSp_Composition_Analyzer:
             cluster_points_other = compositions_df_other_fr[labels == i].to_numpy()
             centroid_other_fr = np.mean(cluster_points_other, axis=0)
             centroids_other_fr.append(centroid_other_fr)
-            els_std_dev_per_cluster_other_fr.append(np.std(cluster_points_other, axis=0, ddof=1))
+            if len(cluster_points) > 1:
+                els_std_dev_per_cluster_other_fr.append(np.std(cluster_points_other, axis=0, ddof=1))
+            else:
+                # Append NaN or zero or skip
+                els_std_dev_per_cluster_other_fr.append(np.full(cluster_points_other.shape[1], np.nan))
             distances_other_fr = np.linalg.norm(cluster_points_other - centroid_other_fr, axis=1)
             rms_dist_cluster_other_fr.append(np.sqrt(np.mean(distances_other_fr ** 2)))
             
@@ -2433,7 +2439,7 @@ class EMXSp_Composition_Analyzer:
         # Set a minimum reconstruction error threshold for accepting mixtures
         min_acceptable_recon_error = 2  # Empirically determined
         
-        save_violin_plot = self.sample_cfg.type == cnst.S_POWDER_SAMPLE_TYPE and self.powder_meas_cfg.is_known_powder_mixture_meas
+        save_violin_plot = self.powder_meas_cfg.is_known_powder_mixture_meas
         
         if reconstruction_error < min_acceptable_recon_error or save_violin_plot:
             # Calculate confidence score: 0.66 when error is 0.5 (empirical)
@@ -2834,16 +2840,16 @@ class EMXSp_Composition_Analyzer:
             if not is_acquisition_successful:
                 if self.verbose:
                     print("Acquisition interrupted.")
-                    if self.sample_cfg.type == cnst.S_POWDER_SAMPLE_TYPE:
+                    if self.sample_cfg.is_particle_acquisition:
                         print(f'Not enough particles were found on the sample to collect all {tot_spectra_to_collect} spectra.')
-                    elif self.sample_cfg.type == cnst.S_BULK_SAMPLE_TYPE:
+                    elif self.sample_cfg.is_grid_acquisition:
                         print(f'The specified spectrum spacing did not allow to collect all {tot_spectra_to_collect} spectra.\n'
                               "Change spacing in bulk_meas_cfg to collect more spectra.")
                 break
     
         print_double_separator()
         print('Sample ID: %s' % self.sample_cfg.ID)
-        par_str = f' over {self.particle_cntr} particles' if self.sample_cfg.type == cnst.S_POWDER_SAMPLE_TYPE else ''
+        par_str = f' over {self.particle_cntr} particles' if self.sample_cfg.is_particle_acquisition else ''
         print(f'{tot_n_spectra} spectra were collected{par_str}.')
         process_time = (time.time() - self.start_process_time) / 60
         print(f'Total compositional analysis time: {process_time:.1f} min')
@@ -3911,9 +3917,9 @@ class EMXSp_Composition_Analyzer:
             cfg_dataclasses[cnst.QUANTIFICATION_CFG_KEY] = asdict(self.quant_cfg)
     
         # Include dataclass corresponding to sample type
-        if self.sample_cfg.type == cnst.S_POWDER_SAMPLE_TYPE:
+        if self.sample_cfg.is_powder_sample:
             cfg_dataclasses[cnst.POWDER_MEASUREMENT_CFG_KEY] = asdict(self.powder_meas_cfg)
-        elif self.sample_cfg.type == cnst.S_BULK_SAMPLE_TYPE:
+        elif self.sample_cfg.is_grid_acquisition:
             cfg_dataclasses[cnst.BULK_MEASUREMENT_CFG_KEY] = asdict(self.bulk_meas_cfg)
         
         # Include dataclasses corresponding to measurement type
@@ -4097,7 +4103,7 @@ class EMXSp_Composition_Analyzer:
                     ref_dict = {key: value for key, value in row.items() if key in ref_keys_to_print}
                     df_mod_to_print[-1].update(ref_dict)
                 # Add mixtures to the printed report
-                mix_keys_to_print = ['Mix1', 'ConfMix1', 'Mol_Ratio1', 'Mix2', 'ConfMix2', 'Mol_Ratio2']
+                mix_keys_to_print = ['Mix1', 'ConfMix1', 'Mix2', 'ConfMix2'] # 'Mol_Ratio1', 'Mol_Ratio2'
                 mix_dict = {key: value for key, value in row.items() if key in mix_keys_to_print}
                 df_mod_to_print[-1].update(mix_dict)
             # Set display options for float precision

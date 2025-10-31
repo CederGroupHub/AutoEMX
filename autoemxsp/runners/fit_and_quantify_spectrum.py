@@ -26,6 +26,8 @@ sample_ID : str
     Sample identifier.
 spectrum_ID : int
     Value reported in 'Spectrum #' column in Data.csv.
+els_sample : list, optional
+    List of elements in the sample.
 is_standard : bool
     Defines whether measurement is of a standard (i.e., well defined composition) or not
 results_path : str, optional
@@ -90,6 +92,7 @@ logging.basicConfig(
 def fit_and_quantify_spectrum(
     sample_ID: str,
     spectrum_ID: int,
+    els_sample: list = None,
     is_standard: bool = False,
     spectrum_lims: tuple = None,
     results_path: str = None,
@@ -118,6 +121,8 @@ def fit_and_quantify_spectrum(
         Sample identifier.
     spectrum_ID : int
         Value reported in 'Spectrum #' column in Data.csv.
+    els_sample : list, optional
+        List of elements in the sample.
     is_standard : bool
         Defines whether measurement is of a standard (i.e., well defined composition) or not
     results_path : str, optional
@@ -280,6 +285,9 @@ def fit_and_quantify_spectrum(
         logging.error(f"Error extracting calibration/configuration parameters: {e}")
         return
     
+    # Sample elements
+    if els_sample is None:
+        els_sample = el_to_quantify
     # Substrate elements
     if els_substrate is None:
         els_substrate = sample_substrate_cfg.elements
@@ -302,7 +310,7 @@ def fit_and_quantify_spectrum(
         beam_e=beam_energy,
         emergence_angle=emergence_angle,
         background_vals=background,
-        els_sample=el_to_quantify,
+        els_sample=els_sample,
         els_substrate=els_substrate,
         els_w_fr=None,
         is_particle=is_particle,
@@ -340,6 +348,7 @@ def fit_and_quantify_spectrum(
     total_process_time = (time.time() - sample_processing_time_start)
     print_double_separator()
     time_str = f"{total_process_time/60:.1f} min" if total_process_time > 100 else f"{total_process_time:.1f} sec"
-    logging.info(f"Sample '{sample_ID}' successfully quantified in {time_str}.")
+    quant_str = 'quantified' if quantify_plot else 'fitted'
+    logging.info(f"Sample '{sample_ID}' successfully {quant_str} in {time_str}.")
         
     return quantifier

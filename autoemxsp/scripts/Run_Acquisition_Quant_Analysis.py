@@ -48,7 +48,7 @@ output_filename_suffix = ''
 # =============================================================================
 # Sample Definitions
 # =============================================================================
-sample_type = 'powder' # powder, bulk
+sample_type = 'powder' # powder, bulk, powder_continuous, bulk_rough
 sample_halfwidth = 3  # mm
 sample_substrate_type = 'Ctape' # Ctape, None
 sample_substrate_shape = 'circle' # square, circle
@@ -57,6 +57,8 @@ sample_substrate_width_mm = 12 # Al stub diameter, in mm
 samples = [
     {'ID': 'Anorthite_mineral', 'els': ['Ca', 'Al', 'Si', 'O'], 'pos': (-37.5, -37.5), 'cnd': ['CaAl2Si2O8']},
 ]
+
+results_dir = None # Uses default directory if left unspecified
 
 # =============================================================================
 # Acquisition and Quantification Options
@@ -150,4 +152,5 @@ comp_analyzer = batch_acquire_and_analyze(
     output_filename_suffix=output_filename_suffix,
     development_mode=False,
     verbose=True,
+    results_dir = results_dir
 )

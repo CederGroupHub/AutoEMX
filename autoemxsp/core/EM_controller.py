@@ -104,7 +104,7 @@ Notes
     - set_brightness(value)
         Set the frame brightness to a specific value.
     
-    - set_contrastss(value)
+    - set_contrast(value)
         Set the frame contrast to a specific value.
         (NOTE: This may be a typo; check if the correct function is set_contrast.)
     
@@ -523,7 +523,7 @@ class EM_Controller:
             If the sample type is not 'powder' and manual navigation is not enabled.
     
         """
-        if self.sample_cfg.type == cnst.S_POWDER_SAMPLE_TYPE:
+        if self.sample_cfg.is_particle_acquisition:
             # Set frame width, and update current pixel size
             if getattr(EM_driver, "is_at_EM", True):
                 min_fw, max_fw = EM_driver.get_range_frame_width()
@@ -549,7 +549,7 @@ class EM_Controller:
                 verbose=self.verbose,
                 development_mode=self.development_mode
             )
-        elif self.sample_cfg.type == cnst.S_BULK_SAMPLE_TYPE:
+        elif self.sample_cfg.is_grid_acquisition:
             if getattr(EM_driver, "is_at_EM", True):
                 min_fw, max_fw = EM_driver.get_range_frame_width()
                 self.grid_search_fw_mm = np.clip(self.bulk_meas_cfg.image_frame_width_um / 1000, min_fw, max_fw)
@@ -833,7 +833,7 @@ class EM_Controller:
                 particle_cntr = None  # Not applicable for manual mode
                 return True, spots_xy_list, particle_cntr
             
-        elif self.sample_cfg.type == cnst.S_BULK_SAMPLE_TYPE:
+        elif self.sample_cfg.is_grid_acquisition:
         
             # Center stage onto next acquisition spot
             movement_success = self.go_to_next_frame()
@@ -866,7 +866,7 @@ class EM_Controller:
             particle_cntr = None  # Not applicable for bulk mode
             return True, spots_xy_list, particle_cntr
         
-        elif self.sample_cfg.type == cnst.S_POWDER_SAMPLE_TYPE:
+        elif self.sample_cfg.is_particle_acquisition:
             # Move to the next detected particle and get acquisition coordinates
             was_particle_found = self.particle_finder.go_to_next_particle()
             if not was_particle_found:
@@ -1018,7 +1018,7 @@ class EM_Controller:
                 # Set brightness and contrast to fixed values, then autofocus
                 self._set_frame_BC()
                 adj_time = self._auto_focus()
-                time.wait(0.5)
+                time.sleep(0.5)
             self._last_EM_adjustment_time = adj_time
         except Exception as e:
             # You may want to log e here with more context if needed.
@@ -1046,7 +1046,7 @@ class EM_Controller:
         try:
             # Set brightness and contrast to fixed values to ensure C tape is below threshold
             EM_driver.set_brightness(self.microscope_cfg.brightness)
-            EM_driver.set_contrastss(self.microscope_cfg.contrast)
+            EM_driver.set_contrast(self.microscope_cfg.contrast)
         except Exception as e:
             # Wrap any driver exception in a custom error for clarity
             raise EMError(f"Failed to set brightness/contrast: {e}") from e
@@ -1251,7 +1251,7 @@ class EM_Controller:
             self.current_frame_label = self.frame_labels[self._frame_cntr]
         
             # Set frame width
-            if self.sample_cfg.type == cnst.S_POWDER_SAMPLE_TYPE:
+            if self.sample_cfg.is_particle_acquisition:
                 min_fw, max_fw = EM_driver.get_range_frame_width()
                 # Check that microscope still accepts the current frame width
                 self.grid_search_fw_mm = np.clip(self.grid_search_fw_mm, min_fw, max_fw)

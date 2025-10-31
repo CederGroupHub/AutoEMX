@@ -52,7 +52,7 @@ output_filename_suffix = ''
 # =============================================================================
 # Sample Definitions
 # =============================================================================
-sample_type = 'powder' # powder, bulk
+sample_type = 'powder' # powder_continuous
 sample_halfwidth = 3  # mm
 sample_substrate_type = 'Ctape' # Ctape, None
 sample_substrate_shape = 'circle' # square, circle

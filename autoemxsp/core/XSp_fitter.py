@@ -97,7 +97,7 @@ from pymatgen.core import Element
 
 from lmfit.minimizer import Minimizer
 
-def patch_lmfit_fast_mode():
+def patch_lmfit_fast_mode(verbose = False):
     """Disable all covariance/uncertainty computations globally in lmfit.
     
     Works for lmfit >=1.0. If internal methods change in future releases,
@@ -154,7 +154,7 @@ def patch_lmfit_fast_mode():
 
     Minimizer._fastmode_patched = True
 
-    if patched_something:
+    if patched_something and verbose:
         print("✅ lmfit patched for speed: uncertainties/covariance will NOT be calculated")
 
 patch_lmfit_fast_mode()

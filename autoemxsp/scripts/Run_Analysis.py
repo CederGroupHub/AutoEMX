@@ -165,6 +165,7 @@ comp_analyzer = analyze_sample(
     results_path=results_path,
     ref_formulae=ref_formulae,
     k_forced = k_forced,
+    clustering_features = clustering_features,
     els_excluded_clust_plot=els_excluded_clust_plot,
     k_finding_method = k_finding_method,
     max_analytical_error_percent=max_analytical_error_percent,

@@ -106,7 +106,13 @@ class SampleConfig:
     Attributes:
         ID (str): Identifier for the sample.
         elements (List[str]): List of elemental symbols (e.g., ['Fe', 'O']).
-        type (str): Sample type. Allowed: 'powder' (implemented), 'bulk', 'film' (not implemented).
+        type (str): Sample type. Allowed types:
+            - powder: Expects particles, and uses geometrical correction factors during spectral fits.
+            - powder_continuous: Expects a quasi-continuous powder mixture, sampled in a grid (NO PARTICLE DETECTION APPLIED).
+                    Applies geometrical correction factors during spectral fits.
+            - bulk: Expects a flat, continuous surface, sampled in a grid. Does not apply geometrical factors.
+            - bulk_rough: Expects a continuous surface, sampled in a grid. Applies geometrical factors.
+            - film: NOT IMPLEMENTED YET
         w_frs (Dict[str,float]): Dict of elemental mass fractions to be kept fixed (e.g., {'Fe': 0.4, 'O': 0.6}).
             Normally not used
         center_pos (Tuple[float, float]): (x, y) center position of the sample on the stage, in mm.
@@ -124,7 +130,27 @@ class SampleConfig:
     center_pos: Tuple[float, float] = (0.0, 0.0) # in mm
     half_width_mm: float = 2.9  # in mm
 
-    ALLOWED_TYPES = (cnst.S_POWDER_SAMPLE_TYPE, cnst.S_BULK_SAMPLE_TYPE , cnst.S_FILM_SAMPLE_TYPE)
+    ALLOWED_TYPES = (cnst.S_POWDER_SAMPLE_TYPE,
+                     cnst.S_POWDER_CONTINUOUS_SAMPLE_TYPE,
+                     cnst.S_BULK_SAMPLE_TYPE,
+                     cnst.S_BULK_ROUGH_SAMPLE_TYPE,
+                     cnst.S_FILM_SAMPLE_TYPE
+                     )
+    
+    POWDER_SAMPLES_TYPES = [cnst.S_POWDER_SAMPLE_TYPE, cnst.S_POWDER_CONTINUOUS_SAMPLE_TYPE]
+    is_powder_sample: bool = False # default, overwritten based on type
+    
+    ROUGH_SURFACE_TYPES  = POWDER_SAMPLES_TYPES + [cnst.S_BULK_ROUGH_SAMPLE_TYPE]
+    is_surface_rough: bool = False # default, overwritten based on type
+    
+    GRID_ACQUISITION_TYPES = (cnst.S_BULK_SAMPLE_TYPE,
+                              cnst.S_POWDER_CONTINUOUS_SAMPLE_TYPE,
+                              cnst.S_BULK_ROUGH_SAMPLE_TYPE,
+                              cnst.S_FILM_SAMPLE_TYPE)
+    is_grid_acquisition: bool = False # default, overwritten based on type
+    
+    PARTICLE_ACQUISITION_TYPES = (cnst.S_POWDER_SAMPLE_TYPE)
+    is_particle_acquisition: bool = False # default, overwritten based on type
 
     def __post_init__(self) -> None:
         # Validate and clean sample ID
@@ -143,6 +169,12 @@ class SampleConfig:
                 Element(symbol)
             except Exception:
                 raise ValueError(f"Element symbol '{symbol}' is not a recognized element.")
+        
+        # Set attribute values based on type
+        self.is_powder_sample = self.type in self.POWDER_SAMPLES_TYPES
+        self.is_surface_rough = self.type in self.ROUGH_SURFACE_TYPES
+        self.is_grid_acquisition = self.type in self.GRID_ACQUISITION_TYPES
+        self.is_particle_acquisition = self.type in self.PARTICLE_ACQUISITION_TYPES
     
     @staticmethod
     def _clean_ID(ID: str) -> str:

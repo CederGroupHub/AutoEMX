@@ -894,7 +894,7 @@ class XSp_Quantifier:
         is_fit_valid = True
         bad_quant_flag = None
         initial_weights_dict = {}
-        iter_counter = 0 # Iteration counter
+        iter_counter = 1 # Iteration counter
         max_iterations = 30  # Maximum allowed iterations
 
     
@@ -902,7 +902,6 @@ class XSp_Quantifier:
         initial_param_values = None
         if self.is_particle and self.fit_background:
             k_val = self.get_starting_K_val()
-            iter_counter += 1
             if k_val is not None:
                 initial_param_values = {'K': k_val}
     
@@ -941,14 +940,12 @@ class XSp_Quantifier:
             initial_fit_tolerance = self.fit_tol # Single-iteration fitting
         
         # Perform initial fit (Iteration 1)
-        iter_counter += 1
         try:
             fitted_params, weight_fractions, sample_Z = self._fit_quant_spectrum_iter(
                 initial_par_vals=initial_param_values,
                 f_tol=initial_fit_tolerance,
                 n_iter=iter_counter
             )
-            iter_counter += 1
         except Exception as e:
             is_fit_valid = False
             print("Fit and quantification iteration unsuccessful due to the following error:")
@@ -963,6 +960,7 @@ class XSp_Quantifier:
             prev_weight_fractions = self._normalise_mass_fractions(weight_fractions)
     
             while iter_counter < max_iterations and diff_mass_fractions > w_fr_change_convergence:
+                iter_counter += 1
                 # Fix elemental fractions to values from previous iteration (normalized)
                 for el, w_fr in zip(self.fitted_els_quant, prev_weight_fractions):
                     fitted_params['f_' + el].value = w_fr
@@ -1014,7 +1012,6 @@ class XSp_Quantifier:
                 diff_mass_fractions = np.max(np.abs(prev_weight_fractions - norm_mass_fractions))
     
                 # Update for next iteration
-                iter_counter += 1
                 prev_weight_fractions = norm_mass_fractions
     
             if self.verbose:
