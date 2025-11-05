@@ -151,7 +151,9 @@ quant_flags_accepted = [0, -1] #8 #, 4, 5, 6, 7, 8]
 # =============================================================================
 # Plotting options
 # =============================================================================
-ref_formulae = None # List of candidate compositions. Uses default value if variable is set to None
+ref_formulae = None # List of candidate compositions. If the first entry is "" or None, the rest are appended to the 
+                    # list loaded from Comp_analysis_configs.json; otherwise, the provided list replaces it.
+                    # Uses values loaded from Comp_analysis_configs.json if ref_formulae = None.
 els_excluded_clust_plot = None # List of elements to exclude from the 3D clustering plot. Uses default values if variable is set to None
 plot_custom_plots = False
 show_unused_compositions_cluster_plot = True

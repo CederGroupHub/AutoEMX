@@ -509,6 +509,9 @@ class EMXSp_Composition_Analyzer:
             self.undetectable_an_er = 0
             return
         
+        valid_formulae = []
+        valid_compositions = set()  # store normalized Composition keys, to check for duplicates
+
         for formula in self.ref_formulae:
             # Use pymatgen class Composition
             try:
@@ -516,7 +519,15 @@ class EMXSp_Composition_Analyzer:
             except Exception as e:
                 warnings.warn(f"Invalid chemical formula '{formula}': {e}")
                 continue
-    
+            
+            # Normalize composition to a string key to check duplicates
+            comp_key = comp.reduced_formula  # or str(comp) if you want exact
+            if comp_key in valid_compositions:
+                continue  # skip duplicate compositions
+            
+            valid_compositions.add(comp_key)
+            valid_formulae.append(formula)
+            
             # Get mass fractions as dictionary el: w_fr
             w_fr_dict = comp.to_weight_dict
     
@@ -553,7 +564,10 @@ class EMXSp_Composition_Analyzer:
                 raise ValueError(f"Unknown clustering feature set: {self.clustering_cfg.features}")
     
             ref_phases.append(phase)
-    
+        
+        # Copy all valid formulae back onto self.ref_formulae attribute
+        self.ref_formulae = valid_formulae
+        
         # Convert to pd.DataFrame and store it
         ref_phases_df = pd.DataFrame(ref_phases, columns=self.all_els_sample).fillna(0)
         self.ref_phases_df = ref_phases_df

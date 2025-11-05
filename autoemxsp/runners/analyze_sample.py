@@ -35,7 +35,8 @@ results_path : str, optional
 output_filename_suffix : str, optional
     Suffix for output files.
 ref_formulae : list of str, optional
-    Reference formulae for clustering.
+    Reference formulae for clustering. If the first entry is "" or None, the rest are appended to the 
+    list loaded from Comp_analysis_configs.json; otherwise, the provided list replaces it.
 els_excluded_clust_plot : list of str, optional
     Elements to exclude from cluster plot.
 clustering_features : list of str, optional
@@ -108,7 +109,8 @@ def analyze_sample(
     output_filename_suffix : str, optional
         Suffix for output files.
     ref_formulae : list of str, optional
-        Reference formulae for clustering.
+        Reference formulae for clustering. If the first entry is "" or None, the rest are appended to the 
+        list loaded from Comp_analysis_configs.json; otherwise, the provided list replaces it.
     els_excluded_clust_plot : list of str, optional
         Elements to exclude from cluster plot.
     clustering_features : list of str, optional
@@ -173,7 +175,12 @@ def analyze_sample(
         clustering_cfg.quant_flags_accepted = quant_flags_accepted
     clustering_cfg.max_analytical_error_percent = max_analytical_error_percent
     if ref_formulae is not None:
-        clustering_cfg.ref_formulae = ref_formulae
+        if ref_formulae and (ref_formulae[0] == "" or ref_formulae[0] is None):
+            # Append mode: skip the first empty entry
+            clustering_cfg.ref_formulae.extend(ref_formulae[1:])
+        else:
+            # Replace mode
+            clustering_cfg.ref_formulae = ref_formulae
     if clustering_features is not None:
         clustering_cfg.features = clustering_features
     if isinstance(k_forced, int):

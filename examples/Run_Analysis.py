@@ -21,16 +21,9 @@ Created on Tue Jul 29 13:18:16 2025
 
 from autoemxsp.runners import analyze_sample
 
-# =============================================================================
-# Initializations - Uses default values if variable is set to None
-# =============================================================================
-els_excluded_clust_plot = None
-ref_formulae = None
-clustering_features = None
-k_finding_method = None
 
 # =============================================================================
-# Examples
+# Sample Definition
 # =============================================================================
 # sample_ID = 'Wulfenite_example'
 sample_ID = 'K-412_NISTstd_example'
@@ -131,17 +124,39 @@ sample_ID = 'K-412_NISTstd_example'
 
 
 results_path = None # Looks in default Results folder if left unspecified
-# =============================================================================
-# Clustering and Plotting options
-# =============================================================================
-k_forced = None
 
+# =============================================================================
+# Clustering options
+# =============================================================================
+clustering_features = None # 'w_fr', 'at_fr'. Uses default value if variable is set to None
+
+# Number of clusters to use, if manually specified.
+# If None, the number of clusters will be determined automatically.
+k_forced: int | None = None  
+
+# Method used to determine the number of clusters (see ClusteringConfig.ALLOWED_K_FINDING_METHODS).
+# Only applied if `k_forced` is None. Forces re-computation of the optimal k value.
+k_finding_method: str | None = None  
+
+# Behavior:
+# - If both `k_finding_method` and `k_forced` are None, clustering configurations
+#   are loaded directly from the saved `Comp_analysis_configs.json` file.
+
+# =============================================================================
+# Spectral Filtering options
+# =============================================================================
 max_analytical_error_percent = 5 # w%
 quant_flags_accepted = [0, -1] #8 #, 4, 5, 6, 7, 8]
 
+# =============================================================================
+# Plotting options
+# =============================================================================
+ref_formulae = None # List of candidate compositions. If the first entry is "" or None, the rest are appended to the 
+                    # list loaded from Comp_analysis_configs.json; otherwise, the provided list replaces it.
+                    # Uses values loaded from Comp_analysis_configs.json if ref_formulae = None.
+els_excluded_clust_plot = None # List of elements to exclude from the 3D clustering plot. Uses default values if variable is set to None
 plot_custom_plots = False
 show_unused_compositions_cluster_plot = True
-
 output_filename_suffix = ''
 
 # =============================================================================
@@ -152,6 +167,7 @@ comp_analyzer = analyze_sample(
     results_path=results_path,
     ref_formulae=ref_formulae,
     k_forced = k_forced,
+    clustering_features = clustering_features,
     els_excluded_clust_plot=els_excluded_clust_plot,
     k_finding_method = k_finding_method,
     max_analytical_error_percent=max_analytical_error_percent,
