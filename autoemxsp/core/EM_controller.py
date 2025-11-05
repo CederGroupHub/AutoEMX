@@ -693,8 +693,8 @@ class EM_Controller:
     
         # Determine the usable sample half width, optionally removing margin 
         if exclude_sample_margin:
-            # margin defined as the size of a single frame
-            margin = horizontal_spacing_mm * np.sqrt(1 + (im_h_to_w_ratio)**2)
+            # margin defined as double the size of a single frame
+            margin = 2* horizontal_spacing_mm * np.sqrt(1 + (im_h_to_w_ratio)**2)
             sample_hw_mm = self._sample_hw_mm - margin
         else:
             sample_hw_mm = self._sample_hw_mm
@@ -1322,6 +1322,8 @@ class EM_Controller:
                 return
 
         if not isinstance(frame_image, np.ndarray):
+            # Adjust contrast and brightness in case they changed during acuqisition
+            EM_driver.auto_contrast_brightness()
             # Get raw grayscale image from EM (H, W), dtype: uint8 or uint16
             frame_image = EM_driver.get_image_data(self.im_width, self.im_height, 1)
     

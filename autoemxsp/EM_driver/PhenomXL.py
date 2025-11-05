@@ -222,20 +222,16 @@ def set_electron_detector_mode(detector_name: str) -> None:
     viewingMode.scanParams.detector = getattr(ppi.DetectorMode, detector_name)
     phenom.SetSemViewingMode(viewingMode)
 
-def get_instrument_mode():
+def _get_instrument_mode():
     """Return the current instrument mode (PyPhenom enum)."""
     return phenom.GetInstrumentMode()
-
-def get_operational_mode():
-    """Return the current operational mode (PyPhenom enum)."""
-    return phenom.GetOperationalMode()
 
 def activate() -> None:
     """
     Wake up the instrument from standby mode.
     Required before sending commands if the SEM is inactive.
     """
-    if get_instrument_mode() == ppi.InstrumentMode(2):  # Checks if SEM is in Standby
+    if _get_instrument_mode() == ppi.InstrumentMode(2):  # Checks if SEM is in Standby
         phenom.Activate()
 
 def to_SEM(timeout: int = 120) -> None:
