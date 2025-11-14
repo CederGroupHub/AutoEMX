@@ -29,20 +29,26 @@ sample_IDs = [
     'K-412_NISTstd_example'
     ]
 
-results_path = None # Looks in default Results folder if left unspecified
+results_path = None # Relative path to folder where results are stored. Looks in default Results folder if left unspecified
+
 # =============================================================================
 # Options
 # =============================================================================
-max_analytical_error = 5 # w%
-min_bckgrnd_cnts = 5
+max_analytical_error = 5 # w% Threhsold value of analytical error above which spectra are filtered out. Only used at the analysis stage, so it does not affect the quantification
 
-run_clustering_analysis = True
+min_bckgrnd_cnts = 5 # Minimum value of background counts that a reference peak (used for quantification) has to possess in order for measurement to be valid
+    # Spectra not satisfying this are flagged (quant_flag = 8) and not quantified if interrupt_fits_bad_spectra = True. If False, they are still quantified, and filtered out later in the clustering stage
+    # If too many spectra end up being flagged, decrease min_bckgrnd_cnts or increase the spectra target total counts
+    # If you change min_bckgrnd_cnts, you can requantify the unquantified spectra only by setting quantify_only_unquantified_spectra = True
 
-num_CPU_cores = None # If None, selects automatically half the available cores
+
+run_clustering_analysis = True # Whether to run the clustering analysis automatically after the quantification
+
+num_CPU_cores = None # Number of cores used during fitting and quantification. If None, selects automatically half the available cores
 quantify_only_unquantified_spectra = False # Set to True if running on Data.csv file that has already been quantified. Used to quantify discarded unqiantified spectra
 interrupt_fits_bad_spectra = True # Interrupts the fit and quantification of spectra when it finds they will lead to large quantification errors. Used to speed up computations
 
-output_filename_suffix = ''
+output_filename_suffix = '' # Suffix added to Analysis folder and Data.csv file
 
 # =============================================================================
 # Run

@@ -267,7 +267,7 @@ def batch_quantify_and_analyze(
         
         try:
             comp_analyzer.run_quantification()
-        except Exception as e:
+        except Exception:
             tb_str = traceback.format_exc()  # get full traceback as a string
             logging.warning(
                 f"Error during spectral quantification for '{sample_ID}'. Skipping sample.\nFull traceback:\n{tb_str}"

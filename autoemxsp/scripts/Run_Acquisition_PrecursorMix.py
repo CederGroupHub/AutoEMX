@@ -62,6 +62,8 @@ samples = [
     {'ID': 'In2O3_Al2O3', 'els': ['Ca', 'Al', 'Si', 'O'], 'pos': (-37.5, -37.5), 'cnd': ['In2O3', 'Al2O3']},
 ]
 
+results_dir = None # Uses default directory if left unspecified
+
 # =============================================================================
 # Acquisition and Quantification Options
 # =============================================================================
@@ -153,4 +155,5 @@ comp_analyzer = batch_acquire_and_analyze(
     output_filename_suffix=output_filename_suffix,
     development_mode=False,
     verbose=True,
+    results_dir = results_dir
 )

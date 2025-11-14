@@ -4183,6 +4183,8 @@ class EMXSp_Composition_Analyzer:
                                 f"Could not parse formula '{std_dict[cnst.STD_FORMULA_KEY]}' "
                                 f"or compare with reference formulas {ref_formulae}. Error: {e}"
                             )
+                    else:
+                        std_mean_value = std_dict[cnst.COR_PB_DF_KEY]
 
                 if len(ref_entries) < 1 and not self.exp_stds_cfg.is_exp_std_measurement:
                     text_line = "provided standards" if std_dir == "" else f"standards file at: {std_dir}"
@@ -4191,18 +4193,19 @@ class EMXSp_Composition_Analyzer:
                         f"is present for line {el_line} in the {text_line}. "
                         "Using other available standards."
                     )
-                    continue
-    
-                # Compute mean PB value from all available references
-                new_std_ref_list = [std_d for i, std_d in enumerate(std_dict_all_lines[el_line]) if i in ref_entries]
-                list_PB = [ref_line[cnst.COR_PB_DF_KEY] for ref_line in new_std_ref_list]
-    
+                    ref_value = std_mean_value # Mean value used for regular quantification
+                else:
+                    # Compute mean PB value from all available references
+                    new_std_ref_list = [std_d for i, std_d in enumerate(std_dict_all_lines[el_line]) if i in ref_entries]
+                    list_PB = [ref_line[cnst.COR_PB_DF_KEY] for ref_line in new_std_ref_list]
+                    ref_value = float(np.mean(list_PB))
+        
                 std_dict_mean = {
                     cnst.STD_ID_KEY: cnst.STD_MEAN_ID_KEY,
-                    cnst.COR_PB_DF_KEY: float(np.mean(list_PB)),
+                    cnst.COR_PB_DF_KEY: ref_value,
                 }
                 filtered_std_dict[el_line] = [std_dict_mean]
-                
+
         return filtered_std_dict
 
     
