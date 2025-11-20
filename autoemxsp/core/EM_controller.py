@@ -831,6 +831,8 @@ class EM_Controller:
                     self.im_height
                 ) # In manual mode, assume center of image
                 particle_cntr = None  # Not applicable for manual mode
+                self.current_frame_label = self._frame_cntr
+                self._frame_cntr += 1
                 return True, spots_xy_list, particle_cntr
             
         elif self.sample_cfg.is_grid_acquisition:

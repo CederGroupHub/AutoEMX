@@ -1168,7 +1168,7 @@ class EMXSp_Composition_Analyzer:
                 break
             
             self.particle_cntr = particle_cntr
-            frame_ID = self.EM_controller.frame_labels[self.EM_controller._frame_cntr-1]
+            frame_ID = self.EM_controller.current_frame_label
             
             latest_spot_id = None # For image annotations
             for i, (x, y) in enumerate(spots_xy_list):

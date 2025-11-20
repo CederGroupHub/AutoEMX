@@ -292,7 +292,7 @@ class QuantConfig:
     """
     method: str = 'PB'
     spectrum_lims: Tuple[float, float] = (14, 1100)
-    fit_tolerance: float = 1e-3
+    fit_tolerance: float = 1e-4
     use_instrument_background: bool = False
     interrupt_fits_bad_spectra: bool = True
     min_bckgrnd_cnts: Optional[int] = 5  # Can be None

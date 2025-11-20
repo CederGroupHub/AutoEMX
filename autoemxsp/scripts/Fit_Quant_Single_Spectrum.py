@@ -23,8 +23,9 @@ from autoemxsp.runners import fit_and_quantify_spectrum
 # Sample and spectrum to process
 # =============================================================================
 sample_ID = 'Wulfenite_example'
+sample_ID = 'K-412_NISTstd_example'
 
-spectrum_ID = 4  # Value reported in 'Spectrum #' column in Data.csv
+spectrum_ID = 1  # Value reported in 'Spectrum #' column in Data.csv
 
 results_path = None # Looks in default Results folder if left unspecified
 
@@ -33,7 +34,7 @@ results_path = None # Looks in default Results folder if left unspecified
 # =============================================================================
 is_particle = True
 is_standard = False
-quantify_plot = False
+quantify_plot = True
 plot_signal = True
 zoom_plot = False
 line_to_plot = 'O_Ka'
