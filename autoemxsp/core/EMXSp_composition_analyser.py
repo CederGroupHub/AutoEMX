@@ -56,7 +56,6 @@ from datetime import datetime
 from dataclasses import asdict
 from typing import Any, Optional, Tuple, List, Dict, Iterable, Union
 from joblib import Parallel, delayed
-import multiprocessing
 
 # Third-party imports
 import numpy as np
@@ -1301,7 +1300,7 @@ class EMXSp_Composition_Analyzer:
     
             return i, result, quant_flag, comment
     
-        n_cores = min(self.quant_cfg.num_CPU_cores, multiprocessing.cpu_count())
+        n_cores = min(self.quant_cfg.num_CPU_cores, os.cpu_count())
     
         # Run in parallel
         results_with_idx = Parallel(n_jobs=n_cores, backend="loky")(

@@ -1288,11 +1288,12 @@ class EM_Particle_Finder:
                     plural_total = tot_n_par_found != 1
                     print(
                         f"{n_par_found_frame} particle{'s' if plural_frame else ''} "
-                        f"{'were' if plural_frame else 'was'} found in this frame"
+                        f"{'were' if plural_frame else 'was'} found in this frame."
                     )
                     print(
                         f"A total of {tot_n_par_found} particle{'s' if plural_total else ''} "
                         f"{'have' if plural_total else 'has'} now been analyzed."
+                        f"{n_par_target - tot_n_par_found} more to go."
                     )
                 par_not_found_cntr = 0
         
