@@ -86,6 +86,14 @@ LIVE_TIME_DF_KEY = 'Live_time'
 QUANT_FLAG_DF_KEY = 'Quant_flag'
 COMMENTS_DF_KEY = 'Comments'
 AN_ER_DF_KEY = 'An er w%'#'Analytical error' #'An er w%'
+CND_DF_KEY = 'Cnd'
+CS_CND_DF_KEY = 'CS_cnd'
+MIX_DF_KEY = 'Mix'
+CS_MIX_DF_KEY = 'CS_mix'
+MIX_MOLAR_RATIO_DF_KEY = 'Mol_Ratio'
+MIX_FIRST_COMP_MEAN_DF_KEY = 'X1_mean'
+MIX_FIRST_COMP_STDEV_DF_KEY = 'X1_stdev'
+
 
 # Headers of Clusters.csv files
 CL_ID_DF_KEY = 'Cluster_ID'

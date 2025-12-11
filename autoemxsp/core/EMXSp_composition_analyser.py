@@ -2173,7 +2173,7 @@ class EMXSp_Composition_Analyzer:
             Maximum confidence score among the references, or None if no reference is close.
         refs_dict : Dict
             Dictionary of reference names and their confidences, sorted by confidence.
-            Keys: 'Ref1', 'Conf1', 'Ref2', 'Conf2', etc.
+            Keys: 'Cnd1', 'CS_cnd1', 'Cnd2', 'CS_cnd2', etc.
     
         Notes
         -----
@@ -2183,7 +2183,7 @@ class EMXSp_Composition_Analyzer:
         """
         if ref_phases == [] or len(ref_phases) == 0:
             # No reference phase is close enough to the centroid
-            refs_dict = {'Ref1': np.nan, 'Conf1': np.nan}
+            refs_dict = {f'{cnst.CND_DF_KEY}1': np.nan, '{cnst.CS_CND_DF_KEY}1': np.nan}
             max_raw_conf = None
         else:
             # Calculate distances from centroid to each reference phase
@@ -2211,8 +2211,8 @@ class EMXSp_Composition_Analyzer:
             refs_dict = {}
             for i, (ref_name, conf) in enumerate(zip(sorted_ref_names, sorted_confidences)):
                 if conf > 0.01:
-                    refs_dict[f'Ref{i+1}'] = ref_name
-                    refs_dict[f'Conf{i+1}'] = np.round(conf, 2)
+                    refs_dict[f'{cnst.CND_DF_KEY}{i+1}'] = ref_name
+                    refs_dict[f'{cnst.CS_CND_DF_KEY}{i+1}'] = np.round(conf, 2)
     
         return max_raw_conf, refs_dict
 
@@ -2723,7 +2723,7 @@ class EMXSp_Composition_Analyzer:
         -------
         mixtures_df : pd.DataFrame
             DataFrame summarizing mixture assignments for each cluster.
-            Columns: Mix1, ConfMix1, Mol_Ratio1, Icomp_Mol_Fr_Mean1, Stddev1, etc.
+            Columns: Mix1, CS_mix1, Mol_Ratio1, Icomp_Mol_Fr_Mean1, Stddev1, etc.
     
         Notes
         -----
@@ -2737,11 +2737,11 @@ class EMXSp_Composition_Analyzer:
                 sorted_mixtures = sorted(mixtures_dict, key=lambda x: -x[cnst.CONF_SCORE_KEY])
                 cluster_mix_dict = {}
                 for i, mixture_dict in enumerate(sorted_mixtures, start=1):
-                    cluster_mix_dict[f'Mix{i}'] = ', '.join(mixture_dict[cnst.REF_NAME_KEY])
-                    cluster_mix_dict[f'ConfMix{i}'] = np.round(mixture_dict[cnst.CONF_SCORE_KEY], 2)
-                    cluster_mix_dict[f'Mol_Ratio{i}'] = np.round(mixture_dict[cnst.MOLAR_FR_MEAN_KEY] / (1 - mixture_dict[cnst.MOLAR_FR_MEAN_KEY]), 2)
-                    cluster_mix_dict[f'Icomp_Mol_Fr_Mean{i}'] = np.round(mixture_dict[cnst.MOLAR_FR_MEAN_KEY], 2)
-                    cluster_mix_dict[f'Stddev{i}'] = np.round(mixture_dict[cnst.MOLAR_FR_STDEV_KEY], 2)
+                    cluster_mix_dict[f'{cnst.MIX_DF_KEY}{i}'] = ', '.join(mixture_dict[cnst.REF_NAME_KEY])
+                    cluster_mix_dict[f'{cnst.CS_MIX_DF_KEY}{i}'] = np.round(mixture_dict[cnst.CONF_SCORE_KEY], 2)
+                    cluster_mix_dict[f'{cnst.MIX_MOLAR_RATIO_DF_KEY}{i}'] = np.round(mixture_dict[cnst.MOLAR_FR_MEAN_KEY] / (1 - mixture_dict[cnst.MOLAR_FR_MEAN_KEY]), 2)
+                    cluster_mix_dict[f'{cnst.MIX_FIRST_COMP_MEAN_DF_KEY}{i}'] = np.round(mixture_dict[cnst.MOLAR_FR_MEAN_KEY], 2)
+                    cluster_mix_dict[f'{cnst.MIX_FIRST_COMP_STDEV_DF_KEY}{i}'] = np.round(mixture_dict[cnst.MOLAR_FR_STDEV_KEY], 2)
                 mixtures_strings_dict.append(cluster_mix_dict)
             else:
                 mixtures_strings_dict.append({})
@@ -4040,7 +4040,7 @@ class EMXSp_Composition_Analyzer:
         print_single_separator()
             
         
-    def print_results(self) -> None:
+    def print_results(self, n_cnd_to_print = 2, n_mix_to_print = 2) -> None:
         """
         Print a summary of clustering results, including clustering configuration, metrics,
         and a table of identified phases with elemental fractions, standard deviations,
@@ -4050,7 +4050,16 @@ class EMXSp_Composition_Analyzer:
           - Prints main clustering configuration and metrics.
           - Prints a table of phases, each with number of points, elemental fractions (with stddev),
             cluster stddev, WCSS, reference assignments, and mixture information if available.
-    
+        
+        Parameters
+        ----------
+        n_cnd_to_print : int
+            Max number of candidate phases and relative confidence scores to show. Candidates with scores
+            close to 0 are not shown.
+        n_mix_to_print : int
+            Max number of candidate mixtures and relative confidence scores to show. Mixtures with scores
+            close to 0 are not shown.
+        
         Raises
         ------
         AttributeError
@@ -4112,11 +4121,11 @@ class EMXSp_Composition_Analyzer:
                 
                 # Add references if present
                 if self.ref_formulae:
-                    ref_keys_to_print = ['Conf1', 'Conf2', 'Ref1', 'Ref2']
+                    ref_keys_to_print = [key for i in range(1, n_cnd_to_print + 1) for key in [f'{cnst.CS_CND_DF_KEY}{i}', f'{cnst.CND_DF_KEY}{i}']]
                     ref_dict = {key: value for key, value in row.items() if key in ref_keys_to_print}
                     df_mod_to_print[-1].update(ref_dict)
                 # Add mixtures to the printed report
-                mix_keys_to_print = ['Mix1', 'ConfMix1', 'Mix2', 'ConfMix2'] # 'Mol_Ratio1', 'Mol_Ratio2'
+                mix_keys_to_print = [key for i in range(1, n_mix_to_print + 1) for key in [f'{cnst.MIX_DF_KEY}{i}', f'{cnst.CS_MIX_DF_KEY}{i}']]
                 mix_dict = {key: value for key, value in row.items() if key in mix_keys_to_print}
                 df_mod_to_print[-1].update(mix_dict)
             # Set display options for float precision
