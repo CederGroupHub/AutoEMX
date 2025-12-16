@@ -5,7 +5,7 @@
 [![PyPI version](https://badge.fury.io/py/autoemxsp.svg)](https://pypi.org/project/autoemxsp/)
 [![Python Version](https://img.shields.io/pypi/pyversions/autoemxsp.svg)](https://pypi.org/project/autoemxsp/)
 [![License: Custom Non-Commercial](https://img.shields.io/badge/license-Custom%20Non--Commercial-blue.svg)](https://github.com/CederGroupHub/AutoEMXSp/blob/main/LICENSE.txt)
-[![Research Square Preprint](https://img.shields.io/badge/Research%20Square-preprint-orange)](https://doi.org/10.21203/rs.3.rs-7837297/v1)
+[![Research Square Preprint](https://img.shields.io/badge/Research%20Square-preprint-orange)](https://doi.org/10.21203/rs.3.rs-7837297/v1)  
 [![PR Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat)](https://pypi.org/project/autoemxsp/)
 
 **Automated Electron Microscopy X-Ray Spectroscopy for Compositional Characterization of Materials**
