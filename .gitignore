@@ -82,5 +82,6 @@ temp/
 
 # Other
 detector_response_convolution_matrices.json
-paper_data/*/
+Rettenberg2024_model_data/
 Rettenberger2024.py
+paper_data/*/
