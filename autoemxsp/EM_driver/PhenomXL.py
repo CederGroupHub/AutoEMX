@@ -42,7 +42,7 @@ import os
 import cv2
 import warnings
 from typing import Optional, Tuple, List
-from autoemxsp.tools.utils import EMError
+from autoemxsp.utils import EMError
 
 # =============================================================================
 # Stage Physical Limits (example values — adapt to your microscope)
