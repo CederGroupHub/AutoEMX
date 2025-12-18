@@ -289,7 +289,7 @@ The raw data used in the associated publication is stored in the `paper_data/` d
 These files are tracked with **Git LFS** (Large File Storage).
 
 ### 🔽 Download with Git LFS
-If you cloned the repository without Git LFS, you may only see placeholder text files instead of the actual datasets.  
+The repository is automatically cloned without Git LFS; you will only see placeholder files instead of the actual datasets inside `paper_data/`.  
 To download the full data, on the terminal go to the repo directory and:
 
 ```bash
@@ -297,7 +297,9 @@ To download the full data, on the terminal go to the repo directory and:
 git lfs install
 
 # 2. Fetch the data files
-git lfs pull
+git lfs fetch --all
+git lfs checkout
+
 ```
 
 Alternatively, download manually from the github repo Download button.
