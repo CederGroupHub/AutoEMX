@@ -62,5 +62,5 @@ comp_analyzer = batch_quantify_and_analyze(
     quantify_only_unquantified_spectra=quantify_only_unquantified_spectra,
     interrupt_fits_bad_spectra=interrupt_fits_bad_spectra,
     is_known_precursor_mixture = is_known_precursor_mixture,
-    run_analysis=run_analysis,
+    run_analysis=run_clustering_analysis,
 )

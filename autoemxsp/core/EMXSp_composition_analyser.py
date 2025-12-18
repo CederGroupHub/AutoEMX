@@ -74,16 +74,16 @@ from yellowbrick.cluster import KElbowVisualizer, SilhouetteVisualizer
 from autoemxsp.core.XSp_quantifier import XSp_Quantifier, Quant_Corrections
 from autoemxsp.core.EM_controller import EM_Controller, EM_Sample_Finder
 import autoemxsp.XSp_calibs as calibs
-import autoemxsp.tools.constants as cnst
-import autoemxsp.tools.custom_fnctns as custom_fnctns
-from autoemxsp.tools.utils import (
+import autoemxsp.utils.constants as cnst
+import autoemxsp._custom_plotting as custom_plotting
+from autoemxsp.utils import (
     print_single_separator,
     print_double_separator,
     to_latex_formula,
     make_unique_path,
     weight_to_atomic_fr
 )
-from autoemxsp.tools.config_classes import (
+from autoemxsp.config import (
     MicroscopeConfig,
     SampleConfig,
     MeasurementConfig,
@@ -3179,7 +3179,7 @@ class EMXSp_Composition_Analyzer:
     
             # Use custom or default plotting function
             if self.plot_cfg.use_custom_plots:
-                custom_fnctns._save_clustering_plot_custom_3D(
+                custom_plotting._save_clustering_plot_custom_3D(
                     els_for_plot, els_comps_list, centroids, labels,
                     els_std_dev_per_cluster, unused_compositions_list,
                     self.clustering_cfg.features, self.ref_phases_df,

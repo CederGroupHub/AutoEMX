@@ -198,12 +198,11 @@ AutoEMXSp/
 ├── autoemxsp/                 # Main package source code
 │   ├── core/                   # Core objects and source code
 │   ├── runners/                # Runner functions calling on core objects
-│   ├── lib/                    # Libraries of X-ray data
-│   ├── tools/                  # Miscellaneous helper functions
-│   │   └── custom_fnctns.py        # Customizable clustering plot function
+│   ├── data/                   # Libraries of X-ray data
+│   ├── _custom_plotting.py     # Customizable clustering plot function
 │   ├── EM_driver/              # Electron Microscope driver (⚠️ adapt to your own instrument)
 │   ├── XSp_calibs/             # X-ray spectral calibrations (⚠️ adapt to your own instrument)
-│   ├── scripts/                # Helper scripts (see full list below)
+│   ├── scripts/                # Scripts to run acquisition, quantification, etc. (see full list below)
 │   └── Results/                # Example acquired data (used for unit tests)
 │
 ├── examples/                  # Example scripts for fitting, quantification and compositional analysis of example data
@@ -226,11 +225,14 @@ Each script is tailored for a specific task in spectral acquisition, calibration
 ### 🔬 Acquisition, Quantification & Analysis
 - **Run_Acquisition_Quant_Analysis.py** — Acquire X-ray spectra and optionally perform quantification and composition analysis.  
 - **Run_Quantification_Analysis.py** — Quantify acquired spectra (single or multiple samples) and perform machine-learning analysis.  
-- **Run_Analysis.py** — Launch customized machine-learning analysis on previously quantified data.  
+- **Run_Analysis.py** — Launch customized machine-learning analysis on previously quantified data. 
+- **Fit_Quant_Single_Spectrum.py** — Fit and optionally quantify a single spectrum. Prints fitting parameters and plots fitted spectrum for detailed inspection of model performance.  
+
+### 📊 Particle Size Distribution Measurements
+- **Collect_Particle_Statistics.py** - Analyse sample, collecting particle size statistics and distribution.
+- **Process_Particle_Stats_Files.py** - Process acquired aprticle size data and recompute.
 
 ### 🛠️ Miscellaneous
-- **Collect_Particle_Statistics.py** - Analyse sample, collecting particle size statistics and distribution.
-- **Fit_Quant_Single_Spectrum.py** — Fit and optionally quantify a single spectrum. Prints fitting parameters and plots fitted spectrum for detailed inspection of model performance.  
 - **Run_Experimental_Standard_Collection.py** — Acquire and fit experimental standards.  
 - **Run_SDD_Calibration.py** — Perform calibration of the SDD detector.
 

@@ -33,7 +33,7 @@ Created on Thu Oct  9 09:34:39 2025
 import os
 import importlib
 
-import autoemxsp.tools.constants as cnst
+import autoemxsp.utils.constants as cnst
 
 # Dictionary to hold the available models
 PAR_SEGMENTATION_MODEL_REGISTRY = {}

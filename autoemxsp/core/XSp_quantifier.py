@@ -82,8 +82,8 @@ from pymatgen.core import Element
 # Local application/library imports
 # =============================================================================
 import autoemxsp.XSp_calibs as calibs 
-import autoemxsp.tools.constants as cnst
-from autoemxsp.tools.utils import (
+import autoemxsp.utils.constants as cnst
+from autoemxsp.utils import (
     print_nice_1d_row,
     print_single_separator,
     print_double_separator,
@@ -91,9 +91,9 @@ from autoemxsp.tools.utils import (
     weight_to_atomic_fr,
     atomic_to_weight_fr
 )
-from autoemxsp.lib.Xray_lines import get_el_xray_lines
-from autoemxsp.lib.Xray_absorption_coeffs import xray_mass_absorption_coeff
-from autoemxsp.lib.mean_ionization_potentials import J_df
+from autoemxsp.data.Xray_lines import get_el_xray_lines
+from autoemxsp.data.Xray_absorption_coeffs import xray_mass_absorption_coeff
+from autoemxsp.data.mean_ionization_potentials import J_df
 from autoemxsp.core.XSp_fitter import (
     XSp_Fitter,
     Background_Model,
@@ -310,6 +310,7 @@ class XSp_Quantifier:
 
         # Standards
         self.standards = standards_dict  # If None, it is loaded during quantification
+        self.bad_quant_flag = None # Initialise, for spectra that are not quantified
 
         self.verbose = verbose
         self.fitting_verbose = fitting_verbose
@@ -522,7 +523,7 @@ class XSp_Quantifier:
     
         high_energy_indices = self.energy_vals > en_thresh
     
-        if self.verbose:
+        if self.fitting_verbose:
             print_double_separator()
             print(f"Fit of spectrum above {en_thresh} keV to get initial background scaling factor K...")
             print("Turned off particle morphology parameters to avoid affecting value of K.")

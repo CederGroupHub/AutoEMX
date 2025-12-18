@@ -65,15 +65,15 @@ import time
 import logging
 from typing import Optional, List
 
-from autoemxsp.tools.utils import (
+from autoemxsp.utils import (
     print_single_separator,
     print_double_separator,
     get_sample_dir,
     load_configurations_from_json,
     extract_spectral_data,
 )
-import autoemxsp.tools.constants as cnst
-from autoemxsp.tools.config_classes import config_classes_dict
+import autoemxsp.utils.constants as cnst
+from autoemxsp.config import config_classes_dict
 from autoemxsp.core.EMXSp_composition_analyser import EMXSp_Composition_Analyzer
 
 # Configure logging

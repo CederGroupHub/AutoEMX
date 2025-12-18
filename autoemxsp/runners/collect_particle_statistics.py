@@ -10,8 +10,8 @@ import logging
 from typing import List, Dict, Any
 
 from autoemxsp.core.EMXSp_composition_analyser import EMXSp_Composition_Analyzer
-from autoemxsp.tools.utils import print_double_separator
-from autoemxsp.tools.config_classes import (
+from autoemxsp.utils import print_double_separator
+from autoemxsp.config import (
     MicroscopeConfig,
     SampleConfig,
     MeasurementConfig,

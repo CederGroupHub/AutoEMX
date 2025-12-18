@@ -165,15 +165,15 @@ from lmfit.models import GaussianModel
 # =============================================================================
 # Package imports
 # =============================================================================
-from autoemxsp.tools.utils import (
+from autoemxsp.utils import (
     RefLineError, print_single_separator, print_double_separator,
     weight_to_atomic_fr, load_msa
 )
-import autoemxsp.tools.constants as cnst
+import autoemxsp.utils.constants as cnst
 import autoemxsp.XSp_calibs as calibs 
-from autoemxsp.lib.Xray_lines import get_el_xray_lines
-from autoemxsp.lib.Xray_absorption_coeffs import xray_mass_absorption_coeff
-from autoemxsp.lib.mean_ionization_potentials import J_df
+from autoemxsp.data.Xray_lines import get_el_xray_lines
+from autoemxsp.data.Xray_absorption_coeffs import xray_mass_absorption_coeff
+from autoemxsp.data.mean_ionization_potentials import J_df
 
 parent_dir = str(Path(__file__).resolve().parent.parent)
 

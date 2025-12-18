@@ -35,9 +35,9 @@ import pandas as pd
 
 from autoemxsp.runners import batch_acquire_experimental_stds
 from autoemxsp.runners import batch_fit_spectra
-from autoemxsp.lib.Xray_lines import get_el_xray_lines
+from autoemxsp.data.Xray_lines import get_el_xray_lines
 import autoemxsp.XSp_calibs as calibs
-import autoemxsp.tools.constants as cnst
+import autoemxsp.utils.constants as cnst
 
 
 # =============================================================================
@@ -137,7 +137,7 @@ exp_stds_meas_cfg_kwargs = dict(
 calibs.load_microscope_calibrations(microscope_ID, measurement_mode, load_detector_channel_params=True)
 eds_calibration_path = os.path.join(calibs.calibration_files_dir, cnst.SDD_CALIBS_MEAS_DIR, now_formatted)
 
-# --- Acquire spectra
+# --- Acquire and save spectra
 exp_std_maker = batch_acquire_experimental_stds(
     stds=std_list,
     microscope_ID=microscope_ID,

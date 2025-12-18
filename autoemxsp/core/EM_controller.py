@@ -165,15 +165,15 @@ from PIL import Image
 from typing import Any, List, Optional, Tuple, Union
 
 # Local project imports
-import autoemxsp.tools.constants as cnst
-from autoemxsp.tools.utils import (
+import autoemxsp.utils.constants as cnst
+from autoemxsp.utils import (
     AlphabetMapper,
     Prompt_User,
     EMError,
     print_single_separator,
     draw_scalebar
 )
-from autoemxsp.tools.config_classes import (
+from autoemxsp.config import (
     MicroscopeConfig,
     SampleConfig,
     MeasurementConfig,

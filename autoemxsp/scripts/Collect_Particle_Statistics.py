@@ -13,7 +13,7 @@ from tkinter import messagebox, filedialog
 import json
 
 from autoemxsp.runners import collect_particle_statistics
-from autoemxsp.tools.config_classes import PowderMeasurementConfig
+from autoemxsp.config import PowderMeasurementConfig
 AVAILABLE_SEGMENTATION_MODELS = PowderMeasurementConfig.AVAILABLE_PAR_SEGMENTATION_MODELS
 
 #%% Functions

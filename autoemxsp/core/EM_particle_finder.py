@@ -73,15 +73,15 @@ import pandas as pd
 from typing import List, Optional
 
 # Local project imports
-from autoemxsp.tools.utils import (
+from autoemxsp.utils import (
     Prompt_User,
     draw_scalebar,
     print_double_separator,
 )
-from autoemxsp.tools.config_classes import (
+from autoemxsp.config import (
     PowderMeasurementConfig,
 )
-import autoemxsp.tools.constants as cnst
+import autoemxsp.utils.constants as cnst
 from autoemxsp import EM_driver
 import autoemxsp.core.particle_segmentation_models as par_seg_models
 

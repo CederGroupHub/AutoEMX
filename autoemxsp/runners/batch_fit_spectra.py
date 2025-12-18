@@ -7,12 +7,12 @@ This module allows running the fitting step for multiple spectra across multiple
 It uses the `fit_and_quantify_spectrum` function internally with quantification disabled,
 then extracts the values of desired fitting parameters.
 
-Features:
+Features
 ---------
-- Accepts a list of sample IDs and spectrum IDs.
-- Supports 'all' spectra mode for each sample.
+    - Accepts a list of sample IDs and spectrum IDs.
+    - Supports 'all' spectra mode for each sample.
 
-Example:
+Example
 --------
 >>> from autoemxsp.runners import batch_fit_spectra
 >>> batch_fit_spectra(
@@ -21,9 +21,9 @@ Example:
 ...     plot_signal=False
 ... )
 
-Author:
--------
-Andrea (adapted for batch processing)
+Created on Fri Aug 20 09:34:34 2025
+
+@author: Andrea
 """
 
 import os
@@ -32,8 +32,8 @@ import pandas as pd
 from datetime import datetime
 from typing import List, Optional
 
-import autoemxsp.tools.constants as cnst
-from autoemxsp.tools.utils import get_sample_dir
+import autoemxsp.utils.constants as cnst
+from autoemxsp.utils import get_sample_dir, print_double_separator
 from autoemxsp.runners.fit_and_quantify_spectrum import fit_and_quantify_spectrum
 
 # Configure logging (same style as fit_and_quantify_spectrum)
@@ -121,12 +121,14 @@ def batch_fit_spectra(sample_IDs,
     if samples_path is None:
         parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         samples_path = os.path.join(parent_dir, cnst.RESULTS_DIR)
-
+    
+    print_double_separator()
     logging.info("Starting batch fitting process...")
     logging.info(f"Results path: {samples_path}")
     
     extracted_par_vals = {}
     for sample_ID in sample_IDs:
+        print_double_separator()
         logging.info(f"Processing sample '{sample_ID}'...")
         try:
             sample_dir = get_sample_dir(samples_path, sample_ID)
@@ -160,6 +162,7 @@ def batch_fit_spectra(sample_IDs,
         
         sample_fit_results = []
         for sp_id in spectra_to_process:
+            print_double_separator()
             logging.info(f"Fitting Sample '{sample_ID}', Spectrum {sp_id} (fit only, no quantification)")
             try:
                 quantifier = fit_and_quantify_spectrum(

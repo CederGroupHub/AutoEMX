@@ -157,9 +157,9 @@ from typing import List, Dict, Tuple, Any
 
 from autoemxsp.core.EMXSp_composition_analyser import EMXSp_Composition_Analyzer
 import autoemxsp.XSp_calibs as calibs
-import autoemxsp.tools.constants as cnst
-from autoemxsp.tools.utils import print_double_separator
-from autoemxsp.tools.config_classes import (
+import autoemxsp.utils.constants as cnst
+from autoemxsp.utils import print_double_separator
+from autoemxsp.config import (
     MicroscopeConfig,
     SampleConfig,
     MeasurementConfig,

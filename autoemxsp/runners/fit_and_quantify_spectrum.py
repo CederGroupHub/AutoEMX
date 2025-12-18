@@ -71,14 +71,14 @@ import warnings
 import time
 import logging
 
-from autoemxsp.tools.utils import (
+from autoemxsp.utils import (
     print_double_separator,
     get_sample_dir,
     load_configurations_from_json,
     extract_spectral_data
 )
-import autoemxsp.tools.constants as cnst
-from autoemxsp.tools.config_classes import config_classes_dict, ExpStandardsConfig
+import autoemxsp.utils.constants as cnst
+from autoemxsp.config import config_classes_dict, ExpStandardsConfig
 from autoemxsp.core.XSp_quantifier import XSp_Quantifier
 from autoemxsp.core.EMXSp_composition_analyser import EMXSp_Composition_Analyzer
 
