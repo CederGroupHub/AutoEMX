@@ -1,0 +1,2 @@
+[lfs]
+    fetchexclude = "paper_data/*"
