@@ -1304,7 +1304,7 @@ class EMXSp_Composition_Analyzer:
     
         # Temporarily remove the analyzer to avoid pickling errors from 'loky' backend
         tmp_analyzer = None
-        if hasattr(self.EM_controller, "analyzer"):
+        if hasattr(self, "EM_controller") and hasattr(self.EM_controller, "analyzer"):
             tmp_analyzer = self.EM_controller.analyzer
             del self.EM_controller.analyzer
         

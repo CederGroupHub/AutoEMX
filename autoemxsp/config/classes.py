@@ -507,7 +507,10 @@ class ExpStandardsConfig:
             try:
                 comp = Composition(self.formula)
                 # Convert FloatWithUnit to plain float
-                self.w_frs = {el: float(w) for el, w in comp.to_weight_dict.items()}
+                try:
+                    self.w_frs = {el: float(w) for el, w in comp.as_weight_dict.items()}
+                except: # Old pymatgen version
+                    self.w_frs = {el: float(w) for el, w in comp.to_weight_dict.items()}
             except Exception as e:
                 raise ValueError(f"Invalid chemical formula '{self.formula}': {e}")
         
