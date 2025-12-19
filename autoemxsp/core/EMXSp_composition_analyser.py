@@ -2565,24 +2565,26 @@ class EMXSp_Composition_Analyzer:
         while convergence > convergence_tol and i < max_iter:
             # Solve for W with H fixed (or fixed_H provided)
             W_var = cp.Variable((X.shape[0], n_components), nonneg=True)
-            objective_W = cp.Minimize(cp.norm(X - W_var @ H, 'fro'))
-            constraints_W = [cp.sum(W_var, axis=1) == 1]  # Constrain rows of W to sum to 1
+            objective_W = cp.Minimize(cp.sum_squares(X - W_var @ H))
+            constraints_W = [cp.sum(W_var, axis=1) == 1]
             problem_W = cp.Problem(objective_W, constraints_W)
-            problem_W.solve()
-            W = W_var.value  # Update W
-    
+            problem_W.solve(solver=cp.ECOS)
+            W = W_var.value # Update W
+            
             # If H is not fixed, solve for H as well (alternating minimization)
             if fixed_H is None:
                 H_var = cp.Variable((n_components, X.shape[1]), nonneg=True)
-                objective_H = cp.Minimize(cp.norm(X - W @ H_var, 'fro') + lambda_H * cp.norm(H_var, 1))
-                constraints_H = [cp.sum(H_var, axis=1) == 1]  # Constrain rows of H to sum to 1
+                objective_H = cp.Minimize(
+                    cp.sum_squares(X - W @ H_var) + lambda_H * cp.norm1(H_var)
+                )
+                constraints_H = [cp.sum(H_var, axis=1) == 1]
                 problem_H = cp.Problem(objective_H, constraints_H)
-                problem_H.solve()
-                H = H_var.value  # Update H
+                problem_H.solve(solver=cp.ECOS)
+                H = H_var.value # Update H
     
             # Compute convergence based on the changes in W and H
             convergence_W = np.linalg.norm(W - prev_W, 'fro')
-            convergence_H = np.linalg.norm(H - prev_H, 'fro') if fixed_H is not None else 0
+            convergence_H = np.linalg.norm(H - prev_H, 'fro') if fixed_H is None else 0
             convergence = max(convergence_W, convergence_H)
     
             prev_W, prev_H = W, H
