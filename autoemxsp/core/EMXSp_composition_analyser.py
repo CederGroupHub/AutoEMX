@@ -1302,11 +1302,27 @@ class EMXSp_Composition_Analyzer:
     
         n_cores = min(self.quant_cfg.num_CPU_cores, os.cpu_count())
     
-        # Run in parallel
-        results_with_idx = Parallel(n_jobs=n_cores, backend="loky")(
-            delayed(_process_one)(i) for i in range(quant_sp_cntr, tot_spectra_collected)
-        )
-    
+        # Temporarily remove the analyzer to avoid pickling errors from 'loky' backend
+        tmp_analyzer = None
+        if hasattr(self.EM_controller, "analyzer"):
+            tmp_analyzer = self.EM_controller.analyzer
+            del self.EM_controller.analyzer
+        
+        results_with_idx = []
+        try:
+            # Run in parallel
+            results_with_idx = Parallel(n_jobs=n_cores, backend='loky')(
+                delayed(_process_one)(i) for i in range(quant_sp_cntr, tot_spectra_collected)
+            )
+        except Exception as e:
+            print(f"Parallel quantification failed ({type(e).__name__}: {e}), falling back to sequential execution.")
+            # Sequential fallback, also collect results
+            results_with_idx = [ _process_one(i) for i in range(quant_sp_cntr, tot_spectra_collected) ]
+        finally:
+            # Restore analyzer
+            if tmp_analyzer is not None:
+                self.EM_controller.analyzer = tmp_analyzer
+        
         # Sort results by original spectrum index to guarantee correct order
         results_with_idx.sort(key=lambda x: x[0])
         

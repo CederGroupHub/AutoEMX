@@ -24,6 +24,10 @@ Typical Usage:
         - Choose peaks above 2 keV, well-distanced between themselves.
 
     - Run the script to collect and fit spectra, with automated generation of SDD calibration file.
+    
+Potential improvements:
+    - At the moment the script runs the spectral fitting twice, which is inefficient, but not really important given
+        that this code is not run very often.
 
 Created on Fri Aug 20 09:34:34 2025
 

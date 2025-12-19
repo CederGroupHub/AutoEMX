@@ -107,7 +107,10 @@ def patch_lmfit_fast_mode(verbose = False):
         return  # already patched
 
     patched_something = False
-
+    
+    # Turn off warning "UserWarning: Using UFloat objects with std_dev==0 may give unexpected results." caused by this patch.
+    warnings.filterwarnings("ignore", category=UserWarning, module="uncertainties")
+    
     # ---- Patch whichever uncertainty method exists ----
     if hasattr(Minimizer, "_calculate_uncertainties_correlations"):
         def dummy_uncertainties(self):
