@@ -1,87 +1,23 @@
-# -------------------------
-# Python cache & build files
-# -------------------------
-__pycache__/
-*.py[cod]
-*$py.class
+# Exclude generated sites
+_site/
+.sass-cache/
 
-# Distribution / packaging
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Virtual environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# PyInstaller
-# Usually these files are written by a python script from a template
-# before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-*.hypothesis/
-.pytest_cache/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# IDEs / editors
+# IDE/Editor specific files
 .vscode/
 .idea/
-*.sublime-project
-*.sublime-workspace
-
-# OS files
+*~
+*.swp
+*.tmp
 .DS_Store
-Thumbs.db
 
-# Documentation builds
-docs/_build/
-site/
+# Ignore Jekyll-specific files if you do not want them tracked
+.jekyll-cache/
+.jekyll-metadata
 
-# Local config / secrets (if any)
+# Local configuration files (optional)
 config_local.py
 *.env
 
-# Temporary files
-tmp/
-temp/
-*.tmp
-*.bak
-*.swp
-
-# Other
-detector_response_convolution_matrices.json
-Rettenberg2024_model_data/
-Rettenberger2024.py
-paper_data/*/
+# Ignore your Python-specific files if not needed
+__pycache__/
+*.py[cod]
