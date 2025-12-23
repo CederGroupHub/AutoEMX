@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Utility Functions for EDS Spectrum Analysis and Data Handling
-================
+==================================================================
 
 A collection of general-purpose utility functions and lightweight classes for data handling,
 visualization, and file management within the EDS analysis and modeling framework.
@@ -19,11 +19,11 @@ Main Features
 **Compositional Conversions**
 - `atomic_to_weight_fr()`: Convert atomic fractions to weight fractions.
 - `weight_to_atomic_fr()`: Convert weight fractions to atomic fractions.
-  *Both functions use `pymatgen.Element` for accurate atomic mass values.*
+  Both functions use `pymatgen.Element` for accurate atomic mass values.
 
 **Formula Handling**
 - `get_std_comp_from_formula()`: Parse chemical formulas into standardized element dictionaries.
-- `to_latex_formula()`: Convert a chemical formula into LaTeX format (e.g. ``Fe2O3`` → ``Fe$_2$O$_3$``).
+- `to_latex_formula()`: Convert a chemical formula into LaTeX format (e.g., ``Fe2O3`` → ``Fe$_2$O$_3$``).
 
 **String and Table Utilities**
 - `print_nice_1d_row()`: Print a formatted 1D table row (with adjustable width and alignment).
@@ -51,7 +51,6 @@ Main Features
 Created on Fri Jun 28 11:50:53 2024
 
 @author: Andrea Giunto
-
 """
 
 # Standard library imports
@@ -206,11 +205,12 @@ def to_latex_formula(formula: str, include_dollar_signs: bool = True) -> str:
 
     Args:
         formula (str): The chemical formula as a string.
-        include_dollar_signs (bool): Whether to wrap LaTeX in $...$.
+        include_dollar_signs (bool): Whether to wrap the LaTeX in $...$.
 
     Returns:
         str: The LaTeX-formatted formula.
     """
+    
     def convert(s: str) -> str:
         result = ''
         i = 0
@@ -225,7 +225,7 @@ def to_latex_formula(formula: str, include_dollar_signs: bool = True) -> str:
                     elif s[j] == ')':
                         depth -= 1
                     j += 1
-                group = s[i+1:j-1]  # Content inside the parentheses
+                group = s[i + 1:j - 1]  # Content inside the parentheses
 
                 # Check for a multiplier after the group (e.g., (SO4)3)
                 multiplier = ''
@@ -253,7 +253,7 @@ def to_latex_formula(formula: str, include_dollar_signs: bool = True) -> str:
                     # Skip invalid characters (should not occur in well-formed formulas)
                     i += 1
         return result
-    
+
     latex_formula = convert(formula)
     if include_dollar_signs:
         return latex_formula
@@ -261,9 +261,10 @@ def to_latex_formula(formula: str, include_dollar_signs: bool = True) -> str:
         # Remove all $ signs (in case someone wants a pure LaTeX string)
         return latex_formula.replace('$', '')
 
+
 # Test
 if __name__ == "__main__":
-    print(to_latex_formula('Bi2(Fe4O9)0.33'))     
+    print(to_latex_formula('Bi2(Fe4O9)0.33'))
 
     
 

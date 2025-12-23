@@ -28,32 +28,33 @@ spectrum_ID : int
     Value reported in 'Spectrum #' column in Data.csv.
 els_sample : list, optional
     List of elements in the sample.
+els_substrate : list, optional
+    List of substrate elements.
 is_standard : bool
-    Defines whether measurement is of a standard (i.e., well defined composition) or not
+    Defines whether measurement is from an experimental standard (i.e., sample of known composition)
 results_path : str, optional
     Base directory where results are stored. Default: autoemxsp/Results
 use_instrument_background : bool, optional
-    Whether to use instrument background if present.
+    Whether to use instrument background if present. Default: False
 quantify_plot : bool, optional
-    Whether to plot quantification results.
+    Whether to quantify the spectrum.
 plot_signal : bool, optional
-    Whether to plot the signal.
+    Whether to plot the fitted spectrum.
 zoom_plot : bool, optional
     Whether to zoom on a specific line.
 line_to_plot : str, optional
-    Line to zoom in plot.
-els_substrate : list, optional
-    List of substrate elements.
+    Line to zoom on.
 fit_tol : float, optional
-    Fit tolerance.
+    scipy fit tolerance. Defines conditions of fit convergence
 is_particle : bool, optional
-    If True, treat sample as particle (powder).
+    If True, treats sample as particle (powder). Uses particle geometry fitting parameters
 max_undetectable_w_fr : float, optional
-    Maximum allowed weight fraction for undetectable elements (default: 0).
+    Maximum allowed weight fraction for undetectable elements (default: 0). Total mass fraction of fitted
+    elements is forced to be between [1-max_undetectable_w_fr, 1]
 force_single_iteration : bool, optional
     If True, quantification will be run for a single iteration only (default: False).
 interrupt_fits_bad_spectra : bool, optional
-    If True, interrupt fitting if bad spectra are detected (default: False).
+    If True, interrupt fitting if spectrum is detected to lead to poor quantification (default: False).
 print_results : bool, optional
     If True, prints all fitted parameters and their values (default: True).
 quant_verbose : bool, optional
@@ -93,6 +94,7 @@ def fit_and_quantify_spectrum(
     sample_ID: str,
     spectrum_ID: int,
     els_sample: list = None,
+    els_substrate: list = None,
     is_standard: bool = False,
     spectrum_lims: tuple = None,
     results_path: str = None,
@@ -101,7 +103,6 @@ def fit_and_quantify_spectrum(
     plot_signal: bool = True,
     zoom_plot: bool = False,
     line_to_plot: str = '',
-    els_substrate: list = None,
     fit_tol: float = 1e-4,
     is_particle: bool = True,
     max_undetectable_w_fr: float = 0,
@@ -123,36 +124,33 @@ def fit_and_quantify_spectrum(
         Value reported in 'Spectrum #' column in Data.csv.
     els_sample : list, optional
         List of elements in the sample.
+    els_substrate : list, optional
+        List of substrate elements.
     is_standard : bool
-        Defines whether measurement is of a standard (i.e., well defined composition) or not
+        Defines whether measurement is from an experimental standard (i.e., sample of known composition)
     results_path : str, optional
         Base directory where results are stored. Default: autoemxsp/Results
     use_instrument_background : bool, optional
-        Whether to use instrument background if present.
+        Whether to use instrument background if present. Default: False
     quantify_plot : bool, optional
-        Whether to plot quantification results.
+        Whether to quantify the spectrum.
     plot_signal : bool, optional
-        Whether to plot the signal.
+        Whether to plot the fitted spectrum.
     zoom_plot : bool, optional
         Whether to zoom on a specific line.
     line_to_plot : str, optional
-        Line to zoom in plot.
-    els_substrate : list, optional
-        List of substrate elements.
+        Line to zoom on.
     fit_tol : float, optional
-        Fit tolerance.
+        scipy fit tolerance. Defines conditions of fit convergence
     is_particle : bool, optional
-        If True, treat sample as particle (powder).
+        If True, treats sample as particle (powder). Uses particle geometry fitting parameters
     max_undetectable_w_fr : float, optional
-        Maximum allowed weight fraction for undetectable elements (default: 0).
+        Maximum allowed weight fraction for undetectable elements (default: 0). Total mass fraction of fitted
+        elements is forced to be between [1-max_undetectable_w_fr, 1]
     force_single_iteration : bool, optional
         If True, quantification will be run for a single iteration only (default: False).
     interrupt_fits_bad_spectra : bool, optional
-        If True, interrupt fitting if bad spectra are detected (default: False).
-    standards_dict : dict, optional
-        Dictionary of reference PB values from experimental standards. Default : None.
-        If None, dictionary of standards is loaded from the XSp_calibs/Your_Microscope_ID directory.
-        Provide standards_dict only when providing different standards from those normally used for quantification.
+        If True, interrupt fitting if spectrum is detected to lead to poor quantification (default: False).
     print_results : bool, optional
         If True, prints all fitted parameters and their values (default: True).
     quant_verbose : bool, optional

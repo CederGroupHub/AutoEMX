@@ -19,6 +19,7 @@ Configurations:
 - MeasurementConfig: Controls measurement type, beam parameters, and acquisition settings.
 - QuantConfig: Options for spectral fitting and quantification.
 - PowderMeasurementConfig: Settings for analyzing powder samples and particle selection.
+- BulkMeasurementConfig: Settings for analyzing non-powder samples.
 - ClusteringConfig: Configures clustering algorithms and filtering of X-ray spectra.
 - PlotConfig: Options for saving, displaying, and customizing plots.
 
@@ -34,6 +35,7 @@ from pymatgen.core.periodic_table import Element
 from pymatgen.core import Composition
 
 import autoemxsp.utils.constants as cnst
+import autoemxsp.config.defaults as dflt
 import autoemxsp.core.particle_segmentation_models as par_seg_models
 
 @dataclass
@@ -56,8 +58,8 @@ class MicroscopeConfig:
         - The microscope ID must correspond to a folder at ./XSp_calibs/Microscopes/ID containing all necessary calibration files.
     """
 
-    ID: str
-    type: str
+    ID: str = dflt.microscope_ID
+    type: str = dflt.microscope_type
     detector_type: str = 'BSD'
     is_auto_BC: bool = True
     brightness: Optional[float] = None
@@ -252,8 +254,8 @@ class MeasurementConfig:
         - If `beam_current` or `emergence_angle` are not provided, they should be set via calibration or microscope driver.
     """
 
-    type: str = "EDS"
-    mode: str = "point"
+    type: str = dflt.measurement_type
+    mode: str = dflt.measurement_mode
     working_distance: float = None # mm
     working_distance_tolerance: float = 1 # mm
     beam_energy_keV: float = 15.0  # in keV
@@ -290,10 +292,10 @@ class QuantConfig:
         interrupt_fits_bad_spectra (bool): If True, fitting will stop early for spectra identified as poor quality.
         min_bckgrnd_cnts (Optional[int]): Minimum background counts required for spectrum not to be filtered out. Can be None.
     """
-    method: str = 'PB'
-    spectrum_lims: Tuple[float, float] = (14, 1100)
+    method: str = dflt.quantification_method
+    spectrum_lims: Tuple[float, float] = dflt.spectrum_lims
     fit_tolerance: float = 1e-4
-    use_instrument_background: bool = False
+    use_instrument_background: bool = dflt.use_instrument_background
     interrupt_fits_bad_spectra: bool = True
     min_bckgrnd_cnts: Optional[int] = 5  # Can be None
     num_CPU_cores: Optional[int] = None
@@ -470,18 +472,18 @@ class ExpStandardsConfig:
             List of quantification flags considered acceptable. Other spectra are filtered out before clustering.
             Quantification flags indicate whether the quantification or the fit of each spectrum is likely to be 
             affected by large errors:
-                0  : Quantification is ok, although it may be affected by large analytical error.
-               -1  : As above, but quantification did not converge within 30 steps.
-                1  : Error during EDS acquisition. No fit executed.
-                2  : Total counts < 95% of target counts, likely due to wrong segmentation. No fit executed.
-                3  : Too little low-energy signal, causing poor quantification in that region. No fit executed.
-                4  : Poor fit. Fit interrupted if interrupt_fits_bad_spectra=True.
-                5  : High analytical error (>50%), possibly due to missing element or other major error. Fit interrupted if interrupt_fits_bad_spectra=True.
-                6  : Excessive X-ray absorption. Fit interrupted if interrupt_fits_bad_spectra=True.
-                7  : Excessive contamination from substrate.
-                8  : Too few background counts below reference peak, likely leading to large quantification errors.
-                9  : Unknown fitting error.
-                10 : (Only for measurement of experimental standards) Reference peak missing.
+                - 0  : Quantification is ok, although it may be affected by large analytical error.
+                - \-1  : As above, but quantification did not converge within 30 steps.
+                - 1  : Error during EDS acquisition. No fit executed.
+                - 2  : Total counts < 95% of target counts, likely due to wrong segmentation. No fit executed.
+                - 3  : Too little low-energy signal, causing poor quantification in that region. No fit executed.
+                - 4  : Poor fit. Fit interrupted if interrupt_fits_bad_spectra=True.
+                - 5  : High analytical error (>50%), possibly due to missing element or other major error. Fit interrupted if interrupt_fits_bad_spectra=True.
+                - 6  : Excessive X-ray absorption. Fit interrupted if interrupt_fits_bad_spectra=True.
+                - 7  : Excessive contamination from substrate.
+                - 8  : Too few background counts below reference peak, likely leading to large quantification errors.
+                - 9  : Unknown fitting error.
+                - 10 : (Only for measurement of experimental standards) Reference peak missing.
 
         w_frs (Optional[Dict[str, float]]): 
             Dictionary of element symbols and their corresponding weight fractions (computed via pymatgen)
@@ -532,17 +534,17 @@ class ClusteringConfig:
         max_analytical_error_percent (float): Maximum analytical error acceptable for composition to be considered in phase determination, expressed as w%. Can be None.
         quant_flags_accepted (List[int]): List of quantification flags considered acceptable, others are filtered out prior clustering.
             Quantification flags indicate whether the quantification or the fit of each spectrum is likely to be affected by large errors:
-                0: Quantification is ok, although it may be affected by large analytical error
-               -1: As above, but quantification did not converge within 30 steps
-                1: Error during EDS acquisition. No fit executed
-                2: Total number of counts is lower than 95% of target counts, likely due to wrong segmentation. No fit executed
-                3: Spectrum has too low signal in its low-energy portion, leading to poor quantification in this region. No fit executed
-                4: Poor fit. Fit interrupted if interrupt_fits_bad_spectra=True
-                5: Too high analytical error (>50%) indicating a missing element or other major sources of error. Fit interrupted if interrupt_fits_bad_spectra=True
-                6: Excessive X-ray absorption. Fit interrupted if interrupt_fits_bad_spectra=True
-                7: Excessive signal contamination from substrate
-                8: Too few background counts below reference peak, likely leading to large quantification errors
-                9: Unknown fitting error
+               - 0: Quantification is ok, although it may be affected by large analytical error
+               - \-1: As above, but quantification did not converge within 30 steps
+               - 1: Error during EDS acquisition. No fit executed
+               - 2: Total number of counts is lower than 95% of target counts, likely due to wrong segmentation. No fit executed
+               - 3: Spectrum has too low signal in its low-energy portion, leading to poor quantification in this region. No fit executed
+               - 4: Poor fit. Fit interrupted if interrupt_fits_bad_spectra=True
+               - 5: Too high analytical error (>50%) indicating a missing element or other major sources of error. Fit interrupted if interrupt_fits_bad_spectra=True
+               - 6: Excessive X-ray absorption. Fit interrupted if interrupt_fits_bad_spectra=True
+               - 7: Excessive signal contamination from substrate
+               - 8: Too few background counts below reference peak, likely leading to large quantification errors
+               - 9: Unknown fitting error
     """
     method: str = 'kmeans'
     features: List[Any] = field(default_factory=lambda: cnst.AT_FR_CL_FEAT)
@@ -592,14 +594,14 @@ class PlotConfig:
     Attributes:
         show_unused_comps_clust (bool): Whether to plot unused data points in clustering plot.
         els_excluded_clust_plot (List[str]): Elements to exclude in cluster plot when more than 3 elements are present.
-        show_legend_clustering bool : Whether to show the legend in the clustering plot. Default: False
+        show_legend_clustering bool : Whether to show the legend in the clustering plot. Default: True
         save_plots (bool): Whether to save plots to disk.
         show_plots (bool): Whether to display plots interactively.
         use_custom_plots (bool): Whether to use custom plotting routines.
     """
     show_unused_comps_clust: bool = True
     els_excluded_clust_plot: List[str] = field(default_factory=list)
-    show_legend_clustering: bool = False
+    show_legend_clustering: bool = True
     save_plots: bool = True
     show_plots: bool = False
     use_custom_plots: bool = False

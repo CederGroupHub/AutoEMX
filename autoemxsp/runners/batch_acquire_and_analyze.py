@@ -159,6 +159,7 @@ from autoemxsp.core.EMXSp_composition_analyser import EMXSp_Composition_Analyzer
 import autoemxsp.XSp_calibs as calibs
 import autoemxsp.utils.constants as cnst
 from autoemxsp.utils import print_double_separator
+import autoemxsp.config.defaults as dflt
 from autoemxsp.config import (
     MicroscopeConfig,
     SampleConfig,
@@ -180,11 +181,11 @@ logging.basicConfig(
 
 def batch_acquire_and_analyze(
     samples: List[Dict[str, Any]],
-    microscope_ID: str = 'PhenomXL',
-    microscope_type: str = 'SEM',
-    measurement_type: str = 'EDS',
-    measurement_mode: str = 'point',
-    quantification_method: str = 'PB',
+    microscope_ID: str = dflt.microscope_ID,
+    microscope_type: str = dflt.measurement_type,
+    measurement_type: str = dflt.measurement_type,
+    measurement_mode: str = dflt.measurement_mode,
+    quantification_method: str = dflt.quantification_method,
     sample_type: str = 'powder',
     sample_halfwidth: float = 3.0,
     sample_substrate_type: str = 'Ctape',
@@ -193,8 +194,8 @@ def batch_acquire_and_analyze(
     working_distance: float = 5, #mm
     working_distance_tolerance: float = 1, #mm
     beam_energy: float = 15.0,
-    spectrum_lims: Tuple[float, float] = (14, 1100),
-    use_instrument_background: bool = False,
+    spectrum_lims: Tuple[float, float] = dflt.spectrum_lims,
+    use_instrument_background: bool = dflt.use_instrument_background,
     interrupt_fits_bad_spectra: bool = True,
     max_analytical_error_percent: float = 5,
     min_bckgrnd_cnts: float = 5,

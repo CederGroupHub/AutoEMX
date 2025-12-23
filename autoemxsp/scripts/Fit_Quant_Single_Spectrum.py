@@ -22,7 +22,7 @@ from autoemxsp.runners import fit_and_quantify_spectrum
 # =============================================================================
 # Sample and spectrum to process
 # =============================================================================
-sample_ID = 'Wulfenite_example'
+# sample_ID = 'Wulfenite_example'
 sample_ID = 'K-412_NISTstd_example'
 
 spectrum_ID = 1  # Value reported in 'Spectrum #' column in Data.csv
@@ -70,7 +70,11 @@ quantifier = fit_and_quantify_spectrum(
 )
 
 #%% Optionally print atomic and mass fractions of reference compound
-# from autoemxsp.tools.utils import print_element_fractions_table
+# from autoemxsp.utils import print_element_fractions_table
 
 # This uses the elements from the loaded sample config
 # print_element_fractions_table('ZnF2')  # Or use: print_element_fractions_table(''.join(sample_cfg.elements))
+
+
+
+

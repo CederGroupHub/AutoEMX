@@ -475,7 +475,7 @@ class EMXSp_Composition_Analyzer:
 
     def _calc_reference_phases_df(self) -> None:
         """
-        Calculate the compositions of reference phases and store them in a pd.DataFrame.
+        Calculate the compositions of candidate phases and store them in a pd.DataFrame.
     
         For each reference formula in `self.ref_formulae`, this method:
           - Computes the composition using pymatgen's Composition class.
@@ -549,7 +549,7 @@ class EMXSp_Composition_Analyzer:
                 ref_weights_in_mixture.append(comp.weight)
     
             elif self.clustering_cfg.features == cnst.AT_FR_CL_FEAT:
-                # Atomic fractions are normalised, so for the purpose of reference phases we should calculate it normalising the
+                # Atomic fractions are normalised, so for the purpose of candidate phases we should calculate it normalising the
                 # mass fractions, after discarding the undetectable elements
                 detectable_w_frs = {el: w_fr for el, w_fr in w_fr_dict.items() if el in self.detectable_els_sample}
                 # Transform to Composition class
@@ -1893,14 +1893,14 @@ class EMXSp_Composition_Analyzer:
     # =============================================================================     
     def analyse_data(self, max_analytical_error_percent, k=None, compute_k_only_once=False):
         """
-        Analyse quantified spectra, perform clustering, assign reference phases and mixtures, and save results.
+        Analyse quantified spectra, perform clustering, assign candidate phases and mixtures, and save results.
     
         This function orchestrates the workflow:
           1. Selects good compositions for clustering.
           2. Prepares DataFrames for clustering.
           3. Determines the optimal number of clusters (k).
           4. Runs clustering and computes cluster statistics.
-          5. Assigns reference phases and detects mixtures.
+          5. Assigns candidate phases and detects mixtures.
           6. Saves results and related plots.
     
         Parameters
@@ -1919,7 +1919,7 @@ class EMXSp_Composition_Analyzer:
         max_cl_rmsdist : float
             Maximum standard deviation across clusters.
         min_conf : float or None
-            Minimum confidence among assigned reference phases.
+            Minimum confidence among assigned candidate phases.
         """
         # 1. Select compositions to use for clustering
         max_analytical_error = max_analytical_error_percent / 100
@@ -1967,7 +1967,7 @@ class EMXSp_Composition_Analyzer:
             compositions_df, compositions_df_other_fr, centroids, labels
         )
     
-        # 6. Assign reference phases
+        # 6. Assign candidate phases
         min_conf, max_raw_confs, refs_assigned_df = self._assign_reference_phases(centroids, rms_dist_cluster)
     
         # 7. Assign mixtures
@@ -2074,9 +2074,9 @@ class EMXSp_Composition_Analyzer:
         ref_phases_df: 'pd.DataFrame'
     ) -> Tuple[List[float], 'pd.DataFrame']:
         """
-        Correlate each cluster centroid to reference phases and compute confidence scores.
+        Correlate each cluster centroid to candidate phases and compute confidence scores.
     
-        For each centroid, selects all reference phases within a hypersphere of radius
+        For each centroid, selects all candidate phases within a hypersphere of radius
         max(0.1, 5 * cluster_radius) around the centroid, and computes a confidence score
         for each reference. The highest confidence for each cluster is stored.
     
@@ -2087,7 +2087,7 @@ class EMXSp_Composition_Analyzer:
         cluster_radii : np.ndarray, shape (n_clusters,)
             Array of standard deviations (radii) for each cluster.
         ref_phases_df : pd.DataFrame
-            DataFrame where each row is a reference phase (elemental fractions).
+            DataFrame where each row is a candidate phase (elemental fractions).
     
         Returns
         -------
@@ -2098,21 +2098,21 @@ class EMXSp_Composition_Analyzer:
     
         Notes
         -----
-        - Only reference phases within 5 times the cluster radius (or at least 0.1) from the centroid are considered.
+        - Only candidate phases within 5 times the cluster radius (or at least 0.1) from the centroid are considered.
         - Confidence is computed using EMXSp_Composition_Analyzer._get_ref_confidences.
         """
-        # Get all reference phase compositions as a numpy array
+        # Get all candidate phase compositions as a numpy array
         all_ref_phases = ref_phases_df.to_numpy()
         refs_dict = []        # For DataFrame of references and their confidences
         max_raw_confs = []    # For convergence checks
     
         # For each cluster, assign to reference(s) if present and calculate confidence
         for centroid, radius in zip(centroids, cluster_radii):
-            # Calculate distances from centroid to each reference phase
+            # Calculate distances from centroid to each candidate phase
             distances = np.linalg.norm(all_ref_phases - centroid, axis=1)
-            # Select all reference phases within 5*radius (min 0.1) of centroid
+            # Select all candidate phases within 5*radius (min 0.1) of centroid
             indices = np.where(distances < max(0.1, 5 * radius))[0]
-            # Get chemical formulae and compositions of selected reference phases
+            # Get chemical formulae and compositions of selected candidate phases
             ref_names = [self.ref_formulae[i] for i in indices]
             ref_phases = [all_ref_phases[i] for i in indices]
             # Calculate confidences based on distance between centroid and reference
@@ -2124,7 +2124,7 @@ class EMXSp_Composition_Analyzer:
             # Store dictionary of reference names and confidences for this cluster
             refs_dict.append(refs_dict_row)
     
-        # Create DataFrame with information on reference phases assigned to clusters
+        # Create DataFrame with information on candidate phases assigned to clusters
         refs_assigned_df = pd.DataFrame(refs_dict)
     
         return max_raw_confs, refs_assigned_df
@@ -2132,7 +2132,7 @@ class EMXSp_Composition_Analyzer:
 
     def _assign_reference_phases(self, centroids, rms_dist_cluster):
         """
-        Assign reference phases to clusters if reference formulae are provided.
+        Assign candidate phases to clusters if reference formulae are provided.
     
         Returns
         -------
@@ -2147,7 +2147,7 @@ class EMXSp_Composition_Analyzer:
         max_raw_confs = None
         refs_assigned_df = None
         if self.ref_formulae is not None:
-            # Correlate calculated centroids to the reference phases
+            # Correlate calculated centroids to the candidate phases
             max_raw_confs, refs_assigned_df = self._correlate_centroids_to_refs(
                 centroids, rms_dist_cluster, self.ref_phases_df
             )
@@ -2166,9 +2166,9 @@ class EMXSp_Composition_Analyzer:
         ref_names: List[str]
     ) -> Tuple[Optional[float], Dict]:
         """
-        Compute confidence scores for reference phases near a cluster centroid.
+        Compute confidence scores for candidate phases near a cluster centroid.
     
-        For each reference phase within a cluster's neighborhood, this function:
+        For each candidate phase within a cluster's neighborhood, this function:
           - Computes the Euclidean distance to the centroid.
           - Assigns a confidence score using a Gaussian function of the distance.
           - Reduces confidences if multiple references are nearby, to account for ambiguity.
@@ -2179,9 +2179,9 @@ class EMXSp_Composition_Analyzer:
         centroid : np.ndarray
             Cluster centroid in feature space (shape: n_features,).
         ref_phases : np.ndarray
-            Array of reference phase compositions (shape: n_refs, n_features).
+            Array of candidate phase compositions (shape: n_refs, n_features).
         ref_names : list of str
-            Names of reference phases.
+            Names of candidate phases.
     
         Returns
         -------
@@ -2198,11 +2198,11 @@ class EMXSp_Composition_Analyzer:
         - Nearby references reduce each other's confidence using a secondary Gaussian weighting.
         """
         if ref_phases == [] or len(ref_phases) == 0:
-            # No reference phase is close enough to the centroid
+            # No candidate phase is close enough to the centroid
             refs_dict = {f'{cnst.CND_DF_KEY}1': np.nan, '{cnst.CS_CND_DF_KEY}1': np.nan}
             max_raw_conf = None
         else:
-            # Calculate distances from centroid to each reference phase
+            # Calculate distances from centroid to each candidate phase
             distances = np.linalg.norm(ref_phases - centroid, axis=1)
     
             # Assign confidence using a Gaussian function (sigma = 0.03)
@@ -2237,7 +2237,7 @@ class EMXSp_Composition_Analyzer:
     # =============================================================================       
     def _assign_mixtures(self, k, labels, compositions_df, rms_dist_cluster, max_raw_confs, n_points_per_cluster):
         """
-        Determine if clusters are mixtures or single phases, using reference phases and NMF if needed.
+        Determine if clusters are mixtures or single phases, using candidate phases and NMF if needed.
     
         Returns
         -------
@@ -2313,10 +2313,10 @@ class EMXSp_Composition_Analyzer:
     
     def _identify_mixture_from_refs(self, X: 'np.ndarray', cluster_ID: int = None) -> Tuple[float, List[Dict]]:
         """
-        Identify mixtures within a cluster by testing all pairs of reference phases using constrained optimization.
+        Identify mixtures within a cluster by testing all pairs of candidate phases using constrained optimization.
     
-        For each possible pair of reference phases, tests if the cluster compositions (X)
-        can be well described by a linear combination of the two reference phases, using
+        For each possible pair of candidate phases, tests if the cluster compositions (X)
+        can be well described by a linear combination of the two candidate phases, using
         non-negative matrix factorization (NMF) with fixed bases.
     
         Parameters
@@ -2341,26 +2341,26 @@ class EMXSp_Composition_Analyzer:
         - Only pairs with acceptable reconstruction error are included.
         - The confidence metric and acceptance criteria are defined in _get_mixture_dict_with_conf.
         """
-        # Generate all possible pairs of reference phases
+        # Generate all possible pairs of candidate phases
         ref_pair_combinations = list(itertools.combinations(range(len(self.ref_phases_df)), 2))
     
         mixtures_dicts = []
         max_confidence = 0
     
         for ref_comb in ref_pair_combinations:
-            # Get the names of the reference phases in this pair
+            # Get the names of the candidate phases in this pair
             ref_names = [self.ref_formulae[ref_i] for ref_i in ref_comb]
     
             # Ratio of weights of references, for molar concentrations of parent phases
             ref_w_r = self.ref_weights_in_mixture[ref_comb[0]] / self.ref_weights_in_mixture[ref_comb[1]]
     
-            # Get matrix of basis vectors (H) for the two reference phases
+            # Get matrix of basis vectors (H) for the two candidate phases
             H = np.array([
                 self.ref_phases_df[self.detectable_els_sample].iloc[ref_i].values
                 for ref_i in ref_comb
             ])
             
-            # Perform NMF with fixed H to fit the cluster data as a mixture of the two reference phases
+            # Perform NMF with fixed H to fit the cluster data as a mixture of the two candidate phases
             W, _ = self._nmf_with_constraints(X, n_components=2, fixed_H=H)
     
             # Compute reconstruction error for the fit
@@ -2431,7 +2431,7 @@ class EMXSp_Composition_Analyzer:
         cluster_ID: int = None
     ) -> Tuple[Optional[Dict], float]:
         """
-        Evaluate if a cluster is a mixture of two reference phases, and compute a confidence score.
+        Evaluate if a cluster is a mixture of two candidate phases, and compute a confidence score.
     
         If the reconstruction error is below a set threshold, computes a confidence score and
         transforms the NMF coefficients into molar fractions. Returns a dictionary describing
@@ -2442,11 +2442,11 @@ class EMXSp_Composition_Analyzer:
         W : np.ndarray
             Matrix of NMF coefficients for each point in the cluster (shape: n_points, 2).
         ref_w_r : float
-            Ratio of weights of the two reference phases (for molar concentration conversion).
+            Ratio of weights of the two candidate phases (for molar concentration conversion).
         reconstruction_error : float
             Reconstruction error for the mixture fit.
         ref_names : list of str
-            Names of the two reference phases.
+            Names of the two candidate phases.
         cluster_ID : int
             Current cluster ID. Used for violin plot name
     
@@ -2727,7 +2727,7 @@ class EMXSp_Composition_Analyzer:
         Build a DataFrame summarizing mixture assignments for each cluster.
     
         For each cluster, sorts mixture dictionaries by confidence score and extracts:
-          - Reference phase names (as a comma-separated string)
+          - candidate phase names (as a comma-separated string)
           - Confidence score
           - Molar ratio (mean / (1 - mean))
           - Mean and standard deviation of the main component's molar fraction
@@ -2987,7 +2987,7 @@ class EMXSp_Composition_Analyzer:
     
     def _is_comp_analysis_converged(
         self,
-        stdev: float,
+        rms_dist: float,
         min_conf: Optional[float]
     ) -> bool:
         """
@@ -2995,15 +2995,15 @@ class EMXSp_Composition_Analyzer:
         Used when collecting and quantifying spectra in real time.
     
         Convergence criteria:
-          - If no reference phases are present or assigned (min_conf is None), require cluster standard deviation < 2.5%.
-          - If reference phases are assigned, require minimum confidence > 0.8 and cluster standard deviation < 3%.
+          - If no candidate phases are present or assigned (min_conf is None), require cluster RMS point-to-centroid distance to be  < 2.5%.
+          - If candidate phases are assigned, require minimum confidence > 0.8 and cluster standard deviation < 3%.
     
         Parameters
         ----------
-        stdev : float
-            Maximum standard deviation among clusters (fractional units, e.g., 0.025 for 2.5%).
+        rms_dist : float
+            Maximum RMS point-to-centroid distance among clusters (fractional units, e.g., 0.025 for 2.5%).
         min_conf : float or None
-            Minimum confidence among all clusters assigned to reference phases. If None, no references are assigned.
+            Minimum confidence among all clusters assigned to candidate phases. If None, no references are assigned.
     
         Returns
         -------
@@ -3015,11 +3015,11 @@ class EMXSp_Composition_Analyzer:
         - The thresholds are empirically determined for robust phase identification.
         """
         if min_conf is None:
-            # No reference phases present or assigned; require tighter cluster homogeneity
-            is_converged = stdev < 0.025
+            # No candidate phases present or assigned; require tighter cluster homogeneity
+            is_converged = rms_dist < 0.025
         else:
             # Require high confidence and allow slightly larger within-cluster spread
-            is_converged = (min_conf > 0.8) and (stdev < 0.03)
+            is_converged = (min_conf > 0.8) and (rms_dist < 0.03)
     
         return is_converged
     
@@ -3224,7 +3224,7 @@ class EMXSp_Composition_Analyzer:
     ) -> None:
         """
         Generate and save a 2D or 3D clustering plot with centroids, standard deviation ellipses/ellipsoids,
-        unused compositions, and reference phases.
+        unused compositions, and candidate phases.
     
         Parameters
         ----------
@@ -3249,7 +3249,7 @@ class EMXSp_Composition_Analyzer:
         -----
         - The plot is saved as 'Clustering_plot.png' in the analysis directory.
         - Uses matplotlib for plotting (2D or 3D based on the number of elements).
-        - Reference phases and centroids are annotated; standard deviation is shown as ellipses (2D) or ellipsoids (3D).
+        - candidate phases and centroids are annotated; standard deviation is shown as ellipses (2D) or ellipsoids (3D).
         """
         # Set font parameters
         plt.rcParams['font.family'] = 'Arial'
@@ -3319,7 +3319,7 @@ class EMXSp_Composition_Analyzer:
         if unused_compositions_list and self.plot_cfg.show_unused_comps_clust:
             ax.scatter(*np.array(unused_compositions_list).T, c='grey', marker='^', label='Discarded comps.')
     
-        # Plot reference phases
+        # Plot candidate phases
         if self.ref_formulae is not None:
             first_ref = True
             ref_phases_df = self.ref_phases_df[elements]
@@ -3547,7 +3547,7 @@ class EMXSp_Composition_Analyzer:
     
         This method:
           - Constructs a DataFrame of cluster statistics and assignments.
-          - Adds reference phase and mixture assignments if available.
+          - Adds candidate phase and mixture assignments if available.
           - Saves the DataFrame to CSV and stores it as an attribute.
           - Saves general clustering information to a JSON file and stores it as an attribute.
     
@@ -4159,12 +4159,12 @@ class EMXSp_Composition_Analyzer:
     def _compile_standards_from_references(self) -> dict:
         """
         Compile a standards dictionary for the current sample by using the input
-        reference phases, if present in the list of standards.
+        candidate phases, if present in the list of standards.
     
         This function loads the standards library, iterates over all elements in
         the current sample, and for each X-ray reference line:
-          - Verifies if the reference phase compositions are present in the standards.
-          - If no reference phases are found, a warning is issued and existing
+          - Verifies if the candidate phase compositions are present in the standards.
+          - If no candidate phases are found, a warning is issued and existing
             standards are used.
           - If references are found, the function computes the mean of the
             corrected PB values and substitutes them into the standards dictionary.
@@ -4175,7 +4175,7 @@ class EMXSp_Composition_Analyzer:
                   a single mean standard to be fed to XSp_Quantifier
     
         Warns:
-            UserWarning: If none of the input reference phase compositions are
+            UserWarning: If none of the input candidate phase compositions are
                     present for a given reference line in the standards file.
                     
         Note
@@ -4215,7 +4215,7 @@ class EMXSp_Composition_Analyzer:
                 if len(ref_entries) < 1 and not self.exp_stds_cfg.is_exp_std_measurement:
                     text_line = "provided standards" if std_dir == "" else f"standards file at: {std_dir}"
                     warnings.warn(
-                        f"None of the input reference phases {ref_formulae} "
+                        f"None of the input candidate phases {ref_formulae} "
                         f"is present for line {el_line} in the {text_line}. "
                         "Using other available standards."
                     )
