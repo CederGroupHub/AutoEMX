@@ -1,0 +1,1640 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>autoemxsp.config.classes module &mdash; AutoEMXSp 0.1.6 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=6e0256f3"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="autoemxsp.config.defaults module" href="autoemxsp.config.defaults.html" />
+    <link rel="prev" title="autoemxsp.config package" href="autoemxsp.config.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            AutoEMXSp
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Documentation:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../user/index.html">User Documentation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../user/installation.html">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user/quickstart.html">Quickstart Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user/tutorials.html">Tutorials</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../user/api.html">AutoEMXSp Public API</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="autoemxsp.config.html">autoemxsp.config package</a><ul class="current">
+<li class="toctree-l4 current"><a class="reference internal" href="autoemxsp.config.html#submodules">Submodules</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.runners.html">autoemxsp.runners package</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../advanced_user/index.html">Advanced User Documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">AutoEMXSp</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../user/index.html">User Documentation</a></li>
+          <li class="breadcrumb-item"><a href="../user/api.html">AutoEMXSp Public API</a></li>
+          <li class="breadcrumb-item"><a href="autoemxsp.config.html">autoemxsp.config package</a></li>
+      <li class="breadcrumb-item active">autoemxsp.config.classes module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/_api/autoemxsp.config.classes.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-autoemxsp.config.classes">
+<span id="autoemxsp-config-classes-module"></span><span id="config-classes"></span><h1>autoemxsp.config.classes module<a class="headerlink" href="#module-autoemxsp.config.classes" title="Link to this heading"></a></h1>
+<p>AutoEMXSp configuration dataclasses.</p>
+<p>Created on Mon Jul 28 10:33:35 2025</p>
+<p>&#64;author: Andrea</p>
+<p>This module provides configuration dataclasses for all stages of an automated X-ray spectroscopy workflow,
+including microscope setup, sample and substrate definition, measurement and acquisition settings,
+spectrum fitting, quantification and filtering, powder measurement, clustering, and plotting.</p>
+<p>Configurations:</p>
+<ul class="simple">
+<li><p>MicroscopeConfig: Settings for microscope hardware, calibration, and imaging parameters.</p></li>
+<li><p>SampleConfig: Defines the sample’s identity, elements, and spatial properties.</p></li>
+<li><p>SampleSubstrateConfig: Specifies the substrate composition and geometry supporting the sample.</p></li>
+<li><p>MeasurementConfig: Controls measurement type, beam parameters, and acquisition settings.</p></li>
+<li><p>QuantConfig: Options for spectral fitting and quantification.</p></li>
+<li><p>PowderMeasurementConfig: Settings for analyzing powder samples and particle selection.</p></li>
+<li><p>BulkMeasurementConfig: Settings for analyzing non-powder samples.</p></li>
+<li><p>ClusteringConfig: Configures clustering algorithms and filtering of X-ray spectra.</p></li>
+<li><p>PlotConfig: Options for saving, displaying, and customizing plots.</p></li>
+</ul>
+<p>Each dataclass includes attribute documentation and input validation.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MicroscopeConfig">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoemxsp.config.classes.</span></span><span class="sig-name descname"><span class="pre">MicroscopeConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'PhenomXL'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'SEM'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">detector_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'BSD'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_auto_BC</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">brightness</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">contrast</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">energy_zero</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bin_width</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/config/classes.html#MicroscopeConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.config.classes.MicroscopeConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Configuration for the microscope hardware.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MicroscopeConfig.ID">
+<span class="sig-name descname"><span class="pre">ID</span></span><a class="headerlink" href="#autoemxsp.config.classes.MicroscopeConfig.ID" title="Link to this definition"></a></dt>
+<dd><p>Identifier for the microscope, defining instrument calibrations at ./XSp_calibs/Microscopes/ID.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MicroscopeConfig.type">
+<span class="sig-name descname"><span class="pre">type</span></span><a class="headerlink" href="#autoemxsp.config.classes.MicroscopeConfig.type" title="Link to this definition"></a></dt>
+<dd><p>Type of microscope. Allowed: ‘SEM’ (implemented), ‘STEM’ (not implemented).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MicroscopeConfig.is_auto_BC">
+<span class="sig-name descname"><span class="pre">is_auto_BC</span></span><a class="headerlink" href="#autoemxsp.config.classes.MicroscopeConfig.is_auto_BC" title="Link to this definition"></a></dt>
+<dd><p>If True, brightness/contrast are set automatically.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MicroscopeConfig.brightness">
+<span class="sig-name descname"><span class="pre">brightness</span></span><a class="headerlink" href="#autoemxsp.config.classes.MicroscopeConfig.brightness" title="Link to this definition"></a></dt>
+<dd><p>Manual brightness value; required if is_auto_BC is False.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Optional[float]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MicroscopeConfig.contrast">
+<span class="sig-name descname"><span class="pre">contrast</span></span><a class="headerlink" href="#autoemxsp.config.classes.MicroscopeConfig.contrast" title="Link to this definition"></a></dt>
+<dd><p>Manual contrast value; required if is_auto_BC is False.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Optional[float]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MicroscopeConfig.energy_zero">
+<span class="sig-name descname"><span class="pre">energy_zero</span></span><a class="headerlink" href="#autoemxsp.config.classes.MicroscopeConfig.energy_zero" title="Link to this definition"></a></dt>
+<dd><p>Set from detector calibration files during spectral collection.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Optional[float]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MicroscopeConfig.bin_width">
+<span class="sig-name descname"><span class="pre">bin_width</span></span><a class="headerlink" href="#autoemxsp.config.classes.MicroscopeConfig.bin_width" title="Link to this definition"></a></dt>
+<dd><p>Set from detector calibration files during spectral collection.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Optional[float]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>If <cite>is_auto_BC</cite> is False, both <cite>brightness</cite> and <cite>contrast</cite> must be provided.</p></li>
+<li><p>STEM mode is not implemented and will raise NotImplementedError.</p></li>
+<li><p>The microscope ID must correspond to a folder at ./XSp_calibs/Microscopes/ID containing all necessary calibration files.</p></li>
+</ul>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id0">
+<span class="sig-name descname"><span class="pre">ID</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'PhenomXL'</span></em><a class="headerlink" href="#id0" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id1">
+<span class="sig-name descname"><span class="pre">type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'SEM'</span></em><a class="headerlink" href="#id1" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MicroscopeConfig.detector_type">
+<span class="sig-name descname"><span class="pre">detector_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'BSD'</span></em><a class="headerlink" href="#autoemxsp.config.classes.MicroscopeConfig.detector_type" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id2">
+<span class="sig-name descname"><span class="pre">is_auto_BC</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#id2" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id3">
+<span class="sig-name descname"><span class="pre">brightness</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#id3" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id4">
+<span class="sig-name descname"><span class="pre">contrast</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#id4" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id5">
+<span class="sig-name descname"><span class="pre">energy_zero</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#id5" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id6">
+<span class="sig-name descname"><span class="pre">bin_width</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#id6" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MicroscopeConfig.ALLOWED_TYPES">
+<span class="sig-name descname"><span class="pre">ALLOWED_TYPES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">('SEM',</span> <span class="pre">'STEM')</span></em><a class="headerlink" href="#autoemxsp.config.classes.MicroscopeConfig.ALLOWED_TYPES" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MicroscopeConfig.ALLOWED_DETECTOR_TYPES">
+<span class="sig-name descname"><span class="pre">ALLOWED_DETECTOR_TYPES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'BSD'</span></em><a class="headerlink" href="#autoemxsp.config.classes.MicroscopeConfig.ALLOWED_DETECTOR_TYPES" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.SampleConfig">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoemxsp.config.classes.</span></span><span class="sig-name descname"><span class="pre">SampleConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ID</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elements</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'powder'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">w_frs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">center_pos</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(0.0,</span> <span class="pre">0.0)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">half_width_mm</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2.9</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_powder_sample</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_surface_rough</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_grid_acquisition</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_particle_acquisition</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/config/classes.html#SampleConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.config.classes.SampleConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Configuration for the sample.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.SampleConfig.ID">
+<span class="sig-name descname"><span class="pre">ID</span></span><a class="headerlink" href="#autoemxsp.config.classes.SampleConfig.ID" title="Link to this definition"></a></dt>
+<dd><p>Identifier for the sample.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.SampleConfig.elements">
+<span class="sig-name descname"><span class="pre">elements</span></span><a class="headerlink" href="#autoemxsp.config.classes.SampleConfig.elements" title="Link to this definition"></a></dt>
+<dd><p>List of elemental symbols (e.g., [‘Fe’, ‘O’]).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.SampleConfig.type">
+<span class="sig-name descname"><span class="pre">type</span></span><a class="headerlink" href="#autoemxsp.config.classes.SampleConfig.type" title="Link to this definition"></a></dt>
+<dd><p>Sample type. Allowed types:
+- powder: Expects particles, and uses geometrical correction factors during spectral fits.
+- powder_continuous: Expects a quasi-continuous powder mixture, sampled in a grid (NO PARTICLE DETECTION APPLIED).</p>
+<blockquote>
+<div><p>Applies geometrical correction factors during spectral fits.</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>bulk: Expects a flat, continuous surface, sampled in a grid. Does not apply geometrical factors.</p></li>
+<li><p>bulk_rough: Expects a continuous surface, sampled in a grid. Applies geometrical factors.</p></li>
+<li><p>film: NOT IMPLEMENTED YET</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.SampleConfig.w_frs">
+<span class="sig-name descname"><span class="pre">w_frs</span></span><a class="headerlink" href="#autoemxsp.config.classes.SampleConfig.w_frs" title="Link to this definition"></a></dt>
+<dd><p>Dict of elemental mass fractions to be kept fixed (e.g., {‘Fe’: 0.4, ‘O’: 0.6}).
+Normally not used</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dict[str,float]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.SampleConfig.center_pos">
+<span class="sig-name descname"><span class="pre">center_pos</span></span><a class="headerlink" href="#autoemxsp.config.classes.SampleConfig.center_pos" title="Link to this definition"></a></dt>
+<dd><p>(x, y) center position of the sample on the stage, in mm.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Tuple[float, float]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.SampleConfig.half_width_mm">
+<span class="sig-name descname"><span class="pre">half_width_mm</span></span><a class="headerlink" href="#autoemxsp.config.classes.SampleConfig.half_width_mm" title="Link to this definition"></a></dt>
+<dd><p>Half-width of the sample in millimeters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Only ‘powder’ and ‘bulk’ type are implemented. ‘film’ will raise NotImplementedError.</p></li>
+<li><p>Element symbols are validated. An error is raised if any symbol is unrecognized.</p></li>
+</ul>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id7">
+<span class="sig-name descname"><span class="pre">ID</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#id7" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id8">
+<span class="sig-name descname"><span class="pre">elements</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#id8" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id9">
+<span class="sig-name descname"><span class="pre">type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'powder'</span></em><a class="headerlink" href="#id9" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id10">
+<span class="sig-name descname"><span class="pre">w_frs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#id10" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id11">
+<span class="sig-name descname"><span class="pre">center_pos</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">(0.0,</span> <span class="pre">0.0)</span></em><a class="headerlink" href="#id11" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id12">
+<span class="sig-name descname"><span class="pre">half_width_mm</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2.9</span></em><a class="headerlink" href="#id12" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.SampleConfig.ALLOWED_TYPES">
+<span class="sig-name descname"><span class="pre">ALLOWED_TYPES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">('powder',</span> <span class="pre">'powder_continuous',</span> <span class="pre">'bulk',</span> <span class="pre">'bulk_rough',</span> <span class="pre">'film')</span></em><a class="headerlink" href="#autoemxsp.config.classes.SampleConfig.ALLOWED_TYPES" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.SampleConfig.POWDER_SAMPLES_TYPES">
+<span class="sig-name descname"><span class="pre">POWDER_SAMPLES_TYPES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">['powder',</span> <span class="pre">'powder_continuous']</span></em><a class="headerlink" href="#autoemxsp.config.classes.SampleConfig.POWDER_SAMPLES_TYPES" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.SampleConfig.is_powder_sample">
+<span class="sig-name descname"><span class="pre">is_powder_sample</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#autoemxsp.config.classes.SampleConfig.is_powder_sample" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.SampleConfig.ROUGH_SURFACE_TYPES">
+<span class="sig-name descname"><span class="pre">ROUGH_SURFACE_TYPES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">['powder',</span> <span class="pre">'powder_continuous',</span> <span class="pre">'bulk_rough']</span></em><a class="headerlink" href="#autoemxsp.config.classes.SampleConfig.ROUGH_SURFACE_TYPES" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.SampleConfig.is_surface_rough">
+<span class="sig-name descname"><span class="pre">is_surface_rough</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#autoemxsp.config.classes.SampleConfig.is_surface_rough" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.SampleConfig.GRID_ACQUISITION_TYPES">
+<span class="sig-name descname"><span class="pre">GRID_ACQUISITION_TYPES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">('bulk',</span> <span class="pre">'powder_continuous',</span> <span class="pre">'bulk_rough',</span> <span class="pre">'film')</span></em><a class="headerlink" href="#autoemxsp.config.classes.SampleConfig.GRID_ACQUISITION_TYPES" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.SampleConfig.is_grid_acquisition">
+<span class="sig-name descname"><span class="pre">is_grid_acquisition</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#autoemxsp.config.classes.SampleConfig.is_grid_acquisition" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.SampleConfig.PARTICLE_ACQUISITION_TYPES">
+<span class="sig-name descname"><span class="pre">PARTICLE_ACQUISITION_TYPES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'powder'</span></em><a class="headerlink" href="#autoemxsp.config.classes.SampleConfig.PARTICLE_ACQUISITION_TYPES" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.SampleConfig.is_particle_acquisition">
+<span class="sig-name descname"><span class="pre">is_particle_acquisition</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#autoemxsp.config.classes.SampleConfig.is_particle_acquisition" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.SampleSubstrateConfig">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoemxsp.config.classes.</span></span><span class="sig-name descname"><span class="pre">SampleSubstrateConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">elements:</span> <span class="pre">~typing.List[str]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'Ctape'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shape:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'circle'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">auto_detection:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stub_w_mm:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">12</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/config/classes.html#SampleSubstrateConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.config.classes.SampleSubstrateConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Configuration for the sample substrate.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.SampleSubstrateConfig.elements">
+<span class="sig-name descname"><span class="pre">elements</span></span><a class="headerlink" href="#autoemxsp.config.classes.SampleSubstrateConfig.elements" title="Link to this definition"></a></dt>
+<dd><p>List of element symbols present in the sample substrate.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.SampleSubstrateConfig.type">
+<span class="sig-name descname"><span class="pre">type</span></span><a class="headerlink" href="#autoemxsp.config.classes.SampleSubstrateConfig.type" title="Link to this definition"></a></dt>
+<dd><p>Type of the sample substrate. Allowed values: ‘Ctape’.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.SampleSubstrateConfig.shape">
+<span class="sig-name descname"><span class="pre">shape</span></span><a class="headerlink" href="#autoemxsp.config.classes.SampleSubstrateConfig.shape" title="Link to this definition"></a></dt>
+<dd><p>Shape of the sample substrate. Allowed values: ‘circle’, ‘rectangle’.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.SampleSubstrateConfig.auto_detection">
+<span class="sig-name descname"><span class="pre">auto_detection</span></span><a class="headerlink" href="#autoemxsp.config.classes.SampleSubstrateConfig.auto_detection" title="Link to this definition"></a></dt>
+<dd><p>Whether to attempt automatic detection of substrate. (implemented only for type = Ctape &amp; shape = ‘circle’)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.SampleSubstrateConfig.stub_w_mm">
+<span class="sig-name descname"><span class="pre">stub_w_mm</span></span><a class="headerlink" href="#autoemxsp.config.classes.SampleSubstrateConfig.stub_w_mm" title="Link to this definition"></a></dt>
+<dd><p>Lateral dimension of substrate holder in mm, used for determining image size for auto_detection.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Element symbols are validated. An error is raised if any symbol is unrecognized.</p></li>
+</ul>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id13">
+<span class="sig-name descname"><span class="pre">elements</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#id13" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id14">
+<span class="sig-name descname"><span class="pre">type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Ctape'</span></em><a class="headerlink" href="#id14" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id15">
+<span class="sig-name descname"><span class="pre">shape</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'circle'</span></em><a class="headerlink" href="#id15" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id16">
+<span class="sig-name descname"><span class="pre">auto_detection</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#id16" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id17">
+<span class="sig-name descname"><span class="pre">stub_w_mm</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">12</span></em><a class="headerlink" href="#id17" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.SampleSubstrateConfig.ALLOWED_TYPES">
+<span class="sig-name descname"><span class="pre">ALLOWED_TYPES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">('Ctape',</span> <span class="pre">'None')</span></em><a class="headerlink" href="#autoemxsp.config.classes.SampleSubstrateConfig.ALLOWED_TYPES" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.SampleSubstrateConfig.ALLOWED_SHAPES">
+<span class="sig-name descname"><span class="pre">ALLOWED_SHAPES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">('circle',</span> <span class="pre">'square')</span></em><a class="headerlink" href="#autoemxsp.config.classes.SampleSubstrateConfig.ALLOWED_SHAPES" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.SampleSubstrateConfig.ALLOWED_AUTO_DETECTION_TYPES">
+<span class="sig-name descname"><span class="pre">ALLOWED_AUTO_DETECTION_TYPES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Ctape'</span></em><a class="headerlink" href="#autoemxsp.config.classes.SampleSubstrateConfig.ALLOWED_AUTO_DETECTION_TYPES" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MeasurementConfig">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoemxsp.config.classes.</span></span><span class="sig-name descname"><span class="pre">MeasurementConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'EDS'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'point'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">working_distance</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">working_distance_tolerance</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beam_energy_keV</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">15.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beam_current</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">emergence_angle</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_manual_navigation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_acquisition_time</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">30.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_acquisition_counts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">50000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_n_spectra</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_n_spectra</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/config/classes.html#MeasurementConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.config.classes.MeasurementConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Configuration for the measurement/acquisition.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MeasurementConfig.type">
+<span class="sig-name descname"><span class="pre">type</span></span><a class="headerlink" href="#autoemxsp.config.classes.MeasurementConfig.type" title="Link to this definition"></a></dt>
+<dd><p>Measurement type. Allowed: ‘EDS’ (implemented), ‘WDS’ (not implemented).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MeasurementConfig.mode">
+<span class="sig-name descname"><span class="pre">mode</span></span><a class="headerlink" href="#autoemxsp.config.classes.MeasurementConfig.mode" title="Link to this definition"></a></dt>
+<dd><p>Measurement mode (e.g., ‘point’). Defines set of measurement parameters (i.e., beam current), determining detector calibration parameters</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MeasurementConfig.working_distance">
+<span class="sig-name descname"><span class="pre">working_distance</span></span><a class="headerlink" href="#autoemxsp.config.classes.MeasurementConfig.working_distance" title="Link to this definition"></a></dt>
+<dd><p>Working distance to use for current measurement, in mm. Takes it from EM_driver if left unspecified.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Optional[float]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MeasurementConfig.working_distance_tolerance">
+<span class="sig-name descname"><span class="pre">working_distance_tolerance</span></span><a class="headerlink" href="#autoemxsp.config.classes.MeasurementConfig.working_distance_tolerance" title="Link to this definition"></a></dt>
+<dd><p>Defines maximum accepted deviation of working distance from its typical value, in mm.
+Used to prevent gross mistakes from EM autofocus. Default: 1 mm.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Optional[float]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MeasurementConfig.beam_energy_keV">
+<span class="sig-name descname"><span class="pre">beam_energy_keV</span></span><a class="headerlink" href="#autoemxsp.config.classes.MeasurementConfig.beam_energy_keV" title="Link to this definition"></a></dt>
+<dd><p>Electron beam energy in keV.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MeasurementConfig.beam_current">
+<span class="sig-name descname"><span class="pre">beam_current</span></span><a class="headerlink" href="#autoemxsp.config.classes.MeasurementConfig.beam_current" title="Link to this definition"></a></dt>
+<dd><p>Beam current; must be provided at initialization or via detector channel calibration file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Optional[float]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MeasurementConfig.emergence_angle">
+<span class="sig-name descname"><span class="pre">emergence_angle</span></span><a class="headerlink" href="#autoemxsp.config.classes.MeasurementConfig.emergence_angle" title="Link to this definition"></a></dt>
+<dd><p>Emergence angle; updated from microscope driver file if not provided.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Optional[float]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MeasurementConfig.is_manual_navigation">
+<span class="sig-name descname"><span class="pre">is_manual_navigation</span></span><a class="headerlink" href="#autoemxsp.config.classes.MeasurementConfig.is_manual_navigation" title="Link to this definition"></a></dt>
+<dd><p>If True, instrument navigation is performed manually.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MeasurementConfig.max_acquisition_time">
+<span class="sig-name descname"><span class="pre">max_acquisition_time</span></span><a class="headerlink" href="#autoemxsp.config.classes.MeasurementConfig.max_acquisition_time" title="Link to this definition"></a></dt>
+<dd><p>Maximum X-ray spectral acquisition time in seconds.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MeasurementConfig.target_acquisition_counts">
+<span class="sig-name descname"><span class="pre">target_acquisition_counts</span></span><a class="headerlink" href="#autoemxsp.config.classes.MeasurementConfig.target_acquisition_counts" title="Link to this definition"></a></dt>
+<dd><p>Target number of counts for acquisition of X-ray spectrum.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MeasurementConfig.min_n_spectra">
+<span class="sig-name descname"><span class="pre">min_n_spectra</span></span><a class="headerlink" href="#autoemxsp.config.classes.MeasurementConfig.min_n_spectra" title="Link to this definition"></a></dt>
+<dd><p>Minimum number of spectra to acquire.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MeasurementConfig.max_n_spectra">
+<span class="sig-name descname"><span class="pre">max_n_spectra</span></span><a class="headerlink" href="#autoemxsp.config.classes.MeasurementConfig.max_n_spectra" title="Link to this definition"></a></dt>
+<dd><p>Maximum number of spectra to acquire.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Only ‘EDS’ type is implemented. ‘WDS’ will raise NotImplementedError.</p></li>
+<li><p>If <cite>beam_current</cite> or <cite>emergence_angle</cite> are not provided, they should be set via calibration or microscope driver.</p></li>
+</ul>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id18">
+<span class="sig-name descname"><span class="pre">type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'EDS'</span></em><a class="headerlink" href="#id18" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id19">
+<span class="sig-name descname"><span class="pre">mode</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'point'</span></em><a class="headerlink" href="#id19" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id20">
+<span class="sig-name descname"><span class="pre">working_distance</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#id20" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id21">
+<span class="sig-name descname"><span class="pre">working_distance_tolerance</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#id21" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id22">
+<span class="sig-name descname"><span class="pre">beam_energy_keV</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">15.0</span></em><a class="headerlink" href="#id22" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id23">
+<span class="sig-name descname"><span class="pre">beam_current</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#id23" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id24">
+<span class="sig-name descname"><span class="pre">emergence_angle</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#id24" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id25">
+<span class="sig-name descname"><span class="pre">is_manual_navigation</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#id25" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id26">
+<span class="sig-name descname"><span class="pre">max_acquisition_time</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">30.0</span></em><a class="headerlink" href="#id26" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id27">
+<span class="sig-name descname"><span class="pre">target_acquisition_counts</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">50000</span></em><a class="headerlink" href="#id27" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id28">
+<span class="sig-name descname"><span class="pre">min_n_spectra</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">30</span></em><a class="headerlink" href="#id28" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id29">
+<span class="sig-name descname"><span class="pre">max_n_spectra</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">100</span></em><a class="headerlink" href="#id29" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MeasurementConfig.PARTICLE_STATS_MEAS_TYPE_KEY">
+<span class="sig-name descname"><span class="pre">PARTICLE_STATS_MEAS_TYPE_KEY</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'particle_stats'</span></em><a class="headerlink" href="#autoemxsp.config.classes.MeasurementConfig.PARTICLE_STATS_MEAS_TYPE_KEY" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.MeasurementConfig.ALLOWED_TYPES">
+<span class="sig-name descname"><span class="pre">ALLOWED_TYPES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">('EDS',</span> <span class="pre">'WDS',</span> <span class="pre">'particle_stats')</span></em><a class="headerlink" href="#autoemxsp.config.classes.MeasurementConfig.ALLOWED_TYPES" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.QuantConfig">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoemxsp.config.classes.</span></span><span class="sig-name descname"><span class="pre">QuantConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'PB'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spectrum_lims</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(14,</span> <span class="pre">1100)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fit_tolerance</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_instrument_background</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interrupt_fits_bad_spectra</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_bckgrnd_cnts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_CPU_cores</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/config/classes.html#QuantConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.config.classes.QuantConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Configuration for X-ray spectrum fitting and quantification.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.QuantConfig.method">
+<span class="sig-name descname"><span class="pre">method</span></span><a class="headerlink" href="#autoemxsp.config.classes.QuantConfig.method" title="Link to this definition"></a></dt>
+<dd><p>Method to use for quantification. Currently only accepts ‘PB’</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.QuantConfig.spectrum_lims">
+<span class="sig-name descname"><span class="pre">spectrum_lims</span></span><a class="headerlink" href="#autoemxsp.config.classes.QuantConfig.spectrum_lims" title="Link to this definition"></a></dt>
+<dd><p>Lower and upper spectral index limits.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Tuple[float, float]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.QuantConfig.fit_tolerance">
+<span class="sig-name descname"><span class="pre">fit_tolerance</span></span><a class="headerlink" href="#autoemxsp.config.classes.QuantConfig.fit_tolerance" title="Link to this definition"></a></dt>
+<dd><p>lmfit tolerance for fit convergence</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.QuantConfig.use_instrument_background">
+<span class="sig-name descname"><span class="pre">use_instrument_background</span></span><a class="headerlink" href="#autoemxsp.config.classes.QuantConfig.use_instrument_background" title="Link to this definition"></a></dt>
+<dd><p>Whether to use the instrument background in the fit (Default: False).
+If False, AutoEMXSp computes the background while fitting.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.QuantConfig.interrupt_fits_bad_spectra">
+<span class="sig-name descname"><span class="pre">interrupt_fits_bad_spectra</span></span><a class="headerlink" href="#autoemxsp.config.classes.QuantConfig.interrupt_fits_bad_spectra" title="Link to this definition"></a></dt>
+<dd><p>If True, fitting will stop early for spectra identified as poor quality.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.QuantConfig.min_bckgrnd_cnts">
+<span class="sig-name descname"><span class="pre">min_bckgrnd_cnts</span></span><a class="headerlink" href="#autoemxsp.config.classes.QuantConfig.min_bckgrnd_cnts" title="Link to this definition"></a></dt>
+<dd><p>Minimum background counts required for spectrum not to be filtered out. Can be None.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Optional[int]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id30">
+<span class="sig-name descname"><span class="pre">method</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'PB'</span></em><a class="headerlink" href="#id30" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id31">
+<span class="sig-name descname"><span class="pre">spectrum_lims</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">(14,</span> <span class="pre">1100)</span></em><a class="headerlink" href="#id31" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id32">
+<span class="sig-name descname"><span class="pre">fit_tolerance</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0001</span></em><a class="headerlink" href="#id32" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id33">
+<span class="sig-name descname"><span class="pre">use_instrument_background</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#id33" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id34">
+<span class="sig-name descname"><span class="pre">interrupt_fits_bad_spectra</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#id34" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id35">
+<span class="sig-name descname"><span class="pre">min_bckgrnd_cnts</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">5</span></em><a class="headerlink" href="#id35" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.QuantConfig.num_CPU_cores">
+<span class="sig-name descname"><span class="pre">num_CPU_cores</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#autoemxsp.config.classes.QuantConfig.num_CPU_cores" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.QuantConfig.ALLOWED_METHODS">
+<span class="sig-name descname"><span class="pre">ALLOWED_METHODS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">['PB']</span></em><a class="headerlink" href="#autoemxsp.config.classes.QuantConfig.ALLOWED_METHODS" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PowderMeasurementConfig">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoemxsp.config.classes.</span></span><span class="sig-name descname"><span class="pre">PowderMeasurementConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">is_manual_particle_selection</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_known_powder_mixture_meas</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">par_search_frame_width_um</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_n_par_per_frame</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_spectra_per_par</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_area_par</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">300.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_area_par</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">10.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">par_mask_margin</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xsp_spots_distance_um</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">par_segmentation_model</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'threshold_bright'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">par_brightness_thresh</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">par_xy_spots_thresh</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">par_feature_selection</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'random'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">par_spot_spacing</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'random'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/config/classes.html#PowderMeasurementConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.config.classes.PowderMeasurementConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Configuration for powder measurement.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PowderMeasurementConfig.is_manual_particle_selection">
+<span class="sig-name descname"><span class="pre">is_manual_particle_selection</span></span><a class="headerlink" href="#autoemxsp.config.classes.PowderMeasurementConfig.is_manual_particle_selection" title="Link to this definition"></a></dt>
+<dd><p>Whether to manually navigate sample to select particles to analyse (Default = False).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PowderMeasurementConfig.is_known_powder_mixture_meas">
+<span class="sig-name descname"><span class="pre">is_known_powder_mixture_meas</span></span><a class="headerlink" href="#autoemxsp.config.classes.PowderMeasurementConfig.is_known_powder_mixture_meas" title="Link to this definition"></a></dt>
+<dd><p>Whether sample is a known binary mixture of powders. Used to characterize precursor extent of intermixing (Default = False).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PowderMeasurementConfig.par_search_frame_width_um">
+<span class="sig-name descname"><span class="pre">par_search_frame_width_um</span></span><a class="headerlink" href="#autoemxsp.config.classes.PowderMeasurementConfig.par_search_frame_width_um" title="Link to this definition"></a></dt>
+<dd><p>Frame width used when searching for particles, in um.
+Default: min(20*max_par_radius, 500 um)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float, optional</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PowderMeasurementConfig.max_n_par_per_frame">
+<span class="sig-name descname"><span class="pre">max_n_par_per_frame</span></span><a class="headerlink" href="#autoemxsp.config.classes.PowderMeasurementConfig.max_n_par_per_frame" title="Link to this definition"></a></dt>
+<dd><p>Maximum number of particles analyzed in a single frame.
+Used to ensure spatial representation of the analyzed sample.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PowderMeasurementConfig.max_spectra_per_par">
+<span class="sig-name descname"><span class="pre">max_spectra_per_par</span></span><a class="headerlink" href="#autoemxsp.config.classes.PowderMeasurementConfig.max_spectra_per_par" title="Link to this definition"></a></dt>
+<dd><p>Maximum number of spot X-ray spectra collected in a single particle.
+Limiting this ensures more particles are analyzed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PowderMeasurementConfig.max_area_par">
+<span class="sig-name descname"><span class="pre">max_area_par</span></span><a class="headerlink" href="#autoemxsp.config.classes.PowderMeasurementConfig.max_area_par" title="Link to this definition"></a></dt>
+<dd><p>Maximum area (in µm²) for a particle to be considered.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PowderMeasurementConfig.min_area_par">
+<span class="sig-name descname"><span class="pre">min_area_par</span></span><a class="headerlink" href="#autoemxsp.config.classes.PowderMeasurementConfig.min_area_par" title="Link to this definition"></a></dt>
+<dd><p>Minimum area (in µm²) for a particle to be considered.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PowderMeasurementConfig.par_mask_margin">
+<span class="sig-name descname"><span class="pre">par_mask_margin</span></span><a class="headerlink" href="#autoemxsp.config.classes.PowderMeasurementConfig.par_mask_margin" title="Link to this definition"></a></dt>
+<dd><p>Margin (in µm) from particle edge where X-ray spectra should not be collected.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PowderMeasurementConfig.xsp_spots_distance_um">
+<span class="sig-name descname"><span class="pre">xsp_spots_distance_um</span></span><a class="headerlink" href="#autoemxsp.config.classes.PowderMeasurementConfig.xsp_spots_distance_um" title="Link to this definition"></a></dt>
+<dd><p>Min distance between X-ray spectrum acquisition points</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PowderMeasurementConfig.par_segmentation_model">
+<span class="sig-name descname"><span class="pre">par_segmentation_model</span></span><a class="headerlink" href="#autoemxsp.config.classes.PowderMeasurementConfig.par_segmentation_model" title="Link to this definition"></a></dt>
+<dd><p>Model to use for particle segmentation. Default: “threshold_bright”</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PowderMeasurementConfig.par_brightness_thresh">
+<span class="sig-name descname"><span class="pre">par_brightness_thresh</span></span><a class="headerlink" href="#autoemxsp.config.classes.PowderMeasurementConfig.par_brightness_thresh" title="Link to this definition"></a></dt>
+<dd><p>Intensity threshold in 8-bit image that defines a particle over a dark background.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PowderMeasurementConfig.par_xy_spots_thresh">
+<span class="sig-name descname"><span class="pre">par_xy_spots_thresh</span></span><a class="headerlink" href="#autoemxsp.config.classes.PowderMeasurementConfig.par_xy_spots_thresh" title="Link to this definition"></a></dt>
+<dd><p>Intensity threshold in 8-bit image that defines bright (i.e., thickest) regions in particles.
+X-ray spectra are acquired only from these regions.
+Particle pixel intensities are scaled to 8-bit prior threhsolding, i.e., darkest pixel will be set to 0, and brightest to 255.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PowderMeasurementConfig.par_feature_selection">
+<span class="sig-name descname"><span class="pre">par_feature_selection</span></span><a class="headerlink" href="#autoemxsp.config.classes.PowderMeasurementConfig.par_feature_selection" title="Link to this definition"></a></dt>
+<dd><p>‘random’ for random selection of points within bright regions, ‘peaks’ for brightest peak spots (default: ‘random’).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PowderMeasurementConfig.par_spot_spacing">
+<span class="sig-name descname"><span class="pre">par_spot_spacing</span></span><a class="headerlink" href="#autoemxsp.config.classes.PowderMeasurementConfig.par_spot_spacing" title="Link to this definition"></a></dt>
+<dd><p>‘random’ for unbiased spot selecton, ‘maximized’ for maximized spot spacing over particle (default: ‘random’).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PowderMeasurementConfig.DEFAULT_PAR_SEGMENTATION_MODEL">
+<span class="sig-name descname"><span class="pre">DEFAULT_PAR_SEGMENTATION_MODEL</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'threshold_bright'</span></em><a class="headerlink" href="#autoemxsp.config.classes.PowderMeasurementConfig.DEFAULT_PAR_SEGMENTATION_MODEL" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id36">
+<span class="sig-name descname"><span class="pre">is_manual_particle_selection</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#id36" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id37">
+<span class="sig-name descname"><span class="pre">is_known_powder_mixture_meas</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#id37" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id38">
+<span class="sig-name descname"><span class="pre">par_search_frame_width_um</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#id38" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id39">
+<span class="sig-name descname"><span class="pre">max_n_par_per_frame</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">30</span></em><a class="headerlink" href="#id39" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id40">
+<span class="sig-name descname"><span class="pre">max_spectra_per_par</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">3</span></em><a class="headerlink" href="#id40" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id41">
+<span class="sig-name descname"><span class="pre">max_area_par</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">300.0</span></em><a class="headerlink" href="#id41" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id42">
+<span class="sig-name descname"><span class="pre">min_area_par</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">10.0</span></em><a class="headerlink" href="#id42" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id43">
+<span class="sig-name descname"><span class="pre">par_mask_margin</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></em><a class="headerlink" href="#id43" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id44">
+<span class="sig-name descname"><span class="pre">xsp_spots_distance_um</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1.0</span></em><a class="headerlink" href="#id44" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id45">
+<span class="sig-name descname"><span class="pre">par_segmentation_model</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'threshold_bright'</span></em><a class="headerlink" href="#id45" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id46">
+<span class="sig-name descname"><span class="pre">par_brightness_thresh</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">100</span></em><a class="headerlink" href="#id46" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id47">
+<span class="sig-name descname"><span class="pre">par_xy_spots_thresh</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">100</span></em><a class="headerlink" href="#id47" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id48">
+<span class="sig-name descname"><span class="pre">par_feature_selection</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'random'</span></em><a class="headerlink" href="#id48" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id49">
+<span class="sig-name descname"><span class="pre">par_spot_spacing</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'random'</span></em><a class="headerlink" href="#id49" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PowderMeasurementConfig.AVAILABLE_PAR_SEGMENTATION_MODELS">
+<span class="sig-name descname"><span class="pre">AVAILABLE_PAR_SEGMENTATION_MODELS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">['threshold_bright',</span> <span class="pre">'Rettenberger2024']</span></em><a class="headerlink" href="#autoemxsp.config.classes.PowderMeasurementConfig.AVAILABLE_PAR_SEGMENTATION_MODELS" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PowderMeasurementConfig.AVAILABLE_FEATURE_SELECTION">
+<span class="sig-name descname"><span class="pre">AVAILABLE_FEATURE_SELECTION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">('random',</span> <span class="pre">'peaks')</span></em><a class="headerlink" href="#autoemxsp.config.classes.PowderMeasurementConfig.AVAILABLE_FEATURE_SELECTION" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PowderMeasurementConfig.AVAILABLE_SPOT_SPACING_SELECTION">
+<span class="sig-name descname"><span class="pre">AVAILABLE_SPOT_SPACING_SELECTION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">('random',</span> <span class="pre">'maximized')</span></em><a class="headerlink" href="#autoemxsp.config.classes.PowderMeasurementConfig.AVAILABLE_SPOT_SPACING_SELECTION" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.BulkMeasurementConfig">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoemxsp.config.classes.</span></span><span class="sig-name descname"><span class="pre">BulkMeasurementConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid_spot_spacing_um</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_xsp_spots_distance_um</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">image_frame_width_um</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">randomize_frames</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exclude_sample_margin</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/config/classes.html#BulkMeasurementConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.config.classes.BulkMeasurementConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Configuration for characterization or bulk-like samples.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.BulkMeasurementConfig.grid_spot_spacing_um">
+<span class="sig-name descname"><span class="pre">grid_spot_spacing_um</span></span><a class="headerlink" href="#autoemxsp.config.classes.BulkMeasurementConfig.grid_spot_spacing_um" title="Link to this definition"></a></dt>
+<dd><p>Distance between grid points to measure, in micrometers (µm).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.BulkMeasurementConfig.min_xsp_spots_distance_um">
+<span class="sig-name descname"><span class="pre">min_xsp_spots_distance_um</span></span><a class="headerlink" href="#autoemxsp.config.classes.BulkMeasurementConfig.min_xsp_spots_distance_um" title="Link to this definition"></a></dt>
+<dd><p>Offset distance for acquisition spot grid if the original grid
+does not contain enough spots to measure the required number
+of spectra, in micrometers (µm).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.BulkMeasurementConfig.image_frame_width_um">
+<span class="sig-name descname"><span class="pre">image_frame_width_um</span></span><a class="headerlink" href="#autoemxsp.config.classes.BulkMeasurementConfig.image_frame_width_um" title="Link to this definition"></a></dt>
+<dd><p>Width of the image frame in micrometers (µm). If not specified,
+defaults to 10 × grid_spot_spacing_um.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float, optional</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.BulkMeasurementConfig.randomize_frames">
+<span class="sig-name descname"><span class="pre">randomize_frames</span></span><a class="headerlink" href="#autoemxsp.config.classes.BulkMeasurementConfig.randomize_frames" title="Link to this definition"></a></dt>
+<dd><p>Whether to randomize the order of spectra acquisition in the constructed grid.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.BulkMeasurementConfig.exclude_sample_margin">
+<span class="sig-name descname"><span class="pre">exclude_sample_margin</span></span><a class="headerlink" href="#autoemxsp.config.classes.BulkMeasurementConfig.exclude_sample_margin" title="Link to this definition"></a></dt>
+<dd><p>Whether to exclude the margin of the sample (useful if contaminated).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id50">
+<span class="sig-name descname"><span class="pre">grid_spot_spacing_um</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">100.0</span></em><a class="headerlink" href="#id50" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id51">
+<span class="sig-name descname"><span class="pre">min_xsp_spots_distance_um</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">5.0</span></em><a class="headerlink" href="#id51" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id52">
+<span class="sig-name descname"><span class="pre">image_frame_width_um</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#id52" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id53">
+<span class="sig-name descname"><span class="pre">randomize_frames</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#id53" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id54">
+<span class="sig-name descname"><span class="pre">exclude_sample_margin</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#id54" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.ExpStandardsConfig">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoemxsp.config.classes.</span></span><span class="sig-name descname"><span class="pre">ExpStandardsConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">is_exp_std_measurement:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">formula:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_for_mean_PB_calc:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_acceptable_PB_ratio:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_flags_accepted:</span> <span class="pre">~typing.List[int]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">w_frs:</span> <span class="pre">~typing.Dict[str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">float]</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/config/classes.html#ExpStandardsConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.config.classes.ExpStandardsConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Configuration for the collection of experimental standards.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.ExpStandardsConfig.is_exp_std_measurement">
+<span class="sig-name descname"><span class="pre">is_exp_std_measurement</span></span><a class="headerlink" href="#autoemxsp.config.classes.ExpStandardsConfig.is_exp_std_measurement" title="Link to this definition"></a></dt>
+<dd><p>Whether the configuration corresponds to the measurement of an experimental standard (Default = False)
+If True, a valid <cite>formula</cite> must be provided and weight fractions will be automatically calculated.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.ExpStandardsConfig.formula">
+<span class="sig-name descname"><span class="pre">formula</span></span><a class="headerlink" href="#autoemxsp.config.classes.ExpStandardsConfig.formula" title="Link to this definition"></a></dt>
+<dd><p>Chemical formula of the experimental standard. Required if <cite>is_exp_std_measurement</cite> is True.
+Must be parseable by <cite>pymatgen.core.Composition</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.ExpStandardsConfig.use_for_mean_PB_calc">
+<span class="sig-name descname"><span class="pre">use_for_mean_PB_calc</span></span><a class="headerlink" href="#autoemxsp.config.classes.ExpStandardsConfig.use_for_mean_PB_calc" title="Link to this definition"></a></dt>
+<dd><p>Whether the acquired experimental standards should be used to calculate the average PB, which is the
+reference standard value employed generally during spectral quantification (Default = True).
+This should be set to False when collecting powder standards for quantifying the extent of intermixing
+in powder standards.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.ExpStandardsConfig.min_acceptable_PB_ratio">
+<span class="sig-name descname"><span class="pre">min_acceptable_PB_ratio</span></span><a class="headerlink" href="#autoemxsp.config.classes.ExpStandardsConfig.min_acceptable_PB_ratio" title="Link to this definition"></a></dt>
+<dd><p>Minimum PB ratio required for a peak to be accepted as a standard. in cnts/cnts*keV^-1 (Deafult = 10).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.ExpStandardsConfig.quant_flags_accepted">
+<span class="sig-name descname"><span class="pre">quant_flags_accepted</span></span><a class="headerlink" href="#autoemxsp.config.classes.ExpStandardsConfig.quant_flags_accepted" title="Link to this definition"></a></dt>
+<dd><p>List of quantification flags considered acceptable. Other spectra are filtered out before clustering.
+Quantification flags indicate whether the quantification or the fit of each spectrum is likely to be
+affected by large errors:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>0  : Quantification is ok, although it may be affected by large analytical error.</p></li>
+<li><p>-1  : As above, but quantification did not converge within 30 steps.</p></li>
+<li><p>1  : Error during EDS acquisition. No fit executed.</p></li>
+<li><p>2  : Total counts &lt; 95% of target counts, likely due to wrong segmentation. No fit executed.</p></li>
+<li><p>3  : Too little low-energy signal, causing poor quantification in that region. No fit executed.</p></li>
+<li><p>4  : Poor fit. Fit interrupted if interrupt_fits_bad_spectra=True.</p></li>
+<li><p>5  : High analytical error (&gt;50%), possibly due to missing element or other major error. Fit interrupted if interrupt_fits_bad_spectra=True.</p></li>
+<li><p>6  : Excessive X-ray absorption. Fit interrupted if interrupt_fits_bad_spectra=True.</p></li>
+<li><p>7  : Excessive contamination from substrate.</p></li>
+<li><p>8  : Too few background counts below reference peak, likely leading to large quantification errors.</p></li>
+<li><p>9  : Unknown fitting error.</p></li>
+<li><p>10 : (Only for measurement of experimental standards) Reference peak missing.</p></li>
+</ul>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[int]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.ExpStandardsConfig.w_frs">
+<span class="sig-name descname"><span class="pre">w_frs</span></span><a class="headerlink" href="#autoemxsp.config.classes.ExpStandardsConfig.w_frs" title="Link to this definition"></a></dt>
+<dd><p>Dictionary of element symbols and their corresponding weight fractions (computed via pymatgen)
+if <cite>is_exp_std_measurement</cite> is True and <cite>formula</cite> is valid; otherwise None.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Optional[Dict[str, float]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ValueError</strong> – If <cite>is_exp_std_measurement</cite> is True but <cite>formula</cite> is missing or invalid.</p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id55">
+<span class="sig-name descname"><span class="pre">is_exp_std_measurement</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#id55" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id56">
+<span class="sig-name descname"><span class="pre">formula</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">''</span></em><a class="headerlink" href="#id56" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id57">
+<span class="sig-name descname"><span class="pre">use_for_mean_PB_calc</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#id57" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id58">
+<span class="sig-name descname"><span class="pre">min_acceptable_PB_ratio</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">10</span></em><a class="headerlink" href="#id58" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id59">
+<span class="sig-name descname"><span class="pre">quant_flags_accepted</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#id59" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id60">
+<span class="sig-name descname"><span class="pre">w_frs</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#id60" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.ClusteringConfig">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoemxsp.config.classes.</span></span><span class="sig-name descname"><span class="pre">ClusteringConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">method:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'kmeans'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">features:</span> <span class="pre">~typing.List[~typing.Any]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k:</span> <span class="pre">int</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k_finding_method:</span> <span class="pre">str</span> <span class="pre">=</span> <span class="pre">'silhouette'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_k:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref_formulae:</span> <span class="pre">~typing.List[str]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_analytical_error_percent:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_flags_accepted:</span> <span class="pre">~typing.List[int]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/config/classes.html#ClusteringConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.config.classes.ClusteringConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Configuration for clustering of compositions and their filtering.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.ClusteringConfig.method">
+<span class="sig-name descname"><span class="pre">method</span></span><a class="headerlink" href="#autoemxsp.config.classes.ClusteringConfig.method" title="Link to this definition"></a></dt>
+<dd><p>Clustering algorithm to use. Allowed: ‘kmeans’ (implemented), ‘dbscan’ (not implemented).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.ClusteringConfig.features">
+<span class="sig-name descname"><span class="pre">features</span></span><a class="headerlink" href="#autoemxsp.config.classes.ClusteringConfig.features" title="Link to this definition"></a></dt>
+<dd><p>Feature set to use for clustering.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[Any]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.ClusteringConfig.k">
+<span class="sig-name descname"><span class="pre">k</span></span><a class="headerlink" href="#autoemxsp.config.classes.ClusteringConfig.k" title="Link to this definition"></a></dt>
+<dd><p>If provided, defines a fixed number of clusters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Optional[int]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.ClusteringConfig.k_finding_method">
+<span class="sig-name descname"><span class="pre">k_finding_method</span></span><a class="headerlink" href="#autoemxsp.config.classes.ClusteringConfig.k_finding_method" title="Link to this definition"></a></dt>
+<dd><p>Method to determine the number of clusters. Set to “forced” if a value of ‘k’ is specified manually.
+Allowed methods are “silhouette”, “calinski_harabasz”, “elbow”.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.ClusteringConfig.max_k">
+<span class="sig-name descname"><span class="pre">max_k</span></span><a class="headerlink" href="#autoemxsp.config.classes.ClusteringConfig.max_k" title="Link to this definition"></a></dt>
+<dd><p>Maximum allowed number of clusters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.ClusteringConfig.ref_formulae">
+<span class="sig-name descname"><span class="pre">ref_formulae</span></span><a class="headerlink" href="#autoemxsp.config.classes.ClusteringConfig.ref_formulae" title="Link to this definition"></a></dt>
+<dd><p>List of possible phases present in the sample, as chemical formula strings.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.ClusteringConfig.max_analytical_error_percent">
+<span class="sig-name descname"><span class="pre">max_analytical_error_percent</span></span><a class="headerlink" href="#autoemxsp.config.classes.ClusteringConfig.max_analytical_error_percent" title="Link to this definition"></a></dt>
+<dd><p>Maximum analytical error acceptable for composition to be considered in phase determination, expressed as w%. Can be None.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.ClusteringConfig.quant_flags_accepted">
+<span class="sig-name descname"><span class="pre">quant_flags_accepted</span></span><a class="headerlink" href="#autoemxsp.config.classes.ClusteringConfig.quant_flags_accepted" title="Link to this definition"></a></dt>
+<dd><p>List of quantification flags considered acceptable, others are filtered out prior clustering.
+Quantification flags indicate whether the quantification or the fit of each spectrum is likely to be affected by large errors:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>0: Quantification is ok, although it may be affected by large analytical error</p></li>
+<li><p>-1: As above, but quantification did not converge within 30 steps</p></li>
+<li><p>1: Error during EDS acquisition. No fit executed</p></li>
+<li><p>2: Total number of counts is lower than 95% of target counts, likely due to wrong segmentation. No fit executed</p></li>
+<li><p>3: Spectrum has too low signal in its low-energy portion, leading to poor quantification in this region. No fit executed</p></li>
+<li><p>4: Poor fit. Fit interrupted if interrupt_fits_bad_spectra=True</p></li>
+<li><p>5: Too high analytical error (&gt;50%) indicating a missing element or other major sources of error. Fit interrupted if interrupt_fits_bad_spectra=True</p></li>
+<li><p>6: Excessive X-ray absorption. Fit interrupted if interrupt_fits_bad_spectra=True</p></li>
+<li><p>7: Excessive signal contamination from substrate</p></li>
+<li><p>8: Too few background counts below reference peak, likely leading to large quantification errors</p></li>
+<li><p>9: Unknown fitting error</p></li>
+</ul>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[int]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id61">
+<span class="sig-name descname"><span class="pre">method</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'kmeans'</span></em><a class="headerlink" href="#id61" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id62">
+<span class="sig-name descname"><span class="pre">features</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#id62" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id63">
+<span class="sig-name descname"><span class="pre">k</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#id63" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.ClusteringConfig.DEFAULT_K_FINDING_METHOD">
+<span class="sig-name descname"><span class="pre">DEFAULT_K_FINDING_METHOD</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'silhouette'</span></em><a class="headerlink" href="#autoemxsp.config.classes.ClusteringConfig.DEFAULT_K_FINDING_METHOD" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id64">
+<span class="sig-name descname"><span class="pre">k_finding_method</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'silhouette'</span></em><a class="headerlink" href="#id64" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id65">
+<span class="sig-name descname"><span class="pre">max_k</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">6</span></em><a class="headerlink" href="#id65" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id66">
+<span class="sig-name descname"><span class="pre">ref_formulae</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#id66" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id67">
+<span class="sig-name descname"><span class="pre">max_analytical_error_percent</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">5</span></em><a class="headerlink" href="#id67" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id68">
+<span class="sig-name descname"><span class="pre">quant_flags_accepted</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#id68" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.ClusteringConfig.FORCED_K_METHOD_KEY">
+<span class="sig-name descname"><span class="pre">FORCED_K_METHOD_KEY</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'forced'</span></em><a class="headerlink" href="#autoemxsp.config.classes.ClusteringConfig.FORCED_K_METHOD_KEY" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.ClusteringConfig.ALLOWED_METHODS">
+<span class="sig-name descname"><span class="pre">ALLOWED_METHODS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">('kmeans',</span> <span class="pre">'dbscan')</span></em><a class="headerlink" href="#autoemxsp.config.classes.ClusteringConfig.ALLOWED_METHODS" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.ClusteringConfig.ALLOWED_FEATURE_SETS">
+<span class="sig-name descname"><span class="pre">ALLOWED_FEATURE_SETS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">('w_fr',</span> <span class="pre">'at_fr')</span></em><a class="headerlink" href="#autoemxsp.config.classes.ClusteringConfig.ALLOWED_FEATURE_SETS" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.ClusteringConfig.ALLOWED_K_FINDING_METHODS">
+<span class="sig-name descname"><span class="pre">ALLOWED_K_FINDING_METHODS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">('silhouette',</span> <span class="pre">'calinski_harabasz',</span> <span class="pre">'elbow',</span> <span class="pre">'forced')</span></em><a class="headerlink" href="#autoemxsp.config.classes.ClusteringConfig.ALLOWED_K_FINDING_METHODS" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PlotConfig">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoemxsp.config.classes.</span></span><span class="sig-name descname"><span class="pre">PlotConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">show_unused_comps_clust:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">els_excluded_clust_plot:</span> <span class="pre">~typing.List[str]</span> <span class="pre">=</span> <span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_legend_clustering:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_plots:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_plots:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_custom_plots:</span> <span class="pre">bool</span> <span class="pre">=</span> <span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/config/classes.html#PlotConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.config.classes.PlotConfig" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Configuration for plotting.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PlotConfig.show_unused_comps_clust">
+<span class="sig-name descname"><span class="pre">show_unused_comps_clust</span></span><a class="headerlink" href="#autoemxsp.config.classes.PlotConfig.show_unused_comps_clust" title="Link to this definition"></a></dt>
+<dd><p>Whether to plot unused data points in clustering plot.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PlotConfig.els_excluded_clust_plot">
+<span class="sig-name descname"><span class="pre">els_excluded_clust_plot</span></span><a class="headerlink" href="#autoemxsp.config.classes.PlotConfig.els_excluded_clust_plot" title="Link to this definition"></a></dt>
+<dd><p>Elements to exclude in cluster plot when more than 3 elements are present.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">show_legend_clustering</span> <span class="pre">bool</span></span></dt>
+<dd><p>Whether to show the legend in the clustering plot. Default: True</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PlotConfig.save_plots">
+<span class="sig-name descname"><span class="pre">save_plots</span></span><a class="headerlink" href="#autoemxsp.config.classes.PlotConfig.save_plots" title="Link to this definition"></a></dt>
+<dd><p>Whether to save plots to disk.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PlotConfig.show_plots">
+<span class="sig-name descname"><span class="pre">show_plots</span></span><a class="headerlink" href="#autoemxsp.config.classes.PlotConfig.show_plots" title="Link to this definition"></a></dt>
+<dd><p>Whether to display plots interactively.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PlotConfig.use_custom_plots">
+<span class="sig-name descname"><span class="pre">use_custom_plots</span></span><a class="headerlink" href="#autoemxsp.config.classes.PlotConfig.use_custom_plots" title="Link to this definition"></a></dt>
+<dd><p>Whether to use custom plotting routines.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id69">
+<span class="sig-name descname"><span class="pre">show_unused_comps_clust</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#id69" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id70">
+<span class="sig-name descname"><span class="pre">els_excluded_clust_plot</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#id70" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.config.classes.PlotConfig.show_legend_clustering">
+<span class="sig-name descname"><span class="pre">show_legend_clustering</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#autoemxsp.config.classes.PlotConfig.show_legend_clustering" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id71">
+<span class="sig-name descname"><span class="pre">save_plots</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#id71" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id72">
+<span class="sig-name descname"><span class="pre">show_plots</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#id72" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id73">
+<span class="sig-name descname"><span class="pre">use_custom_plots</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#id73" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="autoemxsp.config.html" class="btn btn-neutral float-left" title="autoemxsp.config package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="autoemxsp.config.defaults.html" class="btn btn-neutral float-right" title="autoemxsp.config.defaults module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Andrea Giunto.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

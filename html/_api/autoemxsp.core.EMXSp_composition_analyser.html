@@ -1,0 +1,358 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>autoemxsp.core.EMXSp_composition_analyser module &mdash; AutoEMXSp 0.1.6 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=6e0256f3"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="autoemxsp.core.EM_controller module" href="autoemxsp.core.EM_controller.html" />
+    <link rel="prev" title="autoemxsp.core package" href="autoemxsp.core.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            AutoEMXSp
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../user/index.html">User Documentation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced User Documentation:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../advanced_user/index.html">Advanced User Documentation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/sdd_calib.html">EDS Detector Calibration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/new_exp_stds.html">EDS Experimental Standard Collection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/new_XSpdetector.html">Calibrate a new Detector for EDS fit and quantification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/new_EMdriver.html">Add new Electron Microscope Driver</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../advanced_user/advanced_api.html">AutoEMXSp Public API</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.XSp_calibs.html">autoemxsp.XSp_calibs package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.EM_driver.html">autoemxsp.EM_driver package</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="autoemxsp.core.html">autoemxsp.core package</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.core.html#subpackages">Subpackages</a></li>
+<li class="toctree-l4 current"><a class="reference internal" href="autoemxsp.core.html#submodules">Submodules</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">AutoEMXSp</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../advanced_user/index.html">Advanced User Documentation</a></li>
+          <li class="breadcrumb-item"><a href="../advanced_user/advanced_api.html">AutoEMXSp Public API</a></li>
+          <li class="breadcrumb-item"><a href="autoemxsp.core.html">autoemxsp.core package</a></li>
+      <li class="breadcrumb-item active">autoemxsp.core.EMXSp_composition_analyser module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/_api/autoemxsp.core.EMXSp_composition_analyser.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-autoemxsp.core.EMXSp_composition_analyser">
+<span id="autoemxsp-core-emxsp-composition-analyser-module"></span><h1>autoemxsp.core.EMXSp_composition_analyser module<a class="headerlink" href="#module-autoemxsp.core.EMXSp_composition_analyser" title="Link to this heading"></a></h1>
+<p>EMXSp_Composition_Analyzer</p>
+<p>Main class for automated compositional analysis of electron microscopy X-ray spectroscopy (EMXSp) data.</p>
+<p>Can be run from Run_Acquisition_Quant_Analysis.py</p>
+<p>Features:
+- Structured configuration for microscope, sample, measurement, and analysis parameters.
+- Automated acquisition and quantification of X-ray spectra at electron microscope.
+- Filtering and clustering of compositional data.
+- Phase identification, mixture analysis, and comprehensive results export.
+- Utilities for plotting, saving, and reporting analysis results.</p>
+<section id="example-usage">
+<h2>Example Usage<a class="headerlink" href="#example-usage" title="Link to this heading"></a></h2>
+<blockquote>
+<div><p># Create analyzer instance
+&gt;&gt;&gt; analyzer = EMXSp_Composition_Analyzer(</p>
+<blockquote>
+<div><blockquote>
+<div><p>microscope_cfg=microscope_cfg,
+sample_cfg=sample_cfg,
+measurement_cfg=measurement_cfg,
+sample_substrate_cfg=sample_substrate_cfg,
+quant_cfg=quant_cfg,
+clustering_cfg=clustering_cfg,
+powder_meas_cfg=powder_meas_cfg,
+plot_cfg=plot_cfg,
+is_acquisition=True,
+development_mode=False,
+output_filename_suffix=’’,
+verbose=True,</p>
+</div></blockquote>
+<p>)</p>
+</div></blockquote>
+<p># Acquire and quantify spectra, and analyse compositions
+&gt;&gt;&gt; analyzer.run_collection_and_quantification(quantify=True)</p>
+<p># Alternatively, acquire only, then quantify:
+&gt;&gt;&gt; analyzer.run_collection_and_quantification(quantify=False)
+&gt;&gt;&gt; quantify and analyse on another machine using Run_Quantification.py</p>
+</div></blockquote>
+<p>&#64;author: Andrea
+Created on Mon Jul 22 17:43:35 2024</p>
+</section>
+<dl class="py class">
+<dt class="sig sig-object py" id="autoemxsp.core.EMXSp_composition_analyser.EMXSp_Composition_Analyzer">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoemxsp.core.EMXSp_composition_analyser.</span></span><span class="sig-name descname"><span class="pre">EMXSp_Composition_Analyzer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">microscope_cfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.MicroscopeConfig" title="autoemxsp.config.classes.MicroscopeConfig"><span class="pre">MicroscopeConfig</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_cfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.SampleConfig" title="autoemxsp.config.classes.SampleConfig"><span class="pre">SampleConfig</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">measurement_cfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.MeasurementConfig" title="autoemxsp.config.classes.MeasurementConfig"><span class="pre">MeasurementConfig</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_substrate_cfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.SampleSubstrateConfig" title="autoemxsp.config.classes.SampleSubstrateConfig"><span class="pre">SampleSubstrateConfig</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_cfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.QuantConfig" title="autoemxsp.config.classes.QuantConfig"><span class="pre">QuantConfig</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">QuantConfig(method='PB',</span> <span class="pre">spectrum_lims=(14,</span> <span class="pre">1100),</span> <span class="pre">fit_tolerance=0.0001,</span> <span class="pre">use_instrument_background=False,</span> <span class="pre">interrupt_fits_bad_spectra=True,</span> <span class="pre">min_bckgrnd_cnts=5,</span> <span class="pre">num_CPU_cores=6)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clustering_cfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.ClusteringConfig" title="autoemxsp.config.classes.ClusteringConfig"><span class="pre">ClusteringConfig</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">ClusteringConfig(method='kmeans',</span> <span class="pre">features='at_fr',</span> <span class="pre">k=None,</span> <span class="pre">k_finding_method='silhouette',</span> <span class="pre">max_k=6,</span> <span class="pre">ref_formulae=[],</span> <span class="pre">max_analytical_error_percent=5,</span> <span class="pre">quant_flags_accepted=[0,</span> <span class="pre">-1])</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">powder_meas_cfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.PowderMeasurementConfig" title="autoemxsp.config.classes.PowderMeasurementConfig"><span class="pre">PowderMeasurementConfig</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">PowderMeasurementConfig(is_manual_particle_selection=False,</span> <span class="pre">is_known_powder_mixture_meas=False,</span> <span class="pre">par_search_frame_width_um=195.44100476116796,</span> <span class="pre">max_n_par_per_frame=30,</span> <span class="pre">max_spectra_per_par=3,</span> <span class="pre">max_area_par=300.0,</span> <span class="pre">min_area_par=10.0,</span> <span class="pre">par_mask_margin=1.0,</span> <span class="pre">xsp_spots_distance_um=1.0,</span> <span class="pre">par_segmentation_model='threshold_bright',</span> <span class="pre">par_brightness_thresh=100,</span> <span class="pre">par_xy_spots_thresh=100,</span> <span class="pre">par_feature_selection='random',</span> <span class="pre">par_spot_spacing='random')</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bulk_meas_cfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.BulkMeasurementConfig" title="autoemxsp.config.classes.BulkMeasurementConfig"><span class="pre">BulkMeasurementConfig</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">BulkMeasurementConfig(grid_spot_spacing_um=100.0,</span> <span class="pre">min_xsp_spots_distance_um=5.0,</span> <span class="pre">image_frame_width_um=1000.0,</span> <span class="pre">randomize_frames=False,</span> <span class="pre">exclude_sample_margin=False)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exp_stds_cfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.ExpStandardsConfig" title="autoemxsp.config.classes.ExpStandardsConfig"><span class="pre">ExpStandardsConfig</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">ExpStandardsConfig(is_exp_std_measurement=False,</span> <span class="pre">formula='',</span> <span class="pre">use_for_mean_PB_calc=True,</span> <span class="pre">min_acceptable_PB_ratio=10,</span> <span class="pre">quant_flags_accepted=[0],</span> <span class="pre">w_frs=None)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_cfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.PlotConfig" title="autoemxsp.config.classes.PlotConfig"><span class="pre">PlotConfig</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">PlotConfig(show_unused_comps_clust=True,</span> <span class="pre">els_excluded_clust_plot=[],</span> <span class="pre">show_legend_clustering=True,</span> <span class="pre">save_plots=True,</span> <span class="pre">show_plots=False,</span> <span class="pre">use_custom_plots=False)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_acquisition</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">standards_dict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">development_mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_filename_suffix</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">results_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/core/EMXSp_composition_analyser.html#EMXSp_Composition_Analyzer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EMXSp_composition_analyser.EMXSp_Composition_Analyzer" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Main class for electron microscopy X-ray spectroscopy (EMXSp) composition analysis.</p>
+<p>This class orchestrates the acquisition, quantification, clustering, and plotting
+of X-ray spectra and composition data, using structured configuration objects for
+all instrument and analysis settings.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>microscope_cfg</strong> (<a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.MicroscopeConfig" title="autoemxsp.config.classes.MicroscopeConfig"><em>MicroscopeConfig</em></a>) – Configuration for the microscope hardware.</p></li>
+<li><p><strong>sample_cfg</strong> (<a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.SampleConfig" title="autoemxsp.config.classes.SampleConfig"><em>SampleConfig</em></a>) – Configuration for the sample.</p></li>
+<li><p><strong>measurement_cfg</strong> (<a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.MeasurementConfig" title="autoemxsp.config.classes.MeasurementConfig"><em>MeasurementConfig</em></a>) – Configuration for the measurement/acquisition.</p></li>
+<li><p><strong>sample_substrate_cfg</strong> (<a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.SampleSubstrateConfig" title="autoemxsp.config.classes.SampleSubstrateConfig"><em>SampleSubstrateConfig</em></a>) – Configuration for the sample substrate.</p></li>
+<li><p><strong>quant_cfg</strong> (<a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.QuantConfig" title="autoemxsp.config.classes.QuantConfig"><em>QuantConfig</em></a>) – Configuration for spectrum fitting and quantification.</p></li>
+<li><p><strong>clustering_cfg</strong> (<a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.ClusteringConfig" title="autoemxsp.config.classes.ClusteringConfig"><em>ClusteringConfig</em></a>) – Configuration for clustering of spectra/compositions.</p></li>
+<li><p><strong>powder_meas_cfg</strong> (<a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.PowderMeasurementConfig" title="autoemxsp.config.classes.PowderMeasurementConfig"><em>PowderMeasurementConfig</em></a>) – Configuration for powder measurement.</p></li>
+<li><p><strong>bulk_meas_cfg</strong> (<a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.BulkMeasurementConfig" title="autoemxsp.config.classes.BulkMeasurementConfig"><em>BulkMeasurementConfig</em></a>) – Configuration for measurements of bulk or bulk-like samples.</p></li>
+<li><p><strong>exp_stds_cfg</strong> (<a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.ExpStandardsConfig" title="autoemxsp.config.classes.ExpStandardsConfig"><em>ExpStandardsConfig</em></a>) – Configuration for measurements of experimental standards.</p></li>
+<li><p><strong>plot_cfg</strong> (<a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.PlotConfig" title="autoemxsp.config.classes.PlotConfig"><em>PlotConfig</em></a>) – Configuration for plotting.</p></li>
+<li><p><strong>is_acquisition</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, indicates class is being used for automated acquisition (default: False).</p></li>
+<li><p><strong>standards_dict</strong> (<em>dict</em><em>, </em><em>optional</em>) – Dictionary of reference PB values from experimental standards. Default : None.
+If None, dictionary of standards is loaded from the XSp_calibs/Your_Microscope_ID directory.
+Provide standards_dict only when providing different standards from those normally used for quantification.</p></li>
+<li><p><strong>development_mode</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, enables development/debug features (default: False).</p></li>
+<li><p><strong>output_filename_suffix</strong> (<em>str</em><em>, </em><em>optional</em>) – String to append to saved filenames (default: ‘’).</p></li>
+<li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, enables verbose output (default: True).</p></li>
+<li><p><strong>results_dir</strong> (<em>Optional</em><em>[</em><em>str</em><em>]</em><em>, </em><em>optional</em>) – <dl class="simple">
+<dt>Directory to save results (default: None). If None, uses default directory, created inside package folder</dt><dd><ul>
+<li><p>Results, for sample analysis</p></li>
+<li><p>Std_measurements, for experimental standard measurements</p></li>
+</ul>
+</dd>
+</dl>
+</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">TO</span> <span class="pre">COMPLETE</span></span></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EMXSp_composition_analyser.EMXSp_Composition_Analyzer.analyse_data">
+<span class="sig-name descname"><span class="pre">analyse_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_analytical_error_percent</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compute_k_only_once</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/core/EMXSp_composition_analyser.html#EMXSp_Composition_Analyzer.analyse_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EMXSp_composition_analyser.EMXSp_Composition_Analyzer.analyse_data" title="Link to this definition"></a></dt>
+<dd><p>Analyse quantified spectra, perform clustering, assign candidate phases and mixtures, and save results.</p>
+<dl class="simple">
+<dt>This function orchestrates the workflow:</dt><dd><ol class="arabic simple">
+<li><p>Selects good compositions for clustering.</p></li>
+<li><p>Prepares DataFrames for clustering.</p></li>
+<li><p>Determines the optimal number of clusters (k).</p></li>
+<li><p>Runs clustering and computes cluster statistics.</p></li>
+<li><p>Assigns candidate phases and detects mixtures.</p></li>
+<li><p>Saves results and related plots.</p></li>
+</ol>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>max_analytical_error</strong> (<em>float</em><em> or </em><em>None</em>) – Maximum allowed analytical error for a composition to be considered valid, expressed as w%.</p></li>
+<li><p><strong>k</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of clusters to use (if not provided, determined automatically).</p></li>
+<li><p><strong>compute_k_only_once</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, compute k only once; otherwise, use the most frequent k.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>success</strong> (<em>bool</em>) – True if analysis was successful, False otherwise.</p></li>
+<li><p><strong>max_cl_rmsdist</strong> (<em>float</em>) – Maximum standard deviation across clusters.</p></li>
+<li><p><strong>min_conf</strong> (<em>float or None</em>) – Minimum confidence among assigned candidate phases.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EMXSp_composition_analyser.EMXSp_Composition_Analyzer.run_collection_and_quantification">
+<span class="sig-name descname"><span class="pre">run_collection_and_quantification</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">quantify</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">bool</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">bool</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/autoemxsp/core/EMXSp_composition_analyser.html#EMXSp_Composition_Analyzer.run_collection_and_quantification"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EMXSp_composition_analyser.EMXSp_Composition_Analyzer.run_collection_and_quantification" title="Link to this definition"></a></dt>
+<dd><p>Perform iterative collection (and optional quantification) of spectra, followed by phase analysis and convergence check.</p>
+<dl class="simple">
+<dt>This method:</dt><dd><ul class="simple">
+<li><p>Iteratively collects spectra in batches (and quantifies them if <cite>quantify</cite> is True).</p></li>
+<li><p>After each batch, saves collected data and (if quantification is enabled) performs phase analysis (clustering).</p></li>
+<li><p>Checks for convergence based on clustering statistics and confidence.</p></li>
+<li><p>Stops early if convergence is achieved and minimum spectra is reached, or if no more particles are available.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>quantify</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True (default), spectra are quantified after each batch and clustering is performed.
+If False, only spectra collection is performed; quantification and clustering are skipped.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>is_analysis_successful</strong> (<em>bool</em>) – if quantify == True: True if analysis was successful, False otherwise.
+if quantify == False: True if collection of target number of spectra was successful, False otherwise.</p></li>
+<li><p><strong>is_converged</strong> (<em>bool</em>) – True if phase identification converged to acceptable errors, False otherwise.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>During experimental standard collection, “quantify” in fact determines whether spectra are “fitted” in-situ</p></li>
+<li><p>Saves data after each batch to prevent data loss.</p></li>
+<li><p>Prints a summary and processing times at the end.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EMXSp_composition_analyser.EMXSp_Composition_Analyzer.run_quantification">
+<span class="sig-name descname"><span class="pre">run_quantification</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../_modules/autoemxsp/core/EMXSp_composition_analyser.html#EMXSp_Composition_Analyzer.run_quantification"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EMXSp_composition_analyser.EMXSp_Composition_Analyzer.run_quantification" title="Link to this definition"></a></dt>
+<dd><p>Perform quantification of all collected spectra and save the results.</p>
+<p>This method quantifies the spectra using self._fit_and_quantify_spectra(),
+then saves the quantification results to file using self._save_collected_data().</p>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>The arguments (None, None) to _save_collected_data indicate that all spectra are to be saved.</p></li>
+<li><p>Assumes that spectra have been correctly saved in self.quant_results</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EMXSp_composition_analyser.EMXSp_Composition_Analyzer.run_exp_std_collection">
+<span class="sig-name descname"><span class="pre">run_exp_std_collection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fit_during_collection</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">update_std_library</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../_modules/autoemxsp/core/EMXSp_composition_analyser.html#EMXSp_Composition_Analyzer.run_exp_std_collection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EMXSp_composition_analyser.EMXSp_Composition_Analyzer.run_exp_std_collection" title="Link to this definition"></a></dt>
+<dd><p>Collect, fit, and optionally update the library of experimental standards.</p>
+<p>This method automates the acquisition and fitting of spectra from experimental
+standards, ensuring that all required elemental fractions are defined before
+proceeding.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fit_during_collection</strong> (<em>bool</em>) – If True, spectra will be fitted in real-time during collection.
+If False, fitting must be performed after collection.</p></li>
+<li><p><strong>update_std_library</strong> (<em>bool</em>) – If True, the experimental standard library will be updated with the
+newly fitted PB ratios.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>ValueError</strong> – If <cite>self.exp_stds_cfg.is_exp_std_measurement</cite> is not set to True.</p></li>
+<li><p><strong>KeyError</strong> – If any element in <cite>self.sample_cfg.elements</cite> is missing from
+    <cite>self.exp_stds_cfg.w_frs</cite>.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EMXSp_composition_analyser.EMXSp_Composition_Analyzer.print_results">
+<span class="sig-name descname"><span class="pre">print_results</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_cnd_to_print</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_mix_to_print</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../_modules/autoemxsp/core/EMXSp_composition_analyser.html#EMXSp_Composition_Analyzer.print_results"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EMXSp_composition_analyser.EMXSp_Composition_Analyzer.print_results" title="Link to this definition"></a></dt>
+<dd><p>Print a summary of clustering results, including clustering configuration, metrics,
+and a table of identified phases with elemental fractions, standard deviations,
+and reference/mixture assignments if present.</p>
+<dl class="simple">
+<dt>The method:</dt><dd><ul class="simple">
+<li><p>Prints main clustering configuration and metrics.</p></li>
+<li><p>Prints a table of phases, each with number of points, elemental fractions (with stddev),
+cluster stddev, WCSS, reference assignments, and mixture information if available.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n_cnd_to_print</strong> (<em>int</em>) – Max number of candidate phases and relative confidence scores to show. Candidates with scores
+close to 0 are not shown.</p></li>
+<li><p><strong>n_mix_to_print</strong> (<em>int</em>) – Max number of candidate mixtures and relative confidence scores to show. Mixtures with scores
+close to 0 are not shown.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>AttributeError</strong> – If required attributes (clustering_info, clusters_df, etc.) are missing.</p></li>
+<li><p><strong>KeyError</strong> – If expected keys are missing from clustering_info or clusters_df.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="autoemxsp.core.html" class="btn btn-neutral float-left" title="autoemxsp.core package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="autoemxsp.core.EM_controller.html" class="btn btn-neutral float-right" title="autoemxsp.core.EM_controller module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Andrea Giunto.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,193 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>autoemxsp.runners.collect_particle_statistics module &mdash; AutoEMXSp 0.1.6 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=6e0256f3"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="autoemxsp.runners.fit_and_quantify_spectrum module" href="autoemxsp.runners.fit_and_quantify_spectrum.html" />
+    <link rel="prev" title="autoemxsp.runners.batch_quantify_and_analyze module" href="autoemxsp.runners.batch_quantify_and_analyze.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            AutoEMXSp
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Documentation:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../user/index.html">User Documentation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../user/installation.html">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user/quickstart.html">Quickstart Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../user/tutorials.html">Tutorials</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../user/api.html">AutoEMXSp Public API</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.config.html">autoemxsp.config package</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="autoemxsp.runners.html">autoemxsp.runners package</a><ul class="current">
+<li class="toctree-l4 current"><a class="reference internal" href="autoemxsp.runners.html#submodules">Submodules</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../advanced_user/index.html">Advanced User Documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">AutoEMXSp</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../user/index.html">User Documentation</a></li>
+          <li class="breadcrumb-item"><a href="../user/api.html">AutoEMXSp Public API</a></li>
+          <li class="breadcrumb-item"><a href="autoemxsp.runners.html">autoemxsp.runners package</a></li>
+      <li class="breadcrumb-item active">autoemxsp.runners.collect_particle_statistics module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/_api/autoemxsp.runners.collect_particle_statistics.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-autoemxsp.runners.collect_particle_statistics">
+<span id="autoemxsp-runners-collect-particle-statistics-module"></span><h1>autoemxsp.runners.collect_particle_statistics module<a class="headerlink" href="#module-autoemxsp.runners.collect_particle_statistics" title="Link to this heading"></a></h1>
+<p>Created on Thu Oct  9 10:14:12 2025</p>
+<p>&#64;author: Andrea</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="autoemxsp.runners.collect_particle_statistics.collect_particle_statistics">
+<span class="sig-prename descclassname"><span class="pre">autoemxsp.runners.collect_particle_statistics.</span></span><span class="sig-name descname"><span class="pre">collect_particle_statistics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">samples</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_par_target</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">microscope_ID</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'PhenomXL'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">microscope_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'SEM'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">detector_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'BSD'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_halfwidth</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">3.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_substrate_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'Ctape'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_substrate_shape</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'circle'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_substrate_width_mm</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">12</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">working_distance</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_manual_navigation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_auto_substrate_detection</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">auto_adjust_brightness_contrast</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">contrast</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">4.3877</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">brightness</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.4504</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">powder_meas_cfg_kwargs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_filename_suffix</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">development_mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">results_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../_modules/autoemxsp/runners/collect_particle_statistics.html#collect_particle_statistics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.runners.collect_particle_statistics.collect_particle_statistics" title="Link to this definition"></a></dt>
+<dd><p>Batch acquisition (and optional quantification) of X-ray spectra for a list of powder samples.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>samples</strong> (<em>list</em><em> of </em><em>dict</em>) – <dl class="simple">
+<dt>List of sample definitions. Each dictionary must contain:</dt><dd><ul>
+<li><p>’ID’ (str): Sample identifier (SampleConfig.ID).</p></li>
+<li><p>’pos’ (tuple of float): (x, y) stage coordinates in mm (SampleConfig.center_pos).</p></li>
+</ul>
+</dd>
+</dl>
+</p></li>
+<li><p><strong>n_par_target</strong> (<em>int</em>) – Target amount of particles to analyse</p></li>
+<li><p><strong>microscope_ID</strong> (<em>str</em><em>, </em><em>optional</em>) – Identifier for the microscope hardware.
+Must correspond to a calibration folder in <cite>./XSp_calibs/Microscopes/&lt;ID&gt;</cite> (MicroscopeConfig.ID).
+Default is <cite>‘PhenomXL’</cite>.</p></li>
+<li><p><strong>microscope_type</strong> (<em>str</em><em>, </em><em>optional</em>) – Type of microscope. Allowed: <cite>‘SEM’</cite> (implemented), <cite>‘STEM’</cite> (not implemented).
+Default is <cite>‘SEM’</cite> (MicroscopeConfig.type).</p></li>
+<li><p><strong>detector_type</strong> (<em>str</em><em>, </em><em>optional</em>) – Default : BSD</p></li>
+<li><p><strong>sample_halfwidth</strong> (<em>float</em><em>, </em><em>optional</em>) – Half-width of the sample area in mm for mapping/acquisition.
+Default is <cite>3.0</cite> (SampleConfig.half_width_mm).</p></li>
+<li><p><strong>sample_substrate_type</strong> (<em>str</em><em>, </em><em>optional</em>) – Type of sample substrate. Allowed: <cite>‘Ctape’</cite>, <cite>‘None’</cite>.
+Default is <cite>‘Ctape’</cite> (SampleSubstrateConfig.type).</p></li>
+<li><p><strong>sample_substrate_shape</strong> (<em>str</em><em>, </em><em>optional</em>) – Shape of the substrate. Allowed: <cite>‘circle’</cite>, <cite>‘square’</cite>.
+Default is <cite>‘circle’</cite> (SampleSubstrateConfig.shape).</p></li>
+<li><p><strong>sample_substrate_width_mm</strong> (<em>float</em><em>, </em><em>optional</em>) – Lateral dimension of substrate holder in mm (SampleSubstrateConfig.stub_w_mm).</p></li>
+<li><p><strong>working_distance</strong> (<em>float</em><em>, </em><em>optional</em>) – Working distance in mm for acquisition. If None, taken from microscope driver.
+Default is <cite>5.0</cite> (MeasurementConfig.working_distance).</p></li>
+<li><p><strong>is_manual_navigation</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, navigation to sample positions is manual.
+Default is <cite>False</cite> (MeasurementConfig.is_manual_navigation).</p></li>
+<li><p><strong>is_auto_substrate_detection</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, substrate elements are detected automatically.
+Implemented only for <cite>‘Ctape’</cite> substrates.
+Default is <cite>False</cite> (SampleSubstrateConfig.auto_detection).</p></li>
+<li><p><strong>auto_adjust_brightness_contrast</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, brightness/contrast are set automatically.
+Default is <cite>True</cite> (MicroscopeConfig.is_auto_BC).</p></li>
+<li><p><strong>contrast</strong> (<em>float</em><em>, </em><em>optional</em>) – Manual contrast setting (required if auto_adjust_brightness_contrast is False).
+Default is <cite>4.3877</cite> (MicroscopeConfig.contrast).</p></li>
+<li><p><strong>brightness</strong> (<em>float</em><em>, </em><em>optional</em>) – Manual brightness setting (required if auto_adjust_brightness_contrast is False).
+Default is <cite>0.4504</cite> (MicroscopeConfig.brightness).</p></li>
+<li><p><strong>powder_meas_cfg_kwargs</strong> (<em>dict</em><em>, </em><em>optional</em>) – Additional keyword arguments for PowderMeasurementConfig.</p></li>
+<li><p><strong>output_filename_suffix</strong> (<em>str</em><em>, </em><em>optional</em>) – String appended to output filenames.
+Default is <cite>‘’</cite>.</p></li>
+<li><p><strong>development_mode</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, enables development/debug features.
+Default is <cite>False</cite>.</p></li>
+<li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, print verbose output.
+Default is <cite>True</cite>.</p></li>
+<li><p><strong>results_dir</strong> (<em>str</em><em>, </em><em>optional</em>) – Directory where results are saved.
+Default is <cite>None</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>comp_analyzer</strong> – The composition analysis object containing the results and methods for further analysis.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="autoemxsp.core.EMXSp_composition_analyser.html#autoemxsp.core.EMXSp_composition_analyser.EMXSp_Composition_Analyzer" title="autoemxsp.core.EMXSp_composition_analyser.EMXSp_Composition_Analyzer">EMXSp_Composition_Analyzer</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="autoemxsp.runners.batch_quantify_and_analyze.html" class="btn btn-neutral float-left" title="autoemxsp.runners.batch_quantify_and_analyze module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="autoemxsp.runners.fit_and_quantify_spectrum.html" class="btn btn-neutral float-right" title="autoemxsp.runners.fit_and_quantify_spectrum module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Andrea Giunto.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

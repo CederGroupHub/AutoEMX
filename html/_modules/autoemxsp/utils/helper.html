@@ -1,0 +1,1110 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>autoemxsp.utils.helper &mdash; AutoEMXSp 0.1.6 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=6e0256f3"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            AutoEMXSp
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/index.html">User Documentation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced_user/index.html">Advanced User Documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">AutoEMXSp</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">autoemxsp.utils.helper</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for autoemxsp.utils.helper</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Utility Functions for EDS Spectrum Analysis and Data Handling</span>
+<span class="sd">==================================================================</span>
+
+<span class="sd">A collection of general-purpose utility functions and lightweight classes for data handling,</span>
+<span class="sd">visualization, and file management within the EDS analysis and modeling framework.</span>
+
+<span class="sd">This module is designed to be self-contained and importable across different parts</span>
+<span class="sd">of the project, covering tasks from compositional conversions to structured file</span>
+<span class="sd">loading and formatted console output.</span>
+
+<span class="sd">-------------------------------------------------------------------------------</span>
+
+<span class="sd">Main Features</span>
+<span class="sd">--------------</span>
+
+<span class="sd">**Compositional Conversions**</span>
+<span class="sd">- `atomic_to_weight_fr()`: Convert atomic fractions to weight fractions.</span>
+<span class="sd">- `weight_to_atomic_fr()`: Convert weight fractions to atomic fractions.</span>
+<span class="sd">  Both functions use `pymatgen.Element` for accurate atomic mass values.</span>
+
+<span class="sd">**Formula Handling**</span>
+<span class="sd">- `get_std_comp_from_formula()`: Parse chemical formulas into standardized element dictionaries.</span>
+<span class="sd">- `to_latex_formula()`: Convert a chemical formula into LaTeX format (e.g., ``Fe2O3`` → ``Fe$_2$O$_3$``).</span>
+
+<span class="sd">**String and Table Utilities**</span>
+<span class="sd">- `print_nice_1d_row()`: Print a formatted 1D table row (with adjustable width and alignment).</span>
+<span class="sd">- `print_element_fractions_table()`: Display element names with their atomic and weight percentages.</span>
+<span class="sd">- `print_single_separator()`: Print a single horizontal line separator.</span>
+<span class="sd">- `print_double_separator()`: Print a double horizontal line separator for clear sectioning.</span>
+<span class="sd">- `AlphabetMapper`: Map integers to alphabetic letters (0 → &#39;A&#39;, 25 → &#39;Z&#39;, etc.).</span>
+
+<span class="sd">**Image Utilities**</span>
+<span class="sd">- `draw_scalebar()`: Draw a scale bar on an image using OpenCV, with optional text label and styling.</span>
+
+<span class="sd">**File and Directory Handling**</span>
+<span class="sd">- `get_sample_dir()`: Locate a directory named after a given sample ID, with optional recursive search.</span>
+<span class="sd">- `make_unique_path()`: Generate a unique file or directory path if one already exists (e.g., ``file_1.png``).</span>
+<span class="sd">- `load_configurations_from_json()`: Reconstruct configuration dataclasses and metadata from a JSON file.</span>
+<span class="sd">- `extract_spectral_data()`: Extract spectra, quantification data, and coordinates from a `Data.csv` file.</span>
+<span class="sd">- `load_msa()`: Load and parse a `.msa` spectral file, returning energy and intensity arrays.</span>
+
+<span class="sd">**User Interaction**</span>
+<span class="sd">- `Prompt_User`: Display a Tkinter prompt window for manual user confirmation (e.g., proceed/stop execution).</span>
+
+<span class="sd">**Error Handling**</span>
+<span class="sd">- `EDSError`: Custom exception class for handling EDS-related errors gracefully.</span>
+
+<span class="sd">Created on Fri Jun 28 11:50:53 2024</span>
+
+<span class="sd">@author: Andrea Giunto</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="c1"># Standard library imports</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tkinter</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">tk</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">ast</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">unicodedata</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">difflib</span>
+
+<span class="c1"># Third-party imports</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">cv2</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Element</span><span class="p">,</span> <span class="n">Composition</span>
+
+<span class="c1"># Typing imports</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">autoemxsp.utils.constants</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cnst</span>
+
+
+<span class="c1">#%% Compositions and formulas</span>
+<div class="viewcode-block" id="atomic_to_weight_fr">
+<a class="viewcode-back" href="../../../_api/autoemxsp.utils.helper.html#autoemxsp.utils.helper.atomic_to_weight_fr">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">atomic_to_weight_fr</span><span class="p">(</span>
+    <span class="n">atomic_fractions</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+    <span class="n">elements</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Convert atomic fractions to weight fractions for a given set of elements.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    atomic_fractions : Sequence[float] or np.ndarray</span>
+<span class="sd">        The atomic fractions of the elements. Should sum to approximately 1.</span>
+<span class="sd">    elements : List[str]</span>
+<span class="sd">        List of element symbols (e.g., [&quot;Si&quot;, &quot;O&quot;, &quot;Al&quot;]).</span>
+<span class="sd">    verbose : bool, optional</span>
+<span class="sd">        If True, prints warnings about normalization. Default is True.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    weight_fractions : np.ndarray</span>
+<span class="sd">        The corresponding weight fractions, summing to 1.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If the lengths of atomic_fractions and elements do not match.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; atomic_to_weight_fr([0.333, 0.667], [&quot;Si&quot;, &quot;O&quot;])</span>
+<span class="sd">    array([0.467..., 0.532...])</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">atomic_fractions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">atomic_fractions</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">atomic_fractions</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">elements</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Length of atomic_fractions and elements must match.&quot;</span><span class="p">)</span>
+
+    <span class="n">total_atomic</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">atomic_fractions</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">total_atomic</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: atomic_fractions sum to </span><span class="si">{</span><span class="n">total_atomic</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">. Normalizing to 1.&quot;</span><span class="p">)</span>
+        <span class="n">atomic_fractions</span> <span class="o">=</span> <span class="n">atomic_fractions</span> <span class="o">/</span> <span class="n">total_atomic</span>
+
+    <span class="n">molar_masses</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">Element</span><span class="p">(</span><span class="n">el</span><span class="p">)</span><span class="o">.</span><span class="n">atomic_mass</span> <span class="k">for</span> <span class="n">el</span> <span class="ow">in</span> <span class="n">elements</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">molar_masses</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;One or more elements have zero molar mass. Check element symbols.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Calculate raw weights</span>
+    <span class="n">raw_weights</span> <span class="o">=</span> <span class="n">atomic_fractions</span> <span class="o">*</span> <span class="n">molar_masses</span>
+    <span class="n">total_weight</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">raw_weights</span><span class="p">)</span>
+    <span class="n">weight_fractions</span> <span class="o">=</span> <span class="n">raw_weights</span> <span class="o">/</span> <span class="n">total_weight</span>
+
+    <span class="k">return</span> <span class="n">weight_fractions</span></div>
+
+
+<span class="c1"># Test</span>
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">atomic_to_weight_fr</span><span class="p">([</span><span class="mf">0.5</span><span class="p">,</span><span class="mf">0.5</span><span class="p">],</span> <span class="p">[</span><span class="s1">&#39;K&#39;</span><span class="p">,</span> <span class="s1">&#39;Cl&#39;</span><span class="p">]))</span>
+
+
+<div class="viewcode-block" id="weight_to_atomic_fr">
+<a class="viewcode-back" href="../../../_api/autoemxsp.utils.helper.html#autoemxsp.utils.helper.weight_to_atomic_fr">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">weight_to_atomic_fr</span><span class="p">(</span>
+    <span class="n">weight_fractions</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+    <span class="n">elements</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Convert weight fractions to atomic fractions for a given set of elements.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    weight_fractions : Sequence[float] or np.ndarray</span>
+<span class="sd">        The weight fractions of the elements. Should sum to approximately 1.</span>
+<span class="sd">    elements : List[str]</span>
+<span class="sd">        List of element symbols (e.g., [&quot;Si&quot;, &quot;O&quot;, &quot;Al&quot;]).</span>
+<span class="sd">    verbose : bool, optional</span>
+<span class="sd">        If True, prints warnings about normalization. Default is True.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    atomic_fractions : np.ndarray</span>
+<span class="sd">        The corresponding atomic fractions, summing to 1.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If the lengths of weight_fractions and elements do not match.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; weight_to_atomic_fr([0.467, 0.533], [&quot;Si&quot;, &quot;O&quot;])</span>
+<span class="sd">    array([0.333..., 0.666...])</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">weight_fractions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">weight_fractions</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">weight_fractions</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">elements</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Length of weight_fractions and elements must match.&quot;</span><span class="p">)</span>
+
+    <span class="n">total_weight</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">weight_fractions</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">total_weight</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: weight_fractions sum to </span><span class="si">{</span><span class="n">total_weight</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">. Normalizing to 1.&quot;</span><span class="p">)</span>
+        <span class="n">weight_fractions</span> <span class="o">=</span> <span class="n">weight_fractions</span> <span class="o">/</span> <span class="n">total_weight</span>
+
+    <span class="n">molar_masses</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">Element</span><span class="p">(</span><span class="n">el</span><span class="p">)</span><span class="o">.</span><span class="n">atomic_mass</span> <span class="k">for</span> <span class="n">el</span> <span class="ow">in</span> <span class="n">elements</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="c1"># Avoid division by zero in case of invalid element symbols</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">molar_masses</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;One or more elements have zero molar mass. Check element symbols.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Calculate atomic amounts (number of moles per element)</span>
+    <span class="n">raw_atomics</span> <span class="o">=</span> <span class="n">weight_fractions</span> <span class="o">/</span> <span class="n">molar_masses</span>
+    <span class="n">total_atoms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">raw_atomics</span><span class="p">)</span>
+    <span class="n">atomic_fractions</span> <span class="o">=</span> <span class="n">raw_atomics</span> <span class="o">/</span> <span class="n">total_atoms</span>
+
+    <span class="k">return</span> <span class="n">atomic_fractions</span></div>
+
+
+
+<span class="c1"># Test</span>
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>    
+    <span class="nb">print</span><span class="p">(</span><span class="n">weight_to_atomic_fr</span><span class="p">([</span><span class="mf">0.5</span><span class="p">,</span><span class="mf">0.5</span><span class="p">],</span> <span class="p">[</span><span class="s1">&#39;K&#39;</span><span class="p">,</span> <span class="s1">&#39;Cl&#39;</span><span class="p">]))</span>
+
+
+<div class="viewcode-block" id="to_latex_formula">
+<a class="viewcode-back" href="../../../_api/autoemxsp.utils.helper.html#autoemxsp.utils.helper.to_latex_formula">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">to_latex_formula</span><span class="p">(</span><span class="n">formula</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">include_dollar_signs</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Convert a chemical formula string into its LaTeX representation.</span>
+
+<span class="sd">    Supports nested parentheses, element subscripts, and group multipliers.</span>
+<span class="sd">    For example:</span>
+<span class="sd">        &#39;Al2(SO4)3&#39; -&gt; &#39;Al$_{2}$(SO$_{4}$)$_{3}$&#39;</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        formula (str): The chemical formula as a string.</span>
+<span class="sd">        include_dollar_signs (bool): Whether to wrap the LaTeX in $...$.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str: The LaTeX-formatted formula.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">convert</span><span class="p">(</span><span class="n">s</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;(&#39;</span><span class="p">:</span>
+                <span class="c1"># Find the matching closing parenthesis for the group</span>
+                <span class="n">depth</span> <span class="o">=</span> <span class="mi">1</span>
+                <span class="n">j</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span>
+                <span class="k">while</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="ow">and</span> <span class="n">depth</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">s</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;(&#39;</span><span class="p">:</span>
+                        <span class="n">depth</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="k">elif</span> <span class="n">s</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;)&#39;</span><span class="p">:</span>
+                        <span class="n">depth</span> <span class="o">-=</span> <span class="mi">1</span>
+                    <span class="n">j</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">group</span> <span class="o">=</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:</span><span class="n">j</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>  <span class="c1"># Content inside the parentheses</span>
+
+                <span class="c1"># Check for a multiplier after the group (e.g., (SO4)3)</span>
+                <span class="n">multiplier</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+                <span class="k">while</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()</span> <span class="ow">or</span> <span class="n">s</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;.&#39;</span><span class="p">):</span>
+                    <span class="n">multiplier</span> <span class="o">+=</span> <span class="n">s</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                    <span class="n">j</span> <span class="o">+=</span> <span class="mi">1</span>
+
+                <span class="n">group_latex</span> <span class="o">=</span> <span class="n">convert</span><span class="p">(</span><span class="n">group</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">multiplier</span><span class="p">:</span>
+                    <span class="n">result</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">group_latex</span><span class="si">}</span><span class="s2">)$_</span><span class="se">{{</span><span class="si">{</span><span class="n">multiplier</span><span class="si">}</span><span class="se">}}</span><span class="s2">$&quot;</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">result</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;(</span><span class="si">{</span><span class="n">group_latex</span><span class="si">}</span><span class="s2">)&quot;</span>
+                <span class="n">i</span> <span class="o">=</span> <span class="n">j</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Match element symbol and optional subscript</span>
+                <span class="n">m</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;([A-Z][a-z]*)([0-9.]+)?&#39;</span><span class="p">,</span> <span class="n">s</span><span class="p">[</span><span class="n">i</span><span class="p">:])</span>
+                <span class="k">if</span> <span class="n">m</span><span class="p">:</span>
+                    <span class="n">element</span><span class="p">,</span> <span class="n">subscript</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">groups</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="n">subscript</span> <span class="ow">and</span> <span class="n">subscript</span> <span class="o">!=</span> <span class="s1">&#39;1&#39;</span><span class="p">:</span>
+                        <span class="n">result</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">element</span><span class="si">}</span><span class="s2">$_</span><span class="se">{{</span><span class="si">{</span><span class="n">subscript</span><span class="si">}</span><span class="se">}}</span><span class="s2">$&quot;</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">result</span> <span class="o">+=</span> <span class="n">element</span>
+                    <span class="n">i</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># Skip invalid characters (should not occur in well-formed formulas)</span>
+                    <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">result</span>
+
+    <span class="n">latex_formula</span> <span class="o">=</span> <span class="n">convert</span><span class="p">(</span><span class="n">formula</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">include_dollar_signs</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">latex_formula</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Remove all $ signs (in case someone wants a pure LaTeX string)</span>
+        <span class="k">return</span> <span class="n">latex_formula</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;$&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span></div>
+
+
+
+<span class="c1"># Test</span>
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">to_latex_formula</span><span class="p">(</span><span class="s1">&#39;Bi2(Fe4O9)0.33&#39;</span><span class="p">))</span>
+
+    
+
+<span class="c1">#%% Strings</span>
+<div class="viewcode-block" id="print_nice_1d_row">
+<a class="viewcode-back" href="../../../_api/autoemxsp.utils.helper.html#autoemxsp.utils.helper.print_nice_1d_row">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">print_nice_1d_row</span><span class="p">(</span>
+    <span class="n">first_col</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">row</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span>
+    <span class="n">floatfmt</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;.2f&quot;</span><span class="p">,</span>
+    <span class="n">first_col_width</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+    <span class="n">col_width</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Print a single row for a table: first entry (label) left-aligned, rest as formatted floats.</span>
+<span class="sd">    Used to print quantification results during ZAF corrections</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        first_col: The value for the first (label) column.</span>
+<span class="sd">        row: Sequence of values for the remaining columns (numbers or strings).</span>
+<span class="sd">        floatfmt: Format for floating point numbers (default: &#39;.3f&#39;).</span>
+<span class="sd">        first_col_width: Width for the first (label) column.</span>
+<span class="sd">        col_width: Width for each numeric column.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">first</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">first_col</span><span class="p">)</span><span class="o">.</span><span class="n">ljust</span><span class="p">(</span><span class="n">first_col_width</span><span class="p">)</span>
+    <span class="n">rest</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">row</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">rest</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">float</span><span class="p">(</span><span class="n">val</span><span class="p">)</span><span class="si">:{</span><span class="n">col_width</span><span class="si">}{</span><span class="n">floatfmt</span><span class="si">}}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
+            <span class="n">rest</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">val</span><span class="p">)</span><span class="o">.</span><span class="n">rjust</span><span class="p">(</span><span class="n">col_width</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">first</span> <span class="o">+</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">rest</span><span class="p">))</span></div>
+
+
+<span class="c1"># Test</span>
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">print_nice_1d_row</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;Fe&#39;</span><span class="p">,</span> <span class="s1">&#39;Mn&#39;</span><span class="p">,</span> <span class="s1">&#39;O&#39;</span><span class="p">])</span>  <span class="c1"># header row with element names</span>
+    <span class="n">print_nice_1d_row</span><span class="p">(</span><span class="s1">&#39;W_fr&#39;</span><span class="p">,</span> <span class="p">[</span><span class="mf">1.23456</span><span class="p">,</span> <span class="mf">23.4</span><span class="p">,</span> <span class="mf">0.005678</span><span class="p">])</span>
+    <span class="n">print_nice_1d_row</span><span class="p">(</span><span class="s1">&#39;Z_vals&#39;</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.123</span><span class="p">,</span> <span class="mf">2.3456</span><span class="p">,</span> <span class="mf">0.0005678</span><span class="p">])</span>
+
+
+<div class="viewcode-block" id="print_element_fractions_table">
+<a class="viewcode-back" href="../../../_api/autoemxsp.utils.helper.html#autoemxsp.utils.helper.print_element_fractions_table">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">print_element_fractions_table</span><span class="p">(</span><span class="n">formula</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Given a chemical formula, print a table with elements, atomic %, and weight % using pymatgen.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">comp</span> <span class="o">=</span> <span class="n">Composition</span><span class="p">(</span><span class="n">formula</span><span class="p">)</span>
+    <span class="n">elements</span> <span class="o">=</span> <span class="p">[</span><span class="n">el</span><span class="o">.</span><span class="n">symbol</span> <span class="k">for</span> <span class="n">el</span> <span class="ow">in</span> <span class="n">comp</span><span class="o">.</span><span class="n">elements</span><span class="p">]</span>
+    <span class="n">at_fr</span> <span class="o">=</span> <span class="p">[</span><span class="n">comp</span><span class="o">.</span><span class="n">get_atomic_fraction</span><span class="p">(</span><span class="n">el</span><span class="p">)</span> <span class="k">for</span> <span class="n">el</span> <span class="ow">in</span> <span class="n">comp</span><span class="o">.</span><span class="n">elements</span><span class="p">]</span>
+    <span class="n">w_fr</span> <span class="o">=</span> <span class="p">[</span><span class="n">comp</span><span class="o">.</span><span class="n">get_wt_fraction</span><span class="p">(</span><span class="n">el</span><span class="p">)</span> <span class="k">for</span> <span class="n">el</span> <span class="ow">in</span> <span class="n">comp</span><span class="o">.</span><span class="n">elements</span><span class="p">]</span>
+    
+    <span class="n">print_nice_1d_row</span><span class="p">(</span><span class="n">formula</span><span class="p">,</span> <span class="n">elements</span><span class="p">)</span>
+    <span class="n">print_nice_1d_row</span><span class="p">(</span><span class="s1">&#39;at%&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">x</span><span class="o">*</span><span class="mi">100</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">at_fr</span><span class="p">])</span>
+    <span class="n">print_nice_1d_row</span><span class="p">(</span><span class="s1">&#39;w%&#39;</span><span class="p">,</span>  <span class="p">[</span><span class="n">x</span><span class="o">*</span><span class="mi">100</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">w_fr</span><span class="p">])</span></div>
+
+    
+<span class="c1"># Test</span>
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">print_element_fractions_table</span><span class="p">(</span><span class="s1">&#39;Mn2SiO4&#39;</span><span class="p">)</span>  <span class="c1"># header row with element names</span>
+    
+    
+
+<div class="viewcode-block" id="print_single_separator">
+<a class="viewcode-back" href="../../../_api/autoemxsp.utils.helper.html#autoemxsp.utils.helper.print_single_separator">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">print_single_separator</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Print a single-line separator (50 dashes) for visual clarity.&quot;&quot;&quot;</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;-&#39;</span> <span class="o">*</span> <span class="mi">50</span><span class="p">)</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span></div>
+
+<span class="c1"># print_single_separator()</span>
+
+
+
+
+<div class="viewcode-block" id="print_double_separator">
+<a class="viewcode-back" href="../../../_api/autoemxsp.utils.helper.html#autoemxsp.utils.helper.print_double_separator">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">print_double_separator</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Print a double-line separator (50 equals signs) for visual clarity.&quot;&quot;&quot;</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;=&#39;</span> <span class="o">*</span> <span class="mi">50</span><span class="p">)</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span></div>
+
+<span class="c1"># print_double_separator()</span>
+
+
+<div class="viewcode-block" id="AlphabetMapper">
+<a class="viewcode-back" href="../../../_api/autoemxsp.utils.helper.html#autoemxsp.utils.helper.AlphabetMapper">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">AlphabetMapper</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Maps a zero-based integer index to Excel-style column letters.</span>
+<span class="sd">    0 -&gt; &#39;A&#39;, 1 -&gt; &#39;B&#39;, ..., 25 -&gt; &#39;Z&#39;, 26 -&gt; &#39;AA&#39;, etc.</span>
+<span class="sd">    </span>
+<span class="sd">    Used for labeling frames analyzed during particle search.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">alphabet</span> <span class="o">=</span> <span class="s1">&#39;ABCDEFGHIJKLMNOPQRSTUVWXYZ&#39;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_letters</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alphabet</span><span class="p">)</span>
+
+<div class="viewcode-block" id="AlphabetMapper.get_letter">
+<a class="viewcode-back" href="../../../_api/autoemxsp.utils.helper.html#autoemxsp.utils.helper.AlphabetMapper.get_letter">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_letter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Convert a zero-based index to Excel-style column letters.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        index : int</span>
+<span class="sd">            Zero-based index (e.g., 0 for &#39;A&#39;, 25 for &#39;Z&#39;, 26 for &#39;AA&#39;, ...)</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        str</span>
+<span class="sd">            Excel-style column letters.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If index is negative.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">index</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Index must be non-negative.&quot;</span><span class="p">)</span>
+
+        <span class="n">letters</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">index</span><span class="p">,</span> <span class="n">remainder</span> <span class="o">=</span> <span class="nb">divmod</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_letters</span><span class="p">)</span>
+            <span class="n">letters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">alphabet</span><span class="p">[</span><span class="n">remainder</span><span class="p">]</span> <span class="o">+</span> <span class="n">letters</span>
+            <span class="k">if</span> <span class="n">index</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="n">index</span> <span class="o">-=</span> <span class="mi">1</span>  <span class="c1"># Excel-style: after &#39;Z&#39; comes &#39;AA&#39;, not &#39;BA&#39;</span>
+        <span class="k">return</span> <span class="n">letters</span></div>
+</div>
+
+
+<span class="c1"># Test the AlphabetMapper</span>
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">mapper</span> <span class="o">=</span> <span class="n">AlphabetMapper</span><span class="p">()</span>
+    <span class="n">test_indices</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">25</span><span class="p">,</span> <span class="mi">26</span><span class="p">,</span> <span class="mi">27</span><span class="p">,</span> <span class="mi">51</span><span class="p">,</span> <span class="mi">52</span><span class="p">,</span> <span class="mi">701</span><span class="p">,</span> <span class="mi">702</span><span class="p">,</span> <span class="mi">703</span><span class="p">,</span> <span class="mi">1378</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">test_indices</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">mapper</span><span class="o">.</span><span class="n">get_letter</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="c1">#%% Files</span>
+<div class="viewcode-block" id="load_configurations_from_json">
+<a class="viewcode-back" href="../../../_api/autoemxsp.utils.helper.html#autoemxsp.utils.helper.load_configurations_from_json">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_configurations_from_json</span><span class="p">(</span><span class="n">json_path</span><span class="p">,</span> <span class="n">config_classes_dict</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load configuration dataclasses and metadata from a spectrum collection info JSON file.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    json_path : str</span>
+<span class="sd">        Path to the JSON file saved by EMXSp_Composition_Analyzer._save_spectrum_collection_info.</span>
+<span class="sd">    config_classes_dict : dict</span>
+<span class="sd">        Mapping from JSON keys to dataclass types, e.g.:</span>
+<span class="sd">            {&#39;sample_cfg&#39;: SampleConfig, ...}</span>
+<span class="sd">        See configurations in tools/config_classes.py:</span>
+<span class="sd">            - MicroscopeConfig: Settings for microscope hardware, calibration, and imaging parameters.</span>
+<span class="sd">            - SampleConfig: Defines the sample’s identity, elements, and spatial properties.</span>
+<span class="sd">            - SampleSubstrateConfig: Specifies the substrate composition and geometry supporting the sample.</span>
+<span class="sd">            - MeasurementConfig: Controls measurement type, beam parameters, and acquisition settings.</span>
+<span class="sd">            - FittingConfig: Parameters for spectral fitting and background handling.</span>
+<span class="sd">            - QuantConfig: Options for quantification and filtering of X-ray spectra.</span>
+<span class="sd">            - PowderMeasurementConfig: Settings for analyzing powder samples and particle selection.</span>
+<span class="sd">            - BulkMeasurementConfig: Settings for analyzing bulk samples.</span>
+<span class="sd">            - ExpStandardsConfig: Settings for experimental standard measurements</span>
+<span class="sd">            - ClusteringConfig: Configures clustering algorithms and feature selection for data grouping.</span>
+<span class="sd">            - PlotConfig: Options for saving, displaying, and customizing plots.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    configs : dict</span>
+<span class="sd">        Dictionary of configuration objects reconstructed from JSON, keyed by their JSON key.</span>
+<span class="sd">        If a key from config_classes_dict is missing in the JSON, it will not be present in configs.</span>
+<span class="sd">    metadata : dict</span>
+<span class="sd">        Dictionary of any additional metadata (e.g., timestamp) found in the JSON.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    FileNotFoundError</span>
+<span class="sd">        If the JSON file does not exist.</span>
+
+<span class="sd">    Example</span>
+<span class="sd">    -------</span>
+<span class="sd">    &gt;&gt;&gt; config_classes = {&#39;sample_cfg&#39;: SampleConfig, ...}</span>
+<span class="sd">    &gt;&gt;&gt; configs, metadata = load_configurations_from_json(&#39;acquisition_info.json&#39;, config_classes)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">json_path</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+    <span class="n">configs</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">metadata</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="bp">cls</span> <span class="ow">in</span> <span class="n">config_classes_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+            <span class="n">configs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span><span class="o">**</span><span class="n">data</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">configs</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="c1"># warnings.warn(f&quot;Configuration key &#39;{key}&#39; not found in JSON file &#39;{json_path}&#39;.&quot;)</span>
+
+    <span class="c1"># Any other keys in JSON are treated as metadata</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">config_classes_dict</span><span class="p">:</span>
+            <span class="n">metadata</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="k">return</span> <span class="n">configs</span><span class="p">,</span> <span class="n">metadata</span></div>
+
+
+
+<div class="viewcode-block" id="extract_spectral_data">
+<a class="viewcode-back" href="../../../_api/autoemxsp.utils.helper.html#autoemxsp.utils.helper.extract_spectral_data">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">extract_spectral_data</span><span class="p">(</span><span class="n">data_csv_path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Extract spectra quantification, spectral data, and coordinates from Data.csv file.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    data_csv_path : str</span>
+<span class="sd">        Path to the Data.csv file.</span>
+<span class="sd">    cnst : module or object</span>
+<span class="sd">        Should provide all the necessary attribute keys as in your code.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    spectra_quant : list of dict or None</span>
+<span class="sd">        List of quantification results per spectrum (None if not quantified).</span>
+<span class="sd">        If all entries are None, returns None.</span>
+<span class="sd">    spectral_data : dict</span>
+<span class="sd">        Dictionary of lists for each spectral data column (e.g., spectrum, background, real_time, live_time, etc.).</span>
+<span class="sd">        If a column is missing, the value is an empty list.</span>
+<span class="sd">    sp_coords : list of dict</span>
+<span class="sd">        List of dicts for each spectrum&#39;s coordinates, keys as in cnst.LIST_SPECTRUM_COORDINATES_KEYS.</span>
+<span class="sd">    df : pandas.DataFrame</span>
+<span class="sd">        The loaded DataFrame from the CSV file.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">data_csv_path</span><span class="p">)</span>
+
+    <span class="c1"># --- Extract spectral data ---</span>
+    <span class="n">spectral_keys</span> <span class="o">=</span> <span class="n">cnst</span><span class="o">.</span><span class="n">LIST_SPECTRAL_DATA_KEYS</span>
+    <span class="n">spectral_data</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">spectral_keys</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="c1"># For spectrum and background, convert string &quot;[1.1,2.2,...]&quot; to list of floats</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">[</span><span class="n">cnst</span><span class="o">.</span><span class="n">SPECTRUM_DF_KEY</span><span class="p">,</span> <span class="n">cnst</span><span class="o">.</span><span class="n">BACKGROUND_DF_KEY</span><span class="p">]:</span>
+                <span class="n">spectral_data</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="n">ast</span><span class="o">.</span><span class="n">literal_eval</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">notnull</span><span class="p">(</span><span class="n">val</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+                    <span class="k">for</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">df</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+                <span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">spectral_data</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">spectral_data</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+
+    <span class="c1"># --- Extract spectral coordinates ---</span>
+    <span class="n">available_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">col</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">cnst</span><span class="o">.</span><span class="n">LIST_SPECTRUM_COORDINATES_KEYS</span> <span class="k">if</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+    <span class="n">sp_coords</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">available_cols</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(</span><span class="n">orient</span><span class="o">=</span><span class="s1">&#39;records&#39;</span><span class="p">)</span>
+
+    <span class="c1"># --- Extract quantification results ---</span>
+    <span class="n">spectra_quant</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">el_atfr_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">cnst</span><span class="o">.</span><span class="n">AT_FR_DF_KEY</span><span class="p">)]</span>
+    <span class="n">el_wfr_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">cnst</span><span class="o">.</span><span class="n">W_FR_DF_KEY</span><span class="p">)]</span>
+    <span class="n">elements</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">cnst</span><span class="o">.</span><span class="n">AT_FR_DF_KEY</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">el_atfr_cols</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+        <span class="c1"># Only consider quantified if at least one atfr or wfr is not null</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">notnull</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="n">c</span><span class="p">])</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">el_atfr_cols</span> <span class="o">+</span> <span class="n">el_wfr_cols</span><span class="p">):</span>
+            <span class="n">comp_atfr</span> <span class="o">=</span> <span class="p">{</span><span class="n">el</span><span class="p">:</span> <span class="n">row</span><span class="p">[</span><span class="n">el</span> <span class="o">+</span> <span class="n">cnst</span><span class="o">.</span><span class="n">AT_FR_DF_KEY</span><span class="p">]</span><span class="o">/</span><span class="mi">100</span> <span class="k">for</span> <span class="n">el</span> <span class="ow">in</span> <span class="n">elements</span> <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">notnull</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="n">el</span> <span class="o">+</span> <span class="n">cnst</span><span class="o">.</span><span class="n">AT_FR_DF_KEY</span><span class="p">])}</span>
+            <span class="n">comp_wfr</span>  <span class="o">=</span> <span class="p">{</span><span class="n">el</span><span class="p">:</span> <span class="n">row</span><span class="p">[</span><span class="n">el</span> <span class="o">+</span> <span class="n">cnst</span><span class="o">.</span><span class="n">W_FR_DF_KEY</span><span class="p">]</span><span class="o">/</span><span class="mi">100</span> <span class="k">for</span> <span class="n">el</span> <span class="ow">in</span> <span class="n">elements</span> <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">notnull</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="n">el</span> <span class="o">+</span> <span class="n">cnst</span><span class="o">.</span><span class="n">W_FR_DF_KEY</span><span class="p">])}</span>
+            <span class="n">quant_dict</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">cnst</span><span class="o">.</span><span class="n">COMP_AT_FR_KEY</span><span class="p">:</span> <span class="n">comp_atfr</span><span class="p">,</span>
+                <span class="n">cnst</span><span class="o">.</span><span class="n">COMP_W_FR_KEY</span><span class="p">:</span> <span class="n">comp_wfr</span><span class="p">,</span>
+                <span class="n">cnst</span><span class="o">.</span><span class="n">AN_ER_KEY</span><span class="p">:</span> <span class="n">row</span><span class="p">[</span><span class="n">cnst</span><span class="o">.</span><span class="n">AN_ER_DF_KEY</span><span class="p">]</span><span class="o">/</span><span class="mi">100</span> <span class="k">if</span> <span class="n">cnst</span><span class="o">.</span><span class="n">AN_ER_DF_KEY</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="k">else</span> <span class="p">[],</span>
+                <span class="n">cnst</span><span class="o">.</span><span class="n">R_SQ_KEY</span><span class="p">:</span> <span class="n">row</span><span class="p">[</span><span class="n">cnst</span><span class="o">.</span><span class="n">R_SQ_KEY</span><span class="p">]</span> <span class="k">if</span> <span class="n">cnst</span><span class="o">.</span><span class="n">R_SQ_KEY</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="k">else</span> <span class="p">[],</span>
+                <span class="n">cnst</span><span class="o">.</span><span class="n">REDCHI_SQ_KEY</span><span class="p">:</span> <span class="n">row</span><span class="p">[</span><span class="n">cnst</span><span class="o">.</span><span class="n">REDCHI_SQ_KEY</span><span class="p">]</span> <span class="k">if</span> <span class="n">cnst</span><span class="o">.</span><span class="n">REDCHI_SQ_KEY</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="k">else</span> <span class="p">[],</span>
+            <span class="p">}</span>
+            <span class="n">spectra_quant</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">quant_dict</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">spectra_quant</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">spectra_quant</span><span class="p">):</span>
+        <span class="n">spectra_quant</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">return</span> <span class="n">spectra_quant</span><span class="p">,</span> <span class="n">spectral_data</span><span class="p">,</span> <span class="n">sp_coords</span><span class="p">,</span> <span class="n">df</span></div>
+
+
+
+<div class="viewcode-block" id="make_unique_path">
+<a class="viewcode-back" href="../../../_api/autoemxsp.utils.helper.html#autoemxsp.utils.helper.make_unique_path">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_unique_path</span><span class="p">(</span><span class="n">parent_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">base_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">extension</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generate a unique file or directory path inside parent_dir based on base_name.</span>
+<span class="sd">    If a path with the base name exists, appends a counter (e.g., &#39;Sample1_2&#39;).</span>
+<span class="sd">    Optionally, add an extension for files.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    parent_dir : str</span>
+<span class="sd">        The parent directory in which to generate the new path.</span>
+<span class="sd">    base_name : str</span>
+<span class="sd">        The base name for the new file or directory.</span>
+<span class="sd">    extension : str, optional</span>
+<span class="sd">        The file extension (e.g., &#39;txt&#39; or &#39;.txt&#39;). If None, treat as directory.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    unique_path : str</span>
+<span class="sd">        The full, unique path (not created).</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If `parent_dir` or `base_name` is invalid.</span>
+
+<span class="sd">    Example</span>
+<span class="sd">    -------</span>
+<span class="sd">    &gt;&gt;&gt; make_unique_path(&#39;./results&#39;, &#39;Sample1&#39;)</span>
+<span class="sd">    &#39;./results/Sample1&#39;</span>
+<span class="sd">    &gt;&gt;&gt; make_unique_path(&#39;./results&#39;, &#39;Sample1&#39;, extension=&#39;txt&#39;)</span>
+<span class="sd">    &#39;./results/Sample1.txt&#39;</span>
+<span class="sd">    &gt;&gt;&gt; make_unique_path(&#39;./results&#39;, &#39;Sample1&#39;, extension=&#39;txt&#39;)  # If exists</span>
+<span class="sd">    &#39;./results/Sample1_2.txt&#39;</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">parent_dir</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">base_name</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Both `parent_dir` and `base_name` must be strings.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Normalize extension</span>
+    <span class="n">ext</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+    <span class="k">if</span> <span class="n">extension</span><span class="p">:</span>
+        <span class="n">ext</span> <span class="o">=</span> <span class="n">extension</span> <span class="k">if</span> <span class="n">extension</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)</span> <span class="k">else</span> <span class="sa">f</span><span class="s1">&#39;.</span><span class="si">{</span><span class="n">extension</span><span class="si">}</span><span class="s1">&#39;</span>
+
+    <span class="n">counter</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="n">ext</span><span class="p">:</span>
+        <span class="n">unique_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parent_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_name</span><span class="si">}{</span><span class="n">ext</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">unique_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parent_dir</span><span class="p">,</span> <span class="n">base_name</span><span class="p">)</span>
+
+    <span class="k">while</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">unique_path</span><span class="p">):</span>
+        <span class="n">counter</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">ext</span><span class="p">:</span>
+            <span class="n">unique_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parent_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">counter</span><span class="si">}{</span><span class="n">ext</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">unique_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parent_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">counter</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">unique_path</span></div>
+
+
+<div class="viewcode-block" id="get_sample_dir">
+<a class="viewcode-back" href="../../../_api/autoemxsp.utils.helper.html#autoemxsp.utils.helper.get_sample_dir">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_sample_dir</span><span class="p">(</span>
+    <span class="n">results_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">sample_ID</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">case_insensitive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Find a directory named `sample_ID` under `results_path` or its subdirectories.</span>
+
+<span class="sd">    Strategy:</span>
+<span class="sd">      1. Walk the entire directory tree under results_path and collect exact matches.</span>
+<span class="sd">      2. If multiple matches -&gt; raise RuntimeError (ambiguous).</span>
+<span class="sd">      3. If none -&gt; show close matches and raise FileNotFoundError.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    results_path : str</span>
+<span class="sd">        Root directory to search from.</span>
+<span class="sd">    sample_ID : str</span>
+<span class="sd">        Directory name to search for (exact match).</span>
+<span class="sd">    case_insensitive : bool, optional</span>
+<span class="sd">        Whether to ignore case when matching. Default is True.</span>
+<span class="sd">    verbose : bool, optional</span>
+<span class="sd">        Print additional debug information. Default is False.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    sample_dir : str</span>
+<span class="sd">        Full path to the matched directory.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    RuntimeError</span>
+<span class="sd">        If multiple matches are found.</span>
+<span class="sd">    FileNotFoundError</span>
+<span class="sd">        If no match is found.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">results_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">results_path</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[get_sample_dir] Searching for &#39;</span><span class="si">{</span><span class="n">sample_ID</span><span class="si">}</span><span class="s2">&#39; under &#39;</span><span class="si">{</span><span class="n">results_path</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">_norm_name</span><span class="p">(</span><span class="n">s</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Normalize unicode and collapse case for comparison on most systems.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">unicodedata</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span><span class="s2">&quot;NFKC&quot;</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+    
+    <span class="c1"># Normalize the sample ID for comparison</span>
+    <span class="n">sample_norm</span> <span class="o">=</span> <span class="n">_norm_name</span><span class="p">(</span><span class="n">sample_ID</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">match_name</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="n">name_norm</span> <span class="o">=</span> <span class="n">_norm_name</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">name_norm</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="n">sample_norm</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="k">if</span> <span class="n">case_insensitive</span> <span class="k">else</span> <span class="n">name_norm</span> <span class="o">==</span> <span class="n">sample_norm</span>
+
+    <span class="c1"># Walk recursively and collect matches</span>
+    <span class="n">matches</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">root</span><span class="p">,</span> <span class="n">dirs</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">results_path</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">dirs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">match_name</span><span class="p">(</span><span class="n">d</span><span class="p">):</span>
+                <span class="n">matches</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">d</span><span class="p">)))</span>
+
+    <span class="n">matches</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">matches</span><span class="p">))</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">matches</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">matches</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">matches</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Ambiguous &#39;</span><span class="si">{</span><span class="n">sample_ID</span><span class="si">}</span><span class="s2">&#39; — found in multiple locations:</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">matches</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># No exact match found — suggest close matches</span>
+        <span class="n">all_dir_names</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">root</span><span class="p">,</span> <span class="n">dirs</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">results_path</span><span class="p">):</span>
+            <span class="n">all_dir_names</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">dirs</span><span class="p">)</span>
+        <span class="n">all_dir_names</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">all_dir_names</span><span class="p">))</span>
+        <span class="n">close</span> <span class="o">=</span> <span class="n">difflib</span><span class="o">.</span><span class="n">get_close_matches</span><span class="p">(</span><span class="n">sample_ID</span><span class="p">,</span> <span class="n">all_dir_names</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">cutoff</span><span class="o">=</span><span class="mf">0.6</span><span class="p">)</span>
+
+        <span class="n">debug_msg_lines</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="sa">f</span><span class="s2">&quot;&#39;</span><span class="si">{</span><span class="n">sample_ID</span><span class="si">}</span><span class="s2">&#39; folder not found in &#39;</span><span class="si">{</span><span class="n">results_path</span><span class="si">}</span><span class="s2">&#39; or its subdirectories.&quot;</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="n">close</span><span class="p">:</span>
+            <span class="n">debug_msg_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Did you mean one of: </span><span class="si">{</span><span class="n">close</span><span class="si">}</span><span class="s2">?&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">debug_msg_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;No similar directory names found.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="n">debug_msg_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Some directories under the search root (first 50):&quot;</span><span class="p">)</span>
+            <span class="n">listed</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">for</span> <span class="n">root</span><span class="p">,</span> <span class="n">dirs</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">results_path</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">dirs</span><span class="p">:</span>
+                    <span class="n">debug_msg_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">d</span><span class="p">))</span>
+                    <span class="n">listed</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="k">if</span> <span class="n">listed</span> <span class="o">&gt;=</span> <span class="mi">50</span><span class="p">:</span>
+                        <span class="k">break</span>
+                <span class="k">if</span> <span class="n">listed</span> <span class="o">&gt;=</span> <span class="mi">50</span><span class="p">:</span>
+                    <span class="k">break</span>
+
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">debug_msg_lines</span><span class="p">))</span></div>
+
+        
+
+<div class="viewcode-block" id="load_msa">
+<a class="viewcode-back" href="../../../_api/autoemxsp.utils.helper.html#autoemxsp.utils.helper.load_msa">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_msa</span><span class="p">(</span><span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load a .msa or .msg file containing Y-only spectral data and compute the energy scale.</span>
+<span class="sd">    Designed for raw spectra exported from Thermo Fisher Phenom systems.</span>
+<span class="sd">    May work with other EMSA/MAS format files, but minor variations can occur.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    filepath : str</span>
+<span class="sd">        Path to the .msa or .msg file.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    energy : np.ndarray</span>
+<span class="sd">        Energy values computed from OFFSET and XPERCHAN.</span>
+<span class="sd">    counts : np.ndarray</span>
+<span class="sd">        Measured counts per energy channel.</span>
+<span class="sd">    metadata : dict</span>
+<span class="sd">        Parsed metadata from the header (all values as strings).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">metadata</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">counts</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">in_data_section</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">line</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;#SPECTRUM&#39;</span><span class="p">):</span>
+                <span class="n">in_data_section</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;#&#39;</span><span class="p">):</span>
+                <span class="c1"># Parse header metadata</span>
+                <span class="n">parts</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="n">maxsplit</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="o">=</span> <span class="n">parts</span>
+                    <span class="n">metadata</span><span class="p">[</span><span class="n">key</span><span class="o">.</span><span class="n">strip</span><span class="p">()]</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="n">in_data_section</span><span class="p">:</span>
+                <span class="c1"># Parse counts (allow comma or space separated)</span>
+                <span class="n">token</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">counts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">token</span><span class="p">))</span>
+                <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                    <span class="k">continue</span>  <span class="c1"># Skip lines that aren&#39;t valid numbers</span>
+
+    <span class="c1"># Retrieve required metadata, with sensible defaults</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">npoints</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;NPOINTS&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">counts</span><span class="p">))))</span>
+        <span class="n">offset</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;OFFSET&quot;</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span>
+        <span class="n">xperchan</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;XPERCHAN&quot;</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error reading required metadata fields: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Adjust counts to match NPOINTS</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">counts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">npoints</span><span class="p">:</span>
+        <span class="n">counts</span> <span class="o">=</span> <span class="n">counts</span><span class="p">[:</span><span class="n">npoints</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">counts</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">npoints</span><span class="p">:</span>
+        <span class="n">counts</span> <span class="o">+=</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">npoints</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">counts</span><span class="p">))</span>
+
+    <span class="n">energy</span> <span class="o">=</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">npoints</span><span class="p">)</span> <span class="o">*</span> <span class="n">xperchan</span>
+    <span class="n">counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">counts</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">energy</span><span class="p">,</span> <span class="n">counts</span><span class="p">,</span> <span class="n">metadata</span></div>
+
+
+<span class="c1"># Test</span>
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">energy</span><span class="p">,</span> <span class="n">counts</span><span class="p">,</span> <span class="n">meta</span> <span class="o">=</span> <span class="n">load_msa</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s1">&#39;lib&#39;</span><span class="p">,</span><span class="s1">&#39;PhenomXL_detector efficiency.msa&#39;</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">energy</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">counts</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">meta</span><span class="p">)</span>
+    
+
+<span class="c1">#%% Images</span>
+<div class="viewcode-block" id="draw_scalebar">
+<a class="viewcode-back" href="../../../_api/autoemxsp.utils.helper.html#autoemxsp.utils.helper.draw_scalebar">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">draw_scalebar</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">pixel_size_um</span><span class="p">,</span> <span class="n">bar_width</span> <span class="o">=</span> <span class="mf">0.25</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Draw a scale bar on the given image.</span>
+
+<span class="sd">    The scale bar is drawn as a filled white rectangle in the bottom-left corner of the image,</span>
+<span class="sd">    with a label indicating its length in micrometers (um). The actual scale bar length is chosen</span>
+<span class="sd">    from a set of standard values (0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200 um) to best match</span>
+<span class="sd">    the &#39;bar_width&#39;, expressed as fraction of image width.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    image : np.ndarray</span>
+<span class="sd">        Input image (grayscale or color, as a NumPy array). The scale bar will be drawn directly on this image.</span>
+<span class="sd">    pixel_size_um : float</span>
+<span class="sd">        Size of a pixel in micrometers (um/pixel).</span>
+<span class="sd">    bar_width : float, optional</span>
+<span class="sd">        Target width of scale bar, in fraction of image width. Default: 0.25</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    image : np.ndarray</span>
+<span class="sd">        The same image with the scale bar and label drawn on it.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    - The function detects if the image is grayscale or color and draws the scale bar in white accordingly.</span>
+<span class="sd">    - The scale bar is placed in the bottom-left corner with a margin from the edges.</span>
+<span class="sd">    - The label is centered above the scale bar rectangle.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1"># Check if image is color or grey scale</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="n">im_height</span><span class="p">,</span> <span class="n">im_width</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">white_color</span> <span class="o">=</span> <span class="p">(</span><span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="mi">255</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">im_height</span><span class="p">,</span> <span class="n">im_width</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">white_color</span> <span class="o">=</span> <span class="mi">255</span>
+
+    <span class="c1"># Calculate the desired scale bar length in pixels</span>
+    <span class="n">desired_length_pixels</span> <span class="o">=</span> <span class="n">im_width</span> <span class="o">*</span> <span class="n">bar_width</span>
+
+    <span class="c1"># Define the possible scale bar lengths in um</span>
+    <span class="n">possible_lengths_um</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.02</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">2000</span><span class="p">,</span> <span class="mi">5000</span><span class="p">]</span>
+
+    <span class="c1"># Find the closest possible scale bar length to the desired length</span>
+    <span class="n">best_length_um</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">possible_lengths_um</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">abs</span><span class="p">(</span><span class="n">x</span> <span class="o">/</span> <span class="n">pixel_size_um</span> <span class="o">-</span> <span class="n">desired_length_pixels</span><span class="p">))</span>
+
+    <span class="c1"># Set the scale bar length and label</span>
+    <span class="n">bar_length_pixels</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">best_length_um</span> <span class="o">/</span> <span class="n">pixel_size_um</span><span class="p">)</span>
+    <span class="n">bar_label</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">best_length_um</span><span class="si">}</span><span class="s2"> um&quot;</span>
+
+    <span class="c1"># Set the position for the scalebar (bottom-left corner)</span>
+    <span class="n">bar_thickness</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">im_height</span> <span class="o">/</span> <span class="mi">100</span><span class="p">)</span>  <span class="c1"># Height of the scalebar in pixels</span>
+    <span class="n">distance_from_border</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">im_width</span> <span class="o">/</span> <span class="mi">40</span><span class="p">)</span>
+    <span class="n">bottom_left_corner</span> <span class="o">=</span> <span class="p">(</span><span class="n">distance_from_border</span><span class="p">,</span> <span class="n">im_height</span> <span class="o">-</span> <span class="n">distance_from_border</span><span class="p">)</span>
+
+    <span class="c1"># Calculate the top-right corner of the rectangle</span>
+    <span class="n">top_right_corner</span> <span class="o">=</span> <span class="p">(</span><span class="n">bottom_left_corner</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">bar_length_pixels</span><span class="p">,</span>
+                        <span class="n">bottom_left_corner</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">bar_thickness</span><span class="p">)</span>
+
+    <span class="c1"># Draw the rectangular scalebar</span>
+    <span class="n">cv2</span><span class="o">.</span><span class="n">rectangle</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">bottom_left_corner</span><span class="p">,</span> <span class="n">top_right_corner</span><span class="p">,</span> <span class="n">white_color</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># Thickness of -1 fills the rectangle</span>
+
+    <span class="c1"># Set position of label</span>
+    <span class="n">label_x</span> <span class="o">=</span> <span class="n">bottom_left_corner</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">bar_length_pixels</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="mi">60</span>
+    <span class="n">label_y</span> <span class="o">=</span> <span class="n">top_right_corner</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">bar_thickness</span> <span class="o">*</span> <span class="mi">2</span>
+
+    <span class="c1"># Add the label for the scalebar</span>
+    <span class="n">cv2</span><span class="o">.</span><span class="n">putText</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">bar_label</span><span class="p">,</span> <span class="p">(</span><span class="n">label_x</span><span class="p">,</span> <span class="n">label_y</span><span class="p">),</span> <span class="n">cv2</span><span class="o">.</span><span class="n">FONT_HERSHEY_SIMPLEX</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">,</span> <span class="n">white_color</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">LINE_AA</span><span class="p">)</span>
+
+    <span class="c1"># cv2.imshow(&#39;Added scalebar&#39;, image)</span>
+    <span class="k">return</span> <span class="n">image</span> </div>
+
+<span class="c1">#%% Prompt    </span>
+<div class="viewcode-block" id="Prompt_User">
+<a class="viewcode-back" href="../../../_api/autoemxsp.utils.helper.html#autoemxsp.utils.helper.Prompt_User">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Prompt_User</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A simple GUI prompt using Tkinter to display a message and wait for user confirmation.</span>
+
+<span class="sd">    This is useful for pausing execution and prompting the user to take action,</span>
+<span class="sd">    such as selecting a position at the micriscope for manual EDS spectrum collection.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    title : str</span>
+<span class="sd">        The window title.</span>
+<span class="sd">    message : str</span>
+<span class="sd">        The message to display in the prompt.</span>
+<span class="sd">    execution_stopped : bool</span>
+<span class="sd">        True if the user closed the window or pressed Esc.</span>
+<span class="sd">    ok_pressed : bool</span>
+<span class="sd">        True if the user pressed OK or Return.</span>
+<span class="sd">    root : tk.Tk or None</span>
+<span class="sd">        The Tkinter root window.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">title</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="n">title</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="n">message</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">execution_stopped</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ok_pressed</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">root</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="Prompt_User.press_ok">
+<a class="viewcode-back" href="../../../_api/autoemxsp.utils.helper.html#autoemxsp.utils.helper.Prompt_User.press_ok">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">press_ok</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Handle OK button or Return key press.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ok_pressed</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">quit</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="Prompt_User.stop_execution">
+<a class="viewcode-back" href="../../../_api/autoemxsp.utils.helper.html#autoemxsp.utils.helper.Prompt_User.stop_execution">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">stop_execution</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Handle window close (X) or Esc key press.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">execution_stopped</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">quit</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">destroy</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="Prompt_User.run">
+<a class="viewcode-back" href="../../../_api/autoemxsp.utils.helper.html#autoemxsp.utils.helper.Prompt_User.run">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Start the prompt window and wait for user interaction.</span>
+<span class="sd">        Sets ok_pressed or execution_stopped depending on user action.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">root</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Tk</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">title</span><span class="p">)</span>
+
+        <span class="c1"># Create a label</span>
+        <span class="n">label</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Label</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+        <span class="n">label</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="n">pady</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+
+        <span class="c1"># Create an OK button</span>
+        <span class="n">ok_button</span> <span class="o">=</span> <span class="n">tk</span><span class="o">.</span><span class="n">Button</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">&quot;OK&quot;</span><span class="p">,</span> <span class="n">command</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">press_ok</span><span class="p">)</span>
+        <span class="n">ok_button</span><span class="o">.</span><span class="n">pack</span><span class="p">(</span><span class="n">pady</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+
+        <span class="c1"># Bind the Return key to OK</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">bind</span><span class="p">(</span><span class="s1">&#39;&lt;Return&gt;&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">event</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">press_ok</span><span class="p">())</span>
+
+        <span class="c1"># Handle window close (X)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">protocol</span><span class="p">(</span><span class="s2">&quot;WM_DELETE_WINDOW&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">stop_execution</span><span class="p">)</span>
+
+        <span class="c1"># Bind the Esc key to stop execution</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">bind</span><span class="p">(</span><span class="s1">&#39;&lt;Escape&gt;&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">event</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">stop_execution</span><span class="p">())</span>
+
+        <span class="c1"># Start the main loop</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">mainloop</span><span class="p">()</span></div>
+</div>
+
+        
+        
+        
+<span class="c1">#%% Error handling</span>
+
+<div class="viewcode-block" id="RefLineError">
+<a class="viewcode-back" href="../../../_api/autoemxsp.utils.helper.html#autoemxsp.utils.helper.RefLineError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">RefLineError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Exception raised for errors related to reference lines.&quot;&quot;&quot;</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="MissingHintError">
+<a class="viewcode-back" href="../../../_api/autoemxsp.utils.helper.html#autoemxsp.utils.helper.MissingHintError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MissingHintError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Exception raised when a required hint is missing.&quot;&quot;&quot;</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="EMError">
+<a class="viewcode-back" href="../../../_api/autoemxsp.utils.helper.html#autoemxsp.utils.helper.EMError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">EMError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Custom exception class for electron microscope (EM)-related errors.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    message : str</span>
+<span class="sd">        Description of the error.</span>
+<span class="sd">    code : int, optional</span>
+<span class="sd">        Optional error code.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">code</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">code</span> <span class="o">=</span> <span class="n">code</span></div>
+
+
+
+<div class="viewcode-block" id="EDSError">
+<a class="viewcode-back" href="../../../_api/autoemxsp.utils.helper.html#autoemxsp.utils.helper.EDSError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">EDSError</span><span class="p">(</span><span class="n">EMError</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Custom exception class for EDS-related errors.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    message : str</span>
+<span class="sd">        Description of the error.</span>
+<span class="sd">    code : int, optional</span>
+<span class="sd">        Optional error code.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">code</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">code</span><span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Andrea Giunto.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

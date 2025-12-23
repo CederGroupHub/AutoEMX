@@ -1,0 +1,641 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>autoemxsp.core.EM_particle_finder module &mdash; AutoEMXSp 0.1.6 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=6e0256f3"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="autoemxsp.core.XSp_fitter module" href="autoemxsp.core.XSp_fitter.html" />
+    <link rel="prev" title="autoemxsp.core.EM_controller module" href="autoemxsp.core.EM_controller.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            AutoEMXSp
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../user/index.html">User Documentation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced User Documentation:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../advanced_user/index.html">Advanced User Documentation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/sdd_calib.html">EDS Detector Calibration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/new_exp_stds.html">EDS Experimental Standard Collection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/new_XSpdetector.html">Calibrate a new Detector for EDS fit and quantification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/new_EMdriver.html">Add new Electron Microscope Driver</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../advanced_user/advanced_api.html">AutoEMXSp Public API</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.XSp_calibs.html">autoemxsp.XSp_calibs package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.EM_driver.html">autoemxsp.EM_driver package</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="autoemxsp.core.html">autoemxsp.core package</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.core.html#subpackages">Subpackages</a></li>
+<li class="toctree-l4 current"><a class="reference internal" href="autoemxsp.core.html#submodules">Submodules</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">AutoEMXSp</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../advanced_user/index.html">Advanced User Documentation</a></li>
+          <li class="breadcrumb-item"><a href="../advanced_user/advanced_api.html">AutoEMXSp Public API</a></li>
+          <li class="breadcrumb-item"><a href="autoemxsp.core.html">autoemxsp.core package</a></li>
+      <li class="breadcrumb-item active">autoemxsp.core.EM_particle_finder module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/_api/autoemxsp.core.EM_particle_finder.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-autoemxsp.core.EM_particle_finder">
+<span id="autoemxsp-core-em-particle-finder-module"></span><h1>autoemxsp.core.EM_particle_finder module<a class="headerlink" href="#module-autoemxsp.core.EM_particle_finder" title="Link to this heading"></a></h1>
+<p>Automated Electron Microscopy (EM) Particle Analysis Toolkit</p>
+<p>This module provides the EM_Particle_Finder class for particle detection, selection of X-ray spectra (EDS, WDS) acquisition spots,
+and particle size/statistics analysis.
+It is designed to interface with an EM driver and an EM_Controller object to streamline the workflow from image acquisition to data export.</p>
+<p>Currently only supports SEM.</p>
+<section id="main-class">
+<h2>Main Class<a class="headerlink" href="#main-class" title="Link to this heading"></a></h2>
+<dl class="simple">
+<dt>EM_Particle_Finder</dt><dd><p>Automates particle detection, mask generation, and X-ray spectra spot selection on detected particles.
+Supports both fully automated and manual (user-guided) collection modes.
+Provides methods for collecting particle statistics and managing frame navigation.</p>
+</dd>
+</dl>
+</section>
+<section id="example-usage">
+<h2>Example Usage<a class="headerlink" href="#example-usage" title="Link to this heading"></a></h2>
+<p># EDS spot acquisition workflow:
+&gt;&gt;&gt; EM_controller = EM_Controller(…)
+&gt;&gt;&gt; EM_controller.initialise_SEM()
+&gt;&gt;&gt; particle_finder = EM_Particle_Finder(EM_controller, PowderMeasurementConfig, …)
+&gt;&gt;&gt; while particle_finder.go_to_next_particle():
+…     xy_spot_list = particle_finder.get_XS_acquisition_spots_coord_list()
+…     for (x,y) in xy_spot_list:
+…         EM_controller.acquire_XS_spectrum()</p>
+<p># Particle analysis workflow:
+&gt;&gt;&gt; EM_controller = EM_Controller(…)
+&gt;&gt;&gt; EM_controller.initialise_SEM()
+&gt;&gt;&gt; particle_finder = EM_Particle_Finder(EM_controller, PowderMeasurementConfig, results_dir=”./results”)
+&gt;&gt;&gt; particle_finder.get_particle_stats(n_par_target=500)</p>
+<p class="rubric">Notes</p>
+<ul>
+<li><p>Requires an initialised EM_Controller object, unless used in development mode</p></li>
+<li><dl>
+<dt>Requires a working EM_driver and appropriate hardware configuration, with the following API functions:</dt><dd><ul class="simple">
+<li><dl class="simple">
+<dt>is_at_EM</dt><dd><p>Boolean attribute; True if running at the actual electron microscope.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>get_image_data(width, height, channel)</dt><dd><p>Acquire an image from the microscope with specified dimensions and channels.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>get_frame_width()</dt><dd><p>Get the current field of view/frame width (in mm).</p>
+</dd>
+</dl>
+</li>
+</ul>
+<ul class="simple">
+<li><dl class="simple">
+<dt>move_to(x, y)</dt><dd><p>Move the microscope stage to the specified (x, y) position.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+<p>Created on Wed Jul 31 09:28:07 2024</p>
+<p>&#64;author: Andrea</p>
+</section>
+<dl class="py class">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_particle_finder.EM_Particle_Finder">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoemxsp.core.EM_particle_finder.</span></span><span class="sig-name descname"><span class="pre">EM_Particle_Finder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">EM_controller</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">powder_meas_cfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.PowderMeasurementConfig" title="autoemxsp.config.classes.PowderMeasurementConfig"><span class="pre">PowderMeasurementConfig</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_manual_particle_selection</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">results_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">development_mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/core/EM_particle_finder.html#EM_Particle_Finder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_particle_finder.EM_Particle_Finder" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Automated particle analysis and X-ray spectra (EDS, WDS) acquisition in an electron microscope (EM).</p>
+<p>This class provides methods for particle detection, selection of X-ray spectra (EDS, WDS) acquisition spots,
+and particle size/statistics analysis.
+It is designed to interface with an EM driver and an EM_Controller object to streamline the workflow from
+image acquisition to data export.</p>
+<section id="main-methods">
+<h2>Main Methods<a class="headerlink" href="#main-methods" title="Link to this heading"></a></h2>
+<dl class="simple">
+<dt>initialise_SEM()</dt><dd><p>Wakes up the SEM microscope, sets measurement parameters, and evaluates locations to scan for particles.</p>
+</dd>
+<dt>go_to_next_particle()</dt><dd><p>Locates and moves to the next detected particle.</p>
+</dd>
+<dt>get_XS_acquisition_spots_coord_list()</dt><dd><p>Determines X-ray spectra (EDS, WDS) acquisition spots on the currently detected particle.</p>
+</dd>
+<dt>get_particle_stats()</dt><dd><p>Scans the full sample, collecting particle size distribution statistics.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<p># EDS spot acquisition workflow:
+&gt;&gt;&gt; EM_controller = EM_Controller(…)
+&gt;&gt;&gt; EM_controller.initialise_SEM()
+&gt;&gt;&gt; particle_finder = EM_Particle_Finder(EM_controller, PowderMeasurementConfig, …)
+&gt;&gt;&gt; while particle_finder.go_to_next_particle():
+…     xy_spot_list = particle_finder.get_XS_acquisition_spots_coord_list()
+…     for (x,y) in xy_spot_list:
+…         EM_controller.acquire_XS_spectrum()</p>
+<p># Particle analysis workflow:
+&gt;&gt;&gt; EM_controller = EM_Controller(…)
+&gt;&gt;&gt; EM_controller.initialise_SEM()
+&gt;&gt;&gt; particle_finder = EM_Particle_Finder(EM_controller, PowderMeasurementConfig, results_dir=”./results”)
+&gt;&gt;&gt; particle_finder.get_particle_stats(n_par_target=500)</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_particle_finder.EM_Particle_Finder.EM">
+<span class="sig-name descname"><span class="pre">EM</span></span><a class="headerlink" href="#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.EM" title="Link to this definition"></a></dt>
+<dd><p>Reference to the parent EM_Controller instance (must be initialised before use).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Controller" title="autoemxsp.core.EM_controller.EM_Controller">EM_Controller</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_particle_finder.EM_Particle_Finder.powder_meas_cfg">
+<span class="sig-name descname"><span class="pre">powder_meas_cfg</span></span><a class="headerlink" href="#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.powder_meas_cfg" title="Link to this definition"></a></dt>
+<dd><p>Configuration object for powder measurement (see dataclass for details).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.PowderMeasurementConfig" title="autoemxsp.config.classes.PowderMeasurementConfig">PowderMeasurementConfig</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_particle_finder.EM_Particle_Finder.is_manual_particle_selection">
+<span class="sig-name descname"><span class="pre">is_manual_particle_selection</span></span><a class="headerlink" href="#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.is_manual_particle_selection" title="Link to this definition"></a></dt>
+<dd><p>If True, prompts user to center image around next particle to analyse.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_particle_finder.EM_Particle_Finder.results_dir">
+<span class="sig-name descname"><span class="pre">results_dir</span></span><a class="headerlink" href="#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.results_dir" title="Link to this definition"></a></dt>
+<dd><p>Directory for saving result images and data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str or None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_particle_finder.EM_Particle_Finder.verbose">
+<span class="sig-name descname"><span class="pre">verbose</span></span><a class="headerlink" href="#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.verbose" title="Link to this definition"></a></dt>
+<dd><p>If True, print progress and information to the console.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_particle_finder.EM_Particle_Finder.development_mode">
+<span class="sig-name descname"><span class="pre">development_mode</span></span><a class="headerlink" href="#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.development_mode" title="Link to this definition"></a></dt>
+<dd><p>If True, enables extra visualizations and debug image saving.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">Internal</span> <span class="pre">Attributes</span></span></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">-------------------</span></span></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_particle_finder.EM_Particle_Finder._sample_ID">
+<span class="sig-name descname"><span class="pre">_sample_ID</span></span><a class="headerlink" href="#autoemxsp.core.EM_particle_finder.EM_Particle_Finder._sample_ID" title="Link to this definition"></a></dt>
+<dd><p>Identifier for the sample. Inherited from EM_Controller.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_particle_finder.EM_Particle_Finder._im_width">
+<span class="sig-name descname"><span class="pre">_im_width</span></span><a class="headerlink" href="#autoemxsp.core.EM_particle_finder.EM_Particle_Finder._im_width" title="Link to this definition"></a></dt>
+<dd><p>Image width in pixels. Inherited from EM_Controller.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_particle_finder.EM_Particle_Finder._im_height">
+<span class="sig-name descname"><span class="pre">_im_height</span></span><a class="headerlink" href="#autoemxsp.core.EM_particle_finder.EM_Particle_Finder._im_height" title="Link to this definition"></a></dt>
+<dd><p>Image height in pixels. Inherited from EM_Controller.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_particle_finder.EM_Particle_Finder.tot_par_cntr">
+<span class="sig-name descname"><span class="pre">tot_par_cntr</span></span><a class="headerlink" href="#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.tot_par_cntr" title="Link to this definition"></a></dt>
+<dd><p>Counter for the total number of particles analyzed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_particle_finder.EM_Particle_Finder.analyzed_pars">
+<span class="sig-name descname"><span class="pre">analyzed_pars</span></span><a class="headerlink" href="#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.analyzed_pars" title="Link to this definition"></a></dt>
+<dd><p>List storing tuple containing Particle ID, Frame ID and particles areas (in μm²) of each detected particle.
+Used only when collecting particles size distribution statistics</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list(tuple(int, str, float))</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>This class assumes that an EM_Controller object is already initialised and passed as <cite>EM_controller</cite>.</p></li>
+<li><p>All configuration validation is performed in the respective dataclasses.</p></li>
+<li><p>Attributes with a leading underscore are for internal use and should not be accessed directly by users.</p></li>
+</ul>
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_particle_finder.EM_Particle_Finder.go_to_next_particle">
+<span class="sig-name descname"><span class="pre">go_to_next_particle</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/core/EM_particle_finder.html#EM_Particle_Finder.go_to_next_particle"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.go_to_next_particle" title="Link to this definition"></a></dt>
+<dd><p>Moves the microscope to the next particle, centering and zooming on it.
+It also re-adjusts brightness, contrast and focus.</p>
+<p>In automated mode, this function finds the next particle in the current frame.
+If all particles in the frame have been analyzed, it advances to the next frame
+and searches for particles there. It then moves the stage to center the next
+particle and zooms in. In manual mode, it prompts the user for input.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>True if it could successfully move to a particle.
+False if no more particles are present in the sample or if execution is stopped by the user.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_particle_finder.EM_Particle_Finder.is_particle_at_frame_edge">
+<span class="sig-name descname"><span class="pre">is_particle_at_frame_edge</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stats</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">i</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/core/EM_particle_finder.html#EM_Particle_Finder.is_particle_at_frame_edge"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.is_particle_at_frame_edge" title="Link to this definition"></a></dt>
+<dd><p>Determines whether a particle is located at or near the edge of the image frame.</p>
+<p>A margin is used to account for detection tolerances. If any part of the particle’s bounding box
+is within <cite>pixel_margin</cite> pixels of the image border, it is considered to be at the edge.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>stats</strong> (<em>ndarray</em>) – Connected components statistics array (as returned by OpenCV), where each row corresponds
+to a detected particle and columns to bounding box info (LEFT, TOP, WIDTH, HEIGHT, etc.).</p></li>
+<li><p><strong>i</strong> (<em>int</em>) – Index of the particle in the stats array.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>True if the particle is at or near the edge of the image frame, False otherwise.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_particle_finder.EM_Particle_Finder.prepare_mask_for_visualization">
+<span class="sig-name descname"><span class="pre">prepare_mask_for_visualization</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mask</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span></span></span><a class="reference internal" href="../_modules/autoemxsp/core/EM_particle_finder.html#EM_Particle_Finder.prepare_mask_for_visualization"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.prepare_mask_for_visualization" title="Link to this definition"></a></dt>
+<dd><p>Prepare a segmentation mask for visualization.</p>
+<p>Behavior:
+- Binary masks with values in {0, 1} are scaled to [0, 255].
+- Binary masks with values in {0, 255} are returned unchanged.
+- Integer label masks have brightness reversed so higher labels are brighter,</p>
+<blockquote>
+<div><p>with a minimum brightness of 30 for positive values. Background (0) remains black.</p>
+</div></blockquote>
+<ul class="simple">
+<li><p>Floating-point masks are normalized to [0, 255] with the same rules for
+positive values and background.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_particle_finder.EM_Particle_Finder.get_XS_acquisition_spots_coord_list">
+<span class="sig-name descname"><span class="pre">get_XS_acquisition_spots_coord_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_tot_sp_collected</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">par_image</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pixel_size_um</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">results_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/core/EM_particle_finder.html#EM_Particle_Finder.get_XS_acquisition_spots_coord_list"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.get_XS_acquisition_spots_coord_list" title="Link to this definition"></a></dt>
+<dd><p>Returns a list of coordinates (relative, in the current image) for X-ray spectrum spot collection on a particle.</p>
+<p>The function finds a suitable particle mask, erodes the mask to avoid particle edges, finds bright regions (or peak spots),
+and selects up to <cite>powder_meas_cfg.max_spectra_per_par</cite> spots per particle with a minimum distance between them (determined through ‘powder_meas_cfg.par_mask_margin’).
+The selection strategy for features and spacing can be controlled via powder_meas_cfg.par_feature_selection and powder_meas_cfg.par_spot_spacing.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n_tot_sp_collected</strong> (<em>int</em>) – Counter for the total number of spectra collected (used for labeling).</p></li>
+<li><p><strong>par_image</strong> (<em>ndarray</em><em>, </em><em>optional</em>) – Grayscale image of the current frame. If not provided and running at the SEM, the image is acquired.</p></li>
+<li><p><strong>pixel_size_um</strong> (<em>float</em><em>, </em><em>optional</em>) – Pixel size in micrometers. Required if not running at the SEM.</p></li>
+<li><p><strong>results_dir</strong> (<em>str</em><em>, </em><em>optional</em>) – Directory to save result images.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul>
+<li><p><strong>pts_rel_coords</strong> (<em>ndarray</em>) – Array of selected (x, y) spot coordinates in relative units (centered at 0).</p>
+<p>The coordinates are expressed in a normalized, aspect-ratio-correct system centered at the image center:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>The origin (0, 0) is at the image center.</p></li>
+<li><p>The x-axis is horizontal, increasing to the right, ranging from -0.5 (left) to +0.5 (right).</p></li>
+<li><dl class="simple">
+<dt>The y-axis is vertical, increasing downward, and scaled by the aspect ratio (height/width):</dt><dd><ul>
+<li><p>Top edge:    y = -0.5 × (height / width)</p></li>
+<li><p>Bottom edge: y = +0.5 × (height / width)</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+<div class="line-block">
+<div class="line">(-0.5, -0.5*height/width)         (0.5, -0.5*height/width)</div>
+<div class="line-block">
+<div class="line">+————————-+</div>
+<div class="line">|                         |</div>
+<div class="line">|                         |</div>
+<div class="line">|           +(0,0)        <a href="#id1"><span class="problematic" id="id2">|</span></a>—–&gt; +x</div>
+<div class="line">|                         |</div>
+<div class="line">|                         |</div>
+</div>
+</div>
+<dl class="simple">
+<dt>v  +y                   +————————-+</dt><dd><p>(-0.5,  0.5*height/width)         (0.5, 0.5*height/width)</p>
+</dd>
+</dl>
+</div></blockquote>
+<p>This ensures the coordinate system is always centered and aspect-ratio-correct, regardless of image size.</p>
+</li>
+<li><p><em>Potential Improvements</em></p></li>
+<li><p><em>———————</em></p></li>
+<li><p><em>- Select points to ensure all phases are individuated, biasing spot selection to ensure representation</em> – of phases with different bright/dark contrast. Currently, only the brightest spots are picked,
+which may miss some phases.</p></li>
+<li><p><em>- Add detection of both peaks and valleys to ensure both bright and dark spots are tested.</em></p></li>
+<li><p><em>- Exclude points that are close to larger particles along the X-ray emission path to the EDS detector,</em> – as these may absorb emitted X-rays and degrade spectral signal.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_particle_finder.EM_Particle_Finder.get_particle_stats">
+<span class="sig-name descname"><span class="pre">get_particle_stats</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_par_target</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/core/EM_particle_finder.html#EM_Particle_Finder.get_particle_stats"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.get_particle_stats" title="Link to this definition"></a></dt>
+<dd><p>Analyze frames to collect and save statistics on particle sizes until a desired number of particles is reached.</p>
+<p>This function is to be used on its own after microscope initialization.
+It iteratively analyzes frames, detects particles, filters and records their areas, and
+continues until <cite>n_par_target</cite> particles have been analyzed or no more frames are available.
+It saves both individual particle data and summary statistics, and generates a histogram of the size distribution.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>n_par_target</strong> (<em>int</em>) – The desired number of particles to analyze.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul>
+<li><p><strong>par_size_distr_df</strong> (<em>pandas.DataFrame</em>) – A single-row DataFrame containing summary statistics of the analyzed particle size distribution.
+The columns include:</p>
+<blockquote>
+<div><ul class="simple">
+<li><dl class="simple">
+<dt>’measurement’<span class="classifier">str</span></dt><dd><p>Description of the measurement (e.g., ‘equivalent particle diameter in μm’).</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>’n_par_analysed’<span class="classifier">int</span></dt><dd><p>Number of particles analyzed.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>’mean’<span class="classifier">float</span></dt><dd><p>Mean equivalent particle diameter (μm).</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>’stdev’<span class="classifier">float</span></dt><dd><p>Standard deviation of the equivalent particle diameter (μm).</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>’median’<span class="classifier">float</span></dt><dd><p>Median equivalent particle diameter (μm).</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>’max’<span class="classifier">float</span></dt><dd><p>Maximum equivalent particle diameter (μm).</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>’min’<span class="classifier">float</span></dt><dd><p>Minimum equivalent particle diameter (μm).</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>’D10’<span class="classifier">float</span></dt><dd><p>10th percentile of the equivalent particle diameter (μm).</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>’D25’<span class="classifier">float</span></dt><dd><p>25th percentile of the equivalent particle diameter (μm).</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>’D75’<span class="classifier">float</span></dt><dd><p>75th percentile of the equivalent particle diameter (μm).</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>’D90’<span class="classifier">float</span></dt><dd><p>90th percentile of the equivalent particle diameter (μm).</p>
+</dd>
+</dl>
+</li>
+</ul>
+</div></blockquote>
+<p>This DataFrame is also saved as a CSV file in the results directory.</p>
+</li>
+<li><p><em>Side Effects</em></p></li>
+<li><p><em>————</em></p></li>
+<li><ul class="simple">
+<li><p>Updates <cite>self.analyzed_pars</cite> with new particle areas (in μm²), and corresponding frame_label.</p></li>
+</ul>
+</li>
+<li><p><em>- Saves a CSV file with all particle areas and equivalent diameters.</em></p></li>
+<li><p><em>- Saves a CSV file with summary statistics (mean, stdev, median, percentiles).</em></p></li>
+<li><p><em>- Saves a histogram plot of the equivalent diameters as a PNG file.</em></p></li>
+<li><ul class="simple">
+<li><p>Prints information and warnings to the console if <cite>self.verbose</cite> is True.</p></li>
+</ul>
+</li>
+</ul>
+</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>The function relies on <cite>_move_and_get_particles_stats_in_frame()</cite> to process each frame and find new particles.</p></li>
+<li><p>If no particles are found or frames are exhausted, the function will print a warning and exit early.</p></li>
+<li><p>Equivalent diameters are computed assuming each particle is a circle of the same area.</p></li>
+<li><p>The function sorts particle areas to facilitate percentile calculations.</p></li>
+<li><p>The function handles cases where particles are very small or indistinguishable in area.</p></li>
+</ul>
+<section id="potential-improvements-todo">
+<h3>Potential Improvements / TODO<a class="headerlink" href="#potential-improvements-todo" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><dl class="simple">
+<dt>Ideally the software should autonomously measure different particle sizes at different frame widths.</dt><dd><p>At the moment, it requires a specific range to be selected, and filters out particles outside this range.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Particles at frame edges are currently ignored. Ideally, they should be included by centering the stage around them, and</dt><dd><p>recording their area</p>
+</dd>
+</dl>
+</li>
+<li><p>Add robust error handling for file I/O and plotting.</p></li>
+<li><p>Optionally return summary statistics as a dictionary or DataFrame for further programmatic use.</p></li>
+</ul>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_particle_finder.EM_Particle_Finder.save_particle_statistics">
+<span class="sig-name descname"><span class="pre">save_particle_statistics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output_file_suffix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/core/EM_particle_finder.html#EM_Particle_Finder.save_particle_statistics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.save_particle_statistics" title="Link to this definition"></a></dt>
+<dd><p>Process particle area data, compute summary statistics,
+export results, and produce a particle size histogram.</p>
+<p>This method:
+1. Extracts particle areas (μm²) and associated frame labels.
+2. Optionally warns if two smallest particles have identical area (potential imaging resolution issue).
+3. Calculates equivalent diameters assuming circular particles.
+4. Saves raw particle data to CSV.
+5. Computes descriptive statistics and saves them to CSV.
+6. Generates and saves a histogram plot of particle sizes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>output_file_suffix</strong> (<em>str</em><em>, </em><em>optional</em>) – String added to output file name</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>DataFrame containing the calculated particle size statistics.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pandas.DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="autoemxsp.core.EM_controller.html" class="btn btn-neutral float-left" title="autoemxsp.core.EM_controller module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="autoemxsp.core.XSp_fitter.html" class="btn btn-neutral float-right" title="autoemxsp.core.XSp_fitter module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Andrea Giunto.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

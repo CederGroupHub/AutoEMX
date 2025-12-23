@@ -1,0 +1,422 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>autoemxsp.XSp_calibs &mdash; AutoEMXSp 0.1.6 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=6e0256f3"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            AutoEMXSp
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../user/index.html">User Documentation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../advanced_user/index.html">Advanced User Documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">AutoEMXSp</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">autoemxsp.XSp_calibs</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for autoemxsp.XSp_calibs</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Calibration Loader for SEM EDS Analysis</span>
+
+<span class="sd">This module provides a function to dynamically load and inject</span>
+<span class="sd">microscope-specific calibration parameters and functions into the caller&#39;s namespace.</span>
+
+<span class="sd">Usage from other modules:</span>
+<span class="sd">    import XSp_calibs as calibs </span>
+<span class="sd">    calibs.load_microscope_calibrations(microscope_ID =&#39;PhenomXL&#39;, meas_mode = &#39;point&#39;, load_detector_channel_params = True)</span>
+
+<span class="sd">Author: Andrea Giunto</span>
+<span class="sd">Created on: Mon Jan 20 15:40:42 2025</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">importlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">autoemxsp.utils.constants</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cnst</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">autoemxsp.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">print_single_separator</span>
+
+<span class="n">microscope_calibrations_loaded</span> <span class="o">=</span> <span class="kc">False</span>
+<div class="viewcode-block" id="load_microscope_calibrations">
+<a class="viewcode-back" href="../../_api/autoemxsp.XSp_calibs.html#autoemxsp.XSp_calibs.load_microscope_calibrations">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_microscope_calibrations</span><span class="p">(</span>
+    <span class="n">microscope_ID</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">meas_mode</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">load_detector_channel_params</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Dynamically load calibration parameters for a given microscope and EDS mode.</span>
+
+<span class="sd">    This function imports all public attributes from the calibration module</span>
+<span class="sd">    corresponding to the specified microscope_ID and injects them into the</span>
+<span class="sd">    current module&#39;s namespace.</span>
+<span class="sd">    </span>
+<span class="sd">    Optionally, it also loads the latest detector channel parameters. This is only needed during</span>
+<span class="sd">    spectra acquisition, not when fitting or quantifying. In the latter cases, the detector channel</span>
+<span class="sd">    parameters should be loaded from the measurement files diurectly.</span>
+
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    microscope_ID : str</span>
+<span class="sd">        The name of the microscope (must match a folder in the calibration directory).</span>
+<span class="sd">    meas_mode : str, Optional</span>
+<span class="sd">        If provided, it checks whether it is included in the available_meas_modes.</span>
+<span class="sd">        The EDS mode to use (must be listed in &#39;available_meas_modes&#39; in the calibration module).</span>
+<span class="sd">    load_detector_channel_params : bool, optional</span>
+<span class="sd">        If True, loads the latest detector channel parameters as well (default: False).</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If the calibration directory or module cannot be found, or if the meas_mode is invalid.</span>
+<span class="sd">    AttributeError</span>
+<span class="sd">        If the calibration module does not define &#39;available_meas_modes&#39;.</span>
+<span class="sd">    FileNotFoundError</span>
+<span class="sd">        If no detector channel calibration file is found.</span>
+
+<span class="sd">    Warning</span>
+<span class="sd">    -------</span>
+<span class="sd">    This function injects variables and functions into the module namespace.</span>
+<span class="sd">    Use with care to avoid name collisions.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Build the path and check for microscope calibration directory</span>
+    <span class="k">global</span> <span class="n">microscope_calib_dir</span>
+    <span class="n">microscope_calib_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span>
+        <span class="n">cnst</span><span class="o">.</span><span class="n">MICROSCOPES_CALIBS_DIR</span><span class="p">,</span>
+        <span class="n">microscope_ID</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">microscope_calib_dir</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Could not find the microscope calibration folder at &#39;</span><span class="si">{</span><span class="n">microscope_calib_dir</span><span class="si">}</span><span class="s2">&#39;.</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Please ensure microscope_ID (&#39;</span><span class="si">{</span><span class="n">microscope_ID</span><span class="si">}</span><span class="s2">&#39;) matches a folder in &#39;</span><span class="si">{</span><span class="n">cnst</span><span class="o">.</span><span class="n">MICROSCOPES_CALIBS_DIR</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Build the module name for importlib</span>
+    <span class="n">module_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;.</span><span class="si">{</span><span class="n">cnst</span><span class="o">.</span><span class="n">MICROSCOPES_CALIBS_DIR</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">microscope_ID</span><span class="si">}</span><span class="s2">.XS_calibrations&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">mod</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">module_name</span><span class="p">,</span> <span class="n">package</span><span class="o">=</span><span class="vm">__name__</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ModuleNotFoundError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Could not find the calibration module for microscope_ID &#39;</span><span class="si">{</span><span class="n">microscope_ID</span><span class="si">}</span><span class="s2">&#39;.</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Tried to import: </span><span class="si">{</span><span class="n">module_name</span><span class="si">}</span><span class="s2"> (relative to package &#39;</span><span class="si">{</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&#39;).&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+    <span class="c1"># Inject all public attributes from the calibration module into this module</span>
+    <span class="n">thismod</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="p">[</span><span class="vm">__name__</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">dir</span><span class="p">(</span><span class="n">mod</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">):</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="n">thismod</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="n">k</span><span class="p">))</span>
+    
+    <span class="c1"># Validate the meas_mode</span>
+    <span class="k">if</span> <span class="n">meas_mode</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="s2">&quot;available_meas_modes&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;The calibration module for &#39;</span><span class="si">{</span><span class="n">microscope_ID</span><span class="si">}</span><span class="s2">&#39; does not define &#39;available_meas_modes&#39;.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">meas_mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">mod</span><span class="o">.</span><span class="n">available_meas_modes</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Entered meas_mode &#39;</span><span class="si">{</span><span class="n">meas_mode</span><span class="si">}</span><span class="s2">&#39; is not valid for microscope &#39;</span><span class="si">{</span><span class="n">microscope_ID</span><span class="si">}</span><span class="s2">&#39;.</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Available modes: </span><span class="si">{</span><span class="n">mod</span><span class="o">.</span><span class="n">available_meas_modes</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="s2">&quot;Change values in the microscope calibration file if this is undesired behavior.&quot;</span>
+            <span class="p">)</span>
+    
+    <span class="k">global</span> <span class="n">microscope_calibrations_loaded</span>
+    <span class="n">microscope_calibrations_loaded</span> <span class="o">=</span> <span class="kc">True</span>
+    
+    <span class="c1"># Optionally load detector channel parameters and check for the required meas_mode</span>
+    <span class="k">if</span> <span class="n">load_detector_channel_params</span><span class="p">:</span>
+        <span class="n">load_latest_detector_channel_params</span><span class="p">(</span><span class="n">meas_mode</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="load_latest_detector_channel_params">
+<a class="viewcode-back" href="../../_api/autoemxsp.XSp_calibs.html#autoemxsp.XSp_calibs.load_latest_detector_channel_params">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_latest_detector_channel_params</span><span class="p">(</span><span class="n">meas_mode</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load the latest detector channel parameters for a given measurement mode.</span>
+
+<span class="sd">    This function retrieves the most recent detector channel calibration parameters</span>
+<span class="sd">    (such as beam current, energy scale, and offset) for the specified measurement mode.</span>
+<span class="sd">    It ensures that all required calibration keys are present before returning.</span>
+
+<span class="sd">    The parameters are loaded via the `get_latest_detector_channel_params()` function,</span>
+<span class="sd">    which must populate the global `detector_channel_params` dictionary.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    meas_mode : str</span>
+<span class="sd">        The measurement mode for which detector channel parameters are requested.</span>
+<span class="sd">        Must be one of the modes available in `detector_channel_params`.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    RuntimeError</span>
+<span class="sd">        If `detector_channel_params` is not loaded into the global namespace.</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If the requested `meas_mode` is not present in `detector_channel_params`.</span>
+<span class="sd">    KeyError</span>
+<span class="sd">        If one or more required calibration keys are missing for the given `meas_mode`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">required_XS_calib_keys</span> <span class="o">=</span> <span class="p">[</span><span class="n">cnst</span><span class="o">.</span><span class="n">BEAM_CURRENT_KEY</span><span class="p">,</span> <span class="n">cnst</span><span class="o">.</span><span class="n">SCALE_KEY</span><span class="p">,</span> <span class="n">cnst</span><span class="o">.</span><span class="n">OFFSET_KEY</span><span class="p">]</span>
+    <span class="n">get_latest_detector_channel_params</span><span class="p">()</span>
+    <span class="k">if</span> <span class="s1">&#39;detector_channel_params&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="nb">globals</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Failed to load detector_channel_params.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">meas_mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">detector_channel_params</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;meas_mode &#39;</span><span class="si">{</span><span class="n">meas_mode</span><span class="si">}</span><span class="s2">&#39; not found in loaded detector_channel_params.</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Available modes: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">detector_channel_params</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+    <span class="c1"># Check that all required keys are present</span>
+    <span class="n">missing</span> <span class="o">=</span> <span class="p">[</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">required_XS_calib_keys</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">detector_channel_params</span><span class="p">[</span><span class="n">meas_mode</span><span class="p">]]</span>
+    <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;detector_channel_params for meas_mode &#39;</span><span class="si">{</span><span class="n">meas_mode</span><span class="si">}</span><span class="s2">&#39; is missing required key(s): </span><span class="si">{</span><span class="n">missing</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Present keys: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">detector_channel_params</span><span class="p">[</span><span class="n">meas_mode</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>    </div>
+
+        
+        
+<div class="viewcode-block" id="get_latest_detector_channel_params">
+<a class="viewcode-back" href="../../_api/autoemxsp.XSp_calibs.html#autoemxsp.XSp_calibs.get_latest_detector_channel_params">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_latest_detector_channel_params</span><span class="p">(</span><span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load dictionary of detector channel calibration parameters for each meas_mode.</span>
+
+<span class="sd">    Each entry contains:</span>
+<span class="sd">        - offset: float, energy offset (keV) for channel 0</span>
+<span class="sd">        - scale: float, energy bin width (keV/channel)</span>
+<span class="sd">        - spot_size: float, related to beam current</span>
+
+<span class="sd">    These parameters should be recalibrated regularly.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">        FileNotFoundError: If no detector channel calibration file is found.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+    
+    <span class="k">global</span> <span class="n">calibration_files_dir</span>
+    <span class="n">calibration_files_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">microscope_calib_dir</span><span class="p">,</span> <span class="n">cnst</span><span class="o">.</span><span class="n">DETECTOR_CHANNEL_PARAMS_CALIBR_DIR</span><span class="p">)</span>
+    <span class="n">calibration_files</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">calibration_files_dir</span><span class="p">)</span> <span class="k">if</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">cnst</span><span class="o">.</span><span class="n">DETECTOR_CHANNEL_PARAMS_CALIBR_FILENAME</span><span class="si">}</span><span class="s1">.json&#39;</span> <span class="ow">in</span> <span class="n">f</span><span class="p">]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">calibration_files</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;No detector channel parameter calibration file found in &#39;</span><span class="si">{</span><span class="n">calibration_files_dir</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+        <span class="p">)</span>
+    <span class="n">calib_file</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">calibration_files</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">calib_file_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">calibration_files_dir</span><span class="p">,</span> <span class="n">calib_file</span><span class="p">)</span>
+    
+    <span class="k">global</span> <span class="n">detector_channel_params</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">calib_file_dir</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+        <span class="n">detector_channel_params</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+        
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="n">print_single_separator</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Using detector calibration file &#39;</span><span class="si">{</span><span class="n">calib_file</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span></div>
+
+        
+
+<div class="viewcode-block" id="update_detector_channel_params">
+<a class="viewcode-back" href="../../_api/autoemxsp.XSp_calibs.html#autoemxsp.XSp_calibs.update_detector_channel_params">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">update_detector_channel_params</span><span class="p">(</span><span class="n">meas_mode</span><span class="p">,</span> <span class="n">new_offset</span><span class="p">,</span> <span class="n">new_scale</span><span class="p">,</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Update and save detector channel calibration parameters for a given measurement mode.</span>
+
+<span class="sd">    This function retrieves the latest detector channel parameters for the specified</span>
+<span class="sd">    measurement mode, updates the offset and scale values, and saves the updated</span>
+<span class="sd">    parameters to a timestamped JSON file in the calibration directory.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    meas_mode : str</span>
+<span class="sd">        The measurement mode for which parameters will be updated.</span>
+<span class="sd">        Must be present in the loaded `detector_channel_params`.</span>
+<span class="sd">    new_offset : float</span>
+<span class="sd">        The new detector channel offset value to set.</span>
+<span class="sd">    new_scale : float</span>
+<span class="sd">        The new detector channel scale value to set.</span>
+<span class="sd">    verbose : bool, optional</span>
+<span class="sd">        If True (default), prints/logs the location of the saved calibration file.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    RuntimeError</span>
+<span class="sd">        If detector channel parameters cannot be loaded.</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If the specified `meas_mode` does not exist in the parameters.</span>
+<span class="sd">    KeyError</span>
+<span class="sd">        If required calibration keys are missing from the parameters.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Ensure latest parameters are loaded and valid</span>
+    <span class="n">load_latest_detector_channel_params</span><span class="p">(</span><span class="n">meas_mode</span><span class="p">)</span>
+
+    <span class="c1"># Create an updated copy of parameters</span>
+    <span class="n">new_detector_channel_params</span> <span class="o">=</span> <span class="n">detector_channel_params</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">new_detector_channel_params</span><span class="p">[</span><span class="n">meas_mode</span><span class="p">][</span><span class="n">cnst</span><span class="o">.</span><span class="n">SCALE_KEY</span><span class="p">]</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">new_scale</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span>
+    <span class="n">new_detector_channel_params</span><span class="p">[</span><span class="n">meas_mode</span><span class="p">][</span><span class="n">cnst</span><span class="o">.</span><span class="n">OFFSET_KEY</span><span class="p">]</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">new_offset</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span>
+
+    <span class="c1"># Timestamp for filename</span>
+    <span class="n">now_str</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">_%Hh%Mm&quot;</span><span class="p">)</span>
+    <span class="n">output_file_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+        <span class="n">calibration_files_dir</span><span class="p">,</span>
+        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">now_str</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">cnst</span><span class="o">.</span><span class="n">DETECTOR_CHANNEL_PARAMS_CALIBR_FILENAME</span><span class="si">}</span><span class="s2">.json&quot;</span>
+    <span class="p">)</span>
+
+    <span class="c1"># Save updated parameters</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_file_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">new_detector_channel_params</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="n">print_single_separator</span><span class="p">()</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Calibration saved to: </span><span class="si">{</span><span class="n">output_file_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+        
+
+<div class="viewcode-block" id="load_standards">
+<a class="viewcode-back" href="../../_api/autoemxsp.XSp_calibs.html#autoemxsp.XSp_calibs.load_standards">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_standards</span><span class="p">(</span><span class="n">meas_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">beam_energy</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load standards data for a specified technique and beam energy.</span>
+<span class="sd">    </span>
+<span class="sd">    Called when performing quantifications.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    beam_energy : int</span>
+<span class="sd">        The beam energy (in keV) for which to load the standards.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    standards : dict</span>
+<span class="sd">        Dictionary containing the loaded EDS standards data.</span>
+<span class="sd">    </span>
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    FileNotFoundError</span>
+<span class="sd">        If the standards file does not exist.</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If the standards file cannot be parsed as JSON.</span>
+<span class="sd">        </span>
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    Expects a file named &#39;EDSstandards_{beam_energy}keV.json&#39; in the directory specified</span>
+<span class="sd">    by `microscope_calib_dir`.</span>
+<span class="sd">    beam_energy will be converted to an int for the file name&#39;s purpose.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">standards_dir</span>
+    <span class="n">standards_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">microscope_calib_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">meas_type</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">cnst</span><span class="o">.</span><span class="n">STD_FILENAME</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">beam_energy</span><span class="si">:</span><span class="s1">d</span><span class="si">}</span><span class="s1">keV.json&#39;</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">standards_dir</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">standards</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">json</span><span class="o">.</span><span class="n">JSONDecodeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Could not parse the standards JSON file for beam energy </span><span class="si">{</span><span class="n">beam_energy</span><span class="si">}</span><span class="s2"> keV.</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;File path: </span><span class="si">{</span><span class="n">standards_dir</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+    <span class="k">except</span> <span class="ne">FileNotFoundError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Could not find the standards file for beam energy </span><span class="si">{</span><span class="n">beam_energy</span><span class="si">}</span><span class="s2"> keV.</span><span class="se">\n</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Tried to open: </span><span class="si">{</span><span class="n">standards_dir</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+    
+    <span class="k">return</span> <span class="n">standards</span><span class="p">,</span> <span class="n">standards_dir</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Andrea Giunto.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

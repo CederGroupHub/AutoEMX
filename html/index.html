@@ -1,0 +1,232 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AutoEMXSp Documentation &mdash; AutoEMXSp 0.1.6 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=6e0256f3"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="User Documentation" href="user/index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="#" class="icon icon-home">
+            AutoEMXSp
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="user/index.html">User Documentation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="advanced_user/index.html">Advanced User Documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">AutoEMXSp</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">AutoEMXSp Documentation</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="autoemxsp-documentation">
+<h1>AutoEMXSp Documentation<a class="headerlink" href="#autoemxsp-documentation" title="Link to this heading"></a></h1>
+<p>Welcome to <code class="docutils literal notranslate"><span class="pre">AutoEMXSp</span></code>, a Python package for <strong>Automated Electron Microscopy
+X-ray Spectroscopy</strong>.</p>
+<p><cite>AutoEMXSp</cite> is a framework for running <strong>automated acquisition and analysis
+routines</strong> on electron microscopes (EM), offering both X-ray spectroscopy
+and image acquisition and analysis workflows.</p>
+<p><cite>AutoEMXSp</cite> currently supports <strong>Energy-Dispersive X-ray Spectroscopy (EDS)</strong>
+in <strong>Scanning Electron Microscopy (SEM)</strong>.</p>
+<p>The package was primarily conceived for <strong>automated EDS compositional analysis</strong>,
+but it also includes scripts for <strong>automated particle size distribution
+measurements</strong> based on SEM imaging.</p>
+<dl class="simple">
+<dt>This work is described in:</dt><dd><p>A. Giunto <em>et al.</em>, <em>Harnessing Automated SEM-EDS and Machine Learning to Unlock
+High-Throughput Compositional Characterization of Powder Materials</em>, 2025.
+DOI: <a class="reference external" href="https://doi.org/10.21203/rs.3.rs-7837297/v1">https://doi.org/10.21203/rs.3.rs-7837297/v1</a></p>
+</dd>
+</dl>
+<p>Please cite this work if you use <code class="docutils literal notranslate"><span class="pre">AutoEMXSp</span></code>.</p>
+<section id="key-features">
+<h2>Key Features<a class="headerlink" href="#key-features" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><dl class="simple">
+<dt><strong>Fully automated SEM-EDS compositional analysis of samples</strong>, integrating:</dt><dd><ul>
+<li><p><strong>Live SEM control</strong> for particle identification and EDS spectral acquisition</p></li>
+<li><p><strong>EDS spectra quantification</strong> using the peak-to-background method</p></li>
+<li><p><strong>Rule-based filtering</strong> of compositions to discard poorly quantified spectra</p></li>
+<li><p><strong>Unsupervised machine learning–based compositional analysis</strong> to identify the
+compositions of individual phases in the sample</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>Manual single/multiple EDS spectra quantification</p></li>
+<li><p><strong>Automated experimental standard collection</strong> scripts</p></li>
+<li><p><strong>Automated particle size distribution measurement</strong> scripts</p></li>
+<li><p><strong>Extensible architecture</strong>, adaptable to other techniques such as:
+- Wavelength Dispersive Spectroscopy (WDS)
+- Scanning Transmission Electron Microscopy (STEM) with EDS</p></li>
+<li><p><strong>Extensible hardware support</strong>, including a driver for the
+ThermoFisher Phenom Desktop SEM series, and adaptable to any electron
+microscope exposing a Python API</p></li>
+</ul>
+</section>
+<section id="supported-use-cases">
+<h2>Supported Use Cases<a class="headerlink" href="#supported-use-cases" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Powders and rough samples (e.g. rough films or pellets)</p></li>
+<li><p>Scanning Electron Microscopy (SEM) with Energy-Dispersive Spectroscopy (EDS)</p></li>
+</ul>
+</section>
+<section id="demo">
+<h2>Demo<a class="headerlink" href="#demo" title="Link to this heading"></a></h2>
+<p>Watch <code class="docutils literal notranslate"><span class="pre">AutoEMXSp</span></code> in action on a desktop SEM–EDS system:
+<a class="reference external" href="https://youtu.be/Bym58gNxlj0">https://youtu.be/Bym58gNxlj0</a></p>
+</section>
+<section id="performance">
+<h2>Performance<a class="headerlink" href="#performance" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><strong>Benchmarked</strong> on 74 single-phase samples spanning <strong>38 elements</strong>
+(from nitrogen to bismuth), achieving <strong>&lt;5–10% relative deviation</strong> from
+expected values</p></li>
+<li><p><strong>Machine learning–based compositional analysis</strong> detects individual phase
+compositions in <strong>multi-phase samples</strong>, including minor phases</p></li>
+<li><p><strong>Intermixed phases</strong> can also be resolved</p></li>
+</ul>
+<p>See <a class="reference external" href="https://doi.org/10.21203/rs.3.rs-7837297/v1">https://doi.org/10.21203/rs.3.rs-7837297/v1</a> for more details</p>
+</section>
+<section id="requirements">
+<h2>Requirements<a class="headerlink" href="#requirements" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>Python 3.11 or above</p></li>
+<li><p>Electron Microscope provided with an API.
+<code class="docutils literal notranslate"><span class="pre">AutoEMXSp</span></code> comes with a driver for Thermofisher PyPhenom. For different microscopes,
+the EM_driver must be adapted (see <a class="reference internal" href="advanced_user/new_EMdriver.html#advanced-new-em-driver"><span class="std std-ref">EM Driver Set Up</span></a>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AutoEMXSp</span></code> comes with EDS calibrations for the Thermofisher Phenom XL series. Different microscopes or detectors
+require recalibration (see <a class="reference internal" href="advanced_user/new_XSpdetector.html#advanced-new-xsp-calibs"><span class="std std-ref">Calibrating EDS</span></a>).</p></li>
+</ul>
+</section>
+<section id="scope-of-the-documentation">
+<h2>Scope of the Documentation<a class="headerlink" href="#scope-of-the-documentation" title="Link to this heading"></a></h2>
+<p>This documentation is intended for <strong>both standard and advanced users</strong> of the
+AutoEMXSp package.</p>
+<ul>
+<li><p><strong>Standard users</strong></p>
+<p>You run predefined scripts and calibrate the Silicon Drift Detector (SDD)
+without any prior knowledge of the internal code structure.
+The documentation provides <strong>step-by-step instructions</strong> to help you get
+started quickly.</p>
+</li>
+<li><p><strong>Advanced users</strong></p>
+<p>You interact with AutoEMXSp beyond simple script execution.
+This documentation guides you through the <strong>initial configuration and setup</strong>
+required to deploy AutoEMXSp on a <strong>new microscope</strong> and adapt it to new
+experimental workflows.</p>
+</li>
+</ul>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="user/index.html">User Documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="user/installation.html">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/quickstart.html">Quickstart Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/tutorials.html">Tutorials</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user/api.html">AutoEMXSp Public API</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Advanced User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="advanced_user/index.html">Advanced User Documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="advanced_user/sdd_calib.html">EDS Detector Calibration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="advanced_user/new_exp_stds.html">EDS Experimental Standard Collection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="advanced_user/new_XSpdetector.html">Calibrate a new Detector for EDS fit and quantification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="advanced_user/new_EMdriver.html">Add new Electron Microscope Driver</a></li>
+<li class="toctree-l2"><a class="reference internal" href="advanced_user/advanced_api.html">AutoEMXSp Public API</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="user/index.html" class="btn btn-neutral float-right" title="User Documentation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Andrea Giunto.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

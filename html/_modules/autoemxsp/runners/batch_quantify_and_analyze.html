@@ -1,0 +1,456 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>autoemxsp.runners.batch_quantify_and_analyze &mdash; AutoEMXSp 0.1.6 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=6e0256f3"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            AutoEMXSp
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/index.html">User Documentation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced_user/index.html">Advanced User Documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">AutoEMXSp</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">autoemxsp.runners.batch_quantify_and_analyze</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for autoemxsp.runners.batch_quantify_and_analyze</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Batch quantification and analysis of X-ray spectra for a list of samples.</span>
+
+<span class="sd">This module provides automated batch quantification and (optionally) clustering/statistical</span>
+<span class="sd">analysis of acquired X-ray spectra for multiple samples. It is robust to missing files or</span>
+<span class="sd">errors in individual samples, making it suitable for unattended batch processing.</span>
+
+<span class="sd">Import this module in your own code and call the</span>
+<span class="sd">`batch_quantify_and_analyze()` function, passing your desired sample IDs and</span>
+<span class="sd">options as arguments. This enables integration into larger workflows or pipelines.</span>
+
+<span class="sd">Workflow:</span>
+<span class="sd">    - Loads sample configurations from `Spectra_collection_info.json`</span>
+<span class="sd">    - Loads acquired spectral data from `Data.csv`</span>
+<span class="sd">    - Performs quantification (optionally only on unquantified spectra)</span>
+<span class="sd">    - Optionally performs clustering/statistical analysis and saves results</span>
+
+<span class="sd">Notes</span>
+<span class="sd">-----</span>
+<span class="sd">- Only the `sample_ID` is required if acquisition output is saved in the default directory;</span>
+<span class="sd">  otherwise, specify `results_path`.</span>
+<span class="sd">- Designed to continue processing even if some samples are missing or have errors.</span>
+
+<span class="sd">Typical usage:</span>
+<span class="sd">    - Edit the `sample_IDs` list and parameter options in the script, or</span>
+<span class="sd">    - Import and call `batch_quantify_and_analyze()` with your own arguments.</span>
+<span class="sd">    </span>
+<span class="sd">Parameters</span>
+<span class="sd">----------</span>
+<span class="sd">sample_IDs : List[str]</span>
+<span class="sd">    List of sample identifiers.</span>
+<span class="sd">quantification_method : str, optional</span>
+<span class="sd">    Method to use for quantification. Uses quant_cfg.method if unspecified. Currently only supports &#39;PB&#39;.</span>
+<span class="sd">results_path : str, optional</span>
+<span class="sd">    Base directory where results are stored. Default: autoemxsp/Results</span>
+<span class="sd">min_bckgrnd_cnts : float, optional</span>
+<span class="sd">    Minimum number of background counts underneath reference peaks below which spectra are flagged.</span>
+<span class="sd">    If None, leaves it unchanged. Default: None</span>
+<span class="sd">output_filename_suffix : str, optional</span>
+<span class="sd">    Suffix to append to output filenames.</span>
+<span class="sd">use_instrument_background : bool, optional</span>
+<span class="sd">    Whether to use instrument background if present (Default: False).</span>
+<span class="sd">max_analytical_error : float, optional</span>
+<span class="sd">    Maximum allowed analytical error for analysis.</span>
+<span class="sd">run_analysis : bool, optional</span>
+<span class="sd">    Whether to run clustering/statistical analysis after quantification.</span>
+<span class="sd">quantify_only_unquantified_spectra : bool, optional</span>
+<span class="sd">    If True, only quantify spectra that lack analytical error.</span>
+<span class="sd">interrupt_fits_bad_spectra : bool, optional</span>
+<span class="sd">    If True, interrupt fitting if bad spectra are encountered. Speeds up computations</span>
+<span class="sd">is_known_precursor_mixture : bool, optional</span>
+<span class="sd">    Whether sample is a mixture of two known powders. Used to characterize extent of intermixing in powders.</span>
+<span class="sd">    See example at:</span>
+<span class="sd">        L. N. Walters et al., Synthetic Accessibility and Sodium Ion Conductivity of the Na 8– x A x P 2 O 9 (NAP)</span>
+<span class="sd">        High-Temperature Sodium Superionic Conductor Framework, Chem. Mater. 37, 6807 (2025).</span>
+<span class="sd">    </span>
+<span class="sd">Returns</span>
+<span class="sd">-------</span>
+<span class="sd">quant_results : list()</span>
+<span class="sd">    List of EMXSp_Composition_Analyzer, the composition analysis object containing the results and methods for further analysis.</span>
+
+<span class="sd">Created on Tue Jul 29 13:18:16 2025</span>
+
+<span class="sd">@author: Andrea</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">traceback</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">autoemxsp.utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">print_double_separator</span><span class="p">,</span>
+    <span class="n">get_sample_dir</span><span class="p">,</span>
+    <span class="n">load_configurations_from_json</span><span class="p">,</span>
+    <span class="n">extract_spectral_data</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">autoemxsp.utils.constants</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cnst</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">autoemxsp.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">config_classes_dict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">autoemxsp.core.EMXSp_composition_analyser</span><span class="w"> </span><span class="kn">import</span> <span class="n">EMXSp_Composition_Analyzer</span>
+
+<span class="c1"># Configure logging</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span>
+    <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">,</span>
+    <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%(asctime)s</span><span class="s2"> </span><span class="si">%(levelname)s</span><span class="s2">: </span><span class="si">%(message)s</span><span class="s2">&quot;</span><span class="p">,</span>
+    <span class="n">datefmt</span><span class="o">=</span><span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M:%S&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+
+<div class="viewcode-block" id="batch_quantify_and_analyze">
+<a class="viewcode-back" href="../../../_api/autoemxsp.runners.batch_quantify_and_analyze.html#autoemxsp.runners.batch_quantify_and_analyze.batch_quantify_and_analyze">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">batch_quantify_and_analyze</span><span class="p">(</span>
+    <span class="n">sample_IDs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">quantification_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">results_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">min_bckgrnd_cnts</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">output_filename_suffix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+    <span class="n">use_instrument_background</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">max_analytical_error</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+    <span class="n">run_analysis</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">num_CPU_cores</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">quantify_only_unquantified_spectra</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">interrupt_fits_bad_spectra</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">is_known_precursor_mixture</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">standards_dict</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Batch quantification and analysis for a list of samples.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    sample_IDs : List[str]</span>
+<span class="sd">        List of sample identifiers.</span>
+<span class="sd">    quantification_method : str, optional</span>
+<span class="sd">        Method to use for quantification. Uses quant_cfg.method if unspecified. Currently only supports &#39;PB&#39;.</span>
+<span class="sd">    results_path : str, optional</span>
+<span class="sd">        Base directory where results are stored. Default: autoemxsp/Results</span>
+<span class="sd">    min_bckgrnd_cnts : float, optional</span>
+<span class="sd">        Minimum number of background counts underneath reference peaks below which spectra are flagged.</span>
+<span class="sd">        If None, leaves it unchanged. Default: None</span>
+<span class="sd">    output_filename_suffix : str, optional</span>
+<span class="sd">        Suffix to append to output filenames.</span>
+<span class="sd">    use_instrument_background : bool, optional</span>
+<span class="sd">        Whether to use instrument background if present (Default: False).</span>
+<span class="sd">    max_analytical_error : float, optional</span>
+<span class="sd">        Maximum allowed analytical error for analysis.</span>
+<span class="sd">    run_analysis : bool, optional</span>
+<span class="sd">        Whether to run clustering/statistical analysis after quantification.</span>
+<span class="sd">    num_CPU_cores : bool | None, optional</span>
+<span class="sd">        Number of CPU cores to use during fitting and quantification. If None, half of the available cores are used.</span>
+<span class="sd">    quantify_only_unquantified_spectra : bool, optional</span>
+<span class="sd">        If True, only quantify spectra that lack analytical error.</span>
+<span class="sd">    interrupt_fits_bad_spectra : bool, optional</span>
+<span class="sd">        If True, interrupt fitting if bad spectra are encountered. Speeds up computations</span>
+<span class="sd">    is_known_precursor_mixture : bool, optional</span>
+<span class="sd">        Whether sample is a mixture of two known powders. Used to characterize extent of intermixing in powders.</span>
+<span class="sd">        See example at:</span>
+<span class="sd">            L. N. Walters et al., Synthetic Accessibility and Sodium Ion Conductivity of the Na 8– x A x P 2 O 9 (NAP)</span>
+<span class="sd">            High-Temperature Sodium Superionic Conductor Framework, Chem. Mater. 37, 6807 (2025).</span>
+<span class="sd">    standards_dict : dict, optional</span>
+<span class="sd">        Dictionary of reference PB values from experimental standards. Default : None.</span>
+<span class="sd">        If None, dictionary of standards is loaded from the XSp_calibs/Your_Microscope_ID directory.</span>
+<span class="sd">        Provide standards_dict only when providing different standards from those normally used for quantification.</span>
+<span class="sd">            </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    quant_results : list()</span>
+<span class="sd">        List of EMXSp_Composition_Analyzer, the composition analysis object containing the results and methods for further analysis.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">results_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">parent_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)))</span>
+        <span class="n">results_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parent_dir</span><span class="p">,</span> <span class="n">cnst</span><span class="o">.</span><span class="n">RESULTS_DIR</span><span class="p">)</span>
+        
+    <span class="n">quant_results</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">sample_ID</span> <span class="ow">in</span> <span class="n">sample_IDs</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">sample_dir</span> <span class="o">=</span> <span class="n">get_sample_dir</span><span class="p">(</span><span class="n">results_path</span><span class="p">,</span> <span class="n">sample_ID</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to get sample directory for </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">sample_ID</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+            <span class="k">continue</span>
+        
+        <span class="n">spectral_info_f_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sample_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">cnst</span><span class="o">.</span><span class="n">ACQUISITION_INFO_FILENAME</span><span class="si">}</span><span class="s2">.json&quot;</span><span class="p">)</span>
+        <span class="n">data_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sample_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">cnst</span><span class="o">.</span><span class="n">DATA_FILENAME</span><span class="si">}{</span><span class="n">cnst</span><span class="o">.</span><span class="n">DATA_FILEEXT</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+        <span class="n">print_double_separator</span><span class="p">()</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sample &#39;</span><span class="si">{</span><span class="n">sample_ID</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+        
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">configs</span><span class="p">,</span> <span class="n">metadata</span> <span class="o">=</span> <span class="n">load_configurations_from_json</span><span class="p">(</span><span class="n">spectral_info_f_path</span><span class="p">,</span> <span class="n">config_classes_dict</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not find </span><span class="si">{</span><span class="n">spectral_info_f_path</span><span class="si">}</span><span class="s2">. Skipping sample &#39;</span><span class="si">{</span><span class="n">sample_ID</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">)</span>
+            <span class="k">continue</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error loading </span><span class="si">{</span><span class="n">spectral_info_f_path</span><span class="si">}</span><span class="s2">. Skipping sample &#39;</span><span class="si">{</span><span class="n">sample_ID</span><span class="si">}</span><span class="s2">&#39;: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">continue</span>
+
+        <span class="n">sample_processing_time_start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+        <span class="c1"># Retrieve configuration objects for this sample</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">microscope_cfg</span>      <span class="o">=</span> <span class="n">configs</span><span class="p">[</span><span class="n">cnst</span><span class="o">.</span><span class="n">MICROSCOPE_CFG_KEY</span><span class="p">]</span>
+            <span class="n">sample_cfg</span>          <span class="o">=</span> <span class="n">configs</span><span class="p">[</span><span class="n">cnst</span><span class="o">.</span><span class="n">SAMPLE_CFG_KEY</span><span class="p">]</span>
+            <span class="n">measurement_cfg</span>     <span class="o">=</span> <span class="n">configs</span><span class="p">[</span><span class="n">cnst</span><span class="o">.</span><span class="n">MEASUREMENT_CFG_KEY</span><span class="p">]</span>
+            <span class="n">sample_substrate_cfg</span><span class="o">=</span> <span class="n">configs</span><span class="p">[</span><span class="n">cnst</span><span class="o">.</span><span class="n">SAMPLESUBSTRATE_CFG_KEY</span><span class="p">]</span>
+            <span class="n">quant_cfg</span>           <span class="o">=</span> <span class="n">configs</span><span class="p">[</span><span class="n">cnst</span><span class="o">.</span><span class="n">QUANTIFICATION_CFG_KEY</span><span class="p">]</span>
+            <span class="n">clustering_cfg</span>      <span class="o">=</span> <span class="n">configs</span><span class="p">[</span><span class="n">cnst</span><span class="o">.</span><span class="n">CLUSTERING_CFG_KEY</span><span class="p">]</span>
+            <span class="n">plot_cfg</span>            <span class="o">=</span> <span class="n">configs</span><span class="p">[</span><span class="n">cnst</span><span class="o">.</span><span class="n">PLOT_CFG_KEY</span><span class="p">]</span>
+            <span class="n">powder_meas_cfg</span>     <span class="o">=</span> <span class="n">configs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cnst</span><span class="o">.</span><span class="n">POWDER_MEASUREMENT_CFG_KEY</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>  <span class="c1"># Optional</span>
+            <span class="n">bulk_meas_cfg</span>     <span class="o">=</span> <span class="n">configs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cnst</span><span class="o">.</span><span class="n">BULK_MEASUREMENT_CFG_KEY</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>  <span class="c1"># Optional</span>
+        <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing configuration &#39;</span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&#39; in </span><span class="si">{</span><span class="n">spectral_info_f_path</span><span class="si">}</span><span class="s2">. Skipping sample &#39;</span><span class="si">{</span><span class="n">sample_ID</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">)</span>
+            <span class="k">continue</span>
+        
+        <span class="k">if</span> <span class="n">min_bckgrnd_cnts</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">quant_cfg</span><span class="o">.</span><span class="n">min_bckgrnd_cnts</span> <span class="o">=</span> <span class="n">min_bckgrnd_cnts</span>
+        <span class="k">if</span> <span class="n">quantification_method</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">quant_cfg</span><span class="o">.</span><span class="n">method</span> <span class="o">=</span> <span class="n">quantification_method</span>
+            
+        <span class="c1"># Load &#39;Data.csv&#39; into a DataFrame</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">spectra_quant</span><span class="p">,</span> <span class="n">spectral_data</span><span class="p">,</span> <span class="n">sp_coords</span><span class="p">,</span> <span class="n">original_df</span> <span class="o">=</span> <span class="n">extract_spectral_data</span><span class="p">(</span><span class="n">data_path</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not load spectral data for &#39;</span><span class="si">{</span><span class="n">sample_ID</span><span class="si">}</span><span class="s2">&#39;: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">continue</span>
+
+        <span class="k">if</span> <span class="n">use_instrument_background</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">spectral_data</span><span class="p">,</span> <span class="s1">&#39;get&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="n">spectral_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cnst</span><span class="o">.</span><span class="n">BACKGROUND_DF_KEY</span><span class="p">,</span> <span class="p">[])</span> <span class="o">==</span> <span class="p">[]:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="s2">&quot;Background column not found in input data. &quot;</span>
+                    <span class="s2">&quot;Spectral background will be computed instead.&quot;</span>
+                <span class="p">)</span>
+                
+        <span class="c1"># Change is_known_precursor_mixture if provided</span>
+        <span class="k">if</span> <span class="n">is_known_precursor_mixture</span><span class="p">:</span>
+            <span class="n">powder_meas_cfg</span><span class="o">.</span><span class="n">is_known_precursor_mixture</span> <span class="o">=</span> <span class="n">is_known_precursor_mixture</span>
+
+        <span class="c1"># Decide which spectra to quantify</span>
+        <span class="n">quant_cfg</span><span class="o">.</span><span class="n">interrupt_fits_bad_spectra</span> <span class="o">=</span> <span class="n">interrupt_fits_bad_spectra</span>
+        <span class="k">if</span> <span class="n">quantify_only_unquantified_spectra</span> <span class="ow">and</span> <span class="n">cnst</span><span class="o">.</span><span class="n">AN_ER_DF_KEY</span> <span class="ow">in</span> <span class="n">original_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">to_quantify_mask</span> <span class="o">=</span> <span class="n">original_df</span><span class="p">[</span><span class="n">cnst</span><span class="o">.</span><span class="n">AN_ER_DF_KEY</span><span class="p">]</span><span class="o">.</span><span class="n">isna</span><span class="p">()</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">to_quantify_mask</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;All spectra already quantified. Skipping.&quot;</span><span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="n">indices_to_quantify</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">original_df</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="n">to_quantify_mask</span><span class="p">])</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Quantifying </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">indices_to_quantify</span><span class="p">)</span><span class="si">}</span><span class="s2"> unquantified spectra out of </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">original_df</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">indices_to_quantify</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">original_df</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Quantifying all </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">original_df</span><span class="p">)</span><span class="si">}</span><span class="s2"> spectra.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">num_CPU_cores</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">quant_cfg</span><span class="o">.</span><span class="n">num_CPU_cores</span> <span class="o">=</span> <span class="n">num_CPU_cores</span>
+            
+        <span class="c1"># Subset the data for quantification</span>
+        <span class="n">spectral_data_sub</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="p">[</span><span class="n">spectral_data</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indices_to_quantify</span><span class="p">]</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">cnst</span><span class="o">.</span><span class="n">LIST_SPECTRAL_DATA_QUANT_KEYS</span><span class="p">}</span>
+        <span class="n">sp_coords_sub</span> <span class="o">=</span> <span class="p">[</span><span class="n">sp_coords</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indices_to_quantify</span><span class="p">]</span>
+
+        <span class="c1"># Handle output filename for analyzer</span>
+        <span class="k">if</span> <span class="n">quantify_only_unquantified_spectra</span><span class="p">:</span>
+            <span class="n">temp_suffix</span> <span class="o">=</span> <span class="n">output_filename_suffix</span> <span class="o">+</span> <span class="s1">&#39;_temp&#39;</span>
+            <span class="n">output_suffix</span> <span class="o">=</span> <span class="n">temp_suffix</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">output_suffix</span> <span class="o">=</span> <span class="n">output_filename_suffix</span>
+
+        <span class="c1"># --- Run Composition Analysis or Spectral Acquisition</span>
+        <span class="n">comp_analyzer</span> <span class="o">=</span> <span class="n">EMXSp_Composition_Analyzer</span><span class="p">(</span>
+            <span class="n">microscope_cfg</span><span class="o">=</span><span class="n">microscope_cfg</span><span class="p">,</span>
+            <span class="n">sample_cfg</span><span class="o">=</span><span class="n">sample_cfg</span><span class="p">,</span>
+            <span class="n">measurement_cfg</span><span class="o">=</span><span class="n">measurement_cfg</span><span class="p">,</span>
+            <span class="n">sample_substrate_cfg</span><span class="o">=</span><span class="n">sample_substrate_cfg</span><span class="p">,</span>
+            <span class="n">quant_cfg</span><span class="o">=</span><span class="n">quant_cfg</span><span class="p">,</span>
+            <span class="n">clustering_cfg</span><span class="o">=</span><span class="n">clustering_cfg</span><span class="p">,</span>
+            <span class="n">powder_meas_cfg</span><span class="o">=</span><span class="n">powder_meas_cfg</span><span class="p">,</span>
+            <span class="n">bulk_meas_cfg</span><span class="o">=</span><span class="n">bulk_meas_cfg</span><span class="p">,</span>
+            <span class="n">plot_cfg</span><span class="o">=</span><span class="n">plot_cfg</span><span class="p">,</span>
+            <span class="n">is_acquisition</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">development_mode</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">standards_dict</span><span class="o">=</span><span class="n">standards_dict</span><span class="p">,</span>
+            <span class="n">output_filename_suffix</span><span class="o">=</span><span class="n">output_suffix</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">results_dir</span><span class="o">=</span><span class="n">sample_dir</span>
+        <span class="p">)</span>
+
+        <span class="n">comp_analyzer</span><span class="o">.</span><span class="n">sp_coords</span> <span class="o">=</span> <span class="n">sp_coords_sub</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">cnst</span><span class="o">.</span><span class="n">LIST_SPECTRAL_DATA_QUANT_KEYS</span><span class="p">:</span>
+            <span class="n">comp_analyzer</span><span class="o">.</span><span class="n">spectral_data</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">spectral_data_sub</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">comp_analyzer</span><span class="o">.</span><span class="n">run_quantification</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">tb_str</span> <span class="o">=</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">()</span>  <span class="c1"># get full traceback as a string</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Error during spectral quantification for &#39;</span><span class="si">{</span><span class="n">sample_ID</span><span class="si">}</span><span class="s2">&#39;. Skipping sample.</span><span class="se">\n</span><span class="s2">Full traceback:</span><span class="se">\n</span><span class="si">{</span><span class="n">tb_str</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="k">continue</span>
+
+        <span class="k">if</span> <span class="n">quantify_only_unquantified_spectra</span><span class="p">:</span>
+            <span class="c1"># Read the temporary file produced by the analyzer</span>
+            <span class="n">temp_data_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sample_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">cnst</span><span class="o">.</span><span class="n">DATA_FILENAME</span><span class="si">}{</span><span class="n">output_suffix</span><span class="si">}{</span><span class="n">cnst</span><span class="o">.</span><span class="n">DATA_FILEEXT</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">temp_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">temp_data_path</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not read temporary quantification file &#39;</span><span class="si">{</span><span class="n">temp_data_path</span><span class="si">}</span><span class="s2">&#39; for &#39;</span><span class="si">{</span><span class="n">sample_ID</span><span class="si">}</span><span class="s2">&#39;: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="n">temp_df</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">indices_to_quantify</span>
+
+            <span class="c1"># Update only the quantified rows in the original DataFrame</span>
+            <span class="c1"># Use vectorized assignment for performance</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">original_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">indices_to_quantify</span><span class="p">,</span> <span class="n">temp_df</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span> <span class="o">=</span> <span class="n">temp_df</span><span class="o">.</span><span class="n">values</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to update quantified rows in DataFrame for &#39;</span><span class="si">{</span><span class="n">sample_ID</span><span class="si">}</span><span class="s2">&#39;: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="c1"># Convert quantification flag column to int if present</span>
+            <span class="k">if</span> <span class="n">cnst</span><span class="o">.</span><span class="n">QUANT_FLAG_DF_KEY</span> <span class="ow">in</span> <span class="n">original_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                <span class="n">original_df</span><span class="p">[</span><span class="n">cnst</span><span class="o">.</span><span class="n">QUANT_FLAG_DF_KEY</span><span class="p">]</span> <span class="o">=</span> <span class="n">original_df</span><span class="p">[</span><span class="n">cnst</span><span class="o">.</span><span class="n">QUANT_FLAG_DF_KEY</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+
+            <span class="c1"># Save the updated Data.csv with counter logic to avoid overwriting</span>
+            <span class="n">new_data_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sample_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">cnst</span><span class="o">.</span><span class="n">DATA_FILENAME</span><span class="si">}{</span><span class="n">output_filename_suffix</span><span class="si">}{</span><span class="n">cnst</span><span class="o">.</span><span class="n">DATA_FILEEXT</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">cntr</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="k">while</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">new_data_path</span><span class="p">):</span>
+                <span class="n">cntr</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">new_data_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sample_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">cnst</span><span class="o">.</span><span class="n">DATA_FILENAME</span><span class="si">}{</span><span class="n">output_filename_suffix</span><span class="si">}</span><span class="s1">_</span><span class="si">{</span><span class="n">cntr</span><span class="si">}{</span><span class="n">cnst</span><span class="o">.</span><span class="n">DATA_FILEEXT</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">original_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">new_data_path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to save updated </span><span class="si">{</span><span class="n">cnst</span><span class="o">.</span><span class="n">DATA_FILENAME</span><span class="si">}{</span><span class="n">cnst</span><span class="o">.</span><span class="n">DATA_FILEEXT</span><span class="si">}</span><span class="s2"> for &#39;</span><span class="si">{</span><span class="n">sample_ID</span><span class="si">}</span><span class="s2">&#39;: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="c1"># Remove the temporary file</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">temp_data_path</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not remove temporary file &#39;</span><span class="si">{</span><span class="n">temp_data_path</span><span class="si">}</span><span class="s2">&#39;: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Reload data for analysis if needed</span>
+            <span class="k">if</span> <span class="n">run_analysis</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">spectra_quant</span><span class="p">,</span> <span class="n">spectral_data</span><span class="p">,</span> <span class="n">sp_coords</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">extract_spectral_data</span><span class="p">(</span><span class="n">new_data_path</span><span class="p">)</span>
+                    <span class="n">comp_analyzer</span><span class="o">.</span><span class="n">spectra_quant</span> <span class="o">=</span> <span class="n">spectra_quant</span>
+                    <span class="n">comp_analyzer</span><span class="o">.</span><span class="n">sp_coords</span> <span class="o">=</span> <span class="n">sp_coords</span>
+                    <span class="n">comp_analyzer</span><span class="o">.</span><span class="n">spectral_data</span> <span class="o">=</span> <span class="n">spectral_data</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not reload data for analysis for &#39;</span><span class="si">{</span><span class="n">sample_ID</span><span class="si">}</span><span class="s2">&#39;: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="k">continue</span>
+
+        <span class="c1"># Perform analysis and print results</span>
+        <span class="k">if</span> <span class="n">run_analysis</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">analysis_successful</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">comp_analyzer</span><span class="o">.</span><span class="n">analyse_data</span><span class="p">(</span><span class="n">max_analytical_error</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error during clustering analysis for &#39;</span><span class="si">{</span><span class="n">sample_ID</span><span class="si">}</span><span class="s2">&#39;. Rerun separately if needed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">analysis_successful</span><span class="p">:</span>
+                <span class="n">comp_analyzer</span><span class="o">.</span><span class="n">print_results</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Analysis was not successful for &#39;</span><span class="si">{</span><span class="n">sample_ID</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">)</span>
+
+        <span class="n">total_process_time</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">sample_processing_time_start</span><span class="p">)</span> <span class="o">/</span> <span class="mi">60</span>
+        <span class="n">print_double_separator</span><span class="p">()</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sample &#39;</span><span class="si">{</span><span class="n">sample_ID</span><span class="si">}</span><span class="s2">&#39; successfully quantified in </span><span class="si">{</span><span class="n">total_process_time</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> min.&quot;</span><span class="p">)</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">indices_to_quantify</span><span class="p">)</span><span class="si">}</span><span class="s2"> spectra have been quantified and saved for &#39;</span><span class="si">{</span><span class="n">sample_ID</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">)</span>
+        
+        <span class="n">quant_results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">comp_analyzer</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">quant_results</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Andrea Giunto.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
