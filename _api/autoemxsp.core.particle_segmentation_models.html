@@ -1,0 +1,184 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>autoemxsp.core.particle_segmentation_models package &mdash; AutoEMXSp 0.1.6 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=6e0256f3"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="autoemxsp.core.particle_segmentation_models.segmentation_model_template module" href="autoemxsp.core.particle_segmentation_models.segmentation_model_template.html" />
+    <link rel="prev" title="autoemxsp.core package" href="autoemxsp.core.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            AutoEMXSp
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../user/index.html">User Documentation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced User Documentation:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../advanced_user/index.html">Advanced User Documentation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/sdd_calib.html">EDS Detector Calibration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/new_exp_stds.html">EDS Experimental Standard Collection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/new_XSpdetector.html">Calibrate a new Detector for EDS fit and quantification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/new_EMdriver.html">Add new Electron Microscope Driver</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../advanced_user/advanced_api.html">AutoEMXSp Public API</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.XSp_calibs.html">autoemxsp.XSp_calibs package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.EM_driver.html">autoemxsp.EM_driver package</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="autoemxsp.core.html">autoemxsp.core package</a><ul class="current">
+<li class="toctree-l4 current"><a class="reference internal" href="autoemxsp.core.html#subpackages">Subpackages</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.core.html#submodules">Submodules</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">AutoEMXSp</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../advanced_user/index.html">Advanced User Documentation</a></li>
+          <li class="breadcrumb-item"><a href="../advanced_user/advanced_api.html">AutoEMXSp Public API</a></li>
+          <li class="breadcrumb-item"><a href="autoemxsp.core.html">autoemxsp.core package</a></li>
+      <li class="breadcrumb-item active">autoemxsp.core.particle_segmentation_models package</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/_api/autoemxsp.core.particle_segmentation_models.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="autoemxsp-core-particle-segmentation-models-package">
+<h1>autoemxsp.core.particle_segmentation_models package<a class="headerlink" href="#autoemxsp-core-particle-segmentation-models-package" title="Link to this heading"></a></h1>
+<p id="module-autoemxsp.core.particle_segmentation_models">Loads the available segmentation models.</p>
+<p>This module is responsible for loading segmentation model modules that follow a specific
+structure and provide a <cite>segment_particles()</cite> function. To add a new segmentation model,
+create a new Python file in the same directory as this script, and ensure the file
+contains a correctly defined <cite>segment_particles()</cite> function as described below.</p>
+<p>### Adding New Segmentation Models</p>
+<p>See segmentation_model_template.py for a detailed description of the required structure</p>
+<ol class="arabic">
+<li><p><strong>Create a new module</strong>:
+In this directory, create a new Python file named <cite>your_model_name.py</cite></p></li>
+<li><p><strong>Define `segment_particles()`</strong>:
+In your new module, define a function named <cite>segment_particles()</cite> that takes the following parameters:
+- <cite>frame_image</cite> (np.array): A grayscale image containing particles.
+- <cite>powder_meas_config</cite> (PowderMeasurementConfig): A configuration object with relevant parameters for segmentation (e.g., threshold values).
+- <cite>save_image</cite> (bool): An optional flag to save the masked image.
+- <cite>EM</cite> (EM_controller): An optional object for saving the segmented image.</p>
+<p>The function should return a binary mask where pixel values represent detected particles.</p>
+</li>
+</ol>
+<p>Created on Thu Oct  9 09:34:39 2025</p>
+<p>&#64;author: Andrea</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="autoemxsp.core.particle_segmentation_models.load_models">
+<span class="sig-prename descclassname"><span class="pre">autoemxsp.core.particle_segmentation_models.</span></span><span class="sig-name descname"><span class="pre">load_models</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/core/particle_segmentation_models.html#load_models"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.particle_segmentation_models.load_models" title="Link to this definition"></a></dt>
+<dd><p>Loads all available segmentation model modules from the specified directory.</p>
+<p>This function will iterate through all <cite>.py</cite> files in the directory, import
+them, and store them in the MODEL_REGISTRY for later use.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>module_names</strong> – A list of the names of the modules that have been successfully loaded.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="autoemxsp.core.particle_segmentation_models.segmentation_model_template.html">autoemxsp.core.particle_segmentation_models.segmentation_model_template module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.particle_segmentation_models.segmentation_model_template.html#autoemxsp.core.particle_segmentation_models.segmentation_model_template.segment_particles"><code class="docutils literal notranslate"><span class="pre">segment_particles()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="autoemxsp.core.particle_segmentation_models.Rettenberger2024.html">autoemxsp.core.particle_segmentation_models.Rettenberger2024 module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.particle_segmentation_models.Rettenberger2024.html#autoemxsp.core.particle_segmentation_models.Rettenberger2024.segment_particles"><code class="docutils literal notranslate"><span class="pre">segment_particles()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="autoemxsp.core.html" class="btn btn-neutral float-left" title="autoemxsp.core package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="autoemxsp.core.particle_segmentation_models.segmentation_model_template.html" class="btn btn-neutral float-right" title="autoemxsp.core.particle_segmentation_models.segmentation_model_template module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Andrea Giunto.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

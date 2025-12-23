@@ -1,0 +1,177 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>autoemxsp.core.particle_segmentation_models.Rettenberger2024 module &mdash; AutoEMXSp 0.1.6 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=6e0256f3"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="autoemxsp.core.EMXSp_composition_analyser module" href="autoemxsp.core.EMXSp_composition_analyser.html" />
+    <link rel="prev" title="autoemxsp.core.particle_segmentation_models.segmentation_model_template module" href="autoemxsp.core.particle_segmentation_models.segmentation_model_template.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            AutoEMXSp
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../user/index.html">User Documentation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced User Documentation:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../advanced_user/index.html">Advanced User Documentation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/sdd_calib.html">EDS Detector Calibration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/new_exp_stds.html">EDS Experimental Standard Collection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/new_XSpdetector.html">Calibrate a new Detector for EDS fit and quantification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/new_EMdriver.html">Add new Electron Microscope Driver</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../advanced_user/advanced_api.html">AutoEMXSp Public API</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.XSp_calibs.html">autoemxsp.XSp_calibs package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.EM_driver.html">autoemxsp.EM_driver package</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="autoemxsp.core.html">autoemxsp.core package</a><ul class="current">
+<li class="toctree-l4 current"><a class="reference internal" href="autoemxsp.core.html#subpackages">Subpackages</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.core.html#submodules">Submodules</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">AutoEMXSp</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../advanced_user/index.html">Advanced User Documentation</a></li>
+          <li class="breadcrumb-item"><a href="../advanced_user/advanced_api.html">AutoEMXSp Public API</a></li>
+          <li class="breadcrumb-item"><a href="autoemxsp.core.html">autoemxsp.core package</a></li>
+          <li class="breadcrumb-item"><a href="autoemxsp.core.particle_segmentation_models.html">autoemxsp.core.particle_segmentation_models package</a></li>
+      <li class="breadcrumb-item active">autoemxsp.core.particle_segmentation_models.Rettenberger2024 module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/_api/autoemxsp.core.particle_segmentation_models.Rettenberger2024.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="autoemxsp-core-particle-segmentation-models-rettenberger2024-module">
+<h1>autoemxsp.core.particle_segmentation_models.Rettenberger2024 module<a class="headerlink" href="#autoemxsp-core-particle-segmentation-models-rettenberger2024-module" title="Link to this heading"></a></h1>
+<p id="module-autoemxsp.core.particle_segmentation_models.Rettenberger2024">Created on Thu Oct  9 09:34:39 2025</p>
+<p>Particle segmentation model from:</p>
+<blockquote>
+<div><p>Rettenberger, L., Szymanski, N.J., Zeng, Y. et al. Uncertainty-aware particle segmentation for electron microscopy at varied length scales. npj Comput Mater 10, 124 (2024). <a class="reference external" href="https://doi.org/10.1038/s41524-024-01302-w">https://doi.org/10.1038/s41524-024-01302-w</a></p>
+</div></blockquote>
+<p>To use this model for particle segmentation, clone the repo from <a class="reference external" href="https://github.com/lrettenberger/Uncertainty-Aware-Particle-Segmentation-for-SEM">https://github.com/lrettenberger/Uncertainty-Aware-Particle-Segmentation-for-SEM</a> to the same directory as this module, and rename it Rettenberg2024_model_data</p>
+<p>&#64;author: Andrea</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="autoemxsp.core.particle_segmentation_models.Rettenberger2024.segment_particles">
+<span class="sig-prename descclassname"><span class="pre">autoemxsp.core.particle_segmentation_models.Rettenberger2024.</span></span><span class="sig-name descname"><span class="pre">segment_particles</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">frame_image</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">powder_meas_config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.PowderMeasurementConfig" title="autoemxsp.config.classes.PowderMeasurementConfig"><span class="pre">PowderMeasurementConfig</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_image</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">EM</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">EM_controller</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span></span></span><a class="reference internal" href="../_modules/autoemxsp/core/particle_segmentation_models/Rettenberger2024.html#segment_particles"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.particle_segmentation_models.Rettenberger2024.segment_particles" title="Link to this definition"></a></dt>
+<dd><p>Segments particles in the given frame image using a Mask R-CNN ONNX model, then
+returns an 8-bit <em>index map</em> image where each detected particle is assigned a
+unique brightness value based on its index.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>frame_image</strong> (<em>ndarray</em>) – A grayscale (or RGB) input image of the current frame containing particles.</p></li>
+<li><p><strong>save_image</strong> (<em>bool</em>) – Optionally save the 8-bit index map through EM_controller.</p></li>
+<li><p><strong>EM</strong> (<em>EM_controller object</em>) – Used to optionally save the 8-bit index map image.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p><strong>par_mask</strong> – An 8-bit index image where:
+- Background pixels are 0.
+- Each particle (up to 255 particles) receives an index 1..255 and all of</p>
+<blockquote>
+<div><p>its pixels are set to that index value. If &gt;255 particles are found,
+the extras are set to 255.</p>
+</div></blockquote>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ndarray (uint8)</p>
+</dd>
+</dl>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul class="simple">
+<li><p>All configuration is hardcoded inside this function.</p></li>
+<li><p>The ONNX model path is resolved <em>relative</em> to this file.</p></li>
+</ul>
+</div>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="autoemxsp.core.particle_segmentation_models.segmentation_model_template.html" class="btn btn-neutral float-left" title="autoemxsp.core.particle_segmentation_models.segmentation_model_template module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="autoemxsp.core.EMXSp_composition_analyser.html" class="btn btn-neutral float-right" title="autoemxsp.core.EMXSp_composition_analyser module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Andrea Giunto.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
