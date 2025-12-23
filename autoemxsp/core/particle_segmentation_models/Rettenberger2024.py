@@ -5,6 +5,8 @@ Particle segmentation model from:
     
     Rettenberger, L., Szymanski, N.J., Zeng, Y. et al. Uncertainty-aware particle segmentation for electron microscopy at varied length scales. npj Comput Mater 10, 124 (2024). https://doi.org/10.1038/s41524-024-01302-w
 
+To use this model for particle segmentation, clone the repo from https://github.com/lrettenberger/Uncertainty-Aware-Particle-Segmentation-for-SEM to the same directory as this module, and rename it Rettenberg2024_model_data
+
 @author: Andrea
 """
 
