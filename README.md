@@ -47,8 +47,7 @@ DOI: [https://doi.org/10.21203/rs.3.rs-7837297/v1](https://doi.org/10.21203/rs.3
 ---
 
 ## 📑 Table of Contents
-- [🚀 Installation](#-installation)
-- [🖥 Quick Start](#-quick-start)
+- [📘 Documentation](#-documentation)
 - [📦 Requirements](#-requirements)
 - [🆕 Coming Soon](#-coming-soon)
 - [📂 Project Structure](#-project-structure)
@@ -59,108 +58,14 @@ DOI: [https://doi.org/10.21203/rs.3.rs-7837297/v1](https://doi.org/10.21203/rs.3
 - [📂 Paper Data](#-paper-data)
 - [📬 Contact](#-contact)
 
-
 ---
 
-## 🚀 Installation
+## 📘 Documentation
 
-You can install **AutoEMXSp** in just one command.
+Installation instructions, usage examples, and workflow descriptions are available in the AutoEMXSp documentation:
 
-### Using pip
-```bash
-pip install autoemxsp
-```
+👉 https://cedergrouphub.github.io/AutoEMXSp/
 
-### Or directly from GitHub:
-```bash
-pip install git+https://github.com/CederGroupHub/AutoEMXSp
-```
-
----
-
-## 🖥 Quick Start
-
-AutoEMXSp supports three main automated workflows:
-
-1. **Experimental Standard Collection** — acquire and fit X-ray spectra from known-composition samples to generate reference peak-to-background ratios.
-2. **Sample Acquisition & Analysis** — acquire spectra from unknown samples, quantify them, and perform compositional phase analysis.
-3. **Particle Size Statistical Analysis** -  search for particles and collect statistics on their size distribution.
-
----
-
-### 1️⃣ Acquire Experimental Standards
-See **Run_Experimental_Standard_Collection.py** script
-
-```python
-from autoemxsp.runners import batch_acquire_experimental_stds
-
-# Define standards(s) to analyse (additional options available):
-# - 'ID': unique standard identifier
-# - 'formula': standard composition
-# - 'pos': stage position (x, y) in mm
-# - 'sample_type': bulk or powder
-# - 'is_manual_meas': Manually select spots if standard is not bulk, nor powder
-
-std_list = [
-    {
-        'id': 'Al_std',
-        'formula': 'Al',
-        'pos': (0, 0),
-        'sample_type': 'bulk',
-        'is_manual_meas': False
-    },
-]
-
-# Run experimental standard acquisition at the microscope computer
-batch_acquire_experimental_stds(stds=std_list)
-```
-
-### 2️⃣ Acquire & Analyse Samples
-See **Run_Acquisition_Quant_Analysis.py** script
-
-```python
-from autoemxsp.runners import batch_acquire_and_analyze
-
-# Define sample(s) to analyse (additional options available):
-# - 'id': unique sample identifier
-# - 'els': list of possible elements in the sample
-# - 'pos': stage position (x, y) in mm
-# - 'cnd' (optional): list of candidate phases/formulas
-
-samples = [
-    {
-        'id': 'Anorthite_mineral',
-        'els': ['Ca', 'Al', 'Si', 'O'],
-        'pos': (-37.5, -37.5),
-        'cnd': ['CaAl2Si2O8']
-    },
-]
-
-# Run acquisition and analysis at the microscope computer
-batch_acquire_and_analyze(samples)
-```
-
-
-### 3️⃣ Particle Size Statistical Analysis
-See **Collect_Particle_Statistics.py** script
-
-```python
-from autoemxsp.runners import collect_particle_statistics
-
-# Define sample(s) to analyse (additional options available):
-# - 'id': unique sample identifier
-# - 'pos': stage position (x, y) in mm
-
-samples = [
-    {
-        'id': 'Anorthite_mineral',
-        'pos': (-37.5, -37.5),
-    },
-]
-
-# Run acquisition and analysis at the microscope computer
-collect_particle_statistics(samples)
-```
 
 ---
 
@@ -185,7 +90,6 @@ collect_particle_statistics(samples)
 Here’s what’s planned for future releases of **AutoEMXSp**:
 - 🐍 Verify with the latest **Python** version for improved compatibility with current scientific libraries
 - 📏 New scripts for **spectral parameter calibration** to extend the `XSp_calibs` library to your own instrument.
-- 🤖 Integration of ML models for particle segmentation and improved size distribution analysis
 
 ---
 
