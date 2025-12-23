@@ -36,7 +36,7 @@ DOI: [https://doi.org/10.21203/rs.3.rs-7837297/v1](https://doi.org/10.21203/rs.3
 - **Intermixed phases** can also be resolved
 
 ### 🧪 Supported Use Cases
-- Powder, bulk, and rough samples  
+- Powders and rough samples, e.g. rough films, or pellets.
 - Scanning Electron Microscopy (SEM) with Energy-Dispersive Spectroscopy (EDS)  
 
 ### ⚙️ Requirements
@@ -237,7 +237,7 @@ Each script is tailored for a specific task in spectral acquisition, calibration
 - **Run_SDD_Calibration.py** — Perform calibration of the SDD detector.
 
 ### ⚗️ Characterize Extent of Intermixing in Known Powder Mixtures  
-*(see [Chem. Mater. 2015, 27, 20, 7084–7094](https://pubs.acs.org/doi/10.1021/acs.chemmater.5c01573) for example)*  
+*(see [Chem. Mater. 2025, 37, 6807−6822](https://pubs.acs.org/doi/10.1021/acs.chemmater.5c01573) for example)*  
 - **Run_Acquisition_PrecursorMix.py** — Acquire spectra for powder precursor mixtures.  
 - **Run_Quantification_PrecursorMix.py** — Quantify spectra for one or multiple powder mixtures and run machine-learning analysis.
 - Customized analysis can be performed using the **Run_Analysis.py** script
