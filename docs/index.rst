@@ -8,7 +8,9 @@ AutoEMXSp Documentation
 ==========================
 
 Welcome to ``AutoEMXSp``, a Python package for **Automated Electron Microscopy
-X-ray Spectroscopy**.
+X-ray Spectroscopy**:
+
+https://github.com/CederGroupHub/AutoEMXSp
 
 `AutoEMXSp` is a framework for running **automated acquisition and analysis
 routines** on electron microscopes (EM), offering both X-ray spectroscopy

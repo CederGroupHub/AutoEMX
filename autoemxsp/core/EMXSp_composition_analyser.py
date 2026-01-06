@@ -2545,11 +2545,11 @@ class EMXSp_Composition_Analyzer:
         - Uses alternating minimization, solving for one matrix while keeping the other fixed.
         - Convergence is based on the Frobenius norm of the change in W and H between iterations.
         - Stops when the change is smaller than the specified tolerance (convergence_tol = 1e-3), or max_iter is reached.
-        - Regularization is applied to H (if it is updated) to encourage sparsity and avoid all elements being present in both parent phases.
+        - Regularization may be applied to H (if it is updated) to encourage sparsity and avoid all elements being present in both parent phases.
         """
         max_iter = 1000
         convergence_tol = 1e-3  # Algorithm converges when change in coefficients or el_fr is less than 0.1%
-        lambda_H = 0  # Regularization parameter for sparsity in H. Set >0 to favor sparse basis matrix.
+        lambda_H = 0  # Regularization parameter for sparsity in H. Set >0 to favor sparse basis matrix. Found to work better when not applied.
     
         # Initialize W and H with non-negative random values if not provided
         W = np.random.rand(X.shape[0], n_components)
