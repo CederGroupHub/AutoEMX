@@ -25,13 +25,22 @@ A. Giunto *et al.*, *Accurate SEM‑EDS Quantification, Automation, and Machine 
 DOI: [https://doi.org/10.21203/rs.3.rs-7837297/v2](https://doi.org/10.21203/rs.3.rs-7837297/v2)
 
 ### ✨ Key Features
-- **Automated acquisition & quantification** of X-ray spectra using the peak-to-background method. Single spectrum quantification also available.
-- **Automated rule-based filtering** of compositions to discard poorly quantified spectra from the analysis
-- **Automated machine learning–based compositional analysis** to identify the compositions of individual phases in the sample  
+- **Fully automated SEM-EDS phase-level compositional analysis workflow**, which includes:
+    - **Acquisition of EDS spectra**, including particle localization if sample is powder. Compatible also with bulk samples, or manual navigation. 
+    - **Quantification of compositions** using the peak-to-background method
+    - **Rule-based filtering** of compositions to discard poorly quantified spectra from the analysis
+    - **Unsupervised machine learning–based analysis** to identify the compositions of individual phases in the sample  
+
+- **Fitting and quantification** of single EDS spectra exported by proprietary commercial software (.msa, .emsa, .txt)
+
 - **Automated experimental standard collection** scripts included
+
+- **Automated particle size distribution measurements**
+
 - **Extensible architecture** — adaptable to other techniques such as  
   - Wavelength Dispersive Spectroscopy (WDS)  
   - Scanning Transmission Electron Microscopy (STEM) with EDS  
+
 - **Extensible hardware support** — includes driver for ThermoFisher Phenom Desktop SEM series, and can be extended to any electron microscope with a Python API  
 
 ### 📊 Performance
@@ -40,13 +49,15 @@ DOI: [https://doi.org/10.21203/rs.3.rs-7837297/v2](https://doi.org/10.21203/rs.3
 - **Intermixed phases** can also be resolved
 
 ### 🧪 Supported Use Cases
-- Powders and rough samples, e.g. rough films, or pellets.
 - Scanning Electron Microscopy (SEM) with Energy-Dispersive Spectroscopy (EDS)  
+- Powders and rough samples, e.g. rough films, or pellets.
+- Bulk, flat samples, navigated by defining a grid of points to probe
+- Manual navigation of any sample.
 
 ### ⚙️ Requirements
 - Cross-platform: runs on **Linux, macOS, and Windows**
 - Quick installation  
-- Requires calibration for use with different electron microscopes  
+- Requires calibration for use with different electron microscopes for maximum compositional accuracy, though EDS quantification can be tested without recalibration.
 
 ---
 
