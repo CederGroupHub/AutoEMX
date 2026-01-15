@@ -31,7 +31,7 @@ DOI: [https://doi.org/10.21203/rs.3.rs-7837297/v2](https://doi.org/10.21203/rs.3
     - **Rule-based filtering** of compositions to discard poorly quantified spectra from the analysis
     - **Unsupervised machine learning–based analysis** to identify the compositions of individual phases in the sample  
 
-- Scripts for **fitting and quantification** of single EDS spectra exported by proprietary commercial software (.msa, .emsa, .txt)
+- Scripts for **fitting and quantification** of single EDS spectra exported by proprietary commercial software (.msa, .emsa, .txt files)
 
 - **Automated experimental standard collection** scripts
 
@@ -50,8 +50,8 @@ DOI: [https://doi.org/10.21203/rs.3.rs-7837297/v2](https://doi.org/10.21203/rs.3
 
 ### 🧪 Supported Use Cases
 - Scanning Electron Microscopy (SEM) with Energy-Dispersive Spectroscopy (EDS)  
-- Powders and rough samples, e.g. rough films, or pellets.
-- Bulk, flat samples, navigated by defining a grid of points to probe
+- Powders and rough samples, e.g. rough films, or pellets, with automated segmentation.
+- Bulk, flat samples, navigated by defining a grid of points to probe.
 - Manual navigation of any sample.
 
 ### ⚙️ Requirements
