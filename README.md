@@ -31,11 +31,11 @@ DOI: [https://doi.org/10.21203/rs.3.rs-7837297/v2](https://doi.org/10.21203/rs.3
     - **Rule-based filtering** of compositions to discard poorly quantified spectra from the analysis
     - **Unsupervised machine learning–based analysis** to identify the compositions of individual phases in the sample  
 
-- **Fitting and quantification** of single EDS spectra exported by proprietary commercial software (.msa, .emsa, .txt)
+- Scripts for **fitting and quantification** of single EDS spectra exported by proprietary commercial software (.msa, .emsa, .txt)
 
-- **Automated experimental standard collection** scripts included
+- **Automated experimental standard collection** scripts
 
-- **Automated particle size distribution measurements**
+- **Automated particle size distribution measurements** scripts
 
 - **Extensible architecture** — adaptable to other techniques such as  
   - Wavelength Dispersive Spectroscopy (WDS)  
