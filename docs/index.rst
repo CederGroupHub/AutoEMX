@@ -24,9 +24,10 @@ but it also includes scripts for **automated particle size distribution
 measurements** based on SEM imaging.
 
 This work is described in:
-    A. Giunto *et al.*, *Harnessing Automated SEM-EDS and Machine Learning to Unlock
-    High-Throughput Compositional Characterization of Powder Materials*, 2025.  
-    DOI: https://doi.org/10.21203/rs.3.rs-7837297/v1
+    A. Giunto *et al.*, *Accurate SEM‑EDS Quantification, Automation, and
+    Machine Learning Enable High‑Throughput Compositional Characterization
+    of Powders*, 2025.  
+    DOI: https://doi.org/10.21203/rs.3.rs-7837297/v2
     
 Please cite this work if you use ``AutoEMXSp``.
 
@@ -82,7 +83,7 @@ Performance
 
 - **Intermixed phases** can also be resolved
 
-See https://doi.org/10.21203/rs.3.rs-7837297/v1 for more details
+See https://doi.org/10.21203/rs.3.rs-7837297/v2 for more details
 
 
 Requirements

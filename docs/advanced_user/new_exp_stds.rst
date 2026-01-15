@@ -1,4 +1,4 @@
-.. _advanced_sdd_calib:
+.. _advanced_new_exp_stds:
 
 EDS Experimental Standard Collection
 ================================================

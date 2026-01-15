@@ -7,6 +7,7 @@ Tutorials
    :maxdepth: 1
     
    comp_analysis
-   fit_spectrum
+   fit_autoemxsp_spectrum
+   fit_msa_spectrum
    particle_size
    precursor_mix

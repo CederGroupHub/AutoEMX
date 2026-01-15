@@ -5,7 +5,7 @@
 [![PyPI version](https://badge.fury.io/py/autoemxsp.svg)](https://pypi.org/project/autoemxsp/)
 [![Python Version](https://img.shields.io/pypi/pyversions/autoemxsp.svg)](https://pypi.org/project/autoemxsp/)
 [![License: Custom Non-Commercial](https://img.shields.io/badge/license-Custom%20Non--Commercial-blue.svg)](https://github.com/CederGroupHub/AutoEMXSp/blob/main/LICENSE.txt)
-[![Research Square Preprint](https://img.shields.io/badge/Research%20Square-preprint-orange)](https://doi.org/10.21203/rs.3.rs-7837297/v1)  
+[![Research Square Preprint](https://img.shields.io/badge/Research%20Square-preprint-orange)](https://doi.org/10.21203/rs.3.rs-7837297/v2)  
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://cedergrouphub.github.io/AutoEMXSp/)
 [![PR Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat)](https://pypi.org/project/autoemxsp/)
 
@@ -18,12 +18,14 @@ AutoEMXSp is a **fully automated framework** for SEM-EDS workflows — from spec
 
 🎥 Watch AutoEMXSp in action on a desktop SEM-EDS system at https://youtu.be/Bym58gNxlj0
 
+You can also use this framework to fit and quantify EDS spectra you have collected on your commercial SEM-EDS system (see [Tutorials](https://cedergrouphub.github.io/AutoEMXSp/user/tutorials.html)
+
 📖 This work is described in:  
-A. Giunto *et al.*, *Harnessing Automated SEM-EDS and Machine Learning to Unlock High-Throughput Compositional Characterization of Powder Materials*, 2025.  
-DOI: [https://doi.org/10.21203/rs.3.rs-7837297/v1](https://doi.org/10.21203/rs.3.rs-7837297/v1)
+A. Giunto *et al.*, *Accurate SEM‑EDS Quantification, Automation, and Machine Learning Enable High‑Throughput Compositional Characterization of Powders*, 2025.  
+DOI: [https://doi.org/10.21203/rs.3.rs-7837297/v2](https://doi.org/10.21203/rs.3.rs-7837297/v2)
 
 ### ✨ Key Features
-- **Automated acquisition & quantification** of X-ray spectra using the peak-to-background method. Single spectrum quantification also available
+- **Automated acquisition & quantification** of X-ray spectra using the peak-to-background method. Single spectrum quantification also available.
 - **Automated rule-based filtering** of compositions to discard poorly quantified spectra from the analysis
 - **Automated machine learning–based compositional analysis** to identify the compositions of individual phases in the sample  
 - **Automated experimental standard collection** scripts included
@@ -102,14 +104,16 @@ The repository is organized as follows:
 ```text
 AutoEMXSp/
 ├── autoemxsp/                 # Main package source code
-│   ├── core/                   # Core objects and source code
-│   ├── runners/                # Runner functions calling on core objects
-│   ├── data/                   # Libraries of X-ray data
 │   ├── _custom_plotting.py     # Customizable clustering plot function
+│   ├── config/                 # Configuration files, including default values to employ during measurements.
+│   ├── core/                   # Core objects and source code
+│   ├── data/                   # Libraries of X-ray data
 │   ├── EM_driver/              # Electron Microscope driver (⚠️ adapt to your own instrument)
-│   ├── XSp_calibs/             # X-ray spectral calibrations (⚠️ adapt to your own instrument)
-│   ├── scripts/                # Scripts to run acquisition, quantification, etc. (see full list below)
 │   └── Results/                # Example acquired data (used for unit tests)
+│   ├── runners/                # Runner functions calling on core objects
+│   ├── scripts/                # Scripts to run acquisition, quantification, etc. (see full list below)
+│   ├── XSp_calibs/             # X-ray spectral calibrations (⚠️ adapt to your own instrument)
+│   ├── utils/                  # Utility functions and strings employed by the program
 │
 ├── examples/                  # Example scripts for fitting, quantification and compositional analysis of example data
 ├── tests/                     # Unit tests for fitting, quantification, compositional analysis and image processing
@@ -132,7 +136,8 @@ Each script is tailored for a specific task in spectral acquisition, calibration
 - **Run_Acquisition_Quant_Analysis.py** — Acquire X-ray spectra and optionally perform quantification and composition analysis.  
 - **Run_Quantification_Analysis.py** — Quantify acquired spectra (single or multiple samples) and perform machine-learning analysis.  
 - **Run_Analysis.py** — Launch customized machine-learning analysis on previously quantified data. 
-- **Fit_Quant_Single_Spectrum.py** — Fit and optionally quantify a single spectrum. Prints fitting parameters and plots fitted spectrum for detailed inspection of model performance.  
+- **Fit_Quant_Single_AutoEMXSp_Spectrum.py** — Fit and optionally quantify a single spectrum measured with AutoEMXSp. Prints fitting parameters and plots fitted spectrum for detailed inspection of model performance.  
+- **Fit_Quant_Single_MSA_Spectrum.py** — Fit and optionally quantify a single spectrum exported by proprietary software. 
 
 ### 📊 Particle Size Distribution Measurements
 - **Collect_Particle_Statistics.py** - Analyse sample, collecting particle size statistics and distribution.
@@ -144,9 +149,7 @@ Each script is tailored for a specific task in spectral acquisition, calibration
 
 ### ⚗️ Characterize Extent of Intermixing in Known Powder Mixtures  
 *(see [Chem. Mater. 2025, 37, 6807−6822](https://pubs.acs.org/doi/10.1021/acs.chemmater.5c01573) for example)*  
-- **Run_Acquisition_PrecursorMix.py** — Acquire spectra for powder precursor mixtures.  
-- **Run_Quantification_PrecursorMix.py** — Quantify spectra for one or multiple powder mixtures and run machine-learning analysis.
-- Customized analysis can be performed using the **Run_Analysis.py** script
+Use the same scripts as regular composition characterization, as described in the docs Tutorial.
 
 👉 All scripts can be executed directly from the command line or imported into a Python environment, making them accessible from anywhere on your system.  
 
@@ -173,17 +176,17 @@ LICENSE — see the LICENSE file for details.
 If you use **AutoEMXSp** in your research, please cite the following publication:
 
 > A. Giunto, Y. Fei, P. Nevatia, B. Rendy, N. Szymanski and G. Ceder;
-> *Harnessing Automated SEM-EDS and Machine Learning to Unlock High-Throughput Compositional Characterization of Powder Materials*, 2025.  
-> DOI: [https://doi.org/10.21203/rs.3.rs-7837297/v1](https://doi.org/10.21203/rs.3.rs-7837297/v1)
+> *Accurate SEM‑EDS Quantification, Automation, and Machine Learning Enable High‑Throughput Compositional Characterization of Powders*, 2025.  
+> DOI: [https://doi.org/10.21203/rs.3.rs-7837297/v1](https://doi.org/10.21203/rs.3.rs-7837297/v2)
 
 ### BibTeX
 ```bibtex
 @article{Giunto2025AutoEMXSp,
   author  = {Giunto, Andrea and Fei, Yuxing and Nevatia, Pragnay and Rendy, Bernardus and Szymanski, Nathan and Ceder, Gerbrand},
-  title   = {Harnessing Automated SEM-EDS and Machine Learning to Unlock High-Throughput Compositional Characterization of Powder Materials},
+  title   = {Accurate SEM‑EDS Quantification, Automation, and Machine Learning Enable High‑Throughput Compositional Characterization of Powders},
   year    = {2025},
-  doi     = {10.21203/rs.3.rs-7837297/v1},
-  url     = {https://doi.org/10.21203/rs.3.rs-7837297/v1}
+  doi     = {10.21203/rs.3.rs-7837297/v2},
+  url     = {https://doi.org/10.21203/rs.3.rs-7837297/v2}
 }
 ```
 
