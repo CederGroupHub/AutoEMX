@@ -1274,10 +1274,10 @@ class EM_Controller:
         return True
     
     
-    def save_frame_image(self, filename, im_annotations=None, draw_scalebar = True, frame_image = None, save_dir=None):
+    def save_frame_image(self, filename, im_annotations=None, scalebar = True, frame_image = None, save_dir=None):
         """
         Save an annotated and raw electron microscopy (EM) frame as a multi-page TIFF.
-        If no annotation is done (i.e., im_annotations=None & draw_scalebar = False),
+        If no annotation is done (i.e., im_annotations=None & scalebar = False),
         then only one page is saved in the TIFF.
         
         This function retrieves a raw grayscale EM image, generates an annotated
@@ -1302,7 +1302,7 @@ class EM_Controller:
             For multiple annotations, use a list of dictionaries.
             Do not include the relative key if that particular annotation is not desired.
         
-        draw_scalebar : bool, optional
+        scalebar : bool, optional
             Whether to annotate the image with a scalebar.
         
         frame_image : np.array | None, opt
@@ -1371,7 +1371,7 @@ class EM_Controller:
                     )
         
         # Add scale bar
-        if draw_scalebar:
+        if scalebar:
             color_image = draw_scalebar(color_image, self.pixel_size_um)
     
         # Prepare save path
@@ -1380,7 +1380,7 @@ class EM_Controller:
         # Ensure dtype consistency (convert to uint8 if needed)
         if frame_image.dtype != np.uint8:
             frame_image = (frame_image / frame_image.max() * 255).astype(np.uint8)
-            if draw_scalebar:
+            if scalebar:
                 color_image = (color_image / color_image.max() * 255).astype(np.uint8)
     
         # Convert grayscale to RGB for saving
@@ -1400,7 +1400,7 @@ class EM_Controller:
         desc_str = json.dumps(image_description_d, ensure_ascii=True)
         
         # Convert numpy arrays to Pillow Image objects, force RGB mode
-        if draw_scalebar:
+        if scalebar:
             im1 = Image.fromarray(color_image.astype('uint8'), mode='RGB')
         else:
             im1 = None
