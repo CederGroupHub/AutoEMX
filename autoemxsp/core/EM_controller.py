@@ -1274,9 +1274,11 @@ class EM_Controller:
         return True
     
     
-    def save_frame_image(self, filename, im_annotations=None, frame_image = None, save_dir=None):
+    def save_frame_image(self, filename, im_annotations=None, draw_scalebar = True, frame_image = None, save_dir=None):
         """
         Save an annotated and raw electron microscopy (EM) frame as a multi-page TIFF.
+        If no annotation is done (i.e., im_annotations=None & draw_scalebar = False),
+        then only one page is saved in the TIFF.
         
         This function retrieves a raw grayscale EM image, generates an annotated
         RGB version with optional markers and a scale bar, and saves both images
@@ -1299,7 +1301,10 @@ class EM_Controller:
                     thickness : int, thickness of circle border. Set to -1 for filling
             For multiple annotations, use a list of dictionaries.
             Do not include the relative key if that particular annotation is not desired.
-            
+        
+        draw_scalebar : bool, optional
+            Whether to annotate the image with a scalebar.
+        
         frame_image : np.array | None, opt
             Frame image to save. Captures the current frame image if not provided
         
@@ -1366,7 +1371,8 @@ class EM_Controller:
                     )
         
         # Add scale bar
-        color_image = draw_scalebar(color_image, self.pixel_size_um)
+        if draw_scalebar:
+            color_image = draw_scalebar(color_image, self.pixel_size_um)
     
         # Prepare save path
         save_path = os.path.join(save_dir, f"{filename}.tif")
@@ -1374,7 +1380,8 @@ class EM_Controller:
         # Ensure dtype consistency (convert to uint8 if needed)
         if frame_image.dtype != np.uint8:
             frame_image = (frame_image / frame_image.max() * 255).astype(np.uint8)
-            color_image = (color_image / color_image.max() * 255).astype(np.uint8)
+            if draw_scalebar:
+                color_image = (color_image / color_image.max() * 255).astype(np.uint8)
     
         # Convert grayscale to RGB for saving
         if frame_image.ndim == 2:
@@ -1393,18 +1400,24 @@ class EM_Controller:
         desc_str = json.dumps(image_description_d, ensure_ascii=True)
         
         # Convert numpy arrays to Pillow Image objects, force RGB mode
-        im1 = Image.fromarray(color_image.astype('uint8'), mode='RGB')
+        if draw_scalebar:
+            im1 = Image.fromarray(color_image.astype('uint8'), mode='RGB')
+        else:
+            im1 = None
         im2 = Image.fromarray(frame_image.astype('uint8'), mode='RGB')
         
         # Save as multi-page TIFF, with description on first page
-        im1.save(
-            save_path,
-            format='TIFF',
-            description=desc_str,
-            save_all=True,
-            append_images=[im2],
-            compression=None
-        )
+        if im1 is None:
+            im2.save(save_path, format="TIFF", description=desc_str)
+        else:
+            im1.save(
+                save_path,
+                format='TIFF',
+                description=desc_str,
+                save_all=True,
+                append_images=[im2],
+                compression=None
+            )
         
     
 #%% Electron Microscope Sample Finder class    

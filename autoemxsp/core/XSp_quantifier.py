@@ -66,6 +66,7 @@ The XSp_Fitter module must be installed and available for spectral fitting and d
 import os
 import re
 import warnings
+import traceback
 from typing import Optional, Dict, Tuple, Sequence, List, Union
 
 # =============================================================================
@@ -949,8 +950,10 @@ class XSp_Quantifier:
             )
         except Exception as e:
             is_fit_valid = False
+            tb_str = traceback.format_exc()  # get full traceback as a string
             print("Fit and quantification iteration unsuccessful due to the following error:")
             print(f"{type(e).__name__}: {e}")
+            print(tb_str)
     
         # Iteratively fit and quantify to converge to a solution
         if is_fit_valid and fit_iteratively:

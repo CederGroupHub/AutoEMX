@@ -108,15 +108,15 @@ AutoEMXSp package.
 
 - **Standard users**
 
-  You run predefined scripts and calibrate the Silicon Drift Detector (SDD)
-  without any prior knowledge of the internal code structure.  
-  The documentation provides **step-by-step instructions** to help you get
-  started quickly.
+  You run predefined scripts without any prior knowledge of the internal code
+  structure. The documentation provides **step-by-step instructions** to help
+  you get started quickly.
 
 
 - **Advanced users**
 
-  You interact with AutoEMXSp beyond simple script execution.  
+  You interact with AutoEMXSp beyond simple script execution (workflows setup,
+  EDS detector calibration, etc...).
   This documentation guides you through the **initial configuration and setup**
   required to deploy AutoEMXSp on a **new microscope** and adapt it to new
   experimental workflows.

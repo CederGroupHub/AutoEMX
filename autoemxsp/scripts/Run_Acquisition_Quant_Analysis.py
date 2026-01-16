@@ -43,6 +43,9 @@ samples = [
 
 results_dir = '' # Uses default directory if set to None. Otherwise creates a new folder at specified path.
 
+# Elements present in the substrate (may depend on target_Xsp_counts). These are ignored during quantification, unless present in the sample.
+els_substrate = ['C', 'O', 'Al']  # N and F may also be detectable with >100k counts
+
 # =============================================================================
 # Acquisition Options
 # =============================================================================
@@ -70,6 +73,8 @@ max_XSp_acquisition_time = target_Xsp_counts / 10000 * 5 # Maximum acquisition t
 # =============================================================================
 quantify_spectra = False # Whether to quantify spectra during acquisition. Not recommended if microscope computer is slow
 
+use_project_specific_std_dict = False # If True, loads standards from project folder (i.e. results_dir) during quantification.
+
 interrupt_fits_bad_spectra = True # Whether to interrupt the quantification of spectra expected to lead to gross quantification errors. Tested extensively. Speeds up quantification.
 
 max_analytical_error_percent = 5 # Maximum analytical error to employ to filter out compositions during clustering. Can be modified later. Does not influence quantification
@@ -78,10 +83,6 @@ quant_flags_accepted = [0, -1] # Quantification flags accepted during clsutering
 
 max_n_clusters = 6 # Max number of clusters. Can be modified later. Does not influence quantification
 show_unused_comps_clust = True # Whether to show discarded compositions in clustering plot. Can be modified later. Does not influence quantification
-
-
-# Elements present in the substrate (may depend on target_Xsp_counts). These are ignored during quantification, unless present in the sample.
-els_substrate = ['C', 'O', 'Al']  # N and F also detectable with >100k counts
 
 # =============================================================================
 # Powder sample options - Define parameters for particle segmentation and for determining EDS spot selection on particles
@@ -126,6 +127,7 @@ comp_analyzer = batch_acquire_and_analyze(
     sample_substrate_width_mm=sample_substrate_width_mm,
     working_distance = working_distance,
     beam_energy=beam_energy,
+    use_project_specific_std_dict = use_project_specific_std_dict,
     interrupt_fits_bad_spectra=interrupt_fits_bad_spectra,
     max_analytical_error_percent=max_analytical_error_percent,
     min_bckgrnd_cnts=min_bckgrnd_cnts,

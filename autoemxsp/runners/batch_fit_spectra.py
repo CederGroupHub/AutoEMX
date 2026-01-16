@@ -33,8 +33,9 @@ from datetime import datetime
 from typing import List, Optional
 
 import autoemxsp.utils.constants as cnst
+import autoemxsp.config.defaults as dflt
 from autoemxsp.utils import get_sample_dir, print_double_separator
-from autoemxsp.runners.fit_and_quantify_spectrum import fit_and_quantify_spectrum
+from autoemxsp.runners import fit_and_quantify_spectrum_fromDatacsv
 
 # Configure logging (same style as fit_and_quantify_spectrum)
 logging.basicConfig(
@@ -50,7 +51,7 @@ def batch_fit_spectra(sample_IDs,
                       spectrum_lims: tuple = None,
                       samples_path: str = None,
                       output_path: str = 'Fitting output',
-                      use_instrument_background: bool = False,
+                      use_instrument_background: bool = dflt.use_instrument_background,
                       quantify_plot: bool = True,
                       plot_signal: bool = True,
                       zoom_plot: bool = False,
@@ -165,7 +166,7 @@ def batch_fit_spectra(sample_IDs,
             print_double_separator()
             logging.info(f"Fitting Sample '{sample_ID}', Spectrum {sp_id} (fit only, no quantification)")
             try:
-                quantifier = fit_and_quantify_spectrum(
+                quantifier = fit_and_quantify_spectrum_fromDatacsv(
                     sample_ID=sample_ID,
                     spectrum_ID=sp_id,
                     is_standard = is_standard,

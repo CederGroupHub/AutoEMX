@@ -27,126 +27,6 @@ Typical usage:
     - Adjust configuration parameters as needed, either directly in the script or by passing them to `batch_acquire_and_analyze`
     - Run the script, or import and call `batch_acquire_and_analyze()` to perform spectrum collection and (optionally) quantification for one or multiple samples at a time
 
-Parameters
-----------
-samples : list of dict
-    List of sample definitions. Each dictionary must contain:
-        - 'ID' (str): Sample identifier (SampleConfig.ID).
-        - 'els' (list of str): List of expected element symbols (SampleConfig.elements).
-        - 'pos' (tuple of float): (x, y) stage coordinates in mm (SampleConfig.center_pos).
-        - 'cnd' (list of str, optional): Reference chemical formulae for known phases (ClusteringConfig.ref_formulae).
-microscope_ID : str, optional
-    Identifier for the microscope hardware.
-    Must correspond to a calibration folder in `./XSp_calibs/Microscopes/<ID>` (MicroscopeConfig.ID).
-    Default is `'PhenomXL'`.
-microscope_type : str, optional
-    Type of microscope. Allowed: `'SEM'` (implemented), `'STEM'` (not implemented).
-    Default is `'SEM'` (MicroscopeConfig.type).
-measurement_type : str, optional
-    Measurement type. Allowed: `'EDS'` (implemented), `'WDS'` (not implemented).
-    Default is `'EDS'` (MeasurementConfig.type).
-measurement_mode : str, optional
-    Acquisition mode (e.g., `'point'`, `'map'`), defining beam/detector calibration settings.
-    Default is `'point'` (MeasurementConfig.mode).
-quantification_method : str, optional
-    Quantification method. Currently only `'PB'` (Phi-Rho-Z) is implemented.
-    Default is `'PB'` (QuantConfig.method).
-sample_type : str, optional
-    Sample type. Allowed: `'powder'` (implemented), `'bulk'`, `'film'` (not implemented).
-    Default is `'powder'` (SampleConfig.type).
-sample_halfwidth : float, optional
-    Half-width of the sample area in mm for mapping/acquisition.
-    Default is `3.0` (SampleConfig.half_width_mm).
-sample_substrate_type : str, optional
-    Type of sample substrate. Allowed: `'Ctape'`, `'None'`.
-    Default is `'Ctape'` (SampleSubstrateConfig.type).
-sample_substrate_shape : str, optional
-    Shape of the substrate. Allowed: `'circle'`, `'square'`.
-    Default is `'circle'` (SampleSubstrateConfig.shape).
-sample_substrate_width_mm : float, optional
-    Lateral dimension of substrate holder in mm (SampleSubstrateConfig.stub_w_mm).
-working_distance : float, optional
-    Working distance in mm for acquisition. If None, taken from microscope driver.
-    Default is `5.0` (MeasurementConfig.working_distance).
-beam_energy : float, optional
-    Electron beam energy in keV.
-    Default is `15.0` (MeasurementConfig.beam_energy_keV).
-spectrum_lims : tuple of float, optional
-    Lower and upper energy limits for spectrum fitting in eV.
-    Default is `(14, 1100)` (QuantConfig.spectrum_lims).
-use_instrument_background : bool, optional
-    Whether to use instrument background files during fitting.
-    If False, background is computed during fitting.
-    Default is `False` (QuantConfig.use_instrument_background).
-interrupt_fits_bad_spectra : bool, optional
-    If True, fitting stops early for poor-quality spectra.
-    Default is `True` (QuantConfig.interrupt_fits_bad_spectra).
-max_analytical_error_percent : float, optional
-    Maximum allowed analytical error (%) for compositions to be included in clustering.
-    Default is `5` (ClusteringConfig.max_analytical_error_percent).
-min_bckgrnd_cnts : float, optional
-    Minimum background counts required for a spectrum not to be filtered out.
-    Default is `5` (QuantConfig.min_bckgrnd_cnts).
-quant_flags_accepted : list of int, optional
-    List of acceptable quantification flags; others are filtered out before clustering.
-    Default is `[0, -1]` (ClusteringConfig.quant_flags_accepted).
-max_n_clusters : int, optional
-    Maximum number of clusters allowed in compositional clustering.
-    Default is `6` (ClusteringConfig.max_k).
-show_unused_comps_clust : bool, optional
-    Whether to display unused compositions in clustering plots.
-    Default is `True` (PlotConfig.show_unused_comps_clust).
-is_manual_navigation : bool, optional
-    If True, navigation to sample positions is manual.
-    Default is `False` (MeasurementConfig.is_manual_navigation).
-is_auto_substrate_detection : bool, optional
-    If True, substrate elements are detected automatically.
-    Implemented only for `'Ctape'` substrates.
-    Default is `False` (SampleSubstrateConfig.auto_detection).
-auto_adjust_brightness_contrast : bool, optional
-    If True, brightness/contrast are set automatically.
-    Default is `True` (MicroscopeConfig.is_auto_BC).
-contrast : float, optional
-    Manual contrast setting (required if auto_adjust_brightness_contrast is False).
-    Default is `4.3877` (MicroscopeConfig.contrast).
-brightness : float, optional
-    Manual brightness setting (required if auto_adjust_brightness_contrast is False).
-    Default is `0.4504` (MicroscopeConfig.brightness).
-quantify_spectra : bool, optional
-    If True, perform quantification after acquisition.
-    Default is `False`.
-min_n_spectra : int, optional
-    Minimum number of spectra to acquire.
-    Default is `50` (MeasurementConfig.min_n_spectra).
-max_n_spectra : int, optional
-    Maximum number of spectra to acquire.
-    Default is `100` (MeasurementConfig.max_n_spectra).
-target_Xsp_counts : int, optional
-    Target counts for spectrum acquisition.
-    Default is `50000` (MeasurementConfig.target_acquisition_counts).
-max_XSp_acquisition_time : float, optional
-    Maximum acquisition time in seconds. If None, estimated from target counts.
-    Default is `None` (MeasurementConfig.max_acquisition_time).
-els_substrate : list of str, optional
-    List of substrate element symbols.
-    Default is `['C', 'O', 'Al']` (SampleSubstrateConfig.elements).
-powder_meas_cfg_kwargs : dict, optional
-    Additional keyword arguments for PowderMeasurementConfig.
-bulk_meas_cfg_kwargs : dict, optional
-    Additional keyword arguments for BulkMeasurementConfig.
-output_filename_suffix : str, optional
-    String appended to output filenames.
-    Default is `''`.
-development_mode : bool, optional
-    If True, enables development/debug features.
-    Default is `False`.
-verbose : bool, optional
-    If True, print verbose output.
-    Default is `True`.
-results_dir : str, optional
-    Directory where results are saved.
-    Default is `None`.
-    
 Created on Fri Jul 26 09:34:34 2024
 
 @author: Andrea
@@ -196,6 +76,7 @@ def batch_acquire_and_analyze(
     beam_energy: float = 15.0,
     spectrum_lims: Tuple[float, float] = dflt.spectrum_lims,
     use_instrument_background: bool = dflt.use_instrument_background,
+    use_project_specific_std_dict: bool = False,
     interrupt_fits_bad_spectra: bool = True,
     max_analytical_error_percent: float = 5,
     min_bckgrnd_cnts: float = 5,
@@ -278,6 +159,9 @@ def batch_acquire_and_analyze(
         Whether to use instrument background files during fitting.
         If False, background is computed during fitting.
         Default is `False` (QuantConfig.use_instrument_background).
+    use_project_specific_std_dict : bool, optional
+        If True, loads standards from project folder (i.e. results_dir) during quantification.
+        Default: False
     interrupt_fits_bad_spectra : bool, optional
         If True, fitting stops early for poor-quality spectra.
         Default is `True` (QuantConfig.interrupt_fits_bad_spectra).
@@ -391,7 +275,8 @@ def batch_acquire_and_analyze(
         spectrum_lims=spectrum_lims,
         use_instrument_background=use_instrument_background,
         interrupt_fits_bad_spectra=interrupt_fits_bad_spectra,
-        min_bckgrnd_cnts=min_bckgrnd_cnts
+        min_bckgrnd_cnts=min_bckgrnd_cnts,
+        use_project_specific_std_dict = use_project_specific_std_dict
     )
 
     if powder_meas_cfg_kwargs:

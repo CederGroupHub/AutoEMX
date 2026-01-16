@@ -27,35 +27,6 @@ Typical usage:
     - Edit the `sample_IDs` list and parameter options in the script, or
     - Import and call `batch_quantify_and_analyze()` with your own arguments.
     
-Parameters
-----------
-sample_IDs : List[str]
-    List of sample identifiers.
-quantification_method : str, optional
-    Method to use for quantification. Uses quant_cfg.method if unspecified. Currently only supports 'PB'.
-results_path : str, optional
-    Base directory where results are stored. Default: autoemxsp/Results
-min_bckgrnd_cnts : float, optional
-    Minimum number of background counts underneath reference peaks below which spectra are flagged.
-    If None, leaves it unchanged. Default: None
-output_filename_suffix : str, optional
-    Suffix to append to output filenames.
-use_instrument_background : bool, optional
-    Whether to use instrument background if present (Default: False).
-max_analytical_error : float, optional
-    Maximum allowed analytical error for analysis.
-run_analysis : bool, optional
-    Whether to run clustering/statistical analysis after quantification.
-quantify_only_unquantified_spectra : bool, optional
-    If True, only quantify spectra that lack analytical error.
-interrupt_fits_bad_spectra : bool, optional
-    If True, interrupt fitting if bad spectra are encountered. Speeds up computations
-is_known_precursor_mixture : bool, optional
-    Whether sample is a mixture of two known powders. Used to characterize extent of intermixing in powders.
-    See example at:
-        L. N. Walters et al., Synthetic Accessibility and Sodium Ion Conductivity of the Na 8– x A x P 2 O 9 (NAP)
-        High-Temperature Sodium Superionic Conductor Framework, Chem. Mater. 37, 6807 (2025).
-    
 Returns
 -------
 quant_results : list()
@@ -81,6 +52,7 @@ from autoemxsp.utils import (
     extract_spectral_data,
 )
 import autoemxsp.utils.constants as cnst
+import autoemxsp.config.defaults as dflt
 from autoemxsp.config import config_classes_dict
 from autoemxsp.core.EMXSp_composition_analyser import EMXSp_Composition_Analyzer
 
@@ -97,12 +69,13 @@ def batch_quantify_and_analyze(
     results_path: str = None,
     min_bckgrnd_cnts: float = None,
     output_filename_suffix: str = "",
-    use_instrument_background: bool = False,
+    use_instrument_background: bool = dflt.use_instrument_background,
     max_analytical_error: float = 5,
     run_analysis: bool = True,
     num_CPU_cores: int = None,
     quantify_only_unquantified_spectra: bool = False,
     interrupt_fits_bad_spectra: bool = False,
+    use_project_specific_std_dict: bool = None,
     is_known_precursor_mixture: Optional[bool] = None,
     standards_dict: dict = None,
 ) -> None:
@@ -134,6 +107,9 @@ def batch_quantify_and_analyze(
         If True, only quantify spectra that lack analytical error.
     interrupt_fits_bad_spectra : bool, optional
         If True, interrupt fitting if bad spectra are encountered. Speeds up computations
+    use_project_specific_std_dict : bool, optional
+        If True, loads standards from project folder (i.e. results_dir) during quantification.
+        Default: None. Loads it from quant_cfg file
     is_known_precursor_mixture : bool, optional
         Whether sample is a mixture of two known powders. Used to characterize extent of intermixing in powders.
         See example at:
@@ -197,6 +173,8 @@ def batch_quantify_and_analyze(
             quant_cfg.min_bckgrnd_cnts = min_bckgrnd_cnts
         if quantification_method is not None:
             quant_cfg.method = quantification_method
+        if use_project_specific_std_dict is not None:
+            quant_cfg.use_project_specific_std_dict = use_project_specific_std_dict
             
         # Load 'Data.csv' into a DataFrame
         try:

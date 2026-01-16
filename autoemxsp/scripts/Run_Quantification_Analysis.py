@@ -47,6 +47,7 @@ run_clustering_analysis = True # Whether to run the clustering analysis automati
 num_CPU_cores = None # Number of cores used during fitting and quantification. If None, selects automatically half the available cores
 quantify_only_unquantified_spectra = False # Set to True if running on Data.csv file that has already been quantified. Used to quantify discarded unqiantified spectra
 interrupt_fits_bad_spectra = True # Interrupts the fit and quantification of spectra when it finds they will lead to large quantification errors. Used to speed up computations
+use_project_specific_std_dict = None # If True, loads standards from project folder (i.e. results_dir) during quantification.
 
 output_filename_suffix = '' # Suffix added to Analysis folder and Data.csv file
 
@@ -63,5 +64,6 @@ comp_analyzer = batch_quantify_and_analyze(
     num_CPU_cores = num_CPU_cores,
     quantify_only_unquantified_spectra=quantify_only_unquantified_spectra,
     interrupt_fits_bad_spectra=interrupt_fits_bad_spectra,
+    use_project_specific_std_dict = use_project_specific_std_dict,
     run_analysis=run_clustering_analysis,
 )

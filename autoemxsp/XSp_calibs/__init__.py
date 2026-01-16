@@ -252,7 +252,7 @@ def update_detector_channel_params(meas_mode, new_offset, new_scale, verbose: bo
 
         
 
-def load_standards(meas_type: str, beam_energy: int) -> dict:
+def load_standards(meas_type: str, beam_energy: int, std_f_dir : str = None) -> dict:
     """
     Load standards data for a specified technique and beam energy.
     
@@ -260,8 +260,14 @@ def load_standards(meas_type: str, beam_energy: int) -> dict:
 
     Parameters
     ----------
+    meas_type : str
+        Corresponds to MeasurementConfig.type
     beam_energy : int
         The beam energy (in keV) for which to load the standards.
+    std_f_dir : str
+        Directory of reference standards file. Default : None; uses the default directory
+        Typically only specified when using a special reference file, such as the case of
+        measuring the extent of precursor intermixing.
 
     Returns
     -------
@@ -277,12 +283,26 @@ def load_standards(meas_type: str, beam_energy: int) -> dict:
         
     Notes
     -----
-    Expects a file named 'EDSstandards_{beam_energy}keV.json' in the directory specified
+    Expects a file named '{meas_type}_{beam_energy}keV.json' in the directory specified
     by `microscope_calib_dir`.
     beam_energy will be converted to an int for the file name's purpose.
     """
-    global standards_dir
-    standards_dir = os.path.join(microscope_calib_dir, f'{meas_type}_{cnst.STD_FILENAME}_{beam_energy:d}keV.json')
+    std_dict_filename = f'{meas_type}_{cnst.STD_FILENAME}_{int(beam_energy):d}keV.json'
+    
+    if std_f_dir is not None:
+        standards_dir = os.path.join(std_f_dir, std_dict_filename)
+        if not os.path.exists(std_f_dir): # Check if path exists
+            print(f"Warning: The path {std_f_dir} does not exist.")
+            print(f"Using standard reference file at {microscope_calib_dir}")
+            std_f_dir = microscope_calib_dir
+        elif not os.path.exists(standards_dir): # Check if reference file exists
+            print(f"Warning: The file {standards_dir} does not exist.")
+            print(f"Using standard reference file at {microscope_calib_dir}")
+            std_f_dir = microscope_calib_dir
+    else:
+        std_f_dir = microscope_calib_dir
+        
+    standards_dir = os.path.join(std_f_dir, std_dict_filename)
     try:
         with open(standards_dir, 'r') as file:
             try:

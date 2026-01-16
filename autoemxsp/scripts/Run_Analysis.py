@@ -27,7 +27,6 @@ from autoemxsp.runners import analyze_sample
 # =============================================================================
 # sample_ID = 'Wulfenite_example'
 sample_ID = 'K-412_NISTstd_example'
-# sample_ID = 'known_powder_mixture_example'
 
 results_path = None # Looks in default Results folder if left unspecified
 
@@ -47,6 +46,9 @@ k_finding_method: str | None = None
 # Behavior:
 # - If both `k_finding_method` and `k_forced` are None, clustering configurations
 #   are loaded directly from the saved `Comp_analysis_configs.json` file.
+
+# Whether to compute matrix decomposition for intermixed phases. Slow if many candidate phases are provided.
+do_matrix_decomposition = True
 
 # =============================================================================
 # Spectral Filtering options
@@ -76,6 +78,7 @@ comp_analyzer = analyze_sample(
     clustering_features = clustering_features,
     els_excluded_clust_plot=els_excluded_clust_plot,
     k_finding_method = k_finding_method,
+    do_matrix_decomposition = do_matrix_decomposition,
     max_analytical_error_percent=max_analytical_error_percent,
     quant_flags_accepted=quant_flags_accepted,
     plot_custom_plots=plot_custom_plots,

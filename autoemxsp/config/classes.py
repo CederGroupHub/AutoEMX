@@ -291,6 +291,8 @@ class QuantConfig:
             If False, AutoEMXSp computes the background while fitting.
         interrupt_fits_bad_spectra (bool): If True, fitting will stop early for spectra identified as poor quality.
         min_bckgrnd_cnts (Optional[int]): Minimum background counts required for spectrum not to be filtered out. Can be None.
+        use_project_specific_std_dict (bool): If True, tries to load the dictionary of reference standards from the project folder.
+            If not found, uses the default file "EDS_Stds_beamenergykeV.json" at XSp_calibs/Microscopes/your_microscope.
     """
     method: str = dflt.quantification_method
     spectrum_lims: Tuple[float, float] = dflt.spectrum_lims
@@ -299,6 +301,7 @@ class QuantConfig:
     interrupt_fits_bad_spectra: bool = True
     min_bckgrnd_cnts: Optional[int] = 5  # Can be None
     num_CPU_cores: Optional[int] = None
+    use_project_specific_std_dict: bool = False
     
     ALLOWED_METHODS = ['PB']
     
@@ -464,10 +467,16 @@ class ExpStandardsConfig:
             reference standard value employed generally during spectral quantification (Default = True).
             This should be set to False when collecting powder standards for quantifying the extent of intermixing
             in powder standards.
-        
+                
+        generate_separate_std_dict (bool):
+            Whether the acquired reference standard values are added to the current reference dictionary. If True, 
+            copies the current standard dictionary to the project folder and updates it. If such .json file is already
+            present in the project folder, then it updates it. This is generally used when measuring the extent of
+            powder precursor intermixing (i.e., powder_meas_cfg_kwargs["is_known_powder_mixture_meas"] = True).
+            
         min_acceptable_PB_ratio (float): 
             Minimum PB ratio required for a peak to be accepted as a standard. in cnts/cnts*keV^-1 (Deafult = 10).
-
+        
         quant_flags_accepted (List[int]): 
             List of quantification flags considered acceptable. Other spectra are filtered out before clustering.
             Quantification flags indicate whether the quantification or the fit of each spectrum is likely to be 
@@ -498,6 +507,7 @@ class ExpStandardsConfig:
     is_exp_std_measurement: bool = False
     formula: str = ''
     use_for_mean_PB_calc: bool = True
+    generate_separate_std_dict: bool = False
     min_acceptable_PB_ratio: float = 10
     quant_flags_accepted: List[int] = field(default_factory=lambda: [0])
     w_frs: Optional[Dict[str, float]] = None  # Will hold calculated weight fractions
@@ -531,6 +541,7 @@ class ClusteringConfig:
             Allowed methods are "silhouette", "calinski_harabasz", "elbow".
         max_k (int): Maximum allowed number of clusters.
         ref_formulae (List[str]): List of possible phases present in the sample, as chemical formula strings.
+        do_matrix_decomposition (bool) : Whether to compute matrix decomposition for intermixed phases. Slow if many candidate phases are provided. Default: True
         max_analytical_error_percent (float): Maximum analytical error acceptable for composition to be considered in phase determination, expressed as w%. Can be None.
         quant_flags_accepted (List[int]): List of quantification flags considered acceptable, others are filtered out prior clustering.
             Quantification flags indicate whether the quantification or the fit of each spectrum is likely to be affected by large errors:
@@ -553,6 +564,7 @@ class ClusteringConfig:
     k_finding_method: str = DEFAULT_K_FINDING_METHOD
     max_k: int = 6
     ref_formulae: List[str] = field(default_factory=list)
+    do_matrix_decomposition: bool = True
     max_analytical_error_percent: float = 5  # w%, Can be None
     quant_flags_accepted: List[int] = field(default_factory=lambda: [0, -1])
     

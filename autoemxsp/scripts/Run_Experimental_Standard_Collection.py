@@ -35,6 +35,7 @@ min_bckgrnd_cnts = 10
 
 output_filename_suffix = ''
 
+exp_std_dir = None # Defines directory where measurements are saved. If None, uses default path.
 # =============================================================================
 # Sample Definitions
 # =============================================================================
@@ -107,7 +108,8 @@ bulk_meas_cfg_kwargs = dict(
 exp_stds_meas_cfg_kwargs = dict(
     min_acceptable_PB_ratio = 10,
     quant_flags_accepted = [0],
-    use_for_mean_PB_calc = not powder_meas_cfg_kwargs["is_known_powder_mixture_meas"]
+    use_for_mean_PB_calc = not powder_meas_cfg_kwargs["is_known_powder_mixture_meas"],
+    generate_separate_std_dict = powder_meas_cfg_kwargs["is_known_powder_mixture_meas"]
 )
 
 # =============================================================================
@@ -144,4 +146,5 @@ exp_std_maker = batch_acquire_experimental_stds(
     output_filename_suffix=output_filename_suffix,
     development_mode=False,
     verbose=True,
+    exp_std_dir = exp_std_dir
 )

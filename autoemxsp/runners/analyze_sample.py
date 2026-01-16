@@ -26,34 +26,6 @@ Typical usage:
     - Edit the `sample_ID` and options in the script, or
     - Import and call `analyze_sample()` with your own arguments.
     
-Parameters
-----------
-sample_ID : str
-    Sample identifier.
-results_path : str, optional
-    Directory where results are stored. If None, sets to default autoemxsp/Results
-output_filename_suffix : str, optional
-    Suffix for output files.
-ref_formulae : list of str, optional
-    Reference formulae for clustering. If the first entry is "" or None, the rest are appended to the 
-    list loaded from Comp_analysis_configs.json; otherwise, the provided list replaces it.
-els_excluded_clust_plot : list of str, optional
-    Elements to exclude from cluster plot.
-clustering_features : list of str, optional
-    Features to use for clustering. 
-k_finding_method : str, optional
-    Method for determining optimal number of clusters. Set to "forced" if a value of 'k' is specified manually.
-        Allowed methods are "silhouette", "calinski_harabasz", "elbow".
-k_forced : int, optional
-    Forced number of clusters.
-max_analytical_error_percent : float, optional
-    Maximum analytical error allowed for clustering.
-quant_flags_accepted : list of int, optional
-    Accepted quantification flags.
-plot_custom_plots : bool, optional
-    Whether to use custom plots.
-show_unused_compositions_cluster_plot : bool, optional
-    Whether to show unused compositions in cluster plot.
 
 Created on Tue Jul 29 13:18:16 2025
 
@@ -92,6 +64,7 @@ def analyze_sample(
     clustering_features: Optional[List[str]] = None,
     k_finding_method: Optional[str] = None,
     k_forced: Optional[int] = None,
+    do_matrix_decomposition: bool = True,
     max_analytical_error_percent: float = 5,
     quant_flags_accepted: Optional[List[int]] = None,
     plot_custom_plots: bool = False,
@@ -120,6 +93,8 @@ def analyze_sample(
             Allowed methods are "silhouette", "calinski_harabasz", "elbow".
     k_forced : int, optional
         Forced number of clusters.
+    do_matrix_decomposition : bool, optional
+        Whether to compute matrix decomposition for intermixed phases. Slow if many candidate phases are provided. Default: True..
     max_analytical_error_percent : float, optional
         Maximum analytical error allowed for clustering.
     quant_flags_accepted : list of int, optional
@@ -196,7 +171,10 @@ def analyze_sample(
     else:
         # If a finding method is not specified and k_forced is None, simply loads the default values from clustering_cfg
         pass
-
+    
+    if do_matrix_decomposition is not None:
+        clustering_cfg.do_matrix_decomposition = do_matrix_decomposition
+    
     # --- Modify Plot Configuration
     plot_cfg.show_unused_comps_clust = show_unused_compositions_cluster_plot
     plot_cfg.use_custom_plots = plot_custom_plots

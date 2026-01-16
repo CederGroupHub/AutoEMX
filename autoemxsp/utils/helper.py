@@ -689,7 +689,7 @@ def load_msa(filepath: str) -> Tuple[np.ndarray, np.ndarray, Dict[str, str]]:
     Returns
     -------
     energy : np.ndarray
-        Energy values computed from OFFSET and XPERCHAN.
+        Energy values computed from OFFSET and XPERCHAN (in eV).
     counts : np.ndarray
         Measured counts per energy channel.
     metadata : dict
@@ -718,8 +718,15 @@ def load_msa(filepath: str) -> Tuple[np.ndarray, np.ndarray, Dict[str, str]]:
                 continue
 
             if in_data_section:
-                # Parse counts (allow comma or space separated)
-                token = line.replace(',', '').strip()
+                # Handle both single and double column formats
+                # Removing trailing commas before splitting
+                line = line.rstrip(',')
+                if ',' in line:
+                    parts = line.split(',', maxsplit=1)
+                    token = parts[1].strip() if len(parts) > 1 else parts[0].strip()
+                else:
+                    token = line.strip()
+                    
                 try:
                     counts.append(float(token))
                 except ValueError:

@@ -465,9 +465,13 @@ class EMXSp_Composition_Analyzer:
             This method modifies the `self.XSp_std_dict` attribute in place.
         """
         is_known_mixture = getattr(self.powder_meas_cfg, "is_known_powder_mixture_meas", False)
-    
+        
         if is_known_mixture:
             self.XSp_std_dict = self._compile_standards_from_references()
+        elif self.quant_cfg.use_project_specific_std_dict:
+            std_dict_all_modes, std_dir = self._load_xsp_standards()
+            std_dict = std_dict_all_modes[self.measurement_cfg.mode]
+            self.XSp_std_dict = std_dict
         else:
             # Standards dictionary will be loaded directly within the `XSp_Quantifier`
             self.XSp_std_dict = None
@@ -587,7 +591,7 @@ class EMXSp_Composition_Analyzer:
         Parameters
         ----------
         x, y : float
-            X, Y coordinatesfor the spectrum acquisition.
+            X, Y coordinates for the spectrum acquisition.
             Coordinate System
             ----------------
             The coordinates are expressed in a normalized, aspect-ratio-correct system centered at the image center:
@@ -1971,9 +1975,12 @@ class EMXSp_Composition_Analyzer:
         min_conf, max_raw_confs, refs_assigned_df = self._assign_reference_phases(centroids, rms_dist_cluster)
     
         # 7. Assign mixtures
-        clusters_assigned_mixtures = self._assign_mixtures(
-            k, labels, compositions_df, rms_dist_cluster, max_raw_confs, n_points_per_cluster
-        )
+        if self.clustering_cfg.do_matrix_decomposition:
+            clusters_assigned_mixtures = self._assign_mixtures(
+                k, labels, compositions_df, rms_dist_cluster, max_raw_confs, n_points_per_cluster
+            )
+        else:
+            clusters_assigned_mixtures = []
     
         # 8. Save and store results
         if self.is_acquisition:
@@ -2199,36 +2206,38 @@ class EMXSp_Composition_Analyzer:
         """
         if ref_phases == [] or len(ref_phases) == 0:
             # No candidate phase is close enough to the centroid
-            refs_dict = {f'{cnst.CND_DF_KEY}1': np.nan, '{cnst.CS_CND_DF_KEY}1': np.nan}
+            refs_dict = {f'{cnst.CND_DF_KEY}1': np.nan, f'{cnst.CS_RAW_CND_DF_KEY}1': np.nan, '{cnst.CS_CND_DF_KEY}1': np.nan}
             max_raw_conf = None
         else:
             # Calculate distances from centroid to each candidate phase
             distances = np.linalg.norm(ref_phases - centroid, axis=1)
     
             # Assign confidence using a Gaussian function (sigma = 0.03)
-            confidences = np.exp(-distances**2 / (2 * 0.03**2))
+            raw_confidences = np.exp(-distances**2 / (2 * 0.03**2))
     
             # Reduce confidences for ambiguity if multiple references are close
-            weights_conf = np.exp(-(1 - confidences)**2 / (2 * 0.3**2))
+            weights_conf = np.exp(-(1 - raw_confidences)**2 / (2 * 0.3**2))
             weights_conf /= np.sum(weights_conf)  # Normalize
     
             # Adjust confidences by their weights
-            confidences *= weights_conf
+            confidences = raw_confidences * weights_conf
     
             # Get maximum raw confidence
-            max_raw_conf = float(np.max(confidences))
+            max_raw_conf = float(np.max(raw_confidences))
     
             # Sort references by confidence, descending
             sorted_indices = np.argsort(-confidences)
             sorted_ref_names = np.array(ref_names)[sorted_indices]
             sorted_confidences = confidences[sorted_indices]
+            sorted_raw_confs = raw_confidences[sorted_indices]
     
             # Build dictionary of references and confidences (only those > 1%)
             refs_dict = {}
-            for i, (ref_name, conf) in enumerate(zip(sorted_ref_names, sorted_confidences)):
-                if conf > 0.01:
+            for i, (ref_name, conf, conf_raw) in enumerate(zip(sorted_ref_names, sorted_confidences, sorted_raw_confs)):
+                if conf_raw > 0.05:
                     refs_dict[f'{cnst.CND_DF_KEY}{i+1}'] = ref_name
                     refs_dict[f'{cnst.CS_CND_DF_KEY}{i+1}'] = np.round(conf, 2)
+                    refs_dict[f'{cnst.CS_RAW_CND_DF_KEY}{i+1}'] = np.round(conf_raw, 2)
     
         return max_raw_conf, refs_dict
 
@@ -4616,13 +4625,25 @@ class EMXSp_Composition_Analyzer:
         meas_mode = self.measurement_cfg.mode
         # Load or create standards dictionary
         if self.standards_dict is None:
+            
+            # Determine directory of standards dict
+            std_dir = None # Loads default std_dict
+            if self.exp_stds_cfg.generate_separate_std_dict or self.quant_cfg.use_project_specific_std_dict:
+                # Load and save std_dict to project directory, assumed to be up 1 level from the sample directory
+                project_dir = os.path.dirname(self.sample_result_dir)
+                std_dir = project_dir
+                
             try:
-                standards, std_dir = calibs.load_standards(self.measurement_cfg.type, self.measurement_cfg.beam_energy_keV)
+                standards, std_dir = calibs.load_standards(self.measurement_cfg.type, self.measurement_cfg.beam_energy_keV, std_f_dir = std_dir)
             except FileNotFoundError:
                 std_dir = calibs.standards_dir
                 standards = {meas_mode: {}}
             except Exception as e:
                 raise RuntimeError("Failed to load standards library.") from e
+            else:
+                if self.exp_stds_cfg.generate_separate_std_dict:
+                    # Overwrite std_dir in case a new reference dictionary must be generated in the project directory, so that it saves it in project_dir
+                    std_dir = project_dir
         else:
             standards = self.standards_dict
             std_dir = ''
