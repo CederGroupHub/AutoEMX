@@ -60,7 +60,7 @@ class MicroscopeConfig:
 
     ID: str = dflt.microscope_ID
     type: str = dflt.microscope_type
-    detector_type: str = 'BSD'
+    detector_type: str = dflt.detector_type
     is_auto_BC: bool = True
     brightness: Optional[float] = None
     contrast: Optional[float] = None
