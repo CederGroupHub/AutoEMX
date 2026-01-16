@@ -14,11 +14,11 @@
 
 </div>
 
-AutoEMXSp is a **fully automated framework** for SEM-EDS workflows — from spectral acquisition and quantification to data filtering and compositional analysis — all in **one click**.
+AutoEMXSp is a **fully automated framework** for SEM-EDS workflows — from spectral acquisition and quantification, to principled filtering and compositional analysis — all in **one click**.
 
 🎥 Watch AutoEMXSp in action on a desktop SEM-EDS system at https://youtu.be/Bym58gNxlj0
 
-🧪 You can also use this framework to fit and quantify EDS spectra you have collected on your commercial SEM-EDS system (see [Tutorials](https://cedergrouphub.github.io/AutoEMXSp/user/tutorials.html)).
+🧪 Test AutoEMXSp to fit and quantify EDS spectra you have collected on your commercial SEM-EDS system (see [Tutorials](https://cedergrouphub.github.io/AutoEMXSp/user/tutorials.html)).
 
 📖 This work is described in:  
 A. Giunto *et al.*, *Accurate SEM‑EDS Quantification, Automation, and Machine Learning Enable High‑Throughput Compositional Characterization of Powders*, 2025.  
