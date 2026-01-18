@@ -3106,7 +3106,7 @@ class EMXSp_Composition_Analyzer:
         
         # Fit standards and save results
         std_ref_lines, results_df, Z_sample = self._fit_stds_and_save_results(backup_previous_data=False)
-        
+        print(std_ref_lines)
         # Optionally update the standards library with the new results
         if update_std_library and std_ref_lines is not None and std_ref_lines is not {}: 
             self._update_standard_library(std_ref_lines, results_df, Z_sample)
