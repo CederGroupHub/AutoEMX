@@ -3108,8 +3108,9 @@ class EMXSp_Composition_Analyzer:
         
         # Fit standards and save results
         std_ref_lines, results_df, Z_sample = self._fit_stds_and_save_results(backup_previous_data=False)
+        
         # Optionally update the standards library with the new results
-        if update_std_library and std_ref_lines is not None and std_ref_lines is not {}: 
+        if update_std_library and std_ref_lines is not None and len(std_ref_lines) > 0: 
             self._update_standard_library(std_ref_lines, results_df, Z_sample)
         
     #%% Save Plots
@@ -4615,7 +4616,7 @@ class EMXSp_Composition_Analyzer:
         RuntimeError is raised with the original exception preserved.
         
         The function also handles copying of the reference standards to the project
-        folder when exp_stds_cfg.generate_separate_std_dict = True.
+        folder during reference standard measurements when exp_stds_cfg.generate_separate_std_dict = True.
         
         Returns:
             tuple[dict, str]: 
