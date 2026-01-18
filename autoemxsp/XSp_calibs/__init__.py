@@ -292,11 +292,11 @@ def load_standards(meas_type: str, beam_energy: int, std_f_dir : str = None) -> 
     if std_f_dir is not None:
         standards_dir = os.path.join(std_f_dir, std_dict_filename)
         if not os.path.exists(std_f_dir): # Check if path exists
-            print(f"Warning: The path {std_f_dir} does not exist.")
+            print(f"Warning: The provided path for reference standards {std_f_dir} does not exist.")
             print(f"Using standard reference file at {microscope_calib_dir}")
             std_f_dir = microscope_calib_dir
         elif not os.path.exists(standards_dir): # Check if reference file exists
-            print(f"Warning: The file {standards_dir} does not exist.")
+            print(f"Warning: The reference standards file {standards_dir} does not exist.")
             print(f"Using standard reference file at {microscope_calib_dir}")
             std_f_dir = microscope_calib_dir
     else:
@@ -320,3 +320,5 @@ def load_standards(meas_type: str, beam_energy: int, std_f_dir : str = None) -> 
         ) from e
     
     return standards, standards_dir
+
+

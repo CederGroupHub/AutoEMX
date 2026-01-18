@@ -4624,12 +4624,14 @@ class EMXSp_Composition_Analyzer:
                           unexpected error (not just missing files).
         """
         meas_mode = self.measurement_cfg.mode
+        update_separate_std_dict = self.exp_stds_cfg.is_exp_std_measurement and self.exp_stds_cfg.generate_separate_std_dict
+        
         # Load or create standards dictionary
         if self.standards_dict is None:
             
             # Determine directory of standards dict
             std_dir = None # Loads default std_dict
-            if self.exp_stds_cfg.generate_separate_std_dict or self.quant_cfg.use_project_specific_std_dict:
+            if update_separate_std_dict or self.quant_cfg.use_project_specific_std_dict:
                 # Load and save std_dict to project directory, assumed to be up 1 level from the sample directory
                 project_dir = os.path.dirname(self.sample_result_dir)
                 std_dir = project_dir
@@ -4642,9 +4644,10 @@ class EMXSp_Composition_Analyzer:
             except Exception as e:
                 raise RuntimeError("Failed to load standards library.") from e
             else:
-                if self.exp_stds_cfg.generate_separate_std_dict:
-                    # Overwrite std_dir in case a new reference dictionary must be generated in the project directory, so that it saves it in project_dir
-                    std_dir = project_dir
+                # Check if it needs to copy the reference standards files to the project folder
+                if update_separate_std_dict and std_dir != project_dir:
+                    shutil.copy(std_dir, project_dir) # Copy standards to project folder
+                    std_dir = project_dir # Update directory of standards
         else:
             standards = self.standards_dict
             std_dir = ''
