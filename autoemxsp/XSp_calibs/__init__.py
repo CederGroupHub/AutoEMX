@@ -288,7 +288,8 @@ def load_standards(meas_type: str, beam_energy: int, std_f_dir : str = None) -> 
     beam_energy will be converted to an int for the file name's purpose.
     """
     std_dict_filename = f'{meas_type}_{cnst.STD_FILENAME}_{int(beam_energy):d}keV.json'
-    
+    global standards_dir # So that it can be loaded from EMXSp_comp_analyser
+
     if std_f_dir is not None:
         standards_dir = os.path.join(std_f_dir, std_dict_filename)
         if not os.path.exists(std_f_dir): # Check if path exists
@@ -302,7 +303,6 @@ def load_standards(meas_type: str, beam_energy: int, std_f_dir : str = None) -> 
     else:
         std_f_dir = microscope_calib_dir
     
-    global standards_dir # So that it can be loaded from EMXSp_comp_analyser
     standards_dir = os.path.join(std_f_dir, std_dict_filename)
     try:
         with open(standards_dir, 'r') as file:
