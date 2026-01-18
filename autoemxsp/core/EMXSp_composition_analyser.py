@@ -1327,21 +1327,22 @@ class EMXSp_Composition_Analyzer:
             if tmp_analyzer is not None:
                 self.EM_controller.analyzer = tmp_analyzer
         
-        # Sort results by original spectrum index to guarantee correct order
-        results_with_idx.sort(key=lambda x: x[0])
+        if len(results_with_idx) > 0 :
+            # Sort results by original spectrum index to guarantee correct order
+            results_with_idx.sort(key=lambda x: x[0])
+            
+            # Unpack into separate lists
+            _, results_in_order, quant_flags_in_order, comments_in_order = zip(*results_with_idx)
+            
+            # Convert from tuples to lists
+            results_in_order = list(results_in_order)
+            quant_flags_in_order = list(quant_flags_in_order)
+            comments_in_order = list(comments_in_order)
         
-        # Unpack into separate lists
-        _, results_in_order, quant_flags_in_order, comments_in_order = zip(*results_with_idx)
-        
-        # Convert from tuples to lists
-        results_in_order = list(results_in_order)
-        quant_flags_in_order = list(quant_flags_in_order)
-        comments_in_order = list(comments_in_order)
-    
-        # Append to global spectra_quant
-        self.spectra_quant.extend(results_in_order)
-        self.spectral_data[cnst.COMMENTS_DF_KEY].extend(comments_in_order)
-        self.spectral_data[cnst.QUANT_FLAG_DF_KEY].extend(quant_flags_in_order)
+            # Append to global spectra_quant
+            self.spectra_quant.extend(results_in_order)
+            self.spectral_data[cnst.COMMENTS_DF_KEY].extend(comments_in_order)
+            self.spectral_data[cnst.QUANT_FLAG_DF_KEY].extend(quant_flags_in_order)
 
 
     #%% Find number of clusters in kmeans
