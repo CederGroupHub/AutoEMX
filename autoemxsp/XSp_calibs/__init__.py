@@ -301,7 +301,8 @@ def load_standards(meas_type: str, beam_energy: int, std_f_dir : str = None) -> 
             std_f_dir = microscope_calib_dir
     else:
         std_f_dir = microscope_calib_dir
-        
+    
+    global standards_dir # So that it can be loaded from EMXSp_comp_analyser
     standards_dir = os.path.join(std_f_dir, std_dict_filename)
     try:
         with open(standards_dir, 'r') as file:

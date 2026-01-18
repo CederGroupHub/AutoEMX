@@ -469,7 +469,7 @@ class EMXSp_Composition_Analyzer:
         if is_known_mixture:
             self.XSp_std_dict = self._compile_standards_from_references()
         elif self.quant_cfg.use_project_specific_std_dict:
-            std_dict_all_modes, std_dir = self._load_xsp_standards()
+            std_dict_all_modes, _ = self._load_xsp_standards()
             std_dict = std_dict_all_modes[self.measurement_cfg.mode]
             self.XSp_std_dict = std_dict
         else:
@@ -2823,7 +2823,9 @@ class EMXSp_Composition_Analyzer:
         is_analysis_successful = False
         is_acquisition_successful = True
         is_exp_std_measurement = self.exp_stds_cfg.is_exp_std_measurement
-        self._initialise_std_dict() # Initialise dictionary of standards to (optionally) pass onto XSp_Quantifier. Only used with known powder mixtures
+        is_spectral_quant = quantify and not is_exp_std_measurement
+        if is_spectral_quant:
+            self._initialise_std_dict() # Initialise dictionary of standards to (optionally) pass onto XSp_Quantifier. Only used with known powder mixtures
         
         if quantify:
             if is_exp_std_measurement:
@@ -2847,7 +2849,7 @@ class EMXSp_Composition_Analyzer:
             tot_n_spectra, is_acquisition_successful = self._collect_spectra(
                 n_spectra_to_collect,
                 n_tot_sp_collected=tot_n_spectra,
-                quantify=(quantify and not is_exp_std_measurement)
+                quantify=is_spectral_quant
             )
     
             # Save temporary data file to avoid data loss
@@ -2896,7 +2898,7 @@ class EMXSp_Composition_Analyzer:
         print(f'Total compositional analysis time: {process_time:.1f} min')
         print_single_separator()
     
-        if quantify and not is_exp_std_measurement:
+        if is_spectral_quant:
             if is_analysis_successful:
                 if is_converged:
                     print('Clustering converged to small errors. All phases identified with confidence higher than 0.8.')
@@ -3106,7 +3108,6 @@ class EMXSp_Composition_Analyzer:
         
         # Fit standards and save results
         std_ref_lines, results_df, Z_sample = self._fit_stds_and_save_results(backup_previous_data=False)
-        print(std_ref_lines)
         # Optionally update the standards library with the new results
         if update_std_library and std_ref_lines is not None and std_ref_lines is not {}: 
             self._update_standard_library(std_ref_lines, results_df, Z_sample)
@@ -4193,7 +4194,7 @@ class EMXSp_Composition_Analyzer:
         Currently only used when analysing mixtures of known powder precursors
         (i.e., powder_meas_cfg.is_known_powder_mixture_meas = True)
         """
-        std_dict_all_modes, std_dir = self._load_xsp_standards()
+        std_dict_all_modes, stds_filepath = self._load_xsp_standards()
         std_dict_all_lines = std_dict_all_modes[self.measurement_cfg.mode]
         ref_lines = XSp_Quantifier.xray_quant_ref_lines
         ref_formulae = self.clustering_cfg.ref_formulae
@@ -4223,7 +4224,7 @@ class EMXSp_Composition_Analyzer:
                         std_mean_value = std_dict[cnst.COR_PB_DF_KEY]
 
                 if len(ref_entries) < 1 and not self.exp_stds_cfg.is_exp_std_measurement:
-                    text_line = "provided standards" if std_dir == "" else f"standards file at: {std_dir}"
+                    text_line = "provided standards" if stds_filepath == "" else f"standards file at: {stds_filepath}"
                     warnings.warn(
                         f"None of the input candidate phases {ref_formulae} "
                         f"is present for line {el_line} in the {text_line}. "
@@ -4613,11 +4614,14 @@ class EMXSp_Composition_Analyzer:
         current measurement mode. If loading fails due to an unexpected error, a
         RuntimeError is raised with the original exception preserved.
         
+        The function also handles copying of the reference standards to the project
+        folder when exp_stds_cfg.generate_separate_std_dict = True.
+        
         Returns:
             tuple[dict, str]: 
                 A tuple containing:
                 - standards (dict): The standards library, indexed by measurement mode.
-                - std_dir (str): The directory path where the standards are stored.
+                - stds_filepath (str): The path to the reference standards .json file.
         
         Raises:
             RuntimeError: If loading the standards library fails due to an 
@@ -4630,33 +4634,32 @@ class EMXSp_Composition_Analyzer:
         if self.standards_dict is None:
             
             # Determine directory of standards dict
-            std_dir = None # Loads default std_dict
+            std_f_dir = None # Loads default std_dict
             if update_separate_std_dict or self.quant_cfg.use_project_specific_std_dict:
                 # Load and save std_dict to project directory, assumed to be up 1 level from the sample directory
                 project_dir = os.path.dirname(self.sample_result_dir)
-                std_dir = project_dir
+                std_f_dir = project_dir
                 
             try:
-                standards, std_dir = calibs.load_standards(self.measurement_cfg.type, self.measurement_cfg.beam_energy_keV, std_f_dir = std_dir)
+                standards, stds_filepath = calibs.load_standards(self.measurement_cfg.type, self.measurement_cfg.beam_energy_keV, std_f_dir = std_f_dir)
             except FileNotFoundError:
-                std_dir = calibs.standards_dir
+                stds_filepath = calibs.standards_dir
                 standards = {meas_mode: {}}
             except Exception as e:
                 raise RuntimeError("Failed to load standards library.") from e
             else:
                 # Check if it needs to copy the reference standards files to the project folder
-                if update_separate_std_dict and std_dir != project_dir:
-                    shutil.copy(std_dir, project_dir) # Copy standards to project folder
-                    std_dir = project_dir # Update directory of standards
+                if update_separate_std_dict and os.path.dirname(stds_filepath) != project_dir:
+                    stds_filepath = shutil.copy(stds_filepath, project_dir) # Copy standards to project folder
         else:
             standards = self.standards_dict
-            std_dir = ''
+            stds_filepath = ''
 
         # Ensure measurement mode exists in the standards dictionary, otherwise create it
         if meas_mode not in standards:
             standards[meas_mode] = {}
             
-        return standards, std_dir
+        return standards, stds_filepath
     
     
     def _update_standard_library(
@@ -4697,7 +4700,7 @@ class EMXSp_Composition_Analyzer:
             warnings.warn("The 'standards_dict' provided when initializing EMXSp_Composition_Analyzer will be ignored."
                           f"Loading standards dictionary from XSp_calibs/{self.microscope_cfg.ID}", UserWarning())
             self.standards_dict = None
-        standards, std_dir = self._load_xsp_standards()
+        standards, stds_filepath = self._load_xsp_standards()
         
         std_lib = standards[meas_mode]
         
@@ -4773,8 +4776,8 @@ class EMXSp_Composition_Analyzer:
     
         # Save updated file with standards
         try:
-            with open(std_dir, "w") as file:
+            with open(stds_filepath, "w") as file:
                 json.dump(standards, file, indent=2)
         except Exception as e:
-            raise RuntimeError(f"Failed to save updated standards to {std_dir}.") from e
+            raise RuntimeError(f"Failed to save updated standards to {stds_filepath}.") from e
  
