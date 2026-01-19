@@ -19,15 +19,18 @@ Created on Tue Jul 29 13:18:16 2025
 
 @author: Andrea
 """
-from autoemxsp.runners import batch_quantify_and_analyze
+from autoemxsp.runners.Batch_Quantify_and_Analyze import batch_quantify_and_analyze
 
 # =============================================================================
 # Examples
 # =============================================================================
 sample_IDs = [
     'Wulfenite_example',
-    'K-412_NISTstd_example'
+    'K-412_NISTstd_example',
+    # 'known_powder_mixture_example'
     ]
+
+is_known_precursor_mixture = None # Loads value from config file, if unspecified. Otherwise set to True or False.
 
 results_path = None # Relative path to folder where results are stored. Looks in default Results folder if left unspecified
 
@@ -65,5 +68,6 @@ comp_analyzer = batch_quantify_and_analyze(
     quantify_only_unquantified_spectra=quantify_only_unquantified_spectra,
     interrupt_fits_bad_spectra=interrupt_fits_bad_spectra,
     use_project_specific_std_dict = use_project_specific_std_dict,
+    is_known_precursor_mixture = is_known_precursor_mixture,
     run_analysis=run_clustering_analysis,
 )

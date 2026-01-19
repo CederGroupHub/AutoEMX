@@ -57,6 +57,8 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
+__all__ = ["batch_acquire_experimental_stds"]
+
 def batch_acquire_experimental_stds(
     stds: List[Dict[str, Any]],
     microscope_ID: str = dflts.microscope_ID,

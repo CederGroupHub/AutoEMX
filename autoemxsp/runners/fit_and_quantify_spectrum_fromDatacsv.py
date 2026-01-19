@@ -39,7 +39,7 @@ import autoemxsp.utils.constants as cnst
 import autoemxsp.config.defaults as dflt
 from autoemxsp.config import config_classes_dict, ExpStandardsConfig
 from autoemxsp.core.EMXSp_composition_analyser import EMXSp_Composition_Analyzer
-from autoemxsp.runners import fit_and_quantify_spectrum
+from autoemxsp.runners.Fit_and_Quantify_Spectrum import fit_and_quantify_spectrum
 
 # Configure logging
 logging.basicConfig(
@@ -47,6 +47,8 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s: %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
+
+__all__ = ["fit_and_quantify_spectrum_fromDatacsv"]
 
 def fit_and_quantify_spectrum_fromDatacsv(
     sample_ID: str,

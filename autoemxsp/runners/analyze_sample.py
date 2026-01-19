@@ -55,6 +55,8 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
+__all__ = ["analyze_sample"]
+
 def analyze_sample(
     sample_ID: str,
     results_path: str = None,

@@ -20,7 +20,7 @@ Created on Fri Aug 20 09:34:34 2025
 
 @author: Andrea
 """
-from autoemxsp.runners import batch_acquire_experimental_stds
+from autoemxsp.runners.Batch_Acquire_Experimental_Stds import batch_acquire_experimental_stds
 # =============================================================================
 # General Configuration
 # =============================================================================

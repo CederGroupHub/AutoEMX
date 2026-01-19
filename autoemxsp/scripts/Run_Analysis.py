@@ -19,7 +19,7 @@ Created on Tue Jul 29 13:18:16 2025
 @author: Andrea
 """
 
-from autoemxsp.runners import analyze_sample
+from autoemxsp.runners.Analyze_Sample import analyze_sample
 
 
 # =============================================================================

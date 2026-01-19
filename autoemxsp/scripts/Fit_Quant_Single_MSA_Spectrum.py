@@ -15,7 +15,7 @@ import logging, os
 
 from autoemxsp.utils import load_msa
 from autoemxsp.config import defaults
-from autoemxsp.runners import fit_and_quantify_spectrum
+from autoemxsp.runners.Fit_and_Quantify_Spectrum import fit_and_quantify_spectrum
 
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 

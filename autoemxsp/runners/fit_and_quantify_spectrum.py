@@ -23,6 +23,8 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
+__all__ = ["fit_and_quantify_spectrum"]
+
 def fit_and_quantify_spectrum(
     spectrum_vals,
     spectrum_lims,

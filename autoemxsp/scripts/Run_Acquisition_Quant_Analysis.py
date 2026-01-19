@@ -18,7 +18,7 @@ Created on Fri Jul 26 09:34:34 2024
 @author: Andrea
 """
 
-from autoemxsp.runners import batch_acquire_and_analyze
+from autoemxsp.runners.Batch_Acquire_and_Analyze import batch_acquire_and_analyze
 
 
 # =============================================================================

@@ -11,11 +11,12 @@ Import this module in your own code and call the
 `batch_quantify_and_analyze()` function, passing your desired sample IDs and
 options as arguments. This enables integration into larger workflows or pipelines.
 
-Workflow:
-    - Loads sample configurations from `Spectra_collection_info.json`
-    - Loads acquired spectral data from `Data.csv`
-    - Performs quantification (optionally only on unquantified spectra)
-    - Optionally performs clustering/statistical analysis and saves results
+Workflow
+--------
+- Loads sample configurations from `Spectra_collection_info.json`
+- Loads acquired spectral data from `Data.csv`
+- Performs quantification (optionally only on unquantified spectra)
+- Optionally performs clustering/statistical analysis and saves results
 
 Notes
 -----
@@ -62,6 +63,8 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s: %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
+
+__all__ = ["batch_quantify_and_analyze"]
 
 def batch_quantify_and_analyze(
     sample_IDs: List[str],

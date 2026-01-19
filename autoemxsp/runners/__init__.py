@@ -1,20 +1,28 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Sep 18 13:30:06 2025
+Package initializer for autoemxsp.runners
 
-@author: Andrea
+Automatically imports all submodules and re-exports their public symbols.
+Symbols must be declared in the module's __all__ to be exported.
 """
 
+from pathlib import Path
 import pkgutil
 import importlib
-from pathlib import Path
 
-# Automatically import all modules in the current package
-package_dir = Path(__file__).parent
-for _, module_name, _ in pkgutil.iter_modules([str(package_dir)]):
-    module = importlib.import_module(f".{module_name}", package=__name__)
-    # Import all functions from the module into this namespace
-    for attr in dir(module):
-        if not attr.startswith("_"):
-            globals()[attr] = getattr(module, attr)
+__all__ = []
+
+# Directory containing this package
+_package_dir = Path(__file__).parent
+
+# Automatically discover and import submodules
+for _, module_name, _ in pkgutil.iter_modules([str(_package_dir)]):
+    module = importlib.import_module(f"{__name__}.{module_name}")
+
+    # Re-export only explicitly declared public symbols
+    if hasattr(module, "__all__"):
+        for name in module.__all__:
+            obj = getattr(module, name)
+            globals()[name] = obj
+            __all__.append(name)

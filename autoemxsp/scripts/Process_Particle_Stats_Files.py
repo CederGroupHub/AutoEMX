@@ -16,7 +16,7 @@ import pandas as pd
 
 from autoemxsp.core.EM_particle_finder import EM_Particle_Finder
 import autoemxsp.utils.constants as cnst
-from autoemxsp.utils import get_sample_dir, print_single_separator
+from autoemxsp.utils import get_sample_dir
 
 # --------------------------
 # Define sample

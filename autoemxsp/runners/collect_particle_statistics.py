@@ -27,6 +27,8 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
+__all__ = ["collect_particle_statistics"]
+
 def collect_particle_statistics(
     samples: List[Dict[str, Any]],
     n_par_target: int,

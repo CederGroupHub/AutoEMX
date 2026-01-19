@@ -35,7 +35,7 @@ from typing import List, Optional
 import autoemxsp.utils.constants as cnst
 import autoemxsp.config.defaults as dflt
 from autoemxsp.utils import get_sample_dir, print_double_separator
-from autoemxsp.runners import fit_and_quantify_spectrum_fromDatacsv
+from autoemxsp.runners.Fit_and_Quantify_Spectrum_fromDatacsv import fit_and_quantify_spectrum_fromDatacsv
 
 # Configure logging (same style as fit_and_quantify_spectrum)
 logging.basicConfig(
@@ -43,6 +43,8 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s: %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
+
+__all__ = ["batch_fit_spectra"]
 
 def batch_fit_spectra(sample_IDs,
                       spectrum_IDs,
