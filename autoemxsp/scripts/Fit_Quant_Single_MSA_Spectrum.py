@@ -20,7 +20,7 @@ from autoemxsp.runners.Fit_and_Quantify_Spectrum import fit_and_quantify_spectru
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 #%% Sample definition
-spectrum_path = os.path.join(parent_dir, 'Results/Example.msa')
+spectrum_path = os.path.join('input', 'Example_spectrum.msa')
 
 els_sample = ['Bi','Fe','O']
 els_substrate = ['C', 'O', 'Al']
