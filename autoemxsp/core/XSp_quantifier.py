@@ -1041,7 +1041,9 @@ class XSp_Quantifier:
             quant_result = self._assemble_quantification_result(weight_fractions, analytical_error)
     
             if print_result:
-                self.print_quant_result(quant_result, sample_Z)
+                if bad_quant_flag is None:
+                    bad_quant_flag = 0
+                self.print_quant_result(quant_result, sample_Z, bad_quant_flag)
     
             # Get minimum background counts for reference peaks
             min_bckgrnd_ref_lines = self._get_min_bckgrnd_cnts_ref_quant_lines()
@@ -1610,7 +1612,8 @@ class XSp_Quantifier:
     def print_quant_result(
         self,
         quant_result: dict,
-        Z_sample: dict = None
+        Z_sample: dict = None,
+        quant_flag: int | None = None
     ) -> None:
         """
         Print the quantification results, including fit quality metrics and elemental composition.
@@ -1628,6 +1631,10 @@ class XSp_Quantifier:
             Dictionary containing mean atomic numbers (optional), e.g.:
                 - 'Statham2016': Mean atomic number (Z̅) calculated according to Statham (2016).
                 - 'mass-averaged': Mean atomic number (Z̅) weighted by composition.
+        quant_flag : int | None, optional
+            Flag signaling reliability of quantifification. Anything different than 0 signals
+            potential unreliability of the quantified composition. See description of quant_flags]
+            in config/classes.py
     
         Returns
         -------
@@ -1649,7 +1656,7 @@ class XSp_Quantifier:
         print('')
         
         print('Quantification result:\n')
-    
+        
         # Print list of fitted elements
         print_nice_1d_row('', self.fitted_els_quant)
         
@@ -1665,10 +1672,14 @@ class XSp_Quantifier:
     
         # Print analytical error as a percentage (w%)
         an_err_percent = quant_result[cnst.AN_ER_KEY] * 100
-        print(f"Analytical error: {an_err_percent:.2f} w%\n")
+        print(f"Analytical error: {an_err_percent:.2f} w%")
+        
+        if quant_flag is not None:
+            print(f"\nQuantification flag: {quant_flag}")
     
         # Print mean atomic numbers (Z̅) only if provided
         if Z_sample is not None:
+            print('')
             if 'Statham2016' in Z_sample:
                 print(f"Z̅_Statham2016: {Z_sample['Statham2016']:.2f}")
             if 'mass-averaged' in Z_sample:
