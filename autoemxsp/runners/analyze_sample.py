@@ -17,7 +17,7 @@ Workflow:
     - Performs clustering/statistical analysis
     - Prints summary results
 
-Notes
+Notes 
 -----
 - Requires `sample_ID` (and optionally `results_path` if not using the default directory).
 - Designed to be robust and flexible for both batch and single-sample workflows.
