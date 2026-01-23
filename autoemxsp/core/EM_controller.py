@@ -570,7 +570,7 @@ class EM_Controller:
             )
             
         # Save image of initial location to show
-        initial_image = EM_driver.get_image_data(self.im_width, self.im_height, 1)
+        initial_image = self.get_current_image()
         draw_scalebar(initial_image, self.pixel_size_um)
         cv2.imwrite(os.path.join(self.results_dir, cnst.INITIAL_SEM_IM_FILENAME + '.png'), initial_image)
         
@@ -1142,8 +1142,22 @@ class EM_Controller:
             self.pixel_size_um = frame_width / self.im_width * 1e3  # um
         except Exception as e:
             raise EMError(f"Failed to set frame width: {e}") from e
+    
+    
+    def get_current_image(self):
+        """
+        Acquire image at microscope.
+    
+        Returns
+        -------
+        image : np.array()
+            Image array acquired at the microscope.
+
+        """        
+        image = EM_driver.get_image_data(self.im_width, self.im_height, 1)
+        return image
         
-        
+    
     def move_to_pos(self, pos):
         """
         Move the EM stage to the specified (x, y) position and update the current position.
@@ -1332,7 +1346,7 @@ class EM_Controller:
             # Adjust contrast and brightness in case they changed during acuqisition
             EM_driver.auto_contrast_brightness()
             # Get raw grayscale image from EM (H, W), dtype: uint8 or uint16
-            frame_image = EM_driver.get_image_data(self.im_width, self.im_height, 1)
+            frame_image = self.get_current_image()
     
         # Convert grayscale to RGB for annotation
         if len(frame_image.shape) == 2 or frame_image.shape[2] == 1:
