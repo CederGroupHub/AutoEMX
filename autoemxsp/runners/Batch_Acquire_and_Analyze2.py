@@ -4,7 +4,7 @@
 Automated X-Ray Spectral Acquisition and Analysis
 
 This module configures and runs automated collection and (optionally) quantification
-of EDS/WDS spectra for powder samples using an electron microscope (EM) with
+of EDS/WDS spectra for powder samples using an electron microscope (EM) with 
 a specified substrate and calibration.
 
 Import this module in your own Python code and call the
