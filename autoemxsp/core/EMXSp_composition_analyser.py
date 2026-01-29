@@ -1927,7 +1927,10 @@ class EMXSp_Composition_Analyzer:
             Minimum confidence among assigned candidate phases.
         """
         # 1. Select compositions to use for clustering
-        max_analytical_error = max_analytical_error_percent / 100
+        if max_analytical_error_percent is not None:
+            max_analytical_error = max_analytical_error_percent / 100
+        else:
+            max_analytical_error = max_analytical_error_percent
         (compositions_list_at, compositions_list_w, unused_compositions_list,
          df_indices, n_datapts) = self._select_good_compositions(max_analytical_error)
         n_datapts_used = len(compositions_list_at)
@@ -2039,7 +2042,7 @@ class EMXSp_Composition_Analyzer:
                 spectrum_quant_result_w = self.spectra_quant[i][cnst.COMP_W_FR_KEY]
                 analytical_error = self.spectra_quant[i][cnst.AN_ER_KEY]
                 quant_flag = self.spectral_data[cnst.QUANT_FLAG_DF_KEY][i]
-    
+
                 # Check if composition was flagged as bad during quantification
                 if quant_flag not in self.clustering_cfg.quant_flags_accepted:
                     is_comp_ok = False
@@ -2047,6 +2050,7 @@ class EMXSp_Composition_Analyzer:
     
                 elif max_analytical_error is None:
                     # Analytical error check is disabled
+                    is_comp_ok = True
                     pass
     
                 # Check if analytical error is too high
