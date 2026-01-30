@@ -11,7 +11,7 @@ from typing import List, Dict, Any
 
 from autoemxsp.core.EMXSp_composition_analyser import EMXSp_Composition_Analyzer
 from autoemxsp.utils import print_double_separator
-from autoemxsp.config import defaults
+import autoemxsp.config.defaults as dflt
 from autoemxsp.config import (
     MicroscopeConfig,
     SampleConfig,
@@ -32,9 +32,9 @@ __all__ = ["collect_particle_statistics"]
 def collect_particle_statistics(
     samples: List[Dict[str, Any]],
     n_par_target: int,
-    microscope_ID: str = defaults.microscope_ID,
-    microscope_type: str = defaults.microscope_type,
-    detector_type: str = defaults.detector_type,
+    microscope_ID: str = dflt.microscope_ID,
+    microscope_type: str = dflt.microscope_type,
+    detector_type: str = dflt.detector_type,
     sample_halfwidth: float = 3.0,
     sample_substrate_type: str = 'Ctape',
     sample_substrate_shape: str = 'circle',
