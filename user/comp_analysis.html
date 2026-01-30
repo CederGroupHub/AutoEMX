@@ -19,7 +19,7 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Tutorial: Fit and quantify individual spectra" href="fit_spectrum.html" />
+    <link rel="next" title="Tutorial: Fit and quantify individual spectra acquired with AutoEMXSp" href="fit_autoemxsp_spectrum.html" />
     <link rel="prev" title="Tutorials" href="tutorials.html" /> 
 </head>
 
@@ -60,7 +60,8 @@
 <li class="toctree-l4"><a class="reference internal" href="#step-9-optional-re-analyse-spectra">Step 9 - Optional: (re)analyse spectra</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="fit_spectrum.html">Tutorial: Fit and quantify individual spectra</a></li>
+<li class="toctree-l3"><a class="reference internal" href="fit_autoemxsp_spectrum.html">Tutorial: Fit and quantify individual spectra acquired with <cite>AutoEMXSp</cite></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fit_msa_spectrum.html">Tutorial: Fit and quantify individual spectra exported by commercial EDS software</a></li>
 <li class="toctree-l3"><a class="reference internal" href="particle_size.html">Tutorial: Measure particle size distribution via SEM</a></li>
 <li class="toctree-l3"><a class="reference internal" href="precursor_mix.html">Tutorial: Quantify the extent of intermixing in precursor powders</a></li>
 </ul>
@@ -408,6 +409,10 @@ See the available methods at <a class="reference internal" href="../_api/autoemx
 Only applied if <code class="docutils literal notranslate"><span class="pre">k_forced</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code>. Note that if <code class="docutils literal notranslate"><span class="pre">k</span></code> was forced
 during acquisition, setting <code class="docutils literal notranslate"><span class="pre">k_finding_method</span></code> to anything other than
 <code class="docutils literal notranslate"><span class="pre">None</span></code> will force <code class="docutils literal notranslate"><span class="pre">k</span></code> to be re-evaluated.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">do_matrix_decomposition</span></code> : Determines whether matrix decomposition (NNLS, NMF)
+is computed for each cluster. Default is <code class="docutils literal notranslate"><span class="pre">True</span></code>. If many candidate phases are
+provided, these computations may take a long time and it may be desirable to
+set it to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
 </ul>
 </section>
 <section id="plotting-options">
@@ -466,8 +471,9 @@ of the compositions in the cluster).</p></li>
 in atomic fraction space.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">RMS_dist_w%</span></code> : Root-mean-square distance in mass fraction space.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">wcss</span></code> : Within-cluster sum of squares (in the feature space used).</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">cnd</span></code> : Identified candidate composition with confidence score
-<code class="docutils literal notranslate"><span class="pre">CS_cnd</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cnd</span></code> : Identified candidate composition with raw confidence score
+<code class="docutils literal notranslate"><span class="pre">CS_raw</span></code> and overall confidence score <code class="docutils literal notranslate"><span class="pre">CS_cnd</span></code> (taking into account
+neighboring candidate phase compositions, which decrease the confidence).</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">mix</span></code> : Pair of compositions potentially intermixed, with:</p>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">CS_mix</span></code> : Confidence score of mixture.</p></li>
@@ -490,7 +496,7 @@ in atomic fraction space.</p></li>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="tutorials.html" class="btn btn-neutral float-left" title="Tutorials" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="fit_spectrum.html" class="btn btn-neutral float-right" title="Tutorial: Fit and quantify individual spectra" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="fit_autoemxsp_spectrum.html" class="btn btn-neutral float-right" title="Tutorial: Fit and quantify individual spectra acquired with AutoEMXSp" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

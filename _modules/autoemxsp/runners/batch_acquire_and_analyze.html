@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>autoemxsp.runners.batch_acquire_and_analyze &mdash; AutoEMXSp 0.1.6 documentation</title>
+  <title>autoemxsp.runners.Batch_Acquire_and_Analyze &mdash; AutoEMXSp 0.1.6 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
 
@@ -63,7 +63,7 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
-      <li class="breadcrumb-item active">autoemxsp.runners.batch_acquire_and_analyze</li>
+      <li class="breadcrumb-item active">autoemxsp.runners.Batch_Acquire_and_Analyze</li>
       <li class="wy-breadcrumbs-aside">
       </li>
   </ul>
@@ -72,14 +72,14 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <h1>Source code for autoemxsp.runners.batch_acquire_and_analyze</h1><div class="highlight"><pre>
+  <h1>Source code for autoemxsp.runners.Batch_Acquire_and_Analyze</h1><div class="highlight"><pre>
 <span></span><span class="ch">#!/usr/bin/env python3</span>
 <span class="c1"># -*- coding: utf-8 -*-</span>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">Automated X-Ray Spectral Acquisition and Analysis</span>
 
 <span class="sd">This module configures and runs automated collection and (optionally) quantification</span>
-<span class="sd">of EDS/WDS spectra for powder samples using an electron microscope (EM) with</span>
+<span class="sd">of EDS/WDS spectra for powder samples using an electron microscope (EM) with </span>
 <span class="sd">a specified substrate and calibration.</span>
 
 <span class="sd">Import this module in your own Python code and call the</span>
@@ -102,126 +102,6 @@
 <span class="sd">    - Adjust configuration parameters as needed, either directly in the script or by passing them to `batch_acquire_and_analyze`</span>
 <span class="sd">    - Run the script, or import and call `batch_acquire_and_analyze()` to perform spectrum collection and (optionally) quantification for one or multiple samples at a time</span>
 
-<span class="sd">Parameters</span>
-<span class="sd">----------</span>
-<span class="sd">samples : list of dict</span>
-<span class="sd">    List of sample definitions. Each dictionary must contain:</span>
-<span class="sd">        - &#39;ID&#39; (str): Sample identifier (SampleConfig.ID).</span>
-<span class="sd">        - &#39;els&#39; (list of str): List of expected element symbols (SampleConfig.elements).</span>
-<span class="sd">        - &#39;pos&#39; (tuple of float): (x, y) stage coordinates in mm (SampleConfig.center_pos).</span>
-<span class="sd">        - &#39;cnd&#39; (list of str, optional): Reference chemical formulae for known phases (ClusteringConfig.ref_formulae).</span>
-<span class="sd">microscope_ID : str, optional</span>
-<span class="sd">    Identifier for the microscope hardware.</span>
-<span class="sd">    Must correspond to a calibration folder in `./XSp_calibs/Microscopes/&lt;ID&gt;` (MicroscopeConfig.ID).</span>
-<span class="sd">    Default is `&#39;PhenomXL&#39;`.</span>
-<span class="sd">microscope_type : str, optional</span>
-<span class="sd">    Type of microscope. Allowed: `&#39;SEM&#39;` (implemented), `&#39;STEM&#39;` (not implemented).</span>
-<span class="sd">    Default is `&#39;SEM&#39;` (MicroscopeConfig.type).</span>
-<span class="sd">measurement_type : str, optional</span>
-<span class="sd">    Measurement type. Allowed: `&#39;EDS&#39;` (implemented), `&#39;WDS&#39;` (not implemented).</span>
-<span class="sd">    Default is `&#39;EDS&#39;` (MeasurementConfig.type).</span>
-<span class="sd">measurement_mode : str, optional</span>
-<span class="sd">    Acquisition mode (e.g., `&#39;point&#39;`, `&#39;map&#39;`), defining beam/detector calibration settings.</span>
-<span class="sd">    Default is `&#39;point&#39;` (MeasurementConfig.mode).</span>
-<span class="sd">quantification_method : str, optional</span>
-<span class="sd">    Quantification method. Currently only `&#39;PB&#39;` (Phi-Rho-Z) is implemented.</span>
-<span class="sd">    Default is `&#39;PB&#39;` (QuantConfig.method).</span>
-<span class="sd">sample_type : str, optional</span>
-<span class="sd">    Sample type. Allowed: `&#39;powder&#39;` (implemented), `&#39;bulk&#39;`, `&#39;film&#39;` (not implemented).</span>
-<span class="sd">    Default is `&#39;powder&#39;` (SampleConfig.type).</span>
-<span class="sd">sample_halfwidth : float, optional</span>
-<span class="sd">    Half-width of the sample area in mm for mapping/acquisition.</span>
-<span class="sd">    Default is `3.0` (SampleConfig.half_width_mm).</span>
-<span class="sd">sample_substrate_type : str, optional</span>
-<span class="sd">    Type of sample substrate. Allowed: `&#39;Ctape&#39;`, `&#39;None&#39;`.</span>
-<span class="sd">    Default is `&#39;Ctape&#39;` (SampleSubstrateConfig.type).</span>
-<span class="sd">sample_substrate_shape : str, optional</span>
-<span class="sd">    Shape of the substrate. Allowed: `&#39;circle&#39;`, `&#39;square&#39;`.</span>
-<span class="sd">    Default is `&#39;circle&#39;` (SampleSubstrateConfig.shape).</span>
-<span class="sd">sample_substrate_width_mm : float, optional</span>
-<span class="sd">    Lateral dimension of substrate holder in mm (SampleSubstrateConfig.stub_w_mm).</span>
-<span class="sd">working_distance : float, optional</span>
-<span class="sd">    Working distance in mm for acquisition. If None, taken from microscope driver.</span>
-<span class="sd">    Default is `5.0` (MeasurementConfig.working_distance).</span>
-<span class="sd">beam_energy : float, optional</span>
-<span class="sd">    Electron beam energy in keV.</span>
-<span class="sd">    Default is `15.0` (MeasurementConfig.beam_energy_keV).</span>
-<span class="sd">spectrum_lims : tuple of float, optional</span>
-<span class="sd">    Lower and upper energy limits for spectrum fitting in eV.</span>
-<span class="sd">    Default is `(14, 1100)` (QuantConfig.spectrum_lims).</span>
-<span class="sd">use_instrument_background : bool, optional</span>
-<span class="sd">    Whether to use instrument background files during fitting.</span>
-<span class="sd">    If False, background is computed during fitting.</span>
-<span class="sd">    Default is `False` (QuantConfig.use_instrument_background).</span>
-<span class="sd">interrupt_fits_bad_spectra : bool, optional</span>
-<span class="sd">    If True, fitting stops early for poor-quality spectra.</span>
-<span class="sd">    Default is `True` (QuantConfig.interrupt_fits_bad_spectra).</span>
-<span class="sd">max_analytical_error_percent : float, optional</span>
-<span class="sd">    Maximum allowed analytical error (%) for compositions to be included in clustering.</span>
-<span class="sd">    Default is `5` (ClusteringConfig.max_analytical_error_percent).</span>
-<span class="sd">min_bckgrnd_cnts : float, optional</span>
-<span class="sd">    Minimum background counts required for a spectrum not to be filtered out.</span>
-<span class="sd">    Default is `5` (QuantConfig.min_bckgrnd_cnts).</span>
-<span class="sd">quant_flags_accepted : list of int, optional</span>
-<span class="sd">    List of acceptable quantification flags; others are filtered out before clustering.</span>
-<span class="sd">    Default is `[0, -1]` (ClusteringConfig.quant_flags_accepted).</span>
-<span class="sd">max_n_clusters : int, optional</span>
-<span class="sd">    Maximum number of clusters allowed in compositional clustering.</span>
-<span class="sd">    Default is `6` (ClusteringConfig.max_k).</span>
-<span class="sd">show_unused_comps_clust : bool, optional</span>
-<span class="sd">    Whether to display unused compositions in clustering plots.</span>
-<span class="sd">    Default is `True` (PlotConfig.show_unused_comps_clust).</span>
-<span class="sd">is_manual_navigation : bool, optional</span>
-<span class="sd">    If True, navigation to sample positions is manual.</span>
-<span class="sd">    Default is `False` (MeasurementConfig.is_manual_navigation).</span>
-<span class="sd">is_auto_substrate_detection : bool, optional</span>
-<span class="sd">    If True, substrate elements are detected automatically.</span>
-<span class="sd">    Implemented only for `&#39;Ctape&#39;` substrates.</span>
-<span class="sd">    Default is `False` (SampleSubstrateConfig.auto_detection).</span>
-<span class="sd">auto_adjust_brightness_contrast : bool, optional</span>
-<span class="sd">    If True, brightness/contrast are set automatically.</span>
-<span class="sd">    Default is `True` (MicroscopeConfig.is_auto_BC).</span>
-<span class="sd">contrast : float, optional</span>
-<span class="sd">    Manual contrast setting (required if auto_adjust_brightness_contrast is False).</span>
-<span class="sd">    Default is `4.3877` (MicroscopeConfig.contrast).</span>
-<span class="sd">brightness : float, optional</span>
-<span class="sd">    Manual brightness setting (required if auto_adjust_brightness_contrast is False).</span>
-<span class="sd">    Default is `0.4504` (MicroscopeConfig.brightness).</span>
-<span class="sd">quantify_spectra : bool, optional</span>
-<span class="sd">    If True, perform quantification after acquisition.</span>
-<span class="sd">    Default is `False`.</span>
-<span class="sd">min_n_spectra : int, optional</span>
-<span class="sd">    Minimum number of spectra to acquire.</span>
-<span class="sd">    Default is `50` (MeasurementConfig.min_n_spectra).</span>
-<span class="sd">max_n_spectra : int, optional</span>
-<span class="sd">    Maximum number of spectra to acquire.</span>
-<span class="sd">    Default is `100` (MeasurementConfig.max_n_spectra).</span>
-<span class="sd">target_Xsp_counts : int, optional</span>
-<span class="sd">    Target counts for spectrum acquisition.</span>
-<span class="sd">    Default is `50000` (MeasurementConfig.target_acquisition_counts).</span>
-<span class="sd">max_XSp_acquisition_time : float, optional</span>
-<span class="sd">    Maximum acquisition time in seconds. If None, estimated from target counts.</span>
-<span class="sd">    Default is `None` (MeasurementConfig.max_acquisition_time).</span>
-<span class="sd">els_substrate : list of str, optional</span>
-<span class="sd">    List of substrate element symbols.</span>
-<span class="sd">    Default is `[&#39;C&#39;, &#39;O&#39;, &#39;Al&#39;]` (SampleSubstrateConfig.elements).</span>
-<span class="sd">powder_meas_cfg_kwargs : dict, optional</span>
-<span class="sd">    Additional keyword arguments for PowderMeasurementConfig.</span>
-<span class="sd">bulk_meas_cfg_kwargs : dict, optional</span>
-<span class="sd">    Additional keyword arguments for BulkMeasurementConfig.</span>
-<span class="sd">output_filename_suffix : str, optional</span>
-<span class="sd">    String appended to output filenames.</span>
-<span class="sd">    Default is `&#39;&#39;`.</span>
-<span class="sd">development_mode : bool, optional</span>
-<span class="sd">    If True, enables development/debug features.</span>
-<span class="sd">    Default is `False`.</span>
-<span class="sd">verbose : bool, optional</span>
-<span class="sd">    If True, print verbose output.</span>
-<span class="sd">    Default is `True`.</span>
-<span class="sd">results_dir : str, optional</span>
-<span class="sd">    Directory where results are saved.</span>
-<span class="sd">    Default is `None`.</span>
-<span class="sd">    </span>
 <span class="sd">Created on Fri Jul 26 09:34:34 2024</span>
 
 <span class="sd">@author: Andrea</span>
@@ -254,8 +134,10 @@
     <span class="n">datefmt</span><span class="o">=</span><span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M:%S&quot;</span><span class="p">,</span>
 <span class="p">)</span>
 
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;batch_acquire_and_analyze&quot;</span><span class="p">]</span>
+
 <div class="viewcode-block" id="batch_acquire_and_analyze">
-<a class="viewcode-back" href="../../../_api/autoemxsp.runners.batch_acquire_and_analyze.html#autoemxsp.runners.batch_acquire_and_analyze.batch_acquire_and_analyze">[docs]</a>
+<a class="viewcode-back" href="../../../_api/autoemxsp.runners.html#autoemxsp.runners.batch_acquire_and_analyze">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">batch_acquire_and_analyze</span><span class="p">(</span>
     <span class="n">samples</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
     <span class="n">microscope_ID</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">dflt</span><span class="o">.</span><span class="n">microscope_ID</span><span class="p">,</span>
@@ -273,6 +155,7 @@
     <span class="n">beam_energy</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">15.0</span><span class="p">,</span>
     <span class="n">spectrum_lims</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">dflt</span><span class="o">.</span><span class="n">spectrum_lims</span><span class="p">,</span>
     <span class="n">use_instrument_background</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">dflt</span><span class="o">.</span><span class="n">use_instrument_background</span><span class="p">,</span>
+    <span class="n">use_project_specific_std_dict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="n">interrupt_fits_bad_spectra</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="n">max_analytical_error_percent</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
     <span class="n">min_bckgrnd_cnts</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
@@ -355,6 +238,9 @@
 <span class="sd">        Whether to use instrument background files during fitting.</span>
 <span class="sd">        If False, background is computed during fitting.</span>
 <span class="sd">        Default is `False` (QuantConfig.use_instrument_background).</span>
+<span class="sd">    use_project_specific_std_dict : bool, optional</span>
+<span class="sd">        If True, loads standards from project folder (i.e. results_dir) during quantification.</span>
+<span class="sd">        Default: False</span>
 <span class="sd">    interrupt_fits_bad_spectra : bool, optional</span>
 <span class="sd">        If True, fitting stops early for poor-quality spectra.</span>
 <span class="sd">        Default is `True` (QuantConfig.interrupt_fits_bad_spectra).</span>
@@ -468,7 +354,8 @@
         <span class="n">spectrum_lims</span><span class="o">=</span><span class="n">spectrum_lims</span><span class="p">,</span>
         <span class="n">use_instrument_background</span><span class="o">=</span><span class="n">use_instrument_background</span><span class="p">,</span>
         <span class="n">interrupt_fits_bad_spectra</span><span class="o">=</span><span class="n">interrupt_fits_bad_spectra</span><span class="p">,</span>
-        <span class="n">min_bckgrnd_cnts</span><span class="o">=</span><span class="n">min_bckgrnd_cnts</span>
+        <span class="n">min_bckgrnd_cnts</span><span class="o">=</span><span class="n">min_bckgrnd_cnts</span><span class="p">,</span>
+        <span class="n">use_project_specific_std_dict</span> <span class="o">=</span> <span class="n">use_project_specific_std_dict</span>
     <span class="p">)</span>
 
     <span class="k">if</span> <span class="n">powder_meas_cfg_kwargs</span><span class="p">:</span>

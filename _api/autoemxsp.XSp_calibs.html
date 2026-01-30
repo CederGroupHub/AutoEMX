@@ -215,12 +215,18 @@ Must be present in the loaded <cite>detector_channel_params</cite>.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="autoemxsp.XSp_calibs.load_standards">
-<span class="sig-prename descclassname"><span class="pre">autoemxsp.XSp_calibs.</span></span><span class="sig-name descname"><span class="pre">load_standards</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">meas_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beam_energy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="../_modules/autoemxsp/XSp_calibs.html#load_standards"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.XSp_calibs.load_standards" title="Link to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">autoemxsp.XSp_calibs.</span></span><span class="sig-name descname"><span class="pre">load_standards</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">meas_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beam_energy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">std_f_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="../_modules/autoemxsp/XSp_calibs.html#load_standards"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.XSp_calibs.load_standards" title="Link to this definition"></a></dt>
 <dd><p>Load standards data for a specified technique and beam energy.</p>
 <p>Called when performing quantifications.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>beam_energy</strong> (<em>int</em>) – The beam energy (in keV) for which to load the standards.</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>meas_type</strong> (<em>str</em>) – Corresponds to MeasurementConfig.type</p></li>
+<li><p><strong>beam_energy</strong> (<em>int</em>) – The beam energy (in keV) for which to load the standards.</p></li>
+<li><p><strong>std_f_dir</strong> (<em>str</em>) – Directory of reference standards file. Default : None; uses the default directory
+Typically only specified when using a special reference file, such as the case of
+measuring the extent of precursor intermixing.</p></li>
+</ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><strong>standards</strong> – Dictionary containing the loaded EDS standards data.</p>
@@ -236,7 +242,7 @@ Must be present in the loaded <cite>detector_channel_params</cite>.</p></li>
 </dd>
 </dl>
 <p class="rubric">Notes</p>
-<p>Expects a file named ‘EDSstandards_{beam_energy}keV.json’ in the directory specified
+<p>Expects a file named ‘{meas_type}_{beam_energy}keV.json’ in the directory specified
 by <cite>microscope_calib_dir</cite>.
 beam_energy will be converted to an int for the file name’s purpose.</p>
 </dd></dl>

@@ -1,14 +1,15 @@
-.. _fit_spectrum_tutorial:
+.. _fit_msa_spectrum_tutorial:
 
 
-Tutorial: Fit and quantify individual spectra
-==============================================================
+Tutorial: Fit and quantify individual spectra exported by commercial EDS software
+=================================================================================
 
 This tutorial shows how to fit--and optionall quantify-- a single EDS spectrum,
-using the ``Fit_Quant_Single_Spectrum.py`` script.
+using the ``Fit_Quant_Single_MSA_Spectrum.py`` script.
 
-This allows to select an individual spectrum from the acquired data and
-visualize the fitted spectrum for inspection of model fitting performance.
+This allows to load an individual spectrum from an exported file (typically
+``.msa``, ``.emsa``, ``.txt``), fit and quantify it and visualize the fitted spectrum
+ for inspection of model fitting performance.
 
 This script also prints the full fitting and quantification process steps, prints
 the employed fit parameters and their final values. 
@@ -17,11 +18,14 @@ It also enables further customization options for fitting and quantification
 for evaluating the performance of different EDS models, allowing to define a set
 of parameters to use in your standard EDS quantification operations.
 
+**Note**: This script has so far been tested with spectra output with `Thermofisher 
+Phenom` SEM-EDS and by `Oxford Aztec` software.
+
 
 Step 1 - Open script to edit
 -------------------------------
 
-Open ``autoemxsp/scripts/Fit_Quant_Single_Spectrum.py``.
+Open ``autoemxsp/scripts/Fit_Quant_Single_MSA_Spectrum.py``.
 
 
 Step 2 - Define Spectrum to Fit
@@ -29,11 +33,11 @@ Step 2 - Define Spectrum to Fit
 
 Set the spectrum to analyse by defining:
 
-- ``sample_ID``: name of the sample folder. Include any counter if present (e.g. 'Wulfenite_2').
-- ``spectrum_ID``: ID of the spectrum to fit. You'll find this int number in the first column of `Data.csv`
-  inside the folder named ``sample_ID``.
-- ``results_path``: absolute or relative path to the project folder, containing the ``sample_ID`` data.
-  `AutoEMXSp` will search for a folder named ``sample_ID`` in any of the subfolders within ``results_path``.
+- ``spectrum_path``: Path to spectrum file.
+- ``els_sample``: list of elements present in the sample.
+- ``els_substrate``: list of elements present in the sample substrate (e.g. carbon tape).
+- ``is_particle``: set to ``True`` if measurement is from particles or from a rough surface.
+  Set to ``False`` if measurement is from a flat, polished surface.
         
         
 Step 3 - Modify Parameters
@@ -51,13 +55,13 @@ Step 4 - Launch script
 Visualise the fitted spectrum and evaluate goodness of fit.
 
 .. figure:: /_static/Example_fit.png
-   :alt: Example 3D clustering
+   :alt: Example fitted spectrum
    :width: 70%
    :align: center
 
 The background fitting is especially important when it comes to peak-to-background EDS quantification.
 
 .. figure:: /_static/Example_fit_zoom.png
-   :alt: Example 3D clustering
+   :alt: Zoom on example fitted spectrum
    :width: 70%
    :align: center

@@ -45,11 +45,14 @@ See full workflow at:
 Fit and quantify a single EDS spectrum
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Run the ``Fit_Quant_Single_Spectrum.py`` script (:ref:`Tutorial <fit_spectrum_tutorial>`):
+Run the ``Fit_Quant_Single_AutoEMXSp_Spectrum.py`` (:ref:`Tutorial <fit_autoemxsp_spectrum_tutorial>`)
+or the ``Fit_Quant_Single_MSA_Spectrum.py`` script (:ref:`Tutorial <fit_msa_spectrum_tutorial>`):
 
-Fit--and optionall quantify-- a single EDS spectrum. This script prints the full process in the terminal, 
-the employed fit parameters and their final values. It also shows the fitted spectrum for manual evaluation
-of goodness of fit.
+Fit--and optionall quantify-- a single EDS spectrum acquired using ``AutoEMXSp`` or exported by commercial
+EDS software (.msa, .emsa, .txt spectra files).
+
+These scripts print the full process in the terminal, the employed fit parameters and their final values. 
+They also show the fitted spectrum for visual evaluation of goodness of fit.
 
 
 Measure particle size distribution via SEM

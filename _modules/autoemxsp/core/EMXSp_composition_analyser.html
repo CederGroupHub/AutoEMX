@@ -542,9 +542,13 @@
 <span class="sd">            This method modifies the `self.XSp_std_dict` attribute in place.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">is_known_mixture</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">powder_meas_cfg</span><span class="p">,</span> <span class="s2">&quot;is_known_powder_mixture_meas&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
-    
+        
         <span class="k">if</span> <span class="n">is_known_mixture</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">XSp_std_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compile_standards_from_references</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">quant_cfg</span><span class="o">.</span><span class="n">use_project_specific_std_dict</span><span class="p">:</span>
+            <span class="n">std_dict_all_modes</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_xsp_standards</span><span class="p">()</span>
+            <span class="n">std_dict</span> <span class="o">=</span> <span class="n">std_dict_all_modes</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">measurement_cfg</span><span class="o">.</span><span class="n">mode</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">XSp_std_dict</span> <span class="o">=</span> <span class="n">std_dict</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># Standards dictionary will be loaded directly within the `XSp_Quantifier`</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">XSp_std_dict</span> <span class="o">=</span> <span class="kc">None</span>
@@ -664,7 +668,7 @@
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        x, y : float</span>
-<span class="sd">            X, Y coordinatesfor the spectrum acquisition.</span>
+<span class="sd">            X, Y coordinates for the spectrum acquisition.</span>
 <span class="sd">            Coordinate System</span>
 <span class="sd">            ----------------</span>
 <span class="sd">            The coordinates are expressed in a normalized, aspect-ratio-correct system centered at the image center:</span>
@@ -1400,21 +1404,22 @@
             <span class="k">if</span> <span class="n">tmp_analyzer</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">EM_controller</span><span class="o">.</span><span class="n">analyzer</span> <span class="o">=</span> <span class="n">tmp_analyzer</span>
         
-        <span class="c1"># Sort results by original spectrum index to guarantee correct order</span>
-        <span class="n">results_with_idx</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">results_with_idx</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="p">:</span>
+            <span class="c1"># Sort results by original spectrum index to guarantee correct order</span>
+            <span class="n">results_with_idx</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            
+            <span class="c1"># Unpack into separate lists</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">results_in_order</span><span class="p">,</span> <span class="n">quant_flags_in_order</span><span class="p">,</span> <span class="n">comments_in_order</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">results_with_idx</span><span class="p">)</span>
+            
+            <span class="c1"># Convert from tuples to lists</span>
+            <span class="n">results_in_order</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">results_in_order</span><span class="p">)</span>
+            <span class="n">quant_flags_in_order</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">quant_flags_in_order</span><span class="p">)</span>
+            <span class="n">comments_in_order</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">comments_in_order</span><span class="p">)</span>
         
-        <span class="c1"># Unpack into separate lists</span>
-        <span class="n">_</span><span class="p">,</span> <span class="n">results_in_order</span><span class="p">,</span> <span class="n">quant_flags_in_order</span><span class="p">,</span> <span class="n">comments_in_order</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">results_with_idx</span><span class="p">)</span>
-        
-        <span class="c1"># Convert from tuples to lists</span>
-        <span class="n">results_in_order</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">results_in_order</span><span class="p">)</span>
-        <span class="n">quant_flags_in_order</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">quant_flags_in_order</span><span class="p">)</span>
-        <span class="n">comments_in_order</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">comments_in_order</span><span class="p">)</span>
-    
-        <span class="c1"># Append to global spectra_quant</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">spectra_quant</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">results_in_order</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">spectral_data</span><span class="p">[</span><span class="n">cnst</span><span class="o">.</span><span class="n">COMMENTS_DF_KEY</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">comments_in_order</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">spectral_data</span><span class="p">[</span><span class="n">cnst</span><span class="o">.</span><span class="n">QUANT_FLAG_DF_KEY</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">quant_flags_in_order</span><span class="p">)</span>
+            <span class="c1"># Append to global spectra_quant</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">spectra_quant</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">results_in_order</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">spectral_data</span><span class="p">[</span><span class="n">cnst</span><span class="o">.</span><span class="n">COMMENTS_DF_KEY</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">comments_in_order</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">spectral_data</span><span class="p">[</span><span class="n">cnst</span><span class="o">.</span><span class="n">QUANT_FLAG_DF_KEY</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">quant_flags_in_order</span><span class="p">)</span>
 
 
     <span class="c1">#%% Find number of clusters in kmeans</span>
@@ -2001,7 +2006,10 @@
 <span class="sd">            Minimum confidence among assigned candidate phases.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># 1. Select compositions to use for clustering</span>
-        <span class="n">max_analytical_error</span> <span class="o">=</span> <span class="n">max_analytical_error_percent</span> <span class="o">/</span> <span class="mi">100</span>
+        <span class="k">if</span> <span class="n">max_analytical_error_percent</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">max_analytical_error</span> <span class="o">=</span> <span class="n">max_analytical_error_percent</span> <span class="o">/</span> <span class="mi">100</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">max_analytical_error</span> <span class="o">=</span> <span class="n">max_analytical_error_percent</span>
         <span class="p">(</span><span class="n">compositions_list_at</span><span class="p">,</span> <span class="n">compositions_list_w</span><span class="p">,</span> <span class="n">unused_compositions_list</span><span class="p">,</span>
          <span class="n">df_indices</span><span class="p">,</span> <span class="n">n_datapts</span><span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_select_good_compositions</span><span class="p">(</span><span class="n">max_analytical_error</span><span class="p">)</span>
         <span class="n">n_datapts_used</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">compositions_list_at</span><span class="p">)</span>
@@ -2050,9 +2058,12 @@
         <span class="n">min_conf</span><span class="p">,</span> <span class="n">max_raw_confs</span><span class="p">,</span> <span class="n">refs_assigned_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assign_reference_phases</span><span class="p">(</span><span class="n">centroids</span><span class="p">,</span> <span class="n">rms_dist_cluster</span><span class="p">)</span>
     
         <span class="c1"># 7. Assign mixtures</span>
-        <span class="n">clusters_assigned_mixtures</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assign_mixtures</span><span class="p">(</span>
-            <span class="n">k</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">compositions_df</span><span class="p">,</span> <span class="n">rms_dist_cluster</span><span class="p">,</span> <span class="n">max_raw_confs</span><span class="p">,</span> <span class="n">n_points_per_cluster</span>
-        <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">clustering_cfg</span><span class="o">.</span><span class="n">do_matrix_decomposition</span><span class="p">:</span>
+            <span class="n">clusters_assigned_mixtures</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assign_mixtures</span><span class="p">(</span>
+                <span class="n">k</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">compositions_df</span><span class="p">,</span> <span class="n">rms_dist_cluster</span><span class="p">,</span> <span class="n">max_raw_confs</span><span class="p">,</span> <span class="n">n_points_per_cluster</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">clusters_assigned_mixtures</span> <span class="o">=</span> <span class="p">[]</span>
     
         <span class="c1"># 8. Save and store results</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_acquisition</span><span class="p">:</span>
@@ -2111,7 +2122,7 @@
                 <span class="n">spectrum_quant_result_w</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spectra_quant</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">cnst</span><span class="o">.</span><span class="n">COMP_W_FR_KEY</span><span class="p">]</span>
                 <span class="n">analytical_error</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spectra_quant</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">cnst</span><span class="o">.</span><span class="n">AN_ER_KEY</span><span class="p">]</span>
                 <span class="n">quant_flag</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spectral_data</span><span class="p">[</span><span class="n">cnst</span><span class="o">.</span><span class="n">QUANT_FLAG_DF_KEY</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
-    
+
                 <span class="c1"># Check if composition was flagged as bad during quantification</span>
                 <span class="k">if</span> <span class="n">quant_flag</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">clustering_cfg</span><span class="o">.</span><span class="n">quant_flags_accepted</span><span class="p">:</span>
                     <span class="n">is_comp_ok</span> <span class="o">=</span> <span class="kc">False</span>
@@ -2119,6 +2130,7 @@
     
                 <span class="k">elif</span> <span class="n">max_analytical_error</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="c1"># Analytical error check is disabled</span>
+                    <span class="n">is_comp_ok</span> <span class="o">=</span> <span class="kc">True</span>
                     <span class="k">pass</span>
     
                 <span class="c1"># Check if analytical error is too high</span>
@@ -2279,36 +2291,38 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">ref_phases</span> <span class="o">==</span> <span class="p">[]</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">ref_phases</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="c1"># No candidate phase is close enough to the centroid</span>
-            <span class="n">refs_dict</span> <span class="o">=</span> <span class="p">{</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">cnst</span><span class="o">.</span><span class="n">CND_DF_KEY</span><span class="si">}</span><span class="s1">1&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="s1">&#39;</span><span class="si">{cnst.CS_CND_DF_KEY}</span><span class="s1">1&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">}</span>
+            <span class="n">refs_dict</span> <span class="o">=</span> <span class="p">{</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">cnst</span><span class="o">.</span><span class="n">CND_DF_KEY</span><span class="si">}</span><span class="s1">1&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">cnst</span><span class="o">.</span><span class="n">CS_RAW_CND_DF_KEY</span><span class="si">}</span><span class="s1">1&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="s1">&#39;</span><span class="si">{cnst.CS_CND_DF_KEY}</span><span class="s1">1&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">}</span>
             <span class="n">max_raw_conf</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># Calculate distances from centroid to each candidate phase</span>
             <span class="n">distances</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">ref_phases</span> <span class="o">-</span> <span class="n">centroid</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
     
             <span class="c1"># Assign confidence using a Gaussian function (sigma = 0.03)</span>
-            <span class="n">confidences</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">distances</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="mf">0.03</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+            <span class="n">raw_confidences</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">distances</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="mf">0.03</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
     
             <span class="c1"># Reduce confidences for ambiguity if multiple references are close</span>
-            <span class="n">weights_conf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">confidences</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="mf">0.3</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+            <span class="n">weights_conf</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">raw_confidences</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="mf">0.3</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
             <span class="n">weights_conf</span> <span class="o">/=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">weights_conf</span><span class="p">)</span>  <span class="c1"># Normalize</span>
     
             <span class="c1"># Adjust confidences by their weights</span>
-            <span class="n">confidences</span> <span class="o">*=</span> <span class="n">weights_conf</span>
+            <span class="n">confidences</span> <span class="o">=</span> <span class="n">raw_confidences</span> <span class="o">*</span> <span class="n">weights_conf</span>
     
             <span class="c1"># Get maximum raw confidence</span>
-            <span class="n">max_raw_conf</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">confidences</span><span class="p">))</span>
+            <span class="n">max_raw_conf</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">raw_confidences</span><span class="p">))</span>
     
             <span class="c1"># Sort references by confidence, descending</span>
             <span class="n">sorted_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="o">-</span><span class="n">confidences</span><span class="p">)</span>
             <span class="n">sorted_ref_names</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ref_names</span><span class="p">)[</span><span class="n">sorted_indices</span><span class="p">]</span>
             <span class="n">sorted_confidences</span> <span class="o">=</span> <span class="n">confidences</span><span class="p">[</span><span class="n">sorted_indices</span><span class="p">]</span>
+            <span class="n">sorted_raw_confs</span> <span class="o">=</span> <span class="n">raw_confidences</span><span class="p">[</span><span class="n">sorted_indices</span><span class="p">]</span>
     
             <span class="c1"># Build dictionary of references and confidences (only those &gt; 1%)</span>
             <span class="n">refs_dict</span> <span class="o">=</span> <span class="p">{}</span>
-            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">ref_name</span><span class="p">,</span> <span class="n">conf</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">sorted_ref_names</span><span class="p">,</span> <span class="n">sorted_confidences</span><span class="p">)):</span>
-                <span class="k">if</span> <span class="n">conf</span> <span class="o">&gt;</span> <span class="mf">0.01</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">ref_name</span><span class="p">,</span> <span class="n">conf</span><span class="p">,</span> <span class="n">conf_raw</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">sorted_ref_names</span><span class="p">,</span> <span class="n">sorted_confidences</span><span class="p">,</span> <span class="n">sorted_raw_confs</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="n">conf_raw</span> <span class="o">&gt;</span> <span class="mf">0.05</span><span class="p">:</span>
                     <span class="n">refs_dict</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">cnst</span><span class="o">.</span><span class="n">CND_DF_KEY</span><span class="si">}{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ref_name</span>
                     <span class="n">refs_dict</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">cnst</span><span class="o">.</span><span class="n">CS_CND_DF_KEY</span><span class="si">}{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">conf</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+                    <span class="n">refs_dict</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">cnst</span><span class="o">.</span><span class="n">CS_RAW_CND_DF_KEY</span><span class="si">}{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">conf_raw</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
     
         <span class="k">return</span> <span class="n">max_raw_conf</span><span class="p">,</span> <span class="n">refs_dict</span>
 
@@ -2625,11 +2639,11 @@
 <span class="sd">        - Uses alternating minimization, solving for one matrix while keeping the other fixed.</span>
 <span class="sd">        - Convergence is based on the Frobenius norm of the change in W and H between iterations.</span>
 <span class="sd">        - Stops when the change is smaller than the specified tolerance (convergence_tol = 1e-3), or max_iter is reached.</span>
-<span class="sd">        - Regularization is applied to H (if it is updated) to encourage sparsity and avoid all elements being present in both parent phases.</span>
+<span class="sd">        - Regularization may be applied to H (if it is updated) to encourage sparsity and avoid all elements being present in both parent phases.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">max_iter</span> <span class="o">=</span> <span class="mi">1000</span>
         <span class="n">convergence_tol</span> <span class="o">=</span> <span class="mf">1e-3</span>  <span class="c1"># Algorithm converges when change in coefficients or el_fr is less than 0.1%</span>
-        <span class="n">lambda_H</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># Regularization parameter for sparsity in H. Set &gt;0 to favor sparse basis matrix.</span>
+        <span class="n">lambda_H</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># Regularization parameter for sparsity in H. Set &gt;0 to favor sparse basis matrix. Found to work better when not applied.</span>
     
         <span class="c1"># Initialize W and H with non-negative random values if not provided</span>
         <span class="n">W</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">n_components</span><span class="p">)</span>
@@ -2895,7 +2909,9 @@
         <span class="n">is_analysis_successful</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="n">is_acquisition_successful</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="n">is_exp_std_measurement</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">exp_stds_cfg</span><span class="o">.</span><span class="n">is_exp_std_measurement</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_initialise_std_dict</span><span class="p">()</span> <span class="c1"># Initialise dictionary of standards to (optionally) pass onto XSp_Quantifier. Only used with known powder mixtures</span>
+        <span class="n">is_spectral_quant</span> <span class="o">=</span> <span class="n">quantify</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">is_exp_std_measurement</span>
+        <span class="k">if</span> <span class="n">is_spectral_quant</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_initialise_std_dict</span><span class="p">()</span> <span class="c1"># Initialise dictionary of standards to (optionally) pass onto XSp_Quantifier. Only used with known powder mixtures</span>
         
         <span class="k">if</span> <span class="n">quantify</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">is_exp_std_measurement</span><span class="p">:</span>
@@ -2919,7 +2935,7 @@
             <span class="n">tot_n_spectra</span><span class="p">,</span> <span class="n">is_acquisition_successful</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_collect_spectra</span><span class="p">(</span>
                 <span class="n">n_spectra_to_collect</span><span class="p">,</span>
                 <span class="n">n_tot_sp_collected</span><span class="o">=</span><span class="n">tot_n_spectra</span><span class="p">,</span>
-                <span class="n">quantify</span><span class="o">=</span><span class="p">(</span><span class="n">quantify</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">is_exp_std_measurement</span><span class="p">)</span>
+                <span class="n">quantify</span><span class="o">=</span><span class="n">is_spectral_quant</span>
             <span class="p">)</span>
     
             <span class="c1"># Save temporary data file to avoid data loss</span>
@@ -2968,7 +2984,7 @@
         <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Total compositional analysis time: </span><span class="si">{</span><span class="n">process_time</span><span class="si">:</span><span class="s1">.1f</span><span class="si">}</span><span class="s1"> min&#39;</span><span class="p">)</span>
         <span class="n">print_single_separator</span><span class="p">()</span>
     
-        <span class="k">if</span> <span class="n">quantify</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">is_exp_std_measurement</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">is_spectral_quant</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">is_analysis_successful</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">is_converged</span><span class="p">:</span>
                     <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Clustering converged to small errors. All phases identified with confidence higher than 0.8.&#39;</span><span class="p">)</span>
@@ -3186,7 +3202,7 @@
         <span class="n">std_ref_lines</span><span class="p">,</span> <span class="n">results_df</span><span class="p">,</span> <span class="n">Z_sample</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fit_stds_and_save_results</span><span class="p">(</span><span class="n">backup_previous_data</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         
         <span class="c1"># Optionally update the standards library with the new results</span>
-        <span class="k">if</span> <span class="n">update_std_library</span> <span class="ow">and</span> <span class="n">std_ref_lines</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">std_ref_lines</span> <span class="ow">is</span> <span class="ow">not</span> <span class="p">{}:</span> 
+        <span class="k">if</span> <span class="n">update_std_library</span> <span class="ow">and</span> <span class="n">std_ref_lines</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">std_ref_lines</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span> 
             <span class="bp">self</span><span class="o">.</span><span class="n">_update_standard_library</span><span class="p">(</span><span class="n">std_ref_lines</span><span class="p">,</span> <span class="n">results_df</span><span class="p">,</span> <span class="n">Z_sample</span><span class="p">)</span></div>
 
         
@@ -4275,7 +4291,7 @@
 <span class="sd">        Currently only used when analysing mixtures of known powder precursors</span>
 <span class="sd">        (i.e., powder_meas_cfg.is_known_powder_mixture_meas = True)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">std_dict_all_modes</span><span class="p">,</span> <span class="n">std_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_xsp_standards</span><span class="p">()</span>
+        <span class="n">std_dict_all_modes</span><span class="p">,</span> <span class="n">stds_filepath</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_xsp_standards</span><span class="p">()</span>
         <span class="n">std_dict_all_lines</span> <span class="o">=</span> <span class="n">std_dict_all_modes</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">measurement_cfg</span><span class="o">.</span><span class="n">mode</span><span class="p">]</span>
         <span class="n">ref_lines</span> <span class="o">=</span> <span class="n">XSp_Quantifier</span><span class="o">.</span><span class="n">xray_quant_ref_lines</span>
         <span class="n">ref_formulae</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">clustering_cfg</span><span class="o">.</span><span class="n">ref_formulae</span>
@@ -4305,7 +4321,7 @@
                         <span class="n">std_mean_value</span> <span class="o">=</span> <span class="n">std_dict</span><span class="p">[</span><span class="n">cnst</span><span class="o">.</span><span class="n">COR_PB_DF_KEY</span><span class="p">]</span>
 
                 <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ref_entries</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">exp_stds_cfg</span><span class="o">.</span><span class="n">is_exp_std_measurement</span><span class="p">:</span>
-                    <span class="n">text_line</span> <span class="o">=</span> <span class="s2">&quot;provided standards&quot;</span> <span class="k">if</span> <span class="n">std_dir</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;standards file at: </span><span class="si">{</span><span class="n">std_dir</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="n">text_line</span> <span class="o">=</span> <span class="s2">&quot;provided standards&quot;</span> <span class="k">if</span> <span class="n">stds_filepath</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;standards file at: </span><span class="si">{</span><span class="n">stds_filepath</span><span class="si">}</span><span class="s2">&quot;</span>
                     <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
                         <span class="sa">f</span><span class="s2">&quot;None of the input candidate phases </span><span class="si">{</span><span class="n">ref_formulae</span><span class="si">}</span><span class="s2"> &quot;</span>
                         <span class="sa">f</span><span class="s2">&quot;is present for line </span><span class="si">{</span><span class="n">el_line</span><span class="si">}</span><span class="s2"> in the </span><span class="si">{</span><span class="n">text_line</span><span class="si">}</span><span class="s2">. &quot;</span>
@@ -4695,35 +4711,52 @@
 <span class="sd">        current measurement mode. If loading fails due to an unexpected error, a</span>
 <span class="sd">        RuntimeError is raised with the original exception preserved.</span>
 <span class="sd">        </span>
+<span class="sd">        The function also handles copying of the reference standards to the project</span>
+<span class="sd">        folder during reference standard measurements when exp_stds_cfg.generate_separate_std_dict = True.</span>
+<span class="sd">        </span>
 <span class="sd">        Returns:</span>
 <span class="sd">            tuple[dict, str]: </span>
 <span class="sd">                A tuple containing:</span>
 <span class="sd">                - standards (dict): The standards library, indexed by measurement mode.</span>
-<span class="sd">                - std_dir (str): The directory path where the standards are stored.</span>
+<span class="sd">                - stds_filepath (str): The path to the reference standards .json file.</span>
 <span class="sd">        </span>
 <span class="sd">        Raises:</span>
 <span class="sd">            RuntimeError: If loading the standards library fails due to an </span>
 <span class="sd">                          unexpected error (not just missing files).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">meas_mode</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">measurement_cfg</span><span class="o">.</span><span class="n">mode</span>
+        <span class="n">update_separate_std_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">exp_stds_cfg</span><span class="o">.</span><span class="n">is_exp_std_measurement</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">exp_stds_cfg</span><span class="o">.</span><span class="n">generate_separate_std_dict</span>
+        
         <span class="c1"># Load or create standards dictionary</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">standards_dict</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            
+            <span class="c1"># Determine directory of standards dict</span>
+            <span class="n">std_f_dir</span> <span class="o">=</span> <span class="kc">None</span> <span class="c1"># Loads default std_dict</span>
+            <span class="k">if</span> <span class="n">update_separate_std_dict</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">quant_cfg</span><span class="o">.</span><span class="n">use_project_specific_std_dict</span><span class="p">:</span>
+                <span class="c1"># Load and save std_dict to project directory, assumed to be up 1 level from the sample directory</span>
+                <span class="n">project_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_result_dir</span><span class="p">)</span>
+                <span class="n">std_f_dir</span> <span class="o">=</span> <span class="n">project_dir</span>
+                
             <span class="k">try</span><span class="p">:</span>
-                <span class="n">standards</span><span class="p">,</span> <span class="n">std_dir</span> <span class="o">=</span> <span class="n">calibs</span><span class="o">.</span><span class="n">load_standards</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">measurement_cfg</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">measurement_cfg</span><span class="o">.</span><span class="n">beam_energy_keV</span><span class="p">)</span>
+                <span class="n">standards</span><span class="p">,</span> <span class="n">stds_filepath</span> <span class="o">=</span> <span class="n">calibs</span><span class="o">.</span><span class="n">load_standards</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">measurement_cfg</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">measurement_cfg</span><span class="o">.</span><span class="n">beam_energy_keV</span><span class="p">,</span> <span class="n">std_f_dir</span> <span class="o">=</span> <span class="n">std_f_dir</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
-                <span class="n">std_dir</span> <span class="o">=</span> <span class="n">calibs</span><span class="o">.</span><span class="n">standards_dir</span>
+                <span class="n">stds_filepath</span> <span class="o">=</span> <span class="n">calibs</span><span class="o">.</span><span class="n">standards_dir</span>
                 <span class="n">standards</span> <span class="o">=</span> <span class="p">{</span><span class="n">meas_mode</span><span class="p">:</span> <span class="p">{}}</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Failed to load standards library.&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Check if it needs to copy the reference standards files to the project folder</span>
+                <span class="k">if</span> <span class="n">update_separate_std_dict</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">stds_filepath</span><span class="p">)</span> <span class="o">!=</span> <span class="n">project_dir</span><span class="p">:</span>
+                    <span class="n">stds_filepath</span> <span class="o">=</span> <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">stds_filepath</span><span class="p">,</span> <span class="n">project_dir</span><span class="p">)</span> <span class="c1"># Copy standards to project folder</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">standards</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">standards_dict</span>
-            <span class="n">std_dir</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+            <span class="n">stds_filepath</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
 
         <span class="c1"># Ensure measurement mode exists in the standards dictionary, otherwise create it</span>
         <span class="k">if</span> <span class="n">meas_mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">standards</span><span class="p">:</span>
             <span class="n">standards</span><span class="p">[</span><span class="n">meas_mode</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
             
-        <span class="k">return</span> <span class="n">standards</span><span class="p">,</span> <span class="n">std_dir</span>
+        <span class="k">return</span> <span class="n">standards</span><span class="p">,</span> <span class="n">stds_filepath</span>
     
     
     <span class="k">def</span><span class="w"> </span><span class="nf">_update_standard_library</span><span class="p">(</span>
@@ -4764,7 +4797,7 @@
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;The &#39;standards_dict&#39; provided when initializing EMXSp_Composition_Analyzer will be ignored.&quot;</span>
                           <span class="sa">f</span><span class="s2">&quot;Loading standards dictionary from XSp_calibs/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">microscope_cfg</span><span class="o">.</span><span class="n">ID</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="ne">UserWarning</span><span class="p">())</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">standards_dict</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="n">standards</span><span class="p">,</span> <span class="n">std_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_xsp_standards</span><span class="p">()</span>
+        <span class="n">standards</span><span class="p">,</span> <span class="n">stds_filepath</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_xsp_standards</span><span class="p">()</span>
         
         <span class="n">std_lib</span> <span class="o">=</span> <span class="n">standards</span><span class="p">[</span><span class="n">meas_mode</span><span class="p">]</span>
         
@@ -4840,10 +4873,10 @@
     
         <span class="c1"># Save updated file with standards</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">std_dir</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">stds_filepath</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
                 <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">standards</span><span class="p">,</span> <span class="n">file</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to save updated standards to </span><span class="si">{</span><span class="n">std_dir</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span></div>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to save updated standards to </span><span class="si">{</span><span class="n">stds_filepath</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span></div>
 
  
 </pre></div>

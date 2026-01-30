@@ -547,7 +547,7 @@ iteration is performed.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="autoemxsp.core.XSp_quantifier.XSp_Quantifier.print_quant_result">
-<span class="sig-name descname"><span class="pre">print_quant_result</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">quant_result</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Z_sample</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../_modules/autoemxsp/core/XSp_quantifier.html#XSp_Quantifier.print_quant_result"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.XSp_quantifier.XSp_Quantifier.print_quant_result" title="Link to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">print_quant_result</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">quant_result</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Z_sample</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_flag</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../_modules/autoemxsp/core/XSp_quantifier.html#XSp_Quantifier.print_quant_result"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.XSp_quantifier.XSp_Quantifier.print_quant_result" title="Link to this definition"></a></dt>
 <dd><p>Print the quantification results, including fit quality metrics and elemental composition.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -571,6 +571,9 @@ iteration is performed.</p>
 </dd>
 </dl>
 </p></li>
+<li><p><strong>quant_flag</strong> (<em>int</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Flag signaling reliability of quantifification. Anything different than 0 signals
+potential unreliability of the quantified composition. See description of quant_flags]
+in config/classes.py</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>

@@ -652,7 +652,7 @@
             <span class="p">)</span>
             
         <span class="c1"># Save image of initial location to show</span>
-        <span class="n">initial_image</span> <span class="o">=</span> <span class="n">EM_driver</span><span class="o">.</span><span class="n">get_image_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">im_width</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">im_height</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">initial_image</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_current_image</span><span class="p">()</span>
         <span class="n">draw_scalebar</span><span class="p">(</span><span class="n">initial_image</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pixel_size_um</span><span class="p">)</span>
         <span class="n">cv2</span><span class="o">.</span><span class="n">imwrite</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results_dir</span><span class="p">,</span> <span class="n">cnst</span><span class="o">.</span><span class="n">INITIAL_SEM_IM_FILENAME</span> <span class="o">+</span> <span class="s1">&#39;.png&#39;</span><span class="p">),</span> <span class="n">initial_image</span><span class="p">)</span></div>
 
@@ -1243,8 +1243,25 @@
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">EMError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to set frame width: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span></div>
 
+    
+    
+<div class="viewcode-block" id="EM_Controller.get_current_image">
+<a class="viewcode-back" href="../../../_api/autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Controller.get_current_image">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_current_image</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Acquire image at microscope.</span>
+<span class="sd">    </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        image : np.array()</span>
+<span class="sd">            Image array acquired at the microscope.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>        
+        <span class="n">image</span> <span class="o">=</span> <span class="n">EM_driver</span><span class="o">.</span><span class="n">get_image_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">im_width</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">im_height</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">image</span></div>
+
         
-        
+    
 <div class="viewcode-block" id="EM_Controller.move_to_pos">
 <a class="viewcode-back" href="../../../_api/autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Controller.move_to_pos">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">move_to_pos</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pos</span><span class="p">):</span>
@@ -1389,9 +1406,11 @@
     
 <div class="viewcode-block" id="EM_Controller.save_frame_image">
 <a class="viewcode-back" href="../../../_api/autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Controller.save_frame_image">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">save_frame_image</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">im_annotations</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">frame_image</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">save_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save_frame_image</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">im_annotations</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">scalebar</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">frame_image</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">save_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Save an annotated and raw electron microscopy (EM) frame as a multi-page TIFF.</span>
+<span class="sd">        If no annotation is done (i.e., im_annotations=None &amp; scalebar = False),</span>
+<span class="sd">        then only one page is saved in the TIFF.</span>
 <span class="sd">        </span>
 <span class="sd">        This function retrieves a raw grayscale EM image, generates an annotated</span>
 <span class="sd">        RGB version with optional markers and a scale bar, and saves both images</span>
@@ -1414,7 +1433,10 @@
 <span class="sd">                    thickness : int, thickness of circle border. Set to -1 for filling</span>
 <span class="sd">            For multiple annotations, use a list of dictionaries.</span>
 <span class="sd">            Do not include the relative key if that particular annotation is not desired.</span>
-<span class="sd">            </span>
+<span class="sd">        </span>
+<span class="sd">        scalebar : bool, optional</span>
+<span class="sd">            Whether to annotate the image with a scalebar.</span>
+<span class="sd">        </span>
 <span class="sd">        frame_image : np.array | None, opt</span>
 <span class="sd">            Frame image to save. Captures the current frame image if not provided</span>
 <span class="sd">        </span>
@@ -1442,7 +1464,7 @@
             <span class="c1"># Adjust contrast and brightness in case they changed during acuqisition</span>
             <span class="n">EM_driver</span><span class="o">.</span><span class="n">auto_contrast_brightness</span><span class="p">()</span>
             <span class="c1"># Get raw grayscale image from EM (H, W), dtype: uint8 or uint16</span>
-            <span class="n">frame_image</span> <span class="o">=</span> <span class="n">EM_driver</span><span class="o">.</span><span class="n">get_image_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">im_width</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">im_height</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">frame_image</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_current_image</span><span class="p">()</span>
     
         <span class="c1"># Convert grayscale to RGB for annotation</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">frame_image</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">frame_image</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
@@ -1481,7 +1503,8 @@
                     <span class="p">)</span>
         
         <span class="c1"># Add scale bar</span>
-        <span class="n">color_image</span> <span class="o">=</span> <span class="n">draw_scalebar</span><span class="p">(</span><span class="n">color_image</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pixel_size_um</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">scalebar</span><span class="p">:</span>
+            <span class="n">color_image</span> <span class="o">=</span> <span class="n">draw_scalebar</span><span class="p">(</span><span class="n">color_image</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pixel_size_um</span><span class="p">)</span>
     
         <span class="c1"># Prepare save path</span>
         <span class="n">save_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s2">.tif&quot;</span><span class="p">)</span>
@@ -1489,7 +1512,8 @@
         <span class="c1"># Ensure dtype consistency (convert to uint8 if needed)</span>
         <span class="k">if</span> <span class="n">frame_image</span><span class="o">.</span><span class="n">dtype</span> <span class="o">!=</span> <span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">:</span>
             <span class="n">frame_image</span> <span class="o">=</span> <span class="p">(</span><span class="n">frame_image</span> <span class="o">/</span> <span class="n">frame_image</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">*</span> <span class="mi">255</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
-            <span class="n">color_image</span> <span class="o">=</span> <span class="p">(</span><span class="n">color_image</span> <span class="o">/</span> <span class="n">color_image</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">*</span> <span class="mi">255</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">scalebar</span><span class="p">:</span>
+                <span class="n">color_image</span> <span class="o">=</span> <span class="p">(</span><span class="n">color_image</span> <span class="o">/</span> <span class="n">color_image</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">*</span> <span class="mi">255</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
     
         <span class="c1"># Convert grayscale to RGB for saving</span>
         <span class="k">if</span> <span class="n">frame_image</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
@@ -1508,18 +1532,24 @@
         <span class="n">desc_str</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">image_description_d</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         
         <span class="c1"># Convert numpy arrays to Pillow Image objects, force RGB mode</span>
-        <span class="n">im1</span> <span class="o">=</span> <span class="n">Image</span><span class="o">.</span><span class="n">fromarray</span><span class="p">(</span><span class="n">color_image</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s1">&#39;uint8&#39;</span><span class="p">),</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;RGB&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">scalebar</span><span class="p">:</span>
+            <span class="n">im1</span> <span class="o">=</span> <span class="n">Image</span><span class="o">.</span><span class="n">fromarray</span><span class="p">(</span><span class="n">color_image</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s1">&#39;uint8&#39;</span><span class="p">),</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;RGB&#39;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">im1</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">im2</span> <span class="o">=</span> <span class="n">Image</span><span class="o">.</span><span class="n">fromarray</span><span class="p">(</span><span class="n">frame_image</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s1">&#39;uint8&#39;</span><span class="p">),</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;RGB&#39;</span><span class="p">)</span>
         
         <span class="c1"># Save as multi-page TIFF, with description on first page</span>
-        <span class="n">im1</span><span class="o">.</span><span class="n">save</span><span class="p">(</span>
-            <span class="n">save_path</span><span class="p">,</span>
-            <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;TIFF&#39;</span><span class="p">,</span>
-            <span class="n">description</span><span class="o">=</span><span class="n">desc_str</span><span class="p">,</span>
-            <span class="n">save_all</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="n">append_images</span><span class="o">=</span><span class="p">[</span><span class="n">im2</span><span class="p">],</span>
-            <span class="n">compression</span><span class="o">=</span><span class="kc">None</span>
-        <span class="p">)</span></div>
+        <span class="k">if</span> <span class="n">im1</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">im2</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;TIFF&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="n">desc_str</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">im1</span><span class="o">.</span><span class="n">save</span><span class="p">(</span>
+                <span class="n">save_path</span><span class="p">,</span>
+                <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;TIFF&#39;</span><span class="p">,</span>
+                <span class="n">description</span><span class="o">=</span><span class="n">desc_str</span><span class="p">,</span>
+                <span class="n">save_all</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">append_images</span><span class="o">=</span><span class="p">[</span><span class="n">im2</span><span class="p">],</span>
+                <span class="n">compression</span><span class="o">=</span><span class="kc">None</span>
+            <span class="p">)</span></div>
 </div>
 
         

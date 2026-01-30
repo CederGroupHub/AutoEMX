@@ -51,6 +51,14 @@
 <li class="toctree-l2 current"><a class="reference internal" href="../user/api.html">AutoEMXSp Public API</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="autoemxsp.config.html">autoemxsp.config package</a></li>
 <li class="toctree-l3 current"><a class="reference internal" href="autoemxsp.runners.html">autoemxsp.runners package</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.analyze_sample"><code class="docutils literal notranslate"><span class="pre">analyze_sample()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.batch_acquire_experimental_stds"><code class="docutils literal notranslate"><span class="pre">batch_acquire_experimental_stds()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.batch_acquire_and_analyze"><code class="docutils literal notranslate"><span class="pre">batch_acquire_and_analyze()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.batch_fit_spectra"><code class="docutils literal notranslate"><span class="pre">batch_fit_spectra()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.batch_quantify_and_analyze"><code class="docutils literal notranslate"><span class="pre">batch_quantify_and_analyze()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.collect_particle_statistics"><code class="docutils literal notranslate"><span class="pre">collect_particle_statistics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.fit_and_quantify_spectrum"><code class="docutils literal notranslate"><span class="pre">fit_and_quantify_spectrum()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.fit_and_quantify_spectrum_fromDatacsv"><code class="docutils literal notranslate"><span class="pre">fit_and_quantify_spectrum_fromDatacsv()</span></code></a></li>
 <li class="toctree-l4 current"><a class="reference internal" href="autoemxsp.runners.html#submodules">Submodules</a></li>
 </ul>
 </li>
@@ -93,33 +101,7 @@
              
   <section id="module-autoemxsp.runners.batch_acquire_experimental_stds">
 <span id="autoemxsp-runners-batch-acquire-experimental-stds-module"></span><h1>autoemxsp.runners.batch_acquire_experimental_stds module<a class="headerlink" href="#module-autoemxsp.runners.batch_acquire_experimental_stds" title="Link to this heading"></a></h1>
-<p>Automated X-Ray Experimental Standard Acquisition and Analysis</p>
-<p>This module configures and runs automated collection and fitting
-of EDS/WDS spectra from experimental standards (i.e., sampels of known composition)
-to generate reference values of peak-to-background ratios.</p>
-<p>Import this module in your own Python code and call the
-<cite>batch_acquire_experimental_stds()</cite> function, passing your desired configuration
-and sample list as arguments. This enables integration into larger
-automation workflows or pipelines.</p>
-<dl class="simple">
-<dt>Workflow includes:</dt><dd><ul class="simple">
-<li><p>Configuration of microscope, measurement, substrate, and fitting parameters</p></li>
-<li><p>Sample setup (elements, position, reference formulae)</p></li>
-<li><p>Calibration and quantification options</p></li>
-<li><p>Automated or manual navigation and acquisition modes</p></li>
-</ul>
-</dd>
-<dt>Requirements:</dt><dd><ul class="simple">
-<li><p>Proper instrument calibration files and instrument driver for the selected microscope</p></li>
-</ul>
-</dd>
-<dt>Typical usage:</dt><dd><ul class="simple">
-<li><p>Edit the ‘std_list’ list to define your standards</p></li>
-<li><p>Adjust configuration parameters as needed, either directly in the script or by passing them to <cite>batch_acquire_experimental_stds</cite></p></li>
-<li><p>Run the script, or import and call <cite>batch_acquire_experimental_stds()</cite> to collect experimental standards for one or multiple samples at a time</p></li>
-</ul>
-</dd>
-</dl>
+<p>Batch acquisition (and optional quantification) of X-ray spectra for a list of powder samples.</p>
 <dl class="field-list">
 <dt class="field-odd">param stds<span class="colon">:</span></dt>
 <dd class="field-odd"><p>List of experimental standard definitions.
@@ -192,6 +174,15 @@ Default is <cite>‘circle’</cite> (SampleSubstrateConfig.shape).</p>
 Default is <cite>5.0</cite> (MeasurementConfig.working_distance).</p>
 </dd>
 <dt class="field-even">type working_distance<span class="colon">:</span></dt>
+<dd class="field-even"><p>float, optional</p>
+</dd>
+<dt class="field-odd">param working_distance_tolerance<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt>Defines maximum accepted deviation of working distance from its typical value, in mm.</dt><dd><p>Used to prevent gross mistakes from EM autofocus. Default: 1 mm.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">type working_distance_tolerance<span class="colon">:</span></dt>
 <dd class="field-even"><p>float, optional</p>
 </dd>
 <dt class="field-odd">param beam_energy<span class="colon">:</span></dt>
@@ -348,105 +339,13 @@ Default is <cite>None</cite>.</p>
 <dt class="field-even">type exp_std_dir<span class="colon">:</span></dt>
 <dd class="field-even"><p>str, optional</p>
 </dd>
-</dl>
-<p>Created on Fri Aug 20 09:34:34 2025</p>
-<p>&#64;author: Andrea</p>
-<dl class="py function">
-<dt class="sig sig-object py" id="autoemxsp.runners.batch_acquire_experimental_stds.batch_acquire_experimental_stds">
-<span class="sig-prename descclassname"><span class="pre">autoemxsp.runners.batch_acquire_experimental_stds.</span></span><span class="sig-name descname"><span class="pre">batch_acquire_experimental_stds</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stds</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">microscope_ID</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'PhenomXL'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">microscope_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'SEM'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">measurement_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'EDS'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">measurement_mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'point'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_halfwidth</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">3.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_substrate_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'Ctape'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_substrate_shape</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'circle'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">working_distance</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">working_distance_tolerance</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">beam_energy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">15.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spectrum_lims</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(14,</span> <span class="pre">1100)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_instrument_background</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_bckgrnd_cnts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fit_during_collection</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">update_std_library</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_auto_substrate_detection</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">auto_adjust_brightness_contrast</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">contrast</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">4.3877</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">brightness</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.4504</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_n_spectra</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_n_spectra</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_Xsp_counts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">250000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_XSp_acquisition_time</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">els_substrate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">powder_meas_cfg_kwargs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bulk_meas_cfg_kwargs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exp_stds_meas_cfg_kwargs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_filename_suffix</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">development_mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exp_std_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../_modules/autoemxsp/runners/batch_acquire_experimental_stds.html#batch_acquire_experimental_stds"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.runners.batch_acquire_experimental_stds.batch_acquire_experimental_stds" title="Link to this definition"></a></dt>
-<dd><p>Batch acquisition (and optional quantification) of X-ray spectra for a list of powder samples.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>stds</strong> (<em>list</em><em> of </em><em>dict</em>) – <p>List of experimental standard definitions.
-Each dictionary must contain:</p>
-<blockquote>
-<div><ul>
-<li><p>’ID’ (str): Identifier for the standard sample (SampleConfig.ID).</p></li>
-<li><p>’formula’ (str): Chemical formula of the standard (ExpStandardsConfig.formula).</p></li>
-<li><p>’pos’ (tuple of float): (x, y) stage coordinates in mm (SampleConfig.center_pos).</p></li>
-<li><p>’sample_type’ (str): Sample type (‘powder’, ‘bulk’, etc.) (SampleConfig.type).</p></li>
-<li><p>’is_manual_meas’ (bool): If True, navigation to positions is manual (MeasurementConfig.is_manual_navigation).</p></li>
-</ul>
-</div></blockquote>
-</p></li>
-<li><p><strong>microscope_ID</strong> (<em>str</em><em>, </em><em>optional</em>) – Identifier for the microscope hardware.
-Must correspond to a calibration folder in <cite>./XSp_calibs/Microscopes/&lt;ID&gt;</cite> (MicroscopeConfig.ID).
-Default is <cite>‘PhenomXL’</cite>.</p></li>
-<li><p><strong>microscope_type</strong> (<em>str</em><em>, </em><em>optional</em>) – Type of microscope. Allowed: <cite>‘SEM’</cite> (implemented), <cite>‘STEM’</cite> (not implemented).
-Default is <cite>‘SEM’</cite> (MicroscopeConfig.type).</p></li>
-<li><p><strong>measurement_type</strong> (<em>str</em><em>, </em><em>optional</em>) – Measurement type. Allowed: <cite>‘EDS’</cite> (implemented), <cite>‘WDS’</cite> (not implemented).
-Default is <cite>‘EDS’</cite> (MeasurementConfig.type).</p></li>
-<li><p><strong>measurement_mode</strong> (<em>str</em><em>, </em><em>optional</em>) – Acquisition mode (e.g., <cite>‘point’</cite>, <cite>‘map’</cite>), defining beam/detector calibration settings.
-Default is <cite>‘point’</cite> (MeasurementConfig.mode).</p></li>
-<li><p><strong>sample_halfwidth</strong> (<em>float</em><em>, </em><em>optional</em>) – Half-width of the sample area in mm for mapping/acquisition.
-Default is <cite>3.0</cite> (SampleConfig.half_width_mm).</p></li>
-<li><p><strong>sample_substrate_type</strong> (<em>str</em><em>, </em><em>optional</em>) – Type of sample substrate. Allowed: <cite>‘Ctape’</cite>, <cite>‘None’</cite>.
-Default is <cite>‘Ctape’</cite> (SampleSubstrateConfig.type).</p></li>
-<li><p><strong>sample_substrate_shape</strong> (<em>str</em><em>, </em><em>optional</em>) – Shape of the substrate. Allowed: <cite>‘circle’</cite>, <cite>‘square’</cite>.
-Default is <cite>‘circle’</cite> (SampleSubstrateConfig.shape).</p></li>
-<li><p><strong>working_distance</strong> (<em>float</em><em>, </em><em>optional</em>) – Working distance in mm for acquisition. If None, taken from microscope driver.
-Default is <cite>5.0</cite> (MeasurementConfig.working_distance).</p></li>
-<li><p><strong>working_distance_tolerance</strong> (<em>float</em><em>, </em><em>optional</em>) – <dl class="simple">
-<dt>Defines maximum accepted deviation of working distance from its typical value, in mm.</dt><dd><p>Used to prevent gross mistakes from EM autofocus. Default: 1 mm.</p>
+<dt class="field-odd">returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>results</strong> – A list of the composition analysis objects (one per sample) containing the results and methods for further analysis.</p>
+</dd>
+<dt class="field-even">rtype<span class="colon">:</span></dt>
+<dd class="field-even"><p>list(EMXSp_Composition_Analyzer)</p>
 </dd>
 </dl>
-</p></li>
-<li><p><strong>beam_energy</strong> (<em>float</em><em>, </em><em>optional</em>) – Electron beam energy in keV.
-Default is <cite>15.0</cite> (MeasurementConfig.beam_energy_keV).</p></li>
-<li><p><strong>spectrum_lims</strong> (<em>tuple</em><em> of </em><em>float</em><em>, </em><em>optional</em>) – Lower and upper energy limits for spectrum fitting in eV.
-Default is <cite>(14, 1100)</cite> (QuantConfig.spectrum_lims).</p></li>
-<li><p><strong>use_instrument_background</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to use instrument background files during fitting.
-If False, background is computed during fitting.
-Default is <cite>False</cite> (QuantConfig.use_instrument_background).</p></li>
-<li><p><strong>min_bckgrnd_cnts</strong> (<em>float</em><em>, </em><em>optional</em>) – Minimum background counts required for a spectrum not to be filtered out.
-Default is <cite>5</cite> (QuantConfig.min_bckgrnd_cnts).</p></li>
-<li><p><strong>fit_during_collection</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, fit spectra during acquisition; otherwise fit later.
-Default is <cite>True</cite>.</p></li>
-<li><p><strong>update_std_library</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, update the stored experimental standards library after acquisition.
-Default is <cite>False</cite>.</p></li>
-<li><p><strong>is_auto_substrate_detection</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, substrate elements are detected automatically.
-Implemented only for <cite>‘Ctape’</cite> substrates.
-Default is <cite>False</cite> (SampleSubstrateConfig.auto_detection).</p></li>
-<li><p><strong>auto_adjust_brightness_contrast</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, brightness/contrast are set automatically.
-Default is <cite>True</cite> (MicroscopeConfig.is_auto_BC).</p></li>
-<li><p><strong>contrast</strong> (<em>float</em><em>, </em><em>optional</em>) – Manual contrast setting (required if auto_adjust_brightness_contrast is False).
-Default is <cite>4.3877</cite> (MicroscopeConfig.contrast).</p></li>
-<li><p><strong>brightness</strong> (<em>float</em><em>, </em><em>optional</em>) – Manual brightness setting (required if auto_adjust_brightness_contrast is False).
-Default is <cite>0.4504</cite> (MicroscopeConfig.brightness).</p></li>
-<li><p><strong>min_n_spectra</strong> (<em>int</em><em>, </em><em>optional</em>) – Minimum number of spectra to acquire.
-Default is <cite>50</cite> (MeasurementConfig.min_n_spectra).</p></li>
-<li><p><strong>max_n_spectra</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum number of spectra to acquire.
-Default is <cite>100</cite> (MeasurementConfig.max_n_spectra).</p></li>
-<li><p><strong>target_Xsp_counts</strong> (<em>int</em><em>, </em><em>optional</em>) – Target counts for spectrum acquisition.
-Default is <cite>250000</cite> (MeasurementConfig.target_acquisition_counts).</p></li>
-<li><p><strong>max_XSp_acquisition_time</strong> (<em>float</em><em>, </em><em>optional</em>) – Maximum acquisition time in seconds. If None, estimated from target counts.
-Default is <cite>None</cite> (MeasurementConfig.max_acquisition_time).</p></li>
-<li><p><strong>els_substrate</strong> (<em>list</em><em> of </em><em>str</em><em>, </em><em>optional</em>) – List of substrate element symbols.
-Default is <cite>[‘C’, ‘O’, ‘Al’]</cite> (SampleSubstrateConfig.elements).</p></li>
-<li><p><strong>powder_meas_cfg_kwargs</strong> (<em>dict</em><em>, </em><em>optional</em>) – Additional keyword arguments for PowderMeasurementConfig.</p></li>
-<li><p><strong>bulk_meas_cfg_kwargs</strong> (<em>dict</em><em>, </em><em>optional</em>) – Additional keyword arguments for BulkMeasurementConfig.</p></li>
-<li><p><strong>exp_stds_meas_cfg_kwargs</strong> (<em>dict</em><em>, </em><em>optional</em>) – Additional keyword arguments for ExpStandardsConfig.
-Used to customize experimental standard acquisition and PB ratio filtering.</p></li>
-<li><p><strong>output_filename_suffix</strong> (<em>str</em><em>, </em><em>optional</em>) – String appended to output filenames.
-Default is <cite>‘’</cite>.</p></li>
-<li><p><strong>development_mode</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, enables development/debug features.
-Default is <cite>False</cite>.</p></li>
-<li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, print verbose output.
-Default is <cite>True</cite>.</p></li>
-<li><p><strong>exp_std_dir</strong> (<em>str</em><em>, </em><em>optional</em>) – Directory where experimental standard results are saved.
-Default is <cite>None</cite>.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><strong>results</strong> – A list of the composition analysis objects (one per sample) containing the results and methods for further analysis.</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>list(<a class="reference internal" href="autoemxsp.core.EMXSp_composition_analyser.html#autoemxsp.core.EMXSp_composition_analyser.EMXSp_Composition_Analyzer" title="autoemxsp.core.EMXSp_composition_analyser.EMXSp_Composition_Analyzer">EMXSp_Composition_Analyzer</a>)</p>
-</dd>
-</dl>
-</dd></dl>
-
 </section>
 
 

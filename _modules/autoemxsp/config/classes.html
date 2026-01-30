@@ -137,7 +137,7 @@
 
     <span class="n">ID</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">dflt</span><span class="o">.</span><span class="n">microscope_ID</span>
     <span class="nb">type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">dflt</span><span class="o">.</span><span class="n">microscope_type</span>
-    <span class="n">detector_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;BSD&#39;</span>
+    <span class="n">detector_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">dflt</span><span class="o">.</span><span class="n">detector_type</span>
     <span class="n">is_auto_BC</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="n">brightness</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">contrast</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
@@ -380,6 +380,8 @@
 <span class="sd">            If False, AutoEMXSp computes the background while fitting.</span>
 <span class="sd">        interrupt_fits_bad_spectra (bool): If True, fitting will stop early for spectra identified as poor quality.</span>
 <span class="sd">        min_bckgrnd_cnts (Optional[int]): Minimum background counts required for spectrum not to be filtered out. Can be None.</span>
+<span class="sd">        use_project_specific_std_dict (bool): If True, tries to load the dictionary of reference standards from the project folder.</span>
+<span class="sd">            If not found, uses the default file &quot;EDS_Stds_beamenergykeV.json&quot; at XSp_calibs/Microscopes/your_microscope.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">dflt</span><span class="o">.</span><span class="n">quantification_method</span>
     <span class="n">spectrum_lims</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">dflt</span><span class="o">.</span><span class="n">spectrum_lims</span>
@@ -388,6 +390,7 @@
     <span class="n">interrupt_fits_bad_spectra</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="n">min_bckgrnd_cnts</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">5</span>  <span class="c1"># Can be None</span>
     <span class="n">num_CPU_cores</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">use_project_specific_std_dict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     
     <span class="n">ALLOWED_METHODS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;PB&#39;</span><span class="p">]</span>
     
@@ -562,10 +565,16 @@
 <span class="sd">            reference standard value employed generally during spectral quantification (Default = True).</span>
 <span class="sd">            This should be set to False when collecting powder standards for quantifying the extent of intermixing</span>
 <span class="sd">            in powder standards.</span>
-<span class="sd">        </span>
+<span class="sd">                </span>
+<span class="sd">        generate_separate_std_dict (bool):</span>
+<span class="sd">            Whether the acquired reference standard values are added to the current reference dictionary. If True, </span>
+<span class="sd">            copies the current standard dictionary to the project folder and updates it. If such .json file is already</span>
+<span class="sd">            present in the project folder, then it updates it. This is generally used when measuring the extent of</span>
+<span class="sd">            powder precursor intermixing (i.e., powder_meas_cfg_kwargs[&quot;is_known_powder_mixture_meas&quot;] = True).</span>
+<span class="sd">            </span>
 <span class="sd">        min_acceptable_PB_ratio (float): </span>
 <span class="sd">            Minimum PB ratio required for a peak to be accepted as a standard. in cnts/cnts*keV^-1 (Deafult = 10).</span>
-
+<span class="sd">        </span>
 <span class="sd">        quant_flags_accepted (List[int]): </span>
 <span class="sd">            List of quantification flags considered acceptable. Other spectra are filtered out before clustering.</span>
 <span class="sd">            Quantification flags indicate whether the quantification or the fit of each spectrum is likely to be </span>
@@ -596,6 +605,7 @@
     <span class="n">is_exp_std_measurement</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">formula</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
     <span class="n">use_for_mean_PB_calc</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">generate_separate_std_dict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">min_acceptable_PB_ratio</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">10</span>
     <span class="n">quant_flags_accepted</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">])</span>
     <span class="n">w_frs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Will hold calculated weight fractions</span>
@@ -632,6 +642,7 @@
 <span class="sd">            Allowed methods are &quot;silhouette&quot;, &quot;calinski_harabasz&quot;, &quot;elbow&quot;.</span>
 <span class="sd">        max_k (int): Maximum allowed number of clusters.</span>
 <span class="sd">        ref_formulae (List[str]): List of possible phases present in the sample, as chemical formula strings.</span>
+<span class="sd">        do_matrix_decomposition (bool) : Whether to compute matrix decomposition for intermixed phases. Slow if many candidate phases are provided. Default: True</span>
 <span class="sd">        max_analytical_error_percent (float): Maximum analytical error acceptable for composition to be considered in phase determination, expressed as w%. Can be None.</span>
 <span class="sd">        quant_flags_accepted (List[int]): List of quantification flags considered acceptable, others are filtered out prior clustering.</span>
 <span class="sd">            Quantification flags indicate whether the quantification or the fit of each spectrum is likely to be affected by large errors:</span>
@@ -654,6 +665,7 @@
     <span class="n">k_finding_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_K_FINDING_METHOD</span>
     <span class="n">max_k</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6</span>
     <span class="n">ref_formulae</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">do_matrix_decomposition</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="n">max_analytical_error_percent</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">5</span>  <span class="c1"># w%, Can be None</span>
     <span class="n">quant_flags_accepted</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">])</span>
     

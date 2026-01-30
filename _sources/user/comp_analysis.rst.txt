@@ -343,6 +343,11 @@ options are available:
   Only applied if ``k_forced`` is ``None``. Note that if ``k`` was forced
   during acquisition, setting ``k_finding_method`` to anything other than
   ``None`` will force ``k`` to be re-evaluated.
+  
+- ``do_matrix_decomposition`` : Determines whether matrix decomposition (NNLS, NMF)
+  is computed for each cluster. Default is ``True``. If many candidate phases are
+  provided, these computations may take a long time and it may be desirable to
+  set it to ``False``.
 
 
 Plotting options
@@ -403,8 +408,9 @@ Running the script creates an ``Analysis`` folder with the following files:
     in atomic fraction space.
   - ``RMS_dist_w%`` : Root-mean-square distance in mass fraction space.
   - ``wcss`` : Within-cluster sum of squares (in the feature space used).
-  - ``cnd`` : Identified candidate composition with confidence score
-    ``CS_cnd``.
+  - ``cnd`` : Identified candidate composition with raw confidence score
+    ``CS_raw`` and overall confidence score ``CS_cnd`` (taking into account
+    neighboring candidate phase compositions, which decrease the confidence).
   - ``mix`` : Pair of compositions potentially intermixed, with:
     
     - ``CS_mix`` : Confidence score of mixture.

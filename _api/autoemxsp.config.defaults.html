@@ -97,26 +97,28 @@
 <section id="defined-variables">
 <h2>Defined Variables<a class="headerlink" href="#defined-variables" title="Link to this heading"></a></h2>
 <dl class="simple">
-<dt>microscope_ID<span class="classifier">str, optional</span></dt><dd><p>Identifier for the microscope hardware.
+<dt>microscope_ID<span class="classifier">str</span></dt><dd><p>Identifier for the microscope hardware.
 Must correspond to a calibration folder in <cite>./XSp_calibs/Microscopes/&lt;ID&gt;</cite> (MicroscopeConfig.ID).
 Default is <cite>‘PhenomXL’</cite>.</p>
 </dd>
-<dt>microscope_type<span class="classifier">str, optional</span></dt><dd><p>Type of microscope. Allowed: <cite>‘SEM’</cite> (implemented), <cite>‘STEM’</cite> (not implemented).
+<dt>microscope_type<span class="classifier">str</span></dt><dd><p>Type of microscope. Allowed: <cite>‘SEM’</cite> (implemented), <cite>‘STEM’</cite> (not implemented).
 Default is <cite>‘SEM’</cite> (MicroscopeConfig.type).</p>
 </dd>
-<dt>measurement_type<span class="classifier">str, optional</span></dt><dd><p>Measurement type. Allowed: <cite>‘EDS’</cite> (implemented), <cite>‘WDS’</cite> (not implemented).
+<dt>measurement_type<span class="classifier">str</span></dt><dd><p>Measurement type. Allowed: <cite>‘EDS’</cite> (implemented), <cite>‘WDS’</cite> (not implemented).
 Default is <cite>‘EDS’</cite> (MeasurementConfig.type).</p>
 </dd>
-<dt>measurement_mode<span class="classifier">str, optional</span></dt><dd><p>Acquisition mode (e.g., <cite>‘point’</cite>, <cite>‘map’</cite>), defining beam/detector calibration settings.
+<dt>measurement_mode<span class="classifier">str</span></dt><dd><p>Acquisition mode (e.g., <cite>‘point’</cite>, <cite>‘map’</cite>), defining beam/detector calibration settings.
 Default is <cite>‘point’</cite> (MeasurementConfig.mode).</p>
 </dd>
-<dt>quantification_method<span class="classifier">str, optional</span></dt><dd><p>Quantification method. Currently only <cite>‘PB’</cite> (Phi-Rho-Z) is implemented.
+<dt>detector_type<span class="classifier">str</span></dt><dd><p>Detector type to employ when navigating SEM and collecting images.</p>
+</dd>
+<dt>quantification_method<span class="classifier">str</span></dt><dd><p>Quantification method. Currently only <cite>‘PB’</cite> (Phi-Rho-Z) is implemented.
 Default is <cite>‘PB’</cite> (QuantConfig.method).</p>
 </dd>
-<dt>spectrum_lims<span class="classifier">tuple of float, optional</span></dt><dd><p>Lower and upper energy limits for spectrum fitting in eV.
+<dt>spectrum_lims<span class="classifier">tuple of float</span></dt><dd><p>Lower and upper energy limits for spectrum fitting in eV.
 Default is <cite>(14, 1100)</cite> (QuantConfig.spectrum_lims).</p>
 </dd>
-<dt>use_instrument_background<span class="classifier">bool, optional</span></dt><dd><p>Whether to use instrument background files during fitting.
+<dt>use_instrument_background<span class="classifier">bool</span></dt><dd><p>Whether to use instrument background files during fitting.
 If False, background is computed during fitting.
 Default is <cite>False</cite> (QuantConfig.use_instrument_background).</p>
 </dd>

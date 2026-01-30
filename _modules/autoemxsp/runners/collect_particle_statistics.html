@@ -5,7 +5,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>autoemxsp.runners.collect_particle_statistics &mdash; AutoEMXSp 0.1.6 documentation</title>
+  <title>autoemxsp.runners.Collect_Particle_Statistics &mdash; AutoEMXSp 0.1.6 documentation</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
       <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
 
@@ -63,7 +63,7 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
-      <li class="breadcrumb-item active">autoemxsp.runners.collect_particle_statistics</li>
+      <li class="breadcrumb-item active">autoemxsp.runners.Collect_Particle_Statistics</li>
       <li class="wy-breadcrumbs-aside">
       </li>
   </ul>
@@ -72,7 +72,7 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <h1>Source code for autoemxsp.runners.collect_particle_statistics</h1><div class="highlight"><pre>
+  <h1>Source code for autoemxsp.runners.Collect_Particle_Statistics</h1><div class="highlight"><pre>
 <span></span><span class="ch">#!/usr/bin/env python3</span>
 <span class="c1"># -*- coding: utf-8 -*-</span>
 <span class="sd">&quot;&quot;&quot;</span>
@@ -86,6 +86,7 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">autoemxsp.core.EMXSp_composition_analyser</span><span class="w"> </span><span class="kn">import</span> <span class="n">EMXSp_Composition_Analyzer</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">autoemxsp.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">print_double_separator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">autoemxsp.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">defaults</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">autoemxsp.config</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">MicroscopeConfig</span><span class="p">,</span>
     <span class="n">SampleConfig</span><span class="p">,</span>
@@ -101,14 +102,16 @@
     <span class="n">datefmt</span><span class="o">=</span><span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M:%S&quot;</span><span class="p">,</span>
 <span class="p">)</span>
 
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;collect_particle_statistics&quot;</span><span class="p">]</span>
+
 <div class="viewcode-block" id="collect_particle_statistics">
-<a class="viewcode-back" href="../../../_api/autoemxsp.runners.collect_particle_statistics.html#autoemxsp.runners.collect_particle_statistics.collect_particle_statistics">[docs]</a>
+<a class="viewcode-back" href="../../../_api/autoemxsp.runners.html#autoemxsp.runners.collect_particle_statistics">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">collect_particle_statistics</span><span class="p">(</span>
     <span class="n">samples</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
     <span class="n">n_par_target</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-    <span class="n">microscope_ID</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;PhenomXL&#39;</span><span class="p">,</span>
-    <span class="n">microscope_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;SEM&#39;</span><span class="p">,</span>
-    <span class="n">detector_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;BSD&#39;</span><span class="p">,</span>
+    <span class="n">microscope_ID</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">defaults</span><span class="o">.</span><span class="n">microscope_ID</span><span class="p">,</span>
+    <span class="n">microscope_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">defaults</span><span class="o">.</span><span class="n">microscope_type</span><span class="p">,</span>
+    <span class="n">detector_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">defaults</span><span class="o">.</span><span class="n">detector_type</span><span class="p">,</span>
     <span class="n">sample_halfwidth</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">3.0</span><span class="p">,</span>
     <span class="n">sample_substrate_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Ctape&#39;</span><span class="p">,</span>
     <span class="n">sample_substrate_shape</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;circle&#39;</span><span class="p">,</span>

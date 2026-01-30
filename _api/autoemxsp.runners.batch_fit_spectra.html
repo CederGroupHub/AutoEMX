@@ -51,6 +51,14 @@
 <li class="toctree-l2 current"><a class="reference internal" href="../user/api.html">AutoEMXSp Public API</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="autoemxsp.config.html">autoemxsp.config package</a></li>
 <li class="toctree-l3 current"><a class="reference internal" href="autoemxsp.runners.html">autoemxsp.runners package</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.analyze_sample"><code class="docutils literal notranslate"><span class="pre">analyze_sample()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.batch_acquire_experimental_stds"><code class="docutils literal notranslate"><span class="pre">batch_acquire_experimental_stds()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.batch_acquire_and_analyze"><code class="docutils literal notranslate"><span class="pre">batch_acquire_and_analyze()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.batch_fit_spectra"><code class="docutils literal notranslate"><span class="pre">batch_fit_spectra()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.batch_quantify_and_analyze"><code class="docutils literal notranslate"><span class="pre">batch_quantify_and_analyze()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.collect_particle_statistics"><code class="docutils literal notranslate"><span class="pre">collect_particle_statistics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.fit_and_quantify_spectrum"><code class="docutils literal notranslate"><span class="pre">fit_and_quantify_spectrum()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.fit_and_quantify_spectrum_fromDatacsv"><code class="docutils literal notranslate"><span class="pre">fit_and_quantify_spectrum_fromDatacsv()</span></code></a></li>
 <li class="toctree-l4 current"><a class="reference internal" href="autoemxsp.runners.html#submodules">Submodules</a></li>
 </ul>
 </li>
@@ -93,69 +101,136 @@
              
   <section id="module-autoemxsp.runners.batch_fit_spectra">
 <span id="autoemxsp-runners-batch-fit-spectra-module"></span><h1>autoemxsp.runners.batch_fit_spectra module<a class="headerlink" href="#module-autoemxsp.runners.batch_fit_spectra" title="Link to this heading"></a></h1>
-<p>Batch fitting of multiple X-ray spectra for fitting parameter extraction.</p>
-<p>This module allows running the fitting step for multiple spectra across multiple samples.
-It uses the <cite>fit_and_quantify_spectrum</cite> function internally with quantification disabled,
-then extracts the values of desired fitting parameters.</p>
-<section id="features">
-<h2>Features<a class="headerlink" href="#features" title="Link to this heading"></a></h2>
-<blockquote>
-<div><ul class="simple">
-<li><p>Accepts a list of sample IDs and spectrum IDs.</p></li>
-<li><p>Supports ‘all’ spectra mode for each sample.</p></li>
-</ul>
-</div></blockquote>
-<p class="rubric">Example</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">autoemxsp.runners</span><span class="w"> </span><span class="kn">import</span> <span class="n">batch_fit_spectra</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">batch_fit_spectra</span><span class="p">(</span>
-<span class="gp">... </span>    <span class="n">sample_IDs</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Sample1&quot;</span><span class="p">,</span> <span class="s2">&quot;Sample2&quot;</span><span class="p">],</span>
-<span class="gp">... </span>    <span class="n">spectrum_IDs</span><span class="o">=</span><span class="s2">&quot;all&quot;</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="n">plot_signal</span><span class="o">=</span><span class="kc">False</span>
-<span class="gp">... </span><span class="p">)</span>
-</pre></div>
-</div>
-<p>Created on Fri Aug 20 09:34:34 2025</p>
-<p>&#64;author: Andrea</p>
-</section>
-<dl class="py function">
-<dt class="sig sig-object py" id="autoemxsp.runners.batch_fit_spectra.batch_fit_spectra">
-<span class="sig-prename descclassname"><span class="pre">autoemxsp.runners.batch_fit_spectra.</span></span><span class="sig-name descname"><span class="pre">batch_fit_spectra</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sample_IDs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spectrum_IDs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_standard</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fit_params_vals_to_extract</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">spectrum_lims</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">samples_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'Fitting</span> <span class="pre">output'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_instrument_background</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantify_plot</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_signal</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zoom_plot</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">line_to_plot</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">els_substrate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fit_tol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.0001</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_particle</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_undetectable_w_fr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force_single_iteration</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interrupt_fits_bad_spectra</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">print_results</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fitting_verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/runners/batch_fit_spectra.html#batch_fit_spectra"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.runners.batch_fit_spectra.batch_fit_spectra" title="Link to this definition"></a></dt>
-<dd><p>Run fitting for multiple spectra across multiple samples to extract values of fitting parameters.</p>
+<p>Run fitting for multiple spectra across multiple samples to extract values of fitting parameters.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>sample_IDs</strong> (<em>list</em><em> of </em><em>str</em>) – List of sample identifiers.</p></li>
-<li><p><strong>spectrum_IDs</strong> (<em>list</em><em> of </em><em>int</em><em> or </em><em>str</em>) – List of spectrum IDs to process (values reported in ‘Spectrum #’ column in Data.csv),
-or ‘all’ to process all spectra in each sample.</p></li>
-<li><p><strong>is_standard</strong> (<em>bool</em>) – Defines whether measurement is of a standard (i.e., well defined composition) or not</p></li>
-<li><p><strong>fit_params_vals_to_extract</strong> (<em>list</em><em> of </em><em>str</em><em>, </em><em>optional</em>) – List of fitting parameter names whose value to extract and save</p></li>
-<li><p><strong>samples_path</strong> (<em>str</em><em>, </em><em>optional</em>) – Base directory where results are stored. Default: autoemxsp/Results</p></li>
-<li><p><strong>output_path</strong> (<em>str</em><em>, </em><em>optional</em>) – Directory where the extracted values of fitted parameters are saved. Default: /Fitting output</p></li>
-<li><p><strong>use_instrument_background</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to use instrument background if present.</p></li>
-<li><p><strong>quantify_plot</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to plot quantification results.</p></li>
-<li><p><strong>plot_signal</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to plot the signal.</p></li>
-<li><p><strong>zoom_plot</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to zoom on a specific line.</p></li>
-<li><p><strong>line_to_plot</strong> (<em>str</em><em>, </em><em>optional</em>) – Line to zoom in plot.</p></li>
-<li><p><strong>els_substrate</strong> (<em>list</em><em>, </em><em>optional</em>) – List of substrate elements.</p></li>
-<li><p><strong>fit_tol</strong> (<em>float</em><em>, </em><em>optional</em>) – Fit tolerance.</p></li>
-<li><p><strong>is_particle</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, treat sample as particle (powder).</p></li>
-<li><p><strong>max_undetectable_w_fr</strong> (<em>float</em><em>, </em><em>optional</em>) – Maximum allowed weight fraction for undetectable elements (default: 0).</p></li>
-<li><p><strong>force_single_iteration</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, quantification will be run for a single iteration only (default: False).</p></li>
-<li><p><strong>interrupt_fits_bad_spectra</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, interrupt fitting if bad spectra are detected (default: False).</p></li>
-<li><p><strong>print_results</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, prints all fitted parameters and their values (default: True).</p></li>
-<li><p><strong>quant_verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, prints quantification operations</p></li>
-<li><p><strong>fitting_verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, prints fitting operations</p></li>
-</ul>
+<dt class="field-odd">param sample_IDs<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of sample identifiers.</p>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><strong>quantifier</strong> – The quantifier object containing the results, fit parameters, and methods for further analysis and plotting.</p>
+<dt class="field-even">type sample_IDs<span class="colon">:</span></dt>
+<dd class="field-even"><p>list of str</p>
 </dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier" title="autoemxsp.core.XSp_quantifier.XSp_Quantifier">XSp_Quantifier</a></p>
+<dt class="field-odd">param spectrum_IDs<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of spectrum IDs to process (values reported in ‘Spectrum #’ column in Data.csv),
+or ‘all’ to process all spectra in each sample.</p>
+</dd>
+<dt class="field-even">type spectrum_IDs<span class="colon">:</span></dt>
+<dd class="field-even"><p>list of int or str</p>
+</dd>
+<dt class="field-odd">param is_standard<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Defines whether measurement is of a standard (i.e., well defined composition) or not</p>
+</dd>
+<dt class="field-even">type is_standard<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool</p>
+</dd>
+<dt class="field-odd">param fit_params_vals_to_extract<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of fitting parameter names whose value to extract and save</p>
+</dd>
+<dt class="field-even">type fit_params_vals_to_extract<span class="colon">:</span></dt>
+<dd class="field-even"><p>list of str, optional</p>
+</dd>
+<dt class="field-odd">param samples_path<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Base directory where results are stored. Default: autoemxsp/Results</p>
+</dd>
+<dt class="field-even">type samples_path<span class="colon">:</span></dt>
+<dd class="field-even"><p>str, optional</p>
+</dd>
+<dt class="field-odd">param output_path<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Directory where the extracted values of fitted parameters are saved. Default: /Fitting output</p>
+</dd>
+<dt class="field-even">type output_path<span class="colon">:</span></dt>
+<dd class="field-even"><p>str, optional</p>
+</dd>
+<dt class="field-odd">param use_instrument_background<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Whether to use instrument background if present.</p>
+</dd>
+<dt class="field-even">type use_instrument_background<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool, optional</p>
+</dd>
+<dt class="field-odd">param quantify_plot<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Whether to plot quantification results.</p>
+</dd>
+<dt class="field-even">type quantify_plot<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool, optional</p>
+</dd>
+<dt class="field-odd">param plot_signal<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Whether to plot the signal.</p>
+</dd>
+<dt class="field-even">type plot_signal<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool, optional</p>
+</dd>
+<dt class="field-odd">param zoom_plot<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Whether to zoom on a specific line.</p>
+</dd>
+<dt class="field-even">type zoom_plot<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool, optional</p>
+</dd>
+<dt class="field-odd">param line_to_plot<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Line to zoom in plot.</p>
+</dd>
+<dt class="field-even">type line_to_plot<span class="colon">:</span></dt>
+<dd class="field-even"><p>str, optional</p>
+</dd>
+<dt class="field-odd">param els_substrate<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List of substrate elements.</p>
+</dd>
+<dt class="field-even">type els_substrate<span class="colon">:</span></dt>
+<dd class="field-even"><p>list, optional</p>
+</dd>
+<dt class="field-odd">param fit_tol<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Fit tolerance.</p>
+</dd>
+<dt class="field-even">type fit_tol<span class="colon">:</span></dt>
+<dd class="field-even"><p>float, optional</p>
+</dd>
+<dt class="field-odd">param is_particle<span class="colon">:</span></dt>
+<dd class="field-odd"><p>If True, treat sample as particle (powder).</p>
+</dd>
+<dt class="field-even">type is_particle<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool, optional</p>
+</dd>
+<dt class="field-odd">param max_undetectable_w_fr<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Maximum allowed weight fraction for undetectable elements (default: 0).</p>
+</dd>
+<dt class="field-even">type max_undetectable_w_fr<span class="colon">:</span></dt>
+<dd class="field-even"><p>float, optional</p>
+</dd>
+<dt class="field-odd">param force_single_iteration<span class="colon">:</span></dt>
+<dd class="field-odd"><p>If True, quantification will be run for a single iteration only (default: False).</p>
+</dd>
+<dt class="field-even">type force_single_iteration<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool, optional</p>
+</dd>
+<dt class="field-odd">param interrupt_fits_bad_spectra<span class="colon">:</span></dt>
+<dd class="field-odd"><p>If True, interrupt fitting if bad spectra are detected (default: False).</p>
+</dd>
+<dt class="field-even">type interrupt_fits_bad_spectra<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool, optional</p>
+</dd>
+<dt class="field-odd">param print_results<span class="colon">:</span></dt>
+<dd class="field-odd"><p>If True, prints all fitted parameters and their values (default: True).</p>
+</dd>
+<dt class="field-even">type print_results<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool, optional</p>
+</dd>
+<dt class="field-odd">param quant_verbose<span class="colon">:</span></dt>
+<dd class="field-odd"><p>If True, prints quantification operations</p>
+</dd>
+<dt class="field-even">type quant_verbose<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool, optional</p>
+</dd>
+<dt class="field-odd">param fitting_verbose<span class="colon">:</span></dt>
+<dd class="field-odd"><p>If True, prints fitting operations</p>
+</dd>
+<dt class="field-even">type fitting_verbose<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool, optional</p>
+</dd>
+<dt class="field-odd">returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>quantifier</strong> – The quantifier object containing the results, fit parameters, and methods for further analysis and plotting.</p>
+</dd>
+<dt class="field-even">rtype<span class="colon">:</span></dt>
+<dd class="field-even"><p>XSp_Quantifier</p>
 </dd>
 </dl>
-</dd></dl>
-
 </section>
 
 

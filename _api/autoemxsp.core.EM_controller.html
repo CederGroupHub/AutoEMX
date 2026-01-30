@@ -671,6 +671,20 @@ to fixed values and then performs autofocus.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Controller.get_current_image">
+<span class="sig-name descname"><span class="pre">get_current_image</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/core/EM_controller.html#EM_Controller.get_current_image"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Controller.get_current_image" title="Link to this definition"></a></dt>
+<dd><p>Acquire image at microscope.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>image</strong> – Image array acquired at the microscope.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>np.array()</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Controller.move_to_pos">
 <span class="sig-name descname"><span class="pre">move_to_pos</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pos</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/core/EM_controller.html#EM_Controller.move_to_pos"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Controller.move_to_pos" title="Link to this definition"></a></dt>
 <dd><p>Move the EM stage to the specified (x, y) position and update the current position.</p>
@@ -729,8 +743,10 @@ It also prints the current frame information if verbose mode is enabled.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Controller.save_frame_image">
-<span class="sig-name descname"><span class="pre">save_frame_image</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">im_annotations</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frame_image</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/core/EM_controller.html#EM_Controller.save_frame_image"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Controller.save_frame_image" title="Link to this definition"></a></dt>
-<dd><p>Save an annotated and raw electron microscopy (EM) frame as a multi-page TIFF.</p>
+<span class="sig-name descname"><span class="pre">save_frame_image</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">im_annotations</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scalebar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frame_image</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/core/EM_controller.html#EM_Controller.save_frame_image"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Controller.save_frame_image" title="Link to this definition"></a></dt>
+<dd><p>Save an annotated and raw electron microscopy (EM) frame as a multi-page TIFF.
+If no annotation is done (i.e., im_annotations=None &amp; scalebar = False),
+then only one page is saved in the TIFF.</p>
 <p>This function retrieves a raw grayscale EM image, generates an annotated
 RGB version with optional markers and a scale bar, and saves both images
 into a single multi-page TIFF file. The annotated image is stored as the
@@ -760,6 +776,7 @@ thickness : int, thickness of circle border. Set to -1 for filling</p>
 <p>For multiple annotations, use a list of dictionaries.
 Do not include the relative key if that particular annotation is not desired.</p>
 </p></li>
+<li><p><strong>scalebar</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to annotate the image with a scalebar.</p></li>
 <li><p><strong>frame_image</strong> (<em>np.array</em><em> | </em><em>None</em><em>, </em><em>opt</em>) – Frame image to save. Captures the current frame image if not provided</p></li>
 <li><p><strong>save_dir</strong> (<em>str</em><em>, </em><em>optional</em>) – Directory in which to save the TIFF file. Defaults to self.results_dir
 if available, otherwise it needs to be provided.</p></li>

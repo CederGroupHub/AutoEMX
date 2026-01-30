@@ -8,7 +8,9 @@ AutoEMXSp Documentation
 ==========================
 
 Welcome to ``AutoEMXSp``, a Python package for **Automated Electron Microscopy
-X-ray Spectroscopy**.
+X-ray Spectroscopy**:
+
+https://github.com/CederGroupHub/AutoEMXSp
 
 `AutoEMXSp` is a framework for running **automated acquisition and analysis
 routines** on electron microscopes (EM), offering both X-ray spectroscopy
@@ -22,9 +24,10 @@ but it also includes scripts for **automated particle size distribution
 measurements** based on SEM imaging.
 
 This work is described in:
-    A. Giunto *et al.*, *Harnessing Automated SEM-EDS and Machine Learning to Unlock
-    High-Throughput Compositional Characterization of Powder Materials*, 2025.  
-    DOI: https://doi.org/10.21203/rs.3.rs-7837297/v1
+    A. Giunto *et al.*, *Accurate SEM‑EDS Quantification, Automation, and
+    Machine Learning Enable High‑Throughput Compositional Characterization
+    of Powders*, 2025.  
+    DOI: https://doi.org/10.21203/rs.3.rs-7837297/v2
     
 Please cite this work if you use ``AutoEMXSp``.
 
@@ -80,7 +83,7 @@ Performance
 
 - **Intermixed phases** can also be resolved
 
-See https://doi.org/10.21203/rs.3.rs-7837297/v1 for more details
+See https://doi.org/10.21203/rs.3.rs-7837297/v2 for more details
 
 
 Requirements
@@ -105,15 +108,15 @@ AutoEMXSp package.
 
 - **Standard users**
 
-  You run predefined scripts and calibrate the Silicon Drift Detector (SDD)
-  without any prior knowledge of the internal code structure.  
-  The documentation provides **step-by-step instructions** to help you get
-  started quickly.
+  You run predefined scripts without any prior knowledge of the internal code
+  structure. The documentation provides **step-by-step instructions** to help
+  you get started quickly.
 
 
 - **Advanced users**
 
-  You interact with AutoEMXSp beyond simple script execution.  
+  You interact with AutoEMXSp beyond simple script execution (workflows setup,
+  EDS detector calibration, etc...).
   This documentation guides you through the **initial configuration and setup**
   required to deploy AutoEMXSp on a **new microscope** and adapt it to new
   experimental workflows.

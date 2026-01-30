@@ -1,0 +1,177 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tutorial: Fit and quantify individual spectra acquired with AutoEMXSp &mdash; AutoEMXSp 0.1.6 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=6e0256f3"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Tutorial: Fit and quantify individual spectra exported by commercial EDS software" href="fit_msa_spectrum.html" />
+    <link rel="prev" title="Tutorial: EDS compositional analysis for phase identification" href="comp_analysis.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            AutoEMXSp
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Documentation:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">User Documentation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html">Quickstart Guide</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="tutorials.html">Tutorials</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="comp_analysis.html">Tutorial: EDS compositional analysis for phase identification</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Tutorial: Fit and quantify individual spectra acquired with <cite>AutoEMXSp</cite></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#step-1-open-script-to-edit">Step 1 - Open script to edit</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#step-2-define-spectrum-to-fit">Step 2 - Define Spectrum to Fit</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#step-3-modify-parameters">Step 3 - Modify Parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#step-4-launch-script">Step 4 - Launch script</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="fit_msa_spectrum.html">Tutorial: Fit and quantify individual spectra exported by commercial EDS software</a></li>
+<li class="toctree-l3"><a class="reference internal" href="particle_size.html">Tutorial: Measure particle size distribution via SEM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="precursor_mix.html">Tutorial: Quantify the extent of intermixing in precursor powders</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api.html">AutoEMXSp Public API</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../advanced_user/index.html">Advanced User Documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">AutoEMXSp</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">User Documentation</a></li>
+          <li class="breadcrumb-item"><a href="tutorials.html">Tutorials</a></li>
+      <li class="breadcrumb-item active">Tutorial: Fit and quantify individual spectra acquired with <cite>AutoEMXSp</cite></li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/user/fit_autoemxsp_spectrum.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="tutorial-fit-and-quantify-individual-spectra-acquired-with-autoemxsp">
+<span id="fit-autoemxsp-spectrum-tutorial"></span><h1>Tutorial: Fit and quantify individual spectra acquired with <cite>AutoEMXSp</cite><a class="headerlink" href="#tutorial-fit-and-quantify-individual-spectra-acquired-with-autoemxsp" title="Link to this heading"></a></h1>
+<p>This tutorial shows how to fit–and optionall quantify– a single EDS spectrum,
+using the <code class="docutils literal notranslate"><span class="pre">Fit_Quant_Single_AutoEMXSp_Spectrum.py</span></code> script.</p>
+<p>This allows to select an individual spectrum from the acquired data and
+visualize the fitted spectrum for inspection of model fitting performance.</p>
+<p>This script also prints the full fitting and quantification process steps, prints
+the employed fit parameters and their final values.</p>
+<p>It also enables further customization options for fitting and quantification
+for evaluating the performance of different EDS models, allowing to define a set
+of parameters to use in your standard EDS quantification operations.</p>
+<section id="step-1-open-script-to-edit">
+<h2>Step 1 - Open script to edit<a class="headerlink" href="#step-1-open-script-to-edit" title="Link to this heading"></a></h2>
+<p>Open <code class="docutils literal notranslate"><span class="pre">autoemxsp/scripts/Fit_Quant_Single_AutoEMXSp_Spectrum.py</span></code>.</p>
+</section>
+<section id="step-2-define-spectrum-to-fit">
+<h2>Step 2 - Define Spectrum to Fit<a class="headerlink" href="#step-2-define-spectrum-to-fit" title="Link to this heading"></a></h2>
+<p>Set the spectrum to analyse by defining:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">sample_ID</span></code>: name of the sample folder. Include any counter if present (e.g. ‘Wulfenite_2’).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">spectrum_ID</span></code>: ID of the spectrum to fit. You’ll find this int number in the first column of <cite>Data.csv</cite>
+inside the folder named <code class="docutils literal notranslate"><span class="pre">sample_ID</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">results_path</span></code>: absolute or relative path to the project folder, containing the <code class="docutils literal notranslate"><span class="pre">sample_ID</span></code> data.
+<cite>AutoEMXSp</cite> will search for a folder named <code class="docutils literal notranslate"><span class="pre">sample_ID</span></code> in any of the subfolders within <code class="docutils literal notranslate"><span class="pre">results_path</span></code>.</p></li>
+</ul>
+</section>
+<section id="step-3-modify-parameters">
+<h2>Step 3 - Modify Parameters<a class="headerlink" href="#step-3-modify-parameters" title="Link to this heading"></a></h2>
+<p>Modify the rest of the parameters to match to the sample you’re fitting.</p>
+<p>For details on the parameters, see the  <a class="reference internal" href="../_api/autoemxsp.runners.fit_and_quantify_spectrum.html#runners-fit-single-spectrum"><span class="std std-ref">API</span></a> for the <code class="docutils literal notranslate"><span class="pre">fit_and_quantify_spectrum</span></code>
+function.</p>
+</section>
+<section id="step-4-launch-script">
+<h2>Step 4 - Launch script<a class="headerlink" href="#step-4-launch-script" title="Link to this heading"></a></h2>
+<p>Visualise the fitted spectrum and evaluate goodness of fit.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/Example_fit.png"><img alt="Example fitted spectrum" src="../_images/Example_fit.png" style="width: 70%;" />
+</a>
+</figure>
+<p>The background fitting is especially important when it comes to peak-to-background EDS quantification.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/Example_fit_zoom.png"><img alt="Zoom on example fitted spectrum" src="../_images/Example_fit_zoom.png" style="width: 70%;" />
+</a>
+</figure>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="comp_analysis.html" class="btn btn-neutral float-left" title="Tutorial: EDS compositional analysis for phase identification" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="fit_msa_spectrum.html" class="btn btn-neutral float-right" title="Tutorial: Fit and quantify individual spectra exported by commercial EDS software" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Andrea Giunto.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

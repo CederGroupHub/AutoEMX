@@ -51,6 +51,14 @@
 <li class="toctree-l2 current"><a class="reference internal" href="../user/api.html">AutoEMXSp Public API</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="autoemxsp.config.html">autoemxsp.config package</a></li>
 <li class="toctree-l3 current"><a class="reference internal" href="autoemxsp.runners.html">autoemxsp.runners package</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.analyze_sample"><code class="docutils literal notranslate"><span class="pre">analyze_sample()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.batch_acquire_experimental_stds"><code class="docutils literal notranslate"><span class="pre">batch_acquire_experimental_stds()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.batch_acquire_and_analyze"><code class="docutils literal notranslate"><span class="pre">batch_acquire_and_analyze()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.batch_fit_spectra"><code class="docutils literal notranslate"><span class="pre">batch_fit_spectra()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.batch_quantify_and_analyze"><code class="docutils literal notranslate"><span class="pre">batch_quantify_and_analyze()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.collect_particle_statistics"><code class="docutils literal notranslate"><span class="pre">collect_particle_statistics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.fit_and_quantify_spectrum"><code class="docutils literal notranslate"><span class="pre">fit_and_quantify_spectrum()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.fit_and_quantify_spectrum_fromDatacsv"><code class="docutils literal notranslate"><span class="pre">fit_and_quantify_spectrum_fromDatacsv()</span></code></a></li>
 <li class="toctree-l4 current"><a class="reference internal" href="autoemxsp.runners.html#submodules">Submodules</a></li>
 </ul>
 </li>
@@ -93,34 +101,7 @@
              
   <section id="module-autoemxsp.runners.analyze_sample">
 <span id="autoemxsp-runners-analyze-sample-module"></span><h1>autoemxsp.runners.analyze_sample module<a class="headerlink" href="#module-autoemxsp.runners.analyze_sample" title="Link to this heading"></a></h1>
-<p>Single-sample clustering and analysis of X-ray spectra.</p>
-<p>This module loads configurations and acquired X-ray spectra for a single sample,
-performs clustering/statistical analysis, and prints results. It is suitable for
-both interactive use and integration into larger workflows.</p>
-<p>Import this module in your own code and call the
-<cite>analyze_sample()</cite> function, passing the sample ID (and optional arguments)
-to perform analysis programmatically.</p>
-<dl class="simple">
-<dt>Workflow:</dt><dd><ul class="simple">
-<li><p>Loads sample configuration from <cite>Spectra_collection_info.json</cite></p></li>
-<li><p>Loads acquired spectral data from <cite>Data.csv</cite></p></li>
-<li><p>Performs clustering/statistical analysis</p></li>
-<li><p>Prints summary results</p></li>
-</ul>
-</dd>
-</dl>
-<p class="rubric">Notes</p>
-<ul class="simple">
-<li><p>Requires <cite>sample_ID</cite> (and optionally <cite>results_path</cite> if not using the default directory).</p></li>
-<li><p>Designed to be robust and flexible for both batch and single-sample workflows.</p></li>
-</ul>
-<dl class="simple">
-<dt>Typical usage:</dt><dd><ul class="simple">
-<li><p>Edit the <cite>sample_ID</cite> and options in the script, or</p></li>
-<li><p>Import and call <cite>analyze_sample()</cite> with your own arguments.</p></li>
-</ul>
-</dd>
-</dl>
+<p>Run clustering and analysis for a single sample.</p>
 <dl class="field-list simple">
 <dt class="field-odd">param sample_ID<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Sample identifier.</p>
@@ -129,7 +110,7 @@ to perform analysis programmatically.</p>
 <dd class="field-even"><p>str</p>
 </dd>
 <dt class="field-odd">param results_path<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Directory where results are stored. If None, sets to default autoemxsp/Results</p>
+<dd class="field-odd"><p>Directory where results are loaded and stored. If None, defaults to autoemxsp/Results</p>
 </dd>
 <dt class="field-even">type results_path<span class="colon">:</span></dt>
 <dd class="field-even"><p>str, optional</p>
@@ -174,6 +155,12 @@ list loaded from Comp_analysis_configs.json; otherwise, the provided list replac
 <dt class="field-even">type k_forced<span class="colon">:</span></dt>
 <dd class="field-even"><p>int, optional</p>
 </dd>
+<dt class="field-odd">param do_matrix_decomposition<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Whether to compute matrix decomposition for intermixed phases. Slow if many candidate phases are provided. Default: True..</p>
+</dd>
+<dt class="field-even">type do_matrix_decomposition<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool, optional</p>
+</dd>
 <dt class="field-odd">param max_analytical_error_percent<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Maximum analytical error allowed for clustering.</p>
 </dd>
@@ -198,52 +185,13 @@ list loaded from Comp_analysis_configs.json; otherwise, the provided list replac
 <dt class="field-even">type show_unused_compositions_cluster_plot<span class="colon">:</span></dt>
 <dd class="field-even"><p>bool, optional</p>
 </dd>
-<dt class="field-odd">param Created on Tue Jul 29 13<span class="colon">:</span></dt>
-<dd class="field-odd"><p></p></dd>
-<dt class="field-even">type Created on Tue Jul 29 13<span class="colon">:</span></dt>
-<dd class="field-even"><p>18:16 2025</p>
+<dt class="field-odd">returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>comp_analyzer</strong> – The composition analysis object containing the results and methods for further analysis.</p>
 </dd>
-<dt class="field-odd">param &#64;author<span class="colon">:</span></dt>
-<dd class="field-odd"><p></p></dd>
-<dt class="field-even">type &#64;author<span class="colon">:</span></dt>
-<dd class="field-even"><p>Andrea</p>
+<dt class="field-even">rtype<span class="colon">:</span></dt>
+<dd class="field-even"><p>EMXSp_Composition_Analyzer</p>
 </dd>
 </dl>
-<dl class="py function">
-<dt class="sig sig-object py" id="autoemxsp.runners.analyze_sample.analyze_sample">
-<span class="sig-prename descclassname"><span class="pre">autoemxsp.runners.analyze_sample.</span></span><span class="sig-name descname"><span class="pre">analyze_sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sample_ID</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">results_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_filename_suffix</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref_formulae</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">els_excluded_clust_plot</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clustering_features</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k_finding_method</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k_forced</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_analytical_error_percent</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quant_flags_accepted</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plot_custom_plots</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_unused_compositions_cluster_plot</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../_modules/autoemxsp/runners/analyze_sample.html#analyze_sample"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.runners.analyze_sample.analyze_sample" title="Link to this definition"></a></dt>
-<dd><p>Run clustering and analysis for a single sample.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>sample_ID</strong> (<em>str</em>) – Sample identifier.</p></li>
-<li><p><strong>results_path</strong> (<em>str</em><em>, </em><em>optional</em>) – Directory where results are loaded and stored. If None, defaults to autoemxsp/Results</p></li>
-<li><p><strong>output_filename_suffix</strong> (<em>str</em><em>, </em><em>optional</em>) – Suffix for output files.</p></li>
-<li><p><strong>ref_formulae</strong> (<em>list</em><em> of </em><em>str</em><em>, </em><em>optional</em>) – Reference formulae for clustering. If the first entry is “” or None, the rest are appended to the
-list loaded from Comp_analysis_configs.json; otherwise, the provided list replaces it.</p></li>
-<li><p><strong>els_excluded_clust_plot</strong> (<em>list</em><em> of </em><em>str</em><em>, </em><em>optional</em>) – Elements to exclude from cluster plot.</p></li>
-<li><p><strong>clustering_features</strong> (<em>list</em><em> of </em><em>str</em><em>, </em><em>optional</em>) – Features to use for clustering.</p></li>
-<li><p><strong>k_finding_method</strong> (<em>str</em><em>, </em><em>optional</em>) – <dl class="simple">
-<dt>Method for determining optimal number of clusters. Set to “forced” if a value of ‘k’ is specified manually.</dt><dd><p>Allowed methods are “silhouette”, “calinski_harabasz”, “elbow”.</p>
-</dd>
-</dl>
-</p></li>
-<li><p><strong>k_forced</strong> (<em>int</em><em>, </em><em>optional</em>) – Forced number of clusters.</p></li>
-<li><p><strong>max_analytical_error_percent</strong> (<em>float</em><em>, </em><em>optional</em>) – Maximum analytical error allowed for clustering.</p></li>
-<li><p><strong>quant_flags_accepted</strong> (<em>list</em><em> of </em><em>int</em><em>, </em><em>optional</em>) – Accepted quantification flags.</p></li>
-<li><p><strong>plot_custom_plots</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to use custom plots.</p></li>
-<li><p><strong>show_unused_compositions_cluster_plot</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to show unused compositions in cluster plot.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><strong>comp_analyzer</strong> – The composition analysis object containing the results and methods for further analysis.</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="autoemxsp.core.EMXSp_composition_analyser.html#autoemxsp.core.EMXSp_composition_analyser.EMXSp_Composition_Analyzer" title="autoemxsp.core.EMXSp_composition_analyser.EMXSp_Composition_Analyzer">EMXSp_Composition_Analyzer</a></p>
-</dd>
-</dl>
-</dd></dl>
-
 </section>
 
 

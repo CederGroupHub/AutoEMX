@@ -141,6 +141,7 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">traceback</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="c1"># =============================================================================</span>
@@ -1034,8 +1035,10 @@
             <span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">is_fit_valid</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">tb_str</span> <span class="o">=</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">()</span>  <span class="c1"># get full traceback as a string</span>
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Fit and quantification iteration unsuccessful due to the following error:&quot;</span><span class="p">)</span>
             <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">tb_str</span><span class="p">)</span>
     
         <span class="c1"># Iteratively fit and quantify to converge to a solution</span>
         <span class="k">if</span> <span class="n">is_fit_valid</span> <span class="ow">and</span> <span class="n">fit_iteratively</span><span class="p">:</span>
@@ -1123,7 +1126,9 @@
             <span class="n">quant_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_assemble_quantification_result</span><span class="p">(</span><span class="n">weight_fractions</span><span class="p">,</span> <span class="n">analytical_error</span><span class="p">)</span>
     
             <span class="k">if</span> <span class="n">print_result</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">print_quant_result</span><span class="p">(</span><span class="n">quant_result</span><span class="p">,</span> <span class="n">sample_Z</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">bad_quant_flag</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">bad_quant_flag</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">print_quant_result</span><span class="p">(</span><span class="n">quant_result</span><span class="p">,</span> <span class="n">sample_Z</span><span class="p">,</span> <span class="n">bad_quant_flag</span><span class="p">)</span>
     
             <span class="c1"># Get minimum background counts for reference peaks</span>
             <span class="n">min_bckgrnd_ref_lines</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_min_bckgrnd_cnts_ref_quant_lines</span><span class="p">()</span>
@@ -1695,7 +1700,8 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">print_quant_result</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">quant_result</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
-        <span class="n">Z_sample</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">Z_sample</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">quant_flag</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Print the quantification results, including fit quality metrics and elemental composition.</span>
@@ -1713,6 +1719,10 @@
 <span class="sd">            Dictionary containing mean atomic numbers (optional), e.g.:</span>
 <span class="sd">                - &#39;Statham2016&#39;: Mean atomic number (Z̅) calculated according to Statham (2016).</span>
 <span class="sd">                - &#39;mass-averaged&#39;: Mean atomic number (Z̅) weighted by composition.</span>
+<span class="sd">        quant_flag : int | None, optional</span>
+<span class="sd">            Flag signaling reliability of quantifification. Anything different than 0 signals</span>
+<span class="sd">            potential unreliability of the quantified composition. See description of quant_flags]</span>
+<span class="sd">            in config/classes.py</span>
 <span class="sd">    </span>
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -1734,7 +1744,7 @@
         <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
         
         <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Quantification result:</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-    
+        
         <span class="c1"># Print list of fitted elements</span>
         <span class="n">print_nice_1d_row</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fitted_els_quant</span><span class="p">)</span>
         
@@ -1750,10 +1760,14 @@
     
         <span class="c1"># Print analytical error as a percentage (w%)</span>
         <span class="n">an_err_percent</span> <span class="o">=</span> <span class="n">quant_result</span><span class="p">[</span><span class="n">cnst</span><span class="o">.</span><span class="n">AN_ER_KEY</span><span class="p">]</span> <span class="o">*</span> <span class="mi">100</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Analytical error: </span><span class="si">{</span><span class="n">an_err_percent</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> w%</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Analytical error: </span><span class="si">{</span><span class="n">an_err_percent</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> w%&quot;</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="n">quant_flag</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Quantification flag: </span><span class="si">{</span><span class="n">quant_flag</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     
         <span class="c1"># Print mean atomic numbers (Z̅) only if provided</span>
         <span class="k">if</span> <span class="n">Z_sample</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
             <span class="k">if</span> <span class="s1">&#39;Statham2016&#39;</span> <span class="ow">in</span> <span class="n">Z_sample</span><span class="p">:</span>
                 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Z̅_Statham2016: </span><span class="si">{</span><span class="n">Z_sample</span><span class="p">[</span><span class="s1">&#39;Statham2016&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="k">if</span> <span class="s1">&#39;mass-averaged&#39;</span> <span class="ow">in</span> <span class="n">Z_sample</span><span class="p">:</span>

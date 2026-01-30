@@ -51,6 +51,14 @@
 <li class="toctree-l2 current"><a class="reference internal" href="../user/api.html">AutoEMXSp Public API</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="autoemxsp.config.html">autoemxsp.config package</a></li>
 <li class="toctree-l3 current"><a class="reference internal" href="autoemxsp.runners.html">autoemxsp.runners package</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.analyze_sample"><code class="docutils literal notranslate"><span class="pre">analyze_sample()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.batch_acquire_experimental_stds"><code class="docutils literal notranslate"><span class="pre">batch_acquire_experimental_stds()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.batch_acquire_and_analyze"><code class="docutils literal notranslate"><span class="pre">batch_acquire_and_analyze()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.batch_fit_spectra"><code class="docutils literal notranslate"><span class="pre">batch_fit_spectra()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.batch_quantify_and_analyze"><code class="docutils literal notranslate"><span class="pre">batch_quantify_and_analyze()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.collect_particle_statistics"><code class="docutils literal notranslate"><span class="pre">collect_particle_statistics()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.fit_and_quantify_spectrum"><code class="docutils literal notranslate"><span class="pre">fit_and_quantify_spectrum()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.runners.html#autoemxsp.runners.fit_and_quantify_spectrum_fromDatacsv"><code class="docutils literal notranslate"><span class="pre">fit_and_quantify_spectrum_fromDatacsv()</span></code></a></li>
 <li class="toctree-l4 current"><a class="reference internal" href="autoemxsp.runners.html#submodules">Submodules</a></li>
 </ul>
 </li>
@@ -93,35 +101,7 @@
              
   <section id="module-autoemxsp.runners.batch_quantify_and_analyze">
 <span id="autoemxsp-runners-batch-quantify-and-analyze-module"></span><h1>autoemxsp.runners.batch_quantify_and_analyze module<a class="headerlink" href="#module-autoemxsp.runners.batch_quantify_and_analyze" title="Link to this heading"></a></h1>
-<p>Batch quantification and analysis of X-ray spectra for a list of samples.</p>
-<p>This module provides automated batch quantification and (optionally) clustering/statistical
-analysis of acquired X-ray spectra for multiple samples. It is robust to missing files or
-errors in individual samples, making it suitable for unattended batch processing.</p>
-<p>Import this module in your own code and call the
-<cite>batch_quantify_and_analyze()</cite> function, passing your desired sample IDs and
-options as arguments. This enables integration into larger workflows or pipelines.</p>
-<dl class="simple">
-<dt>Workflow:</dt><dd><ul class="simple">
-<li><p>Loads sample configurations from <cite>Spectra_collection_info.json</cite></p></li>
-<li><p>Loads acquired spectral data from <cite>Data.csv</cite></p></li>
-<li><p>Performs quantification (optionally only on unquantified spectra)</p></li>
-<li><p>Optionally performs clustering/statistical analysis and saves results</p></li>
-</ul>
-</dd>
-</dl>
-<p class="rubric">Notes</p>
-<ul class="simple">
-<li><p>Only the <cite>sample_ID</cite> is required if acquisition output is saved in the default directory;
-otherwise, specify <cite>results_path</cite>.</p></li>
-<li><p>Designed to continue processing even if some samples are missing or have errors.</p></li>
-</ul>
-<dl class="simple">
-<dt>Typical usage:</dt><dd><ul class="simple">
-<li><p>Edit the <cite>sample_IDs</cite> list and parameter options in the script, or</p></li>
-<li><p>Import and call <cite>batch_quantify_and_analyze()</cite> with your own arguments.</p></li>
-</ul>
-</dd>
-</dl>
+<p>Batch quantification and analysis for a list of samples.</p>
 <dl class="field-list">
 <dt class="field-odd">param sample_IDs<span class="colon">:</span></dt>
 <dd class="field-odd"><p>List of sample identifiers.</p>
@@ -172,6 +152,12 @@ If None, leaves it unchanged. Default: None</p>
 <dt class="field-even">type run_analysis<span class="colon">:</span></dt>
 <dd class="field-even"><p>bool, optional</p>
 </dd>
+<dt class="field-odd">param num_CPU_cores<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Number of CPU cores to use during fitting and quantification. If None, half of the available cores are used.</p>
+</dd>
+<dt class="field-even">type num_CPU_cores<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool | None, optional</p>
+</dd>
 <dt class="field-odd">param quantify_only_unquantified_spectra<span class="colon">:</span></dt>
 <dd class="field-odd"><p>If True, only quantify spectra that lack analytical error.</p>
 </dd>
@@ -182,6 +168,13 @@ If None, leaves it unchanged. Default: None</p>
 <dd class="field-odd"><p>If True, interrupt fitting if bad spectra are encountered. Speeds up computations</p>
 </dd>
 <dt class="field-even">type interrupt_fits_bad_spectra<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool, optional</p>
+</dd>
+<dt class="field-odd">param use_project_specific_std_dict<span class="colon">:</span></dt>
+<dd class="field-odd"><p>If True, loads standards from project folder (i.e. results_dir) during quantification.
+Default: None. Loads it from quant_cfg file</p>
+</dd>
+<dt class="field-even">type use_project_specific_std_dict<span class="colon">:</span></dt>
 <dd class="field-even"><p>bool, optional</p>
 </dd>
 <dt class="field-odd">param is_known_precursor_mixture<span class="colon">:</span></dt>
@@ -195,54 +188,21 @@ High-Temperature Sodium Superionic Conductor Framework, Chem. Mater. 37, 6807 (2
 <dt class="field-even">type is_known_precursor_mixture<span class="colon">:</span></dt>
 <dd class="field-even"><p>bool, optional</p>
 </dd>
-<dt class="field-odd">returns<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>quant_results</strong> (<em>list()</em>) – List of EMXSp_Composition_Analyzer, the composition analysis object containing the results and methods for further analysis.</p></li>
-<li><p><strong>Created on Tue Jul 29 13</strong> (<em>18:16 2025</em>)</p></li>
-<li><p><strong>&#64;author</strong> (<em>Andrea</em>)</p></li>
-</ul>
-</dd>
-</dl>
-<dl class="py function">
-<dt class="sig sig-object py" id="autoemxsp.runners.batch_quantify_and_analyze.batch_quantify_and_analyze">
-<span class="sig-prename descclassname"><span class="pre">autoemxsp.runners.batch_quantify_and_analyze.</span></span><span class="sig-name descname"><span class="pre">batch_quantify_and_analyze</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sample_IDs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantification_method</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">results_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_bckgrnd_cnts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_filename_suffix</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_instrument_background</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_analytical_error</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">run_analysis</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_CPU_cores</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantify_only_unquantified_spectra</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interrupt_fits_bad_spectra</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_known_precursor_mixture</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">standards_dict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../_modules/autoemxsp/runners/batch_quantify_and_analyze.html#batch_quantify_and_analyze"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.runners.batch_quantify_and_analyze.batch_quantify_and_analyze" title="Link to this definition"></a></dt>
-<dd><p>Batch quantification and analysis for a list of samples.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>sample_IDs</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – List of sample identifiers.</p></li>
-<li><p><strong>quantification_method</strong> (<em>str</em><em>, </em><em>optional</em>) – Method to use for quantification. Uses quant_cfg.method if unspecified. Currently only supports ‘PB’.</p></li>
-<li><p><strong>results_path</strong> (<em>str</em><em>, </em><em>optional</em>) – Base directory where results are stored. Default: autoemxsp/Results</p></li>
-<li><p><strong>min_bckgrnd_cnts</strong> (<em>float</em><em>, </em><em>optional</em>) – Minimum number of background counts underneath reference peaks below which spectra are flagged.
-If None, leaves it unchanged. Default: None</p></li>
-<li><p><strong>output_filename_suffix</strong> (<em>str</em><em>, </em><em>optional</em>) – Suffix to append to output filenames.</p></li>
-<li><p><strong>use_instrument_background</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to use instrument background if present (Default: False).</p></li>
-<li><p><strong>max_analytical_error</strong> (<em>float</em><em>, </em><em>optional</em>) – Maximum allowed analytical error for analysis.</p></li>
-<li><p><strong>run_analysis</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to run clustering/statistical analysis after quantification.</p></li>
-<li><p><strong>num_CPU_cores</strong> (<em>bool</em><em> | </em><em>None</em><em>, </em><em>optional</em>) – Number of CPU cores to use during fitting and quantification. If None, half of the available cores are used.</p></li>
-<li><p><strong>quantify_only_unquantified_spectra</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, only quantify spectra that lack analytical error.</p></li>
-<li><p><strong>interrupt_fits_bad_spectra</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, interrupt fitting if bad spectra are encountered. Speeds up computations</p></li>
-<li><p><strong>is_known_precursor_mixture</strong> (<em>bool</em><em>, </em><em>optional</em>) – <p>Whether sample is a mixture of two known powders. Used to characterize extent of intermixing in powders.
-See example at:</p>
-<blockquote>
-<div><p>L. N. Walters et al., Synthetic Accessibility and Sodium Ion Conductivity of the Na 8– x A x P 2 O 9 (NAP)
-High-Temperature Sodium Superionic Conductor Framework, Chem. Mater. 37, 6807 (2025).</p>
-</div></blockquote>
-</p></li>
-<li><p><strong>standards_dict</strong> (<em>dict</em><em>, </em><em>optional</em>) – Dictionary of reference PB values from experimental standards. Default : None.
+<dt class="field-odd">param standards_dict<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dictionary of reference PB values from experimental standards. Default : None.
 If None, dictionary of standards is loaded from the XSp_calibs/Your_Microscope_ID directory.
-Provide standards_dict only when providing different standards from those normally used for quantification.</p></li>
-</ul>
+Provide standards_dict only when providing different standards from those normally used for quantification.</p>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><strong>quant_results</strong> – List of EMXSp_Composition_Analyzer, the composition analysis object containing the results and methods for further analysis.</p>
+<dt class="field-even">type standards_dict<span class="colon">:</span></dt>
+<dd class="field-even"><p>dict, optional</p>
 </dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>list()</p>
+<dt class="field-odd">returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>quant_results</strong> – List of EMXSp_Composition_Analyzer, the composition analysis object containing the results and methods for further analysis.</p>
+</dd>
+<dt class="field-even">rtype<span class="colon">:</span></dt>
+<dd class="field-even"><p>list()</p>
 </dd>
 </dl>
-</dd></dl>
-
 </section>
 
 
