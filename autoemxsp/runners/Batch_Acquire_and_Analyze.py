@@ -64,7 +64,7 @@ __all__ = ["batch_acquire_and_analyze"]
 def batch_acquire_and_analyze(
     samples: List[Dict[str, Any]],
     microscope_ID: str = dflt.microscope_ID,
-    microscope_type: str = dflt.measurement_type,
+    microscope_type: str = dflt.microscope_type,
     measurement_type: str = dflt.measurement_type,
     measurement_mode: str = dflt.measurement_mode,
     quantification_method: str = dflt.quantification_method,
