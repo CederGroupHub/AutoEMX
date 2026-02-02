@@ -279,10 +279,10 @@ def batch_quantify_and_analyze(
 
             # Save the updated Data.csv with counter logic to avoid overwriting
             new_data_path = os.path.join(sample_dir, f'{cnst.DATA_FILENAME}{output_filename_suffix}{cnst.DATA_FILEEXT}')
-            cntr = 1
-            while os.path.exists(new_data_path):
-                cntr += 1
-                new_data_path = os.path.join(sample_dir, f'{cnst.DATA_FILENAME}{output_filename_suffix}_{cntr}{cnst.DATA_FILEEXT}')
+            # cntr = 1
+            # while os.path.exists(new_data_path):
+            #     cntr += 1
+            #     new_data_path = os.path.join(sample_dir, f'{cnst.DATA_FILENAME}{output_filename_suffix}_{cntr}{cnst.DATA_FILEEXT}')
 
             try:
                 original_df.to_csv(new_data_path, index=False)
@@ -295,7 +295,7 @@ def batch_quantify_and_analyze(
                 os.remove(temp_data_path)
             except Exception as e:
                 logging.warning(f"Could not remove temporary file '{temp_data_path}': {e}")
-
+                
             # Reload data for analysis if needed
             if run_analysis:
                 try:
@@ -310,6 +310,7 @@ def batch_quantify_and_analyze(
         # Perform analysis and print results
         if run_analysis:
             try:
+                comp_analyzer.output_filename_suffix = output_filename_suffix
                 analysis_successful, _, _ = comp_analyzer.analyse_data(max_analytical_error)
             except Exception as e:
                 logging.exception(f"Error during clustering analysis for '{sample_ID}'. Rerun separately if needed: {e}")

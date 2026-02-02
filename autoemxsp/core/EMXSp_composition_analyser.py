@@ -3907,13 +3907,14 @@ class EMXSp_Composition_Analyzer:
             # Save new version
             try:
                 if backup_successful:
-                    data_df.to_csv(data_path, index=False, header=True)
                     if isinstance(self.output_filename_suffix, str) and self.output_filename_suffix != '':
                         if backup_previous_data:
                             data_path_with_suffix = make_unique_path(self.sample_result_dir, base_name + self.output_filename_suffix, extension)
                         else:
                             data_path_with_suffix = os.path.join(self.sample_result_dir, base_name + self.output_filename_suffix + extension)
                         data_df.to_csv(data_path_with_suffix, index=False, header=True)
+                    else:
+                        data_df.to_csv(data_path, index=False, header=True)
                 else:
                     data_df.to_csv(data_path_with_suffix, index=False, header=True)
                     
