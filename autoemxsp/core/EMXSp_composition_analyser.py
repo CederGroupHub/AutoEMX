@@ -57,6 +57,13 @@ from dataclasses import asdict
 from typing import Any, Optional, Tuple, List, Dict, Iterable, Union
 from joblib import Parallel, delayed
 
+#TODO remove in future versions
+warnings.filterwarnings(
+    "ignore",
+    category=FutureWarning,
+    module="cvxpy.*",
+)
+
 # Third-party imports
 import numpy as np
 import pandas as pd
