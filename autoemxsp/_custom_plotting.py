@@ -181,9 +181,9 @@ def _save_clustering_plot_custom_3D(elements, els_comps_list, centroids, labels,
     ax.set_ylabel(elements[1] + axis_label_add, labelpad=labelpad)
     
     ### Customisation
-    lims_x = (0.05, 0.2501)
-    lims_y = (0, 0.2001)
-    lims_z = (0.05, 0.2501)
+    lims_x = (0.0, 0.4001)
+    lims_y = (0.1, 0.5001)
+    lims_z = (0.5, 0.9001)
     lower_lim_x, upper_lim_x = lims_x
     lower_lim_y, upper_lim_y = lims_y
     lower_lim_z, upper_lim_z = lims_z
