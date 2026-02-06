@@ -39,7 +39,8 @@ clustering_features = None # 'w_fr', 'at_fr'. Uses default value if variable is 
 # If None, the number of clusters will be determined automatically.
 k_forced: int | None = None  
 
-# Method used to determine the number of clusters (see ClusteringConfig.ALLOWED_K_FINDING_METHODS).
+# Method used to determine the number of clusters.
+# Allowed methods are "silhouette", "calinski_harabasz", "elbow".
 # Only applied if `k_forced` is None. Forces re-computation of the optimal k value.
 k_finding_method: str | None = None  
 
