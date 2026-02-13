@@ -68,6 +68,7 @@ import difflib
 # Third-party imports
 import cv2
 import numpy as np
+from pathlib import Path
 from pymatgen.core import Element, Composition
 
 # Typing imports
@@ -524,7 +525,11 @@ def extract_spectral_data(data_csv_path):
     return spectra_quant, spectral_data, sp_coords, df
 
 
-def make_unique_path(parent_dir: str, base_name: str, extension: str = None) -> str:
+def make_unique_path(
+    parent_dir: Union[str, Path],
+    base_name: Union[str, Path],
+    extension: Optional[str] = None
+) -> Path:
     """
     Generate a unique file or directory path inside parent_dir based on base_name.
     If a path with the base name exists, appends a counter (e.g., 'Sample1_2').
@@ -532,34 +537,31 @@ def make_unique_path(parent_dir: str, base_name: str, extension: str = None) -> 
 
     Parameters
     ----------
-    parent_dir : str
+    parent_dir : str or Path
         The parent directory in which to generate the new path.
-    base_name : str
+    base_name : str or Path
         The base name for the new file or directory.
     extension : str, optional
         The file extension (e.g., 'txt' or '.txt'). If None, treat as directory.
 
     Returns
     -------
-    unique_path : str
+    unique_path : Path
         The full, unique path (not created).
 
     Raises
     ------
     ValueError
         If `parent_dir` or `base_name` is invalid.
-
-    Example
-    -------
-    >>> make_unique_path('./results', 'Sample1')
-    './results/Sample1'
-    >>> make_unique_path('./results', 'Sample1', extension='txt')
-    './results/Sample1.txt'
-    >>> make_unique_path('./results', 'Sample1', extension='txt')  # If exists
-    './results/Sample1_2.txt'
     """
-    if not isinstance(parent_dir, str) or not isinstance(base_name, str):
-        raise ValueError("Both `parent_dir` and `base_name` must be strings.")
+
+    if not isinstance(parent_dir, (str, Path)):
+        raise ValueError("`parent_dir` must be a string or Path.")
+    if not isinstance(base_name, (str, Path)):
+        raise ValueError("`base_name` must be a string or Path.")
+
+    parent_dir = Path(parent_dir)
+    base_name = Path(base_name).name  # Ensure only the name is used
 
     # Normalize extension
     ext = ''
@@ -568,18 +570,19 @@ def make_unique_path(parent_dir: str, base_name: str, extension: str = None) -> 
 
     counter = 1
     if ext:
-        unique_path = os.path.join(parent_dir, f"{base_name}{ext}")
+        unique_path = parent_dir / f"{base_name}{ext}"
     else:
-        unique_path = os.path.join(parent_dir, base_name)
+        unique_path = parent_dir / base_name
 
-    while os.path.exists(unique_path):
+    while unique_path.exists():
         counter += 1
         if ext:
-            unique_path = os.path.join(parent_dir, f"{base_name}_{counter}{ext}")
+            unique_path = parent_dir / f"{base_name}_{counter}{ext}"
         else:
-            unique_path = os.path.join(parent_dir, f"{base_name}_{counter}")
+            unique_path = parent_dir / f"{base_name}_{counter}"
 
     return unique_path
+
 
 def get_sample_dir(
     results_path: str,

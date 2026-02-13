@@ -32,7 +32,7 @@ import tifffile
 
 from autoemxsp.core.EM_particle_finder import EM_Particle_Finder
 from autoemxsp.core.EM_controller import EM_Controller
-from autoemxsp.tools.config_classes import (
+from autoemxsp.config.classes import (
     PowderMeasurementConfig,
     MicroscopeConfig,
     MeasurementConfig,
@@ -40,7 +40,7 @@ from autoemxsp.tools.config_classes import (
     SampleSubstrateConfig,
     BulkMeasurementConfig
 )
-from autoemxsp.tools.utils import print_single_separator
+from autoemxsp.utils.helper import print_single_separator
 
 
 # -------------------------------------------------------------------------

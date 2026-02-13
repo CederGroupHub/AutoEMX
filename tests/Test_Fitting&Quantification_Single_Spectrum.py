@@ -17,7 +17,7 @@ Created on Tue Jul 29 13:18:16 2025
 @author: Andrea
 """
 
-from autoemxsp.runners import fit_and_quantify_spectrum
+from autoemxsp.runners import fit_and_quantify_spectrum_fromDatacsv
 
 # =============================================================================
 # Sample and spectrum to process
@@ -49,7 +49,7 @@ interrupt_fits_bad_spectra = False
 spectrum_lims = None # (80, 1100)
 els_substrate = None # ['C', 'O', 'Al']
 
-quantifier = fit_and_quantify_spectrum(
+quantifier = fit_and_quantify_spectrum_fromDatacsv(
     sample_ID=sample_ID,
     spectrum_ID=spectrum_ID,
     is_standard = is_standard,
