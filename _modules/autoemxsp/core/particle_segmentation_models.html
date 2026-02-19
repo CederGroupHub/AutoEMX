@@ -1,0 +1,176 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>autoemxsp.core.particle_segmentation_models &mdash; AutoEMXSp 0.1.6 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=6e0256f3"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            AutoEMXSp
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/index.html">User Documentation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced_user/index.html">Advanced User Documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">AutoEMXSp</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">autoemxsp.core.particle_segmentation_models</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for autoemxsp.core.particle_segmentation_models</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Loads the available segmentation models.</span>
+
+<span class="sd">This module is responsible for loading segmentation model modules that follow a specific </span>
+<span class="sd">structure and provide a `segment_particles()` function. To add a new segmentation model, </span>
+<span class="sd">create a new Python file in the same directory as this script, and ensure the file </span>
+<span class="sd">contains a correctly defined `segment_particles()` function as described below.</span>
+
+<span class="sd">### Adding New Segmentation Models</span>
+
+<span class="sd">See segmentation_model_template.py for a detailed description of the required structure</span>
+
+<span class="sd">1. **Create a new module**:</span>
+<span class="sd">   In this directory, create a new Python file named `your_model_name.py`</span>
+
+<span class="sd">2. **Define `segment_particles()`**:</span>
+<span class="sd">   In your new module, define a function named `segment_particles()` that takes the following parameters:</span>
+<span class="sd">   - `frame_image` (np.array): A grayscale image containing particles.</span>
+<span class="sd">   - `powder_meas_config` (PowderMeasurementConfig): A configuration object with relevant parameters for segmentation (e.g., threshold values).</span>
+<span class="sd">   - `save_image` (bool): An optional flag to save the masked image.</span>
+<span class="sd">   - `EM` (EM_controller): An optional object for saving the segmented image.</span>
+
+<span class="sd">   The function should return a binary mask where pixel values represent detected particles.</span>
+
+<span class="sd">Created on Thu Oct  9 09:34:39 2025</span>
+
+<span class="sd">@author: Andrea</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">importlib</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">autoemxsp.utils.constants</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cnst</span>
+
+<span class="c1"># Dictionary to hold the available models</span>
+<span class="n">PAR_SEGMENTATION_MODEL_REGISTRY</span> <span class="o">=</span> <span class="p">{}</span>
+
+<div class="viewcode-block" id="load_models">
+<a class="viewcode-back" href="../../../_api/autoemxsp.core.particle_segmentation_models.html#autoemxsp.core.particle_segmentation_models.load_models">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_models</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Loads all available segmentation model modules from the specified directory.</span>
+
+<span class="sd">    This function will iterate through all `.py` files in the directory, import</span>
+<span class="sd">    them, and store them in the MODEL_REGISTRY for later use.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    module_names : list</span>
+<span class="sd">        A list of the names of the modules that have been successfully loaded.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">module_names</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="c1"># Loop through all Python files in the directory</span>
+    <span class="k">for</span> <span class="n">model_file</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)):</span>
+        <span class="c1"># Ignore the &#39;ml_segmentation_template.py&#39; file</span>
+        <span class="k">if</span> <span class="n">model_file</span> <span class="o">==</span> <span class="s1">&#39;segmentation_model_template.py&#39;</span><span class="p">:</span>
+            <span class="k">continue</span>
+        
+        <span class="k">if</span> <span class="n">model_file</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.py&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">model_file</span> <span class="o">!=</span> <span class="s2">&quot;__init__.py&quot;</span><span class="p">:</span>
+            <span class="n">model_name</span> <span class="o">=</span> <span class="n">model_file</span><span class="p">[:</span><span class="o">-</span><span class="mi">3</span><span class="p">]</span>  <span class="c1"># Remove .py extension</span>
+            <span class="n">module</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;autoemxsp.core.</span><span class="si">{</span><span class="n">cnst</span><span class="o">.</span><span class="n">PAR_SEGMENTATION_MODELS_DIR</span><span class="si">}</span><span class="s1">.</span><span class="si">{</span><span class="n">model_name</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">PAR_SEGMENTATION_MODEL_REGISTRY</span><span class="p">[</span><span class="n">model_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">module</span>  <span class="c1"># Save the module to the registry</span>
+            <span class="n">module_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">model_name</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">module_names</span></div>
+
+
+<span class="c1"># Automatically load user-added models</span>
+<span class="n">AVAILABLE_SEGMENTATION_MODELS</span> <span class="o">=</span> <span class="n">load_models</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Andrea Giunto.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

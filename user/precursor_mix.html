@@ -1,0 +1,227 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tutorial: Quantify the extent of intermixing in precursor powders &mdash; AutoEMXSp 0.1.6 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=6e0256f3"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="AutoEMXSp Public API" href="api.html" />
+    <link rel="prev" title="Tutorial: Measure particle size distribution via SEM" href="particle_size.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            AutoEMXSp
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Documentation:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">User Documentation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html">Quickstart Guide</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="tutorials.html">Tutorials</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="comp_analysis.html">Tutorial: EDS compositional analysis for phase identification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="fit_autoemxsp_spectrum.html">Tutorial: Fit and quantify individual spectra acquired with <cite>AutoEMXSp</cite></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fit_msa_spectrum.html">Tutorial: Fit and quantify individual spectra exported by commercial EDS software</a></li>
+<li class="toctree-l3"><a class="reference internal" href="particle_size.html">Tutorial: Measure particle size distribution via SEM</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Tutorial: Quantify the extent of intermixing in precursor powders</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#output">Output</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#workflow">Workflow</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api.html">AutoEMXSp Public API</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../advanced_user/index.html">Advanced User Documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">AutoEMXSp</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">User Documentation</a></li>
+          <li class="breadcrumb-item"><a href="tutorials.html">Tutorials</a></li>
+      <li class="breadcrumb-item active">Tutorial: Quantify the extent of intermixing in precursor powders</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/user/precursor_mix.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="tutorial-quantify-the-extent-of-intermixing-in-precursor-powders">
+<span id="precursor-mix-tutorial"></span><h1>Tutorial: Quantify the extent of intermixing in precursor powders<a class="headerlink" href="#tutorial-quantify-the-extent-of-intermixing-in-precursor-powders" title="Link to this heading"></a></h1>
+<p>When mixing two powder precursors together, use EDS to evaluate the extent of
+their spatial intermixing, known to affect solid-state reactions and the final
+impurity content.</p>
+<p><cite>AutoEMXSp</cite> offers a method to quantify the extent of intermixing, helping the
+rationalization of impurity formation in solid-state reactions.
+See for example Fig. 6 in:</p>
+<blockquote>
+<div><p>Chem. Mater. 2025, 37, 6807−6822 (<a class="reference external" href="https://pubs.acs.org/doi/10.1021/acs.chemmater.5c01573">https://pubs.acs.org/doi/10.1021/acs.chemmater.5c01573</a>)</p>
+</div></blockquote>
+<p>Currently, only intermixing between two precursors species is supported. The
+code is however extensible to multi-precursor mixes, and contributions on this
+topic are welcome.</p>
+<section id="output">
+<h2>Output<a class="headerlink" href="#output" title="Link to this heading"></a></h2>
+<p><strong>The procedure to measure the extent of particle intermixing is analogous to
+the standard AutoEMXSp EDS compositional analysis workflow</strong>, except for a
+couple of small differences:</p>
+<ul class="simple">
+<li><p>To enhance compositional measurement accuracy, given that the analysed material
+is known, <cite>AutoEMXSp</cite> uses standard reference values for EDS
+quantification that have been collected from the individual precursor
+chemistries, if available. If not available, the regular P/B reference
+values are used instead.</p></li>
+<li><p>In the <code class="docutils literal notranslate"><span class="pre">Analysis</span></code> folder, the output will include a violin plot showing the
+distribution of molar fractions (<cite>x</cite>) of the two precursors measured with each EDS
+spot spectrum, such as the example below.</p></li>
+</ul>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/Example_violin_plot.png"><img alt="Example Violin Plot" src="../_images/Example_violin_plot.png" style="width: 50%;" />
+</a>
+</figure>
+<p>The distribution and the standard deviation (σ) of measured molar fractions will
+give a sense of how well intermixed are the precursors. Two well-mixed
+precursors will lead to a very tight standard deviation around the precursor
+molar ratio at which they have been mixed (1:1 in the image above).
+Typically, σ~5 indicates very well mixed precursors.</p>
+<p>Always keep in mind that the EDS X-ray generation volume has a finite size,
+below which the intermixing cannot be evaluated.
+For example, supposing a 1-um generation depth, atomically intermixed species
+will yield very similar measurements as intermixed nanoscale regions, resulting
+for example from spinoidal decomposition.
+Use the Kanaya-Okayama equation to estimate the X-ray generation depth.</p>
+</section>
+<section id="workflow">
+<h2>Workflow<a class="headerlink" href="#workflow" title="Link to this heading"></a></h2>
+<section id="step-1-measure-precursor-standards">
+<h3>Step 1 - Measure Precursor Standards<a class="headerlink" href="#step-1-measure-precursor-standards" title="Link to this heading"></a></h3>
+<p>Note that <strong>this step is not essential</strong>, but will genearlly contribute to an
+improved compositional measurement accuracy.</p>
+<p>Follow the <a class="reference internal" href="../advanced_user/new_exp_stds.html#advanced-new-exp-stds"><span class="std std-ref">Experimental Standards Measurement Tutorial</span></a>
+to create standard reference values for each powder material that you’ll want
+to mix and measure.</p>
+<p>The only difference is that you should set
+<code class="docutils literal notranslate"><span class="pre">powder_meas_cfg_kwargs.is_known_powder_mixture_meas</span> <span class="pre">=</span> <span class="pre">True</span></code>.
+This will trigger two configurations:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">exp_stds_meas_cfg_kwargs.use_for_mean_PB_calc</span> <span class="pre">=</span> <span class="pre">False</span></code>; this prevents
+the P/B values measured on particles being used for regular quantification,
+which should preferably employ reference P/B values acquired from bulk samples.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">exp_stds_meas_cfg_kwargs.generate_separate_std_dict</span> <span class="pre">=</span> <span class="pre">True</span></code>; this creates
+a new standard file for a set of precursor mix measurements for a specific
+project, and saves it in <code class="docutils literal notranslate"><span class="pre">exp_std_dir</span></code>. If <code class="docutils literal notranslate"><span class="pre">exp_std_dir</span></code> is left to <code class="docutils literal notranslate"><span class="pre">None</span></code>,
+the default path will be used (i.e., <code class="docutils literal notranslate"><span class="pre">autoemxsp/Std_measurements</span></code>).</p></li>
+</ul>
+<p>Once all standards are measured, copy the <code class="docutils literal notranslate"><span class="pre">EDS_Stds_{beam-energy}keV.json</span></code>
+file from <code class="docutils literal notranslate"><span class="pre">exp_std_dir</span></code> to the project folder, defined
+through <code class="docutils literal notranslate"><span class="pre">results_dir</span></code> in the scripts employed in Step 2.</p>
+<p>Note that you may try skipping this step, and directly go to Step 2.
+If unsatisfied with the quantification results, you can go back to Step 1, and
+successivelly re-quantify the spectra acquired in Step 2 following
+<a class="reference internal" href="comp_analysis.html#comp-analysis-tutorial"><span class="std std-ref">Step 8 in this Tutorial</span></a>.</p>
+</section>
+<section id="step-2-run-acquisition-analysis">
+<h3>Step 2 - Run Acquisition &amp; Analysis<a class="headerlink" href="#step-2-run-acquisition-analysis" title="Link to this heading"></a></h3>
+<p>Follow the instructions from the <a class="reference internal" href="comp_analysis.html#comp-analysis-tutorial"><span class="std std-ref">Compositional Characterization Tutorial</span></a>.</p>
+<p>The only differences are that, when preparing the acquisition script (i.e.,
+<code class="docutils literal notranslate"><span class="pre">Run_Acquisition_Quant_Analysis.py</span></code>), you should:</p>
+<ul class="simple">
+<li><p>As a list of candidate phases, provide <strong>only</strong> the two compositions that are
+intermixed, (as values for the <code class="docutils literal notranslate"><span class="pre">cnd</span></code> key in <code class="docutils literal notranslate"><span class="pre">samples</span></code>).</p></li>
+<li><p>Set <code class="docutils literal notranslate"><span class="pre">use_project_specific_std_dict</span> <span class="pre">=</span> <span class="pre">True</span></code> to use the standard reference
+dictionary saved in the project folder, defined in <code class="docutils literal notranslate"><span class="pre">results_dir</span></code>.
+If not found, it will use the default standard reference values.</p></li>
+<li><p>Set <code class="docutils literal notranslate"><span class="pre">powder_meas_cfg_kwargs.is_known_powder_mixture_meas</span> <span class="pre">=</span> <span class="pre">True</span></code>. This
+option tells <cite>AutoEMXSp</cite> to use reference P/B values obtained from the known
+powder compositions, instead of the <cite>Mean</cite> of reference values measured also
+from other chemistries. Note that you can always turn off this option later
+when quantifying the spectra in <code class="docutils literal notranslate"><span class="pre">Run_Quantification_Analysis.py</span></code>, setting
+<code class="docutils literal notranslate"><span class="pre">is_known_precursor_mixture</span> <span class="pre">=</span> <span class="pre">False</span></code> and passing this option to
+<code class="docutils literal notranslate"><span class="pre">batch_quantify_and_analyze()</span></code>. In this case, <cite>AutoEMXSp</cite> will use
+the P/B reference values commonly employed during regular compositional
+characterization of unknown sample chemistries for phase identification.</p></li>
+</ul>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="particle_size.html" class="btn btn-neutral float-left" title="Tutorial: Measure particle size distribution via SEM" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="api.html" class="btn btn-neutral float-right" title="AutoEMXSp Public API" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Andrea Giunto.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

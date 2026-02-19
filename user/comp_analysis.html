@@ -1,0 +1,535 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tutorial: EDS compositional analysis for phase identification &mdash; AutoEMXSp 0.1.6 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=6e0256f3"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Tutorial: Fit and quantify individual spectra acquired with AutoEMXSp" href="fit_autoemxsp_spectrum.html" />
+    <link rel="prev" title="Tutorials" href="tutorials.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            AutoEMXSp
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Documentation:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">User Documentation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html">Quickstart Guide</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="tutorials.html">Tutorials</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Tutorial: EDS compositional analysis for phase identification</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#step-1-open-script-to-edit">Step 1 – Open script to edit</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#step-2-define-samples-to-analyse">Step 2 – Define samples to analyse</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#step-3-define-measurement-configurations">Step 3 – Define measurement configurations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#step-4-quantify-spectra-during-acquisition">Step 4 – Quantify spectra during acquisition</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#step-5-define-other-parameters">Step 5 – Define other parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#step-6-sample-type-specific-configurations">Step 6 – Sample-type-specific configurations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#step-7-launch-spectra-acquisition">Step 7 – Launch spectra acquisition</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#step-8-optional-re-quantify-spectra">Step 8 - Optional: (re)quantify spectra</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#step-9-optional-re-analyse-spectra">Step 9 - Optional: (re)analyse spectra</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="fit_autoemxsp_spectrum.html">Tutorial: Fit and quantify individual spectra acquired with <cite>AutoEMXSp</cite></a></li>
+<li class="toctree-l3"><a class="reference internal" href="fit_msa_spectrum.html">Tutorial: Fit and quantify individual spectra exported by commercial EDS software</a></li>
+<li class="toctree-l3"><a class="reference internal" href="particle_size.html">Tutorial: Measure particle size distribution via SEM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="precursor_mix.html">Tutorial: Quantify the extent of intermixing in precursor powders</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="api.html">AutoEMXSp Public API</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../advanced_user/index.html">Advanced User Documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">AutoEMXSp</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">User Documentation</a></li>
+          <li class="breadcrumb-item"><a href="tutorials.html">Tutorials</a></li>
+      <li class="breadcrumb-item active">Tutorial: EDS compositional analysis for phase identification</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/user/comp_analysis.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <blockquote>
+<div></div></blockquote>
+<section id="tutorial-eds-compositional-analysis-for-phase-identification">
+<span id="comp-analysis-tutorial"></span><h1>Tutorial: EDS compositional analysis for phase identification<a class="headerlink" href="#tutorial-eds-compositional-analysis-for-phase-identification" title="Link to this heading"></a></h1>
+<p>This tutorial shows how to run the automated workflow for EDS compositional
+analysis using the <code class="docutils literal notranslate"><span class="pre">Run_Acquisition_Quant_Analysis.py</span></code> script.</p>
+<p>This script initiates the fully automated workflow described in Giunto <em>et al.</em>
+(<a class="reference external" href="https://www.researchsquare.com/article/rs-7837297/v1">https://www.researchsquare.com/article/rs-7837297/v1</a>), which includes:</p>
+<ul class="simple">
+<li><p>Acquisition of EDS spectra from powder or bulk samples</p></li>
+<li><p>Fitting and quantification to extract compositions</p></li>
+<li><p>Rule-based filtering of compositions</p></li>
+<li><p>Clustering analysis to detect the number of phases and extract their compositions</p></li>
+</ul>
+<p>The script allows multiple samples to be defined and run sequentially with a
+<em>single click</em>.</p>
+<p>Key output includes:</p>
+<ul class="simple">
+<li><p>SEM images of every analysed region</p></li>
+<li><p>A <code class="docutils literal notranslate"><span class="pre">Data.csv</span></code> file containing the raw spectral data and quantified compositions</p></li>
+<li><p>A <code class="docutils literal notranslate"><span class="pre">Clusters.csv</span></code> file containing the composition of each identified cluster,
+potential candidate phases, and their confidence scores</p></li>
+</ul>
+<section id="step-1-open-script-to-edit">
+<h2>Step 1 – Open script to edit<a class="headerlink" href="#step-1-open-script-to-edit" title="Link to this heading"></a></h2>
+<p>Open <code class="docutils literal notranslate"><span class="pre">autoemxsp/scripts/Run_Acquisition_Quant_Analysis.py</span></code>.</p>
+<p>In this tutorial, we’ll walk you through all the necessary parameters to configure
+the measurement. For further details, see the <a class="reference internal" href="../_api/autoemxsp.runners.batch_acquire_and_analyze.html#runners-acquire-spectra"><span class="std std-ref">API</span></a> for the
+<code class="docutils literal notranslate"><span class="pre">batch_acquire_and_analyze</span></code> function.</p>
+</section>
+<section id="step-2-define-samples-to-analyse">
+<h2>Step 2 – Define samples to analyse<a class="headerlink" href="#step-2-define-samples-to-analyse" title="Link to this heading"></a></h2>
+<p>Set the common parameters defining the physical sample characteristics:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">sample_type</span></code>: e.g. <code class="docutils literal notranslate"><span class="pre">'powder'</span></code>
+Supported types: <code class="docutils literal notranslate"><span class="pre">powder</span></code>, <code class="docutils literal notranslate"><span class="pre">bulk</span></code>, <code class="docutils literal notranslate"><span class="pre">powder_continuous</span></code>, <code class="docutils literal notranslate"><span class="pre">bulk_rough</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sample_halfwidth</span></code>: Half-width of the sample region to analyse (mm)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sample_substrate_type</span></code>: e.g. <code class="docutils literal notranslate"><span class="pre">'Ctape'</span></code>
+Supported types: <code class="docutils literal notranslate"><span class="pre">Ctape</span></code>, <code class="docutils literal notranslate"><span class="pre">None</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sample_substrate_shape</span></code>: e.g. <code class="docutils literal notranslate"><span class="pre">'circle'</span></code>
+Supported types: <code class="docutils literal notranslate"><span class="pre">square</span></code>, <code class="docutils literal notranslate"><span class="pre">circle</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sample_substrate_width_mm</span></code>: SEM stub diameter (mm)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">working_distance</span></code>: Approximate working distance (mm). Autofocus is limited
+to 1 mm around this value to avoid large focusing errors.</p></li>
+</ul>
+<p>Modify the <code class="docutils literal notranslate"><span class="pre">samples</span></code> list to define individual sample parameters. Each sample
+is defined by a dictionary with the following keys:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">ID</span></code>: Sample identifier. All data are saved in <code class="docutils literal notranslate"><span class="pre">results_dir</span></code> under a folder
+named after <code class="docutils literal notranslate"><span class="pre">ID</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">els</span></code>: Elements quantified from the EDS spectra.
+Do <strong>not</strong> include elements present only in the substrate (e.g. C from carbon
+tape); these are defined separately via <code class="docutils literal notranslate"><span class="pre">els_substrate</span></code>.
+Avoid light elements dominant in the substrate even if present in the sample
+(e.g. C from carbonates on carbon tape), as this may disrupt quantification and
+lead to large analytical errors. In general it would be best to avoid element
+overlap between substrate and sample.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pos</span></code>: Sample centre position in absolute microscope stage coordinates,
+typically obtained from <em>Saved Positions</em> at the microscope.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cnd</span></code>: List of candidate compositions that may be present. This can be
+modified later when re-running clustering analysis.</p></li>
+</ul>
+<p>Additional keys may be defined in
+<code class="docutils literal notranslate"><span class="pre">autoemxsp.runners.batch_acquire_and_analyze</span></code> to launch all together the
+analysis of different types of samples, e.g. a <cite>powder’ and a `bulk</cite>.
+See the <em>Template: Customizing Parameters Per Sample</em> section in the
+<code class="docutils literal notranslate"><span class="pre">batch_acquire_and_analyze</span></code> script.</p>
+</section>
+<section id="step-3-define-measurement-configurations">
+<h2>Step 3 – Define measurement configurations<a class="headerlink" href="#step-3-define-measurement-configurations" title="Link to this heading"></a></h2>
+<p>Several parameters are microscope-specific and defined during the initial
+<code class="docutils literal notranslate"><span class="pre">AutoEMXSp</span></code> setup.</p>
+<p>Additional user-modifiable parameters include:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">results_dir</span></code>: Path to the project folder, where an individual folder per
+sample will be created. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, defaults to <code class="docutils literal notranslate"><span class="pre">autoemxsp/Results</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">beam_energy</span></code>: Beam energy (keV). A standard reference file must exist for
+this voltage.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">is_manual_navigation</span></code>: Whether to manually navigate to the region of
+interest. Typically <code class="docutils literal notranslate"><span class="pre">False</span></code>, unless you want to analyse a specific region
+of the sample.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">is_auto_substrate_detection</span></code>: Enable automated substrate detection.
+Currently supported only for <code class="docutils literal notranslate"><span class="pre">sample_substrate_type</span> <span class="pre">=</span> <span class="pre">'Ctape'</span></code> when the
+carbon tape appears dark on a brighter stub (e.g. Al). Allows to be tolerant
+to off-centered sticking of C tape.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">auto_adjust_brightness_contrast</span></code>: Enable automatic brightness and contrast
+adjustment. Typically <code class="docutils literal notranslate"><span class="pre">True</span></code>.
+If <code class="docutils literal notranslate"><span class="pre">False</span></code>, the following must be defined:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">contrast</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">brightness</span></code></p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">min_n_spectra</span></code>: Minimum number of spectra before convergence checking
+begins (only if <code class="docutils literal notranslate"><span class="pre">quantify_spectra</span> <span class="pre">=</span> <span class="pre">True</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_n_spectra</span></code>: Target number of spectra if <code class="docutils literal notranslate"><span class="pre">quantify_spectra</span> <span class="pre">=</span> <span class="pre">False</span></code>.
+Otherwise, the maximum number collected if convergence is not reached.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">target_Xsp_counts</span></code>: Target number of counts per spectrum.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_XSp_acquisition_time</span></code>: Maximum acquisition time per spectrum, after
+which the acquisition is interrupted, and the spectrum discarded.</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><code class="docutils literal notranslate"><span class="pre">max_XSp_acquisition_time</span></code> should be defined as a function of the detector
+counts/sec to ensure that the acquisition is interrupted only when wrong
+regions are selected (e.g. carbon tape or a void in the sample instead of
+a particle).</p>
+<p>Spectra interrupted due to this parameter are flagged (<code class="docutils literal notranslate"><span class="pre">quant_flag</span> <span class="pre">=</span> <span class="pre">2</span></code>)
+and discarded. Ensure <code class="docutils literal notranslate"><span class="pre">max_XSp_acquisition_time</span></code> is set sufficiently high
+for your EDS system.</p>
+</div>
+</section>
+<section id="step-4-quantify-spectra-during-acquisition">
+<h2>Step 4 – Quantify spectra during acquisition<a class="headerlink" href="#step-4-quantify-spectra-during-acquisition" title="Link to this heading"></a></h2>
+<p>Set <code class="docutils literal notranslate"><span class="pre">quantify_spectra</span> <span class="pre">=</span> <span class="pre">True</span></code> or <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
+<p>When enabled, spectra are quantified during acquisition. Quantification is
+parallelised but may be slow on less powerful microscope computers.
+In this case, it is recommended to set <code class="docutils literal notranslate"><span class="pre">quantify_spectra</span> <span class="pre">=</span> <span class="pre">False</span></code>, and
+follow step 8 after EDS acquisition.</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">quantify_spectra</span> <span class="pre">=</span> <span class="pre">True</span></code>, <code class="docutils literal notranslate"><span class="pre">AutoEMXSp</span></code> periodically checks for
+convergence and may stop acquisition early.</p>
+<p><strong>Convergence criteria</strong></p>
+<ul class="simple">
+<li><p>If no candidate phases are assigned: all clusters must have
+RMS point-to-centroid distance &lt; 2.5%.</p></li>
+<li><p>If candidate phases are assigned: confidence score &gt; 0.8 and
+RMS point-to-centroid distance &lt; 3%.</p></li>
+</ul>
+</section>
+<section id="step-5-define-other-parameters">
+<h2>Step 5 – Define other parameters<a class="headerlink" href="#step-5-define-other-parameters" title="Link to this heading"></a></h2>
+<p>The following parameters do not affect acquisition and can be modified later,
+but require re-quantification:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">interrupt_fits_bad_spectra</span></code>: Interrupt quantification for spectra expected
+to lead to large errors. Typically <code class="docutils literal notranslate"><span class="pre">True</span></code> to speed up quantifications.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">min_bckgrnd_cnts</span></code>: Minimum counts required under a reference peak for acceptance.</p>
+<ul>
+<li><p>Spectra failing this criterion are flagged (<code class="docutils literal notranslate"><span class="pre">quant_flag</span> <span class="pre">=</span> <span class="pre">8</span></code>).</p></li>
+<li><p>If <code class="docutils literal notranslate"><span class="pre">interrupt_fits_bad_spectra</span> <span class="pre">=</span> <span class="pre">False</span></code>, they are quantified but filtered
+later.</p></li>
+<li><p>If too many spectra end up being flagged, consider decreasing <code class="docutils literal notranslate"><span class="pre">min_bckgrnd_cnts</span></code>
+or increasing <code class="docutils literal notranslate"><span class="pre">target_Xsp_counts</span></code> in your following measurements.</p></li>
+<li><p>You can also change <code class="docutils literal notranslate"><span class="pre">min_bckgrnd_cnts</span></code> and requantify the spectra (Step 8).
+In this case, to re-quantify efficiently after changing <code class="docutils literal notranslate"><span class="pre">min_bckgrnd_cnts</span></code>, set
+<code class="docutils literal notranslate"><span class="pre">quantify_only_unquantified_spectra</span> <span class="pre">=</span> <span class="pre">True</span></code> when running Step 8.</p></li>
+</ul>
+</li>
+</ul>
+<p>The following parameters require only re-analysis of compositions:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">max_analytical_error_percent</span></code>: Sets the maximum acceptable analytical error
+for filtering compositions during clustering. Compositions exceeding this
+threshold will be discarded.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">quant_flags_accepted</span></code>: Specifies which quantification flags are considered
+valid during clustering. See <a class="reference internal" href="../_api/autoemxsp.config.classes.html#autoemxsp.config.classes.ClusteringConfig" title="autoemxsp.config.classes.ClusteringConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">Quantification</span> <span class="pre">Flag</span> <span class="pre">Descriptions</span></code></a>
+for details on each flag.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_n_clusters</span></code>: Defines the maximum number of clusters that can be
+identified in the sample. This value should be large enough to capture all
+relevant phases but not so large as to cause unnecessary computation.
+For material science samples, 6 is generally sufficient</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">show_unused_comps_clust</span></code>: Controls whether discarded compositions
+(shown as black triangles) are displayed in the clustering plot.
+Even if discarded due to high analytical error, these compositions can
+provide visual hints about the phases present in the sample.</p></li>
+</ul>
+</section>
+<section id="step-6-sample-type-specific-configurations">
+<h2>Step 6 – Sample-type-specific configurations<a class="headerlink" href="#step-6-sample-type-specific-configurations" title="Link to this heading"></a></h2>
+<p>Depending on <code class="docutils literal notranslate"><span class="pre">sample_type</span></code>, define the following configurations:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">powder_meas_cfg_kwargs</span></code> for <code class="docutils literal notranslate"><span class="pre">sample_type</span> <span class="pre">=</span> <span class="pre">'powder'</span></code>. Defines parameters
+to detect particles and select EDS acquisition spots.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bulk_meas_cfg_kwargs</span></code> for
+<code class="docutils literal notranslate"><span class="pre">sample_type</span> <span class="pre">=</span> <span class="pre">'powder_continuous'</span></code>, <code class="docutils literal notranslate"><span class="pre">'bulk'</span></code>, or <code class="docutils literal notranslate"><span class="pre">'bulk_rough'</span></code>. Set
+dimensions to define a grid of EDS acquisition spots.</p></li>
+</ul>
+<p>See the <a class="reference internal" href="../_api/autoemxsp.config.classes.html#autoemxsp.config.classes.PowderMeasurementConfig" title="autoemxsp.config.classes.PowderMeasurementConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">Powder</span> <span class="pre">Measurement</span> <span class="pre">Configurations</span></code></a>
+for <a class="reference internal" href="../_api/autoemxsp.config.classes.html#autoemxsp.config.classes.BulkMeasurementConfig" title="autoemxsp.config.classes.BulkMeasurementConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">Bulk</span> <span class="pre">Measurement</span> <span class="pre">Configurations</span></code></a> details.</p>
+</section>
+<section id="step-7-launch-spectra-acquisition">
+<h2>Step 7 – Launch spectra acquisition<a class="headerlink" href="#step-7-launch-spectra-acquisition" title="Link to this heading"></a></h2>
+<p>The script must be launched at the SEM.</p>
+<section id="output">
+<h3>Output<a class="headerlink" href="#output" title="Link to this heading"></a></h3>
+<p>For each sample, <code class="docutils literal notranslate"><span class="pre">AutoEMXSp</span></code> creates a folder named after <code class="docutils literal notranslate"><span class="pre">ID</span></code> containing:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Comp_analysis_configs.json</span></code>
+JSON file containing the full set of <code class="docutils literal notranslate"><span class="pre">AutoEMXSp</span></code> configurations used during
+acquisition and analysis.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">EM_metadata.msa</span></code>
+Metadata file generated by the microscope manufacturer.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SEM</span> <span class="pre">images/</span></code>
+Folder containing SEM images of every analysed region or particle, annotated
+with positions and ID of the acquired EDS spectra. If images are saved in
+<code class="docutils literal notranslate"><span class="pre">.tiff</span></code> format, an additional annotation-free image is also included for
+post-processing.</p></li>
+</ul>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/Example_annotated_particle.png"><img alt="Example SEM image of analysed particle" src="../_images/Example_annotated_particle.png" style="width: 70%;" />
+</a>
+</figure>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Analysed_region.png</span></code>
+Image captured from the microscope navigation camera and annotated with the
+analysed region. This file is only present if <code class="docutils literal notranslate"><span class="pre">sample_type</span> <span class="pre">=</span> <span class="pre">'powder'</span></code>.</p></li>
+</ul>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/Example_analysed_region.png"><img alt="Example analysed region from navigation camera" src="../_images/Example_analysed_region.png" style="width: 15%;" />
+</a>
+</figure>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Data.csv</span></code>
+CSV file containing the raw spectral data together with acquisition metadata.
+The file includes the following columns:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">Spectrum</span> <span class="pre">ID</span></code>
+Integer identifier reported in the annotated SEM images.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Frame</span> <span class="pre">ID</span></code>
+Identifier of the SEM frame from which the spectrum was acquired.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Particle</span> <span class="pre">#</span></code>
+Particle identifier used to retrieve the corresponding particle image.
+Only present if <code class="docutils literal notranslate"><span class="pre">sample_type</span> <span class="pre">=</span> <span class="pre">'powder'</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">(x,</span> <span class="pre">y)</span></code>
+Position of the spectrum in the corresponding SEM image, expressed in relative
+coordinates as defined in the microscope driver located at
+<code class="docutils literal notranslate"><span class="pre">autoemxsp/EM_driver/your_microscope_ID</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Real_time</span></code>
+Total acquisition time in seconds, measured from the beginning to the end
+of the acquisition.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Live_time</span></code>
+Effective detector acquisition time in seconds, obtained by removing
+detector dead time from <code class="docutils literal notranslate"><span class="pre">Real_time</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Spectrum</span></code>
+Raw EDS spectral data.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Background</span></code>
+Background spectrum fitted by the microscope manufacturer.
+Only present if <code class="docutils literal notranslate"><span class="pre">autoemxsp.config.defaults.use_instrument_background</span> <span class="pre">=</span> <span class="pre">True</span></code>.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+</section>
+<section id="step-8-optional-re-quantify-spectra">
+<h2>Step 8 - Optional: (re)quantify spectra<a class="headerlink" href="#step-8-optional-re-quantify-spectra" title="Link to this heading"></a></h2>
+<p>This step allows you to quantify spectra after acquisition. It is performed automatically if
+<code class="docutils literal notranslate"><span class="pre">quantify_spectra</span> <span class="pre">=</span> <span class="pre">True</span></code> was set during acquisition.</p>
+<p>Alternatively, the acquired data folder can be copied to a more performant machine (for example,
+with more CPU cores for faster parallel processing) and processed using <code class="docutils literal notranslate"><span class="pre">autoemxsp/scripts/Run_Quantification_Analysis.py</span></code></p>
+<section id="parameters">
+<h3>Parameters<a class="headerlink" href="#parameters" title="Link to this heading"></a></h3>
+<p>This script only requires a list of the samples to quantify <code class="docutils literal notranslate"><span class="pre">samples_ID</span></code>, and the project directory <code class="docutils literal notranslate"><span class="pre">results_dir</span></code>.
+All other parameters are optional; many are in common with th acquisition
+script, and have been previously decribed. Additional parameters are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">run_clustering_analysis</span></code>: If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the clustering analysis will run automatically after quantification. Recommended: <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">num_CPU_cores</span></code>: Number of CPU cores used for parallel fitting and quantification. If set to <code class="docutils literal notranslate"><span class="pre">None</span></code>, <cite>AutoEMXSp</cite> will automatically select half of the available cores.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">quantify_only_unquantified_spectra</span></code>: If <code class="docutils literal notranslate"><span class="pre">True</span></code>, quantifies only the previously unquantified spectra, for example after modifying <code class="docutils literal notranslate"><span class="pre">min_bckgrnd_cnts</span></code>. If <code class="docutils literal notranslate"><span class="pre">False</span></code>, all spectra are quantified regardless.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">interrupt_fits_bad_spectra</span></code>: If <code class="docutils literal notranslate"><span class="pre">True</span></code>, saves time by interrupting the quantification of spectra likely leading to large quantification errors, including:</p></li>
+</ul>
+<blockquote>
+<div><ul class="simple">
+<li><p>Spectra that cannot be properly fitted, usually occurring due to missing elements and unassigned peaks</p></li>
+<li><p>Excessive absorption detected in the low-energy portion of the spectrum</p></li>
+<li><p>Excessive analytical error &gt; 50w%, usually occurring due to missing elements and unassigned peaks</p></li>
+</ul>
+</div></blockquote>
+</section>
+<section id="id1">
+<h3>Output<a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
+<p>The quantification step updates the <code class="docutils literal notranslate"><span class="pre">Data.csv</span></code> file with the following columns:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">El_at%</span></code>: Atomic fraction for each element in the sample (defined in <code class="docutils literal notranslate"><span class="pre">els</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">El_w%</span></code>: Mass fraction for each element in the sample (defined in <code class="docutils literal notranslate"><span class="pre">els</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">An</span> <span class="pre">er</span> <span class="pre">w%</span></code>: Analytical total error (mass fraction). See the paper for details.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">r_squared</span></code>: R² metric indicating the goodness of fit.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">redchi_sq</span></code>: Reduced chi-squared value used to assess fit quality.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Quant_flag</span></code>: Flags indicating whether the quantification is reliable and, if not, the reason. See <a class="reference internal" href="../_api/autoemxsp.config.classes.html#autoemxsp.config.classes.ClusteringConfig" title="autoemxsp.config.classes.ClusteringConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">Quantification</span> <span class="pre">Flag</span> <span class="pre">Descriptions</span></code></a>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Comments</span></code>: For reliable spectra, reports the lowest counts fitted below a reference peak. For unreliable spectra, typically explains the reason for unreliability.</p></li>
+</ul>
+</section>
+</section>
+<section id="step-9-optional-re-analyse-spectra">
+<h2>Step 9 - Optional: (re)analyse spectra<a class="headerlink" href="#step-9-optional-re-analyse-spectra" title="Link to this heading"></a></h2>
+<p>This step is performed automatically if:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">quantify_spectra</span> <span class="pre">=</span> <span class="pre">True</span></code> was set during acquisition.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">run_clustering_analysis</span> <span class="pre">=</span> <span class="pre">True</span></code> was set during quantification.</p></li>
+</ul>
+<p>To run or re-run the clustering analysis of the extracted compositional data,
+execute <code class="docutils literal notranslate"><span class="pre">autoemxsp/scripts/Run_Analysis.py</span></code></p>
+<p>This step is not computationally intensive compared to quantification and can
+be run on the same machine or on a separate workstation.</p>
+<p><strong>Note:</strong> This script processes only one sample at a time, specified via
+<code class="docutils literal notranslate"><span class="pre">sample_ID</span></code>.</p>
+<section id="id2">
+<h3>Parameters<a class="headerlink" href="#id2" title="Link to this heading"></a></h3>
+<p>The script accepts some of the same parameters described previously for acquisition
+and quantification scripts. In addition, the following clustering-specific
+options are available:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">clustering_features</span></code> : Choose whether to use atomic fractions
+(<code class="docutils literal notranslate"><span class="pre">'at_fr'</span></code>) or mass fractions (<code class="docutils literal notranslate"><span class="pre">'w_fr'</span></code>) as features for clustering.
+Default is used if set to <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">k_forced</span></code> : Force the number of clusters to a specific integer. If set
+to <code class="docutils literal notranslate"><span class="pre">None</span></code>, the number of clusters is loaded from <code class="docutils literal notranslate"><span class="pre">Comp_analysis_configs.json</span></code>:</p>
+<ul>
+<li><p>If <code class="docutils literal notranslate"><span class="pre">k</span></code> was forced during acquisition, this value is used unless
+<code class="docutils literal notranslate"><span class="pre">k_finding_method</span></code> is not <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p>If <code class="docutils literal notranslate"><span class="pre">k</span></code> was determined automatically during acquisition (<code class="docutils literal notranslate"><span class="pre">k</span> <span class="pre">=</span> <span class="pre">None</span></code>),
+it will be re-evaluated automatically.</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">k_finding_method</span></code> : Method used to determine the number of clusters.
+See the available methods at <a class="reference internal" href="../_api/autoemxsp.config.classes.html#autoemxsp.config.classes.ClusteringConfig" title="autoemxsp.config.classes.ClusteringConfig"><code class="xref py py-class docutils literal notranslate"><span class="pre">Clustering</span> <span class="pre">Config</span></code></a>.
+Only applied if <code class="docutils literal notranslate"><span class="pre">k_forced</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code>. Note that if <code class="docutils literal notranslate"><span class="pre">k</span></code> was forced
+during acquisition, setting <code class="docutils literal notranslate"><span class="pre">k_finding_method</span></code> to anything other than
+<code class="docutils literal notranslate"><span class="pre">None</span></code> will force <code class="docutils literal notranslate"><span class="pre">k</span></code> to be re-evaluated.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">do_matrix_decomposition</span></code> : Determines whether matrix decomposition (NNLS, NMF)
+is computed for each cluster. Default is <code class="docutils literal notranslate"><span class="pre">True</span></code>. If many candidate phases are
+provided, these computations may take a long time and it may be desirable to
+set it to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+</ul>
+</section>
+<section id="plotting-options">
+<h3>Plotting options<a class="headerlink" href="#plotting-options" title="Link to this heading"></a></h3>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">ref_formulae</span></code> : List of candidate compositions. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, the list
+is loaded from <code class="docutils literal notranslate"><span class="pre">Comp_analysis_configs.json</span></code>.</p>
+<p><strong>Warning:</strong> Providing a list will replace the loaded list unless the
+first entry is <code class="docutils literal notranslate"><span class="pre">&quot;&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">None</span></code> (e.g., <code class="docutils literal notranslate"><span class="pre">ref_formulae</span> <span class="pre">=</span> <span class="pre">[,&quot;Mn2O3&quot;]</span></code>), in
+which case the provided list will be appended.</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">els_excluded_clust_plot</span></code> : List of elements to exclude from the 3D
+clustering plot. By default, elements are used in the order defined in
+<code class="docutils literal notranslate"><span class="pre">els</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">plot_custom_plots</span></code> : If <code class="docutils literal notranslate"><span class="pre">True</span></code>, use the custom plot function defined
+in <code class="docutils literal notranslate"><span class="pre">autoemxsp/_custom_plotting.py</span></code>. Useful for customize plots for publication.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">show_unused_compositions_cluster_plot</span></code> : If <code class="docutils literal notranslate"><span class="pre">True</span></code>, display discarded
+compositions as black triangles in the clustering plot. Consider that compositions
+discarded due to their analytical error may still be very close to the true
+composition and visually hint at the phases present in your sample. For this
+reason, it is preferrable to plot them unless the plot becomes too clogged.</p></li>
+</ul>
+</section>
+<section id="id3">
+<h3>Output<a class="headerlink" href="#id3" title="Link to this heading"></a></h3>
+<p>Running the script creates an <code class="docutils literal notranslate"><span class="pre">Analysis</span></code> folder with the following files:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Clustering_info.json</span></code> : Contains the clustering and quantification
+configurations used.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Clustering_plot.png</span></code> : 3D clustering plot (also displayed interactively
+when the script runs).</p></li>
+</ul>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/Example_3D_clustering_plot.png"><img alt="Example 3D clustering" src="../_images/Example_3D_clustering_plot.png" style="width: 70%;" />
+</a>
+</figure>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Silhouette_plot.png</span></code> : If <code class="docutils literal notranslate"><span class="pre">k</span></code> was not forced, shows silhouette
+scores for the determined number of clusters.</p></li>
+</ul>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../_images/Example_Silhouette_plot.png"><img alt="Example Silhouette plot" src="../_images/Example_Silhouette_plot.png" style="width: 70%;" />
+</a>
+</figure>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Clusters.csv</span></code> : One row per identified cluster, with the following columns:</p>
+<ul>
+<li><p>First column: identifies the <cite>Cluster ID</cite>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">n-points</span></code> : Number of points in the cluster.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">El_at%</span></code> : Atomic fractions of cluster centroid (i.e, average composition
+of the compositions in the cluster).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">El_std_at%</span></code> : Standard deviation of atomic fractions of the cluster compositions.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">El_w%</span></code> : Mass fraction of cluster centroid.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">El_std_w%</span></code> : Standard deviation of mass fractions.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">RMS_dist_at%</span></code> : Root-mean-square distance of points from centroid
+in atomic fraction space.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">RMS_dist_w%</span></code> : Root-mean-square distance in mass fraction space.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">wcss</span></code> : Within-cluster sum of squares (in the feature space used).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cnd</span></code> : Identified candidate composition with raw confidence score
+<code class="docutils literal notranslate"><span class="pre">CS_raw</span></code> and overall confidence score <code class="docutils literal notranslate"><span class="pre">CS_cnd</span></code> (taking into account
+neighboring candidate phase compositions, which decrease the confidence).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mix</span></code> : Pair of compositions potentially intermixed, with:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">CS_mix</span></code> : Confidence score of mixture.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Mol_Ratio</span></code> : Molar ratio (X1 / X2).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">X1_mean</span></code> : Mean molar fraction of the first phase.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">X1_stdev</span></code> : Standard deviation of the first phase molar fraction.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Compositions.csv</span></code> : Similar to <code class="docutils literal notranslate"><span class="pre">Data.csv</span></code> but with an additional
+<code class="docutils literal notranslate"><span class="pre">Cluster</span> <span class="pre">ID</span></code> column indicating the cluster assignment.</p></li>
+</ul>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="tutorials.html" class="btn btn-neutral float-left" title="Tutorials" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="fit_autoemxsp_spectrum.html" class="btn btn-neutral float-right" title="Tutorial: Fit and quantify individual spectra acquired with AutoEMXSp" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Andrea Giunto.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

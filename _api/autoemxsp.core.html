@@ -1,0 +1,387 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>autoemxsp.core package &mdash; AutoEMXSp 0.1.6 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=6e0256f3"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="autoemxsp.core.particle_segmentation_models package" href="autoemxsp.core.particle_segmentation_models.html" />
+    <link rel="prev" title="autoemxsp.EM_driver.PhenomXL module" href="autoemxsp.EM_driver.PhenomXL.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            AutoEMXSp
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../user/index.html">User Documentation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced User Documentation:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../advanced_user/index.html">Advanced User Documentation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/sdd_calib.html">EDS Detector Calibration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/new_exp_stds.html">EDS Experimental Standard Collection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/new_XSpdetector.html">Calibrate a new Detector for EDS fit and quantification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/new_EMdriver.html">Add new Electron Microscope Driver</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../advanced_user/advanced_api.html">AutoEMXSp Public API</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.XSp_calibs.html">autoemxsp.XSp_calibs package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.EM_driver.html">autoemxsp.EM_driver package</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">autoemxsp.core package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#subpackages">Subpackages</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#submodules">Submodules</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">AutoEMXSp</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../advanced_user/index.html">Advanced User Documentation</a></li>
+          <li class="breadcrumb-item"><a href="../advanced_user/advanced_api.html">AutoEMXSp Public API</a></li>
+      <li class="breadcrumb-item active">autoemxsp.core package</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/_api/autoemxsp.core.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-autoemxsp.core">
+<span id="autoemxsp-core-package"></span><h1>autoemxsp.core package<a class="headerlink" href="#module-autoemxsp.core" title="Link to this heading"></a></h1>
+<p>Created on Thu Sep 18 13:30:06 2025</p>
+<p>&#64;author: Andrea</p>
+<section id="subpackages">
+<h2>Subpackages<a class="headerlink" href="#subpackages" title="Link to this heading"></a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="autoemxsp.core.particle_segmentation_models.html">autoemxsp.core.particle_segmentation_models package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.particle_segmentation_models.html#autoemxsp.core.particle_segmentation_models.load_models"><code class="docutils literal notranslate"><span class="pre">load_models()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.particle_segmentation_models.html#submodules">Submodules</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.particle_segmentation_models.segmentation_model_template.html">autoemxsp.core.particle_segmentation_models.segmentation_model_template module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.core.particle_segmentation_models.segmentation_model_template.html#autoemxsp.core.particle_segmentation_models.segmentation_model_template.segment_particles"><code class="docutils literal notranslate"><span class="pre">segment_particles()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.particle_segmentation_models.Rettenberger2024.html">autoemxsp.core.particle_segmentation_models.Rettenberger2024 module</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.core.particle_segmentation_models.Rettenberger2024.html#autoemxsp.core.particle_segmentation_models.Rettenberger2024.segment_particles"><code class="docutils literal notranslate"><span class="pre">segment_particles()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="autoemxsp.core.EMXSp_composition_analyser.html">autoemxsp.core.EMXSp_composition_analyser module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.EMXSp_composition_analyser.html#example-usage">Example Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.EMXSp_composition_analyser.html#autoemxsp.core.EMXSp_composition_analyser.EMXSp_Composition_Analyzer"><code class="docutils literal notranslate"><span class="pre">EMXSp_Composition_Analyzer</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EMXSp_composition_analyser.html#autoemxsp.core.EMXSp_composition_analyser.EMXSp_Composition_Analyzer.analyse_data"><code class="docutils literal notranslate"><span class="pre">EMXSp_Composition_Analyzer.analyse_data()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EMXSp_composition_analyser.html#autoemxsp.core.EMXSp_composition_analyser.EMXSp_Composition_Analyzer.run_collection_and_quantification"><code class="docutils literal notranslate"><span class="pre">EMXSp_Composition_Analyzer.run_collection_and_quantification()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EMXSp_composition_analyser.html#autoemxsp.core.EMXSp_composition_analyser.EMXSp_Composition_Analyzer.run_quantification"><code class="docutils literal notranslate"><span class="pre">EMXSp_Composition_Analyzer.run_quantification()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EMXSp_composition_analyser.html#autoemxsp.core.EMXSp_composition_analyser.EMXSp_Composition_Analyzer.run_exp_std_collection"><code class="docutils literal notranslate"><span class="pre">EMXSp_Composition_Analyzer.run_exp_std_collection()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EMXSp_composition_analyser.html#autoemxsp.core.EMXSp_composition_analyser.EMXSp_Composition_Analyzer.print_results"><code class="docutils literal notranslate"><span class="pre">EMXSp_Composition_Analyzer.print_results()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="autoemxsp.core.EM_controller.html">autoemxsp.core.EM_controller module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.EM_controller.html#main-classes">Main Classes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.EM_controller.html#example-usage">Example Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Controller"><code class="docutils literal notranslate"><span class="pre">EM_Controller</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Controller.an_circle_key"><code class="docutils literal notranslate"><span class="pre">EM_Controller.an_circle_key</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Controller.an_text_key"><code class="docutils literal notranslate"><span class="pre">EM_Controller.an_text_key</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Controller.initialise_SEM"><code class="docutils literal notranslate"><span class="pre">EM_Controller.initialise_SEM()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Controller.initialise_sample_navigator"><code class="docutils literal notranslate"><span class="pre">EM_Controller.initialise_sample_navigator()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Controller.initialise_XS_analyzer"><code class="docutils literal notranslate"><span class="pre">EM_Controller.initialise_XS_analyzer()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Controller.get_XSp_coords"><code class="docutils literal notranslate"><span class="pre">EM_Controller.get_XSp_coords()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Controller.convert_XS_coords_to_pixels"><code class="docutils literal notranslate"><span class="pre">EM_Controller.convert_XS_coords_to_pixels()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Controller.acquire_XS_spot_spectrum"><code class="docutils literal notranslate"><span class="pre">EM_Controller.acquire_XS_spot_spectrum()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Controller.adjust_BCF"><code class="docutils literal notranslate"><span class="pre">EM_Controller.adjust_BCF()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Controller.set_frame_width"><code class="docutils literal notranslate"><span class="pre">EM_Controller.set_frame_width()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Controller.get_current_image"><code class="docutils literal notranslate"><span class="pre">EM_Controller.get_current_image()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Controller.move_to_pos"><code class="docutils literal notranslate"><span class="pre">EM_Controller.move_to_pos()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Controller.convert_pixel_pos_to_mm"><code class="docutils literal notranslate"><span class="pre">EM_Controller.convert_pixel_pos_to_mm()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Controller.standby"><code class="docutils literal notranslate"><span class="pre">EM_Controller.standby()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Controller.go_to_next_frame"><code class="docutils literal notranslate"><span class="pre">EM_Controller.go_to_next_frame()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Controller.save_frame_image"><code class="docutils literal notranslate"><span class="pre">EM_Controller.save_frame_image()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Sample_Finder"><code class="docutils literal notranslate"><span class="pre">EM_Sample_Finder</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Sample_Finder.microscope_ID"><code class="docutils literal notranslate"><span class="pre">EM_Sample_Finder.microscope_ID</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Sample_Finder.center_pos"><code class="docutils literal notranslate"><span class="pre">EM_Sample_Finder.center_pos</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Sample_Finder.results_dir"><code class="docutils literal notranslate"><span class="pre">EM_Sample_Finder.results_dir</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Sample_Finder.verbose"><code class="docutils literal notranslate"><span class="pre">EM_Sample_Finder.verbose</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Sample_Finder.development_mode"><code class="docutils literal notranslate"><span class="pre">EM_Sample_Finder.development_mode</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Sample_Finder.detect_Ctape"><code class="docutils literal notranslate"><span class="pre">EM_Sample_Finder.detect_Ctape()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_controller.html#autoemxsp.core.EM_controller.EM_Sample_Finder.normalise_img"><code class="docutils literal notranslate"><span class="pre">EM_Sample_Finder.normalise_img()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="autoemxsp.core.EM_particle_finder.html">autoemxsp.core.EM_particle_finder module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.EM_particle_finder.html#main-class">Main Class</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.EM_particle_finder.html#example-usage">Example Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.EM_particle_finder.html#autoemxsp.core.EM_particle_finder.EM_Particle_Finder"><code class="docutils literal notranslate"><span class="pre">EM_Particle_Finder</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_particle_finder.html#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.EM"><code class="docutils literal notranslate"><span class="pre">EM_Particle_Finder.EM</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_particle_finder.html#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.powder_meas_cfg"><code class="docutils literal notranslate"><span class="pre">EM_Particle_Finder.powder_meas_cfg</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_particle_finder.html#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.is_manual_particle_selection"><code class="docutils literal notranslate"><span class="pre">EM_Particle_Finder.is_manual_particle_selection</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_particle_finder.html#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.results_dir"><code class="docutils literal notranslate"><span class="pre">EM_Particle_Finder.results_dir</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_particle_finder.html#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.verbose"><code class="docutils literal notranslate"><span class="pre">EM_Particle_Finder.verbose</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_particle_finder.html#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.development_mode"><code class="docutils literal notranslate"><span class="pre">EM_Particle_Finder.development_mode</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_particle_finder.html#autoemxsp.core.EM_particle_finder.EM_Particle_Finder._sample_ID"><code class="docutils literal notranslate"><span class="pre">EM_Particle_Finder._sample_ID</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_particle_finder.html#autoemxsp.core.EM_particle_finder.EM_Particle_Finder._im_width"><code class="docutils literal notranslate"><span class="pre">EM_Particle_Finder._im_width</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_particle_finder.html#autoemxsp.core.EM_particle_finder.EM_Particle_Finder._im_height"><code class="docutils literal notranslate"><span class="pre">EM_Particle_Finder._im_height</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_particle_finder.html#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.tot_par_cntr"><code class="docutils literal notranslate"><span class="pre">EM_Particle_Finder.tot_par_cntr</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_particle_finder.html#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.analyzed_pars"><code class="docutils literal notranslate"><span class="pre">EM_Particle_Finder.analyzed_pars</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_particle_finder.html#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.go_to_next_particle"><code class="docutils literal notranslate"><span class="pre">EM_Particle_Finder.go_to_next_particle()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_particle_finder.html#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.is_particle_at_frame_edge"><code class="docutils literal notranslate"><span class="pre">EM_Particle_Finder.is_particle_at_frame_edge()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_particle_finder.html#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.prepare_mask_for_visualization"><code class="docutils literal notranslate"><span class="pre">EM_Particle_Finder.prepare_mask_for_visualization()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_particle_finder.html#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.get_XS_acquisition_spots_coord_list"><code class="docutils literal notranslate"><span class="pre">EM_Particle_Finder.get_XS_acquisition_spots_coord_list()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_particle_finder.html#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.get_particle_stats"><code class="docutils literal notranslate"><span class="pre">EM_Particle_Finder.get_particle_stats()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.EM_particle_finder.html#autoemxsp.core.EM_particle_finder.EM_Particle_Finder.save_particle_statistics"><code class="docutils literal notranslate"><span class="pre">EM_Particle_Finder.save_particle_statistics()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html">autoemxsp.core.XSp_fitter module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#class-structure-and-interactions">Class Structure and Interactions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#typical-usage">Typical Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#customization-calibration">Customization &amp; Calibration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#dependencies">Dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#how-the-classes-interact"><strong>How the classes interact:</strong></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#in-short"><strong>In short:</strong></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.patch_lmfit_fast_mode"><code class="docutils literal notranslate"><span class="pre">patch_lmfit_fast_mode()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.XSp_Fitter"><code class="docutils literal notranslate"><span class="pre">XSp_Fitter</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.XSp_Fitter.spectrum_vals"><code class="docutils literal notranslate"><span class="pre">XSp_Fitter.spectrum_vals</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.XSp_Fitter.energy_vals"><code class="docutils literal notranslate"><span class="pre">XSp_Fitter.energy_vals</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.XSp_Fitter.els_to_quantify"><code class="docutils literal notranslate"><span class="pre">XSp_Fitter.els_to_quantify</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.XSp_Fitter.els_w_fr"><code class="docutils literal notranslate"><span class="pre">XSp_Fitter.els_w_fr</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.XSp_Fitter.els_substrate"><code class="docutils literal notranslate"><span class="pre">XSp_Fitter.els_substrate</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.XSp_Fitter.fit_background"><code class="docutils literal notranslate"><span class="pre">XSp_Fitter.fit_background</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.XSp_Fitter.xray_quant_ref_lines"><code class="docutils literal notranslate"><span class="pre">XSp_Fitter.xray_quant_ref_lines</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.XSp_Fitter.is_particle"><code class="docutils literal notranslate"><span class="pre">XSp_Fitter.is_particle</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.XSp_Fitter.microscope_ID"><code class="docutils literal notranslate"><span class="pre">XSp_Fitter.microscope_ID</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.XSp_Fitter.meas_mode"><code class="docutils literal notranslate"><span class="pre">XSp_Fitter.meas_mode</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.XSp_Fitter.spectrum_lims"><code class="docutils literal notranslate"><span class="pre">XSp_Fitter.spectrum_lims</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.XSp_Fitter.force_fr_total"><code class="docutils literal notranslate"><span class="pre">XSp_Fitter.force_fr_total</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.XSp_Fitter.beam_energy"><code class="docutils literal notranslate"><span class="pre">XSp_Fitter.beam_energy</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.XSp_Fitter.emergence_angle"><code class="docutils literal notranslate"><span class="pre">XSp_Fitter.emergence_angle</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.XSp_Fitter.tot_sp_counts"><code class="docutils literal notranslate"><span class="pre">XSp_Fitter.tot_sp_counts</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.XSp_Fitter.sp_collection_time"><code class="docutils literal notranslate"><span class="pre">XSp_Fitter.sp_collection_time</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.XSp_Fitter.print_evolving_params"><code class="docutils literal notranslate"><span class="pre">XSp_Fitter.print_evolving_params</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.XSp_Fitter.verbose"><code class="docutils literal notranslate"><span class="pre">XSp_Fitter.verbose</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.XSp_Fitter.escape_peaks_str"><code class="docutils literal notranslate"><span class="pre">XSp_Fitter.escape_peaks_str</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.XSp_Fitter.pileup_peaks_str"><code class="docutils literal notranslate"><span class="pre">XSp_Fitter.pileup_peaks_str</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.XSp_Fitter.fit_spectrum"><code class="docutils literal notranslate"><span class="pre">XSp_Fitter.fit_spectrum()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.XSp_Fitter.plot_result"><code class="docutils literal notranslate"><span class="pre">XSp_Fitter.plot_result()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.XSp_Fitter.print_result"><code class="docutils literal notranslate"><span class="pre">XSp_Fitter.print_result()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model"><code class="docutils literal notranslate"><span class="pre">Peaks_Model</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.spectrum_vals"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.spectrum_vals</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.energy_vals"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.energy_vals</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.fitting_model"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.fitting_model</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.fitting_params"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.fitting_params</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.xray_weight_refs_dict"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.xray_weight_refs_dict</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.xray_weight_refs_lines"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.xray_weight_refs_lines</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.microscope_ID"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.microscope_ID</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.meas_mode"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.meas_mode</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.is_particle"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.is_particle</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.free_area_el_lines"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.free_area_el_lines</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.free_peak_shapes_els"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.free_peak_shapes_els</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.fixed_peaks_dict"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.fixed_peaks_dict</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.icc_freq_spectra"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.icc_freq_spectra</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.pileup_peaks_str"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.pileup_peaks_str</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#id0"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.icc_freq_spectra</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.center_key"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.center_key</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.sigma_key"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.sigma_key</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.area_key"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.area_key</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.center_offset_key"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.center_offset_key</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.sigma_broadening_key"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.sigma_broadening_key</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.gamma_key"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.gamma_key</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.tail_fraction_key"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.tail_fraction_key</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.F_loss_key"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.F_loss_key</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.R_e_key"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.R_e_key</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.escape_peaks_str"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.escape_peaks_str</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#id9"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.pileup_peaks_str</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.clear_cached_icc_spectra"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.clear_cached_icc_spectra()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Peaks_Model.get_peaks_mod_pars"><code class="docutils literal notranslate"><span class="pre">Peaks_Model.get_peaks_mod_pars()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Background_Model"><code class="docutils literal notranslate"><span class="pre">Background_Model</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Background_Model.cls_beam_e"><code class="docutils literal notranslate"><span class="pre">Background_Model.cls_beam_e</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Background_Model.den_int"><code class="docutils literal notranslate"><span class="pre">Background_Model.den_int</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Background_Model.num_int"><code class="docutils literal notranslate"><span class="pre">Background_Model.num_int</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Background_Model.prev_x"><code class="docutils literal notranslate"><span class="pre">Background_Model.prev_x</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Background_Model.prev_rhoz_par_offset"><code class="docutils literal notranslate"><span class="pre">Background_Model.prev_rhoz_par_offset</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Background_Model.prev_rhoz_par_slope"><code class="docutils literal notranslate"><span class="pre">Background_Model.prev_rhoz_par_slope</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Background_Model.prev_rhoz_limit"><code class="docutils literal notranslate"><span class="pre">Background_Model.prev_rhoz_limit</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Background_Model.prev_w_frs"><code class="docutils literal notranslate"><span class="pre">Background_Model.prev_w_frs</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Background_Model.rhoz_values"><code class="docutils literal notranslate"><span class="pre">Background_Model.rhoz_values</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Background_Model.get_average_Z"><code class="docutils literal notranslate"><span class="pre">Background_Model.get_average_Z()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Background_Model.get_stopping_power_mod_pars"><code class="docutils literal notranslate"><span class="pre">Background_Model.get_stopping_power_mod_pars()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Background_Model.get_abs_attenuation_mod_pars"><code class="docutils literal notranslate"><span class="pre">Background_Model.get_abs_attenuation_mod_pars()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Background_Model.get_backscattering_correction_mod_pars"><code class="docutils literal notranslate"><span class="pre">Background_Model.get_backscattering_correction_mod_pars()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Background_Model.get_beta_expr"><code class="docutils literal notranslate"><span class="pre">Background_Model.get_beta_expr()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Background_Model.get_generated_background_mod_pars"><code class="docutils literal notranslate"><span class="pre">Background_Model.get_generated_background_mod_pars()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Background_Model.get_detector_efficiency_mod_pars"><code class="docutils literal notranslate"><span class="pre">Background_Model.get_detector_efficiency_mod_pars()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Background_Model.get_det_zero_peak_model_pars"><code class="docutils literal notranslate"><span class="pre">Background_Model.get_det_zero_peak_model_pars()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.Background_Model.get_full_background_mod_pars"><code class="docutils literal notranslate"><span class="pre">Background_Model.get_full_background_mod_pars()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.DetectorResponseFunction"><code class="docutils literal notranslate"><span class="pre">DetectorResponseFunction</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.DetectorResponseFunction.det_res_conv_matrix"><code class="docutils literal notranslate"><span class="pre">DetectorResponseFunction.det_res_conv_matrix</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.DetectorResponseFunction.icc_conv_matrix"><code class="docutils literal notranslate"><span class="pre">DetectorResponseFunction.icc_conv_matrix</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.DetectorResponseFunction.energy_vals_padding"><code class="docutils literal notranslate"><span class="pre">DetectorResponseFunction.energy_vals_padding</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.DetectorResponseFunction.setup_detector_response_vars"><code class="docutils literal notranslate"><span class="pre">DetectorResponseFunction.setup_detector_response_vars()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_fitter.html#autoemxsp.core.XSp_fitter.DetectorResponseFunction.get_icc_spectrum"><code class="docutils literal notranslate"><span class="pre">DetectorResponseFunction.get_icc_spectrum()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html">autoemxsp.core.XSp_quantifier module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#class-structure-and-interactions">Class Structure and Interactions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#typical-usage">Typical Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#customization-calibration">Customization &amp; Calibration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#dependencies">Dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#how-the-classes-interact">How the classes interact</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.spectrum_vals"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.spectrum_vals</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.energy_vals"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.energy_vals</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.spectrum_lims"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.spectrum_lims</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.fit_background"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.fit_background</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.background_vals"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.background_vals</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.els_sample"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.els_sample</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.els_to_quantify"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.els_to_quantify</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.els_substrate"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.els_substrate</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.els_w_fr"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.els_w_fr</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.max_undetectable_w_fr"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.max_undetectable_w_fr</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.force_total_w_fr"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.force_total_w_fr</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.is_particle"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.is_particle</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.sp_collection_time"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.sp_collection_time</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.fit_tol"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.fit_tol</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.bad_quant_flag"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.bad_quant_flag</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.microscope_ID"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.microscope_ID</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.meas_type"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.meas_type</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.meas_mode"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.meas_mode</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.det_ch_offset"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.det_ch_offset</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.det_ch_width"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.det_ch_width</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.beam_energy"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.beam_energy</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.emergence_angle"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.emergence_angle</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.verbose"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.verbose</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.fitting_verbose"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.fitting_verbose</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.xray_quant_ref_lines"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.xray_quant_ref_lines</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#id0"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.xray_quant_ref_lines</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.initialize_and_fit_spectrum"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.initialize_and_fit_spectrum()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.get_starting_K_val"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.get_starting_K_val()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.quantify_spectrum"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.quantify_spectrum()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.print_quant_result"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.print_quant_result()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.plot_quantified_spectrum"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.plot_quantified_spectrum()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.XSp_Quantifier.plot_zoomed_peak"><code class="docutils literal notranslate"><span class="pre">XSp_Quantifier.plot_zoomed_peak()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.Quant_Corrections"><code class="docutils literal notranslate"><span class="pre">Quant_Corrections</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.Quant_Corrections.elements"><code class="docutils literal notranslate"><span class="pre">Quant_Corrections.elements</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.Quant_Corrections.energies"><code class="docutils literal notranslate"><span class="pre">Quant_Corrections.energies</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.Quant_Corrections.emergence_angle"><code class="docutils literal notranslate"><span class="pre">Quant_Corrections.emergence_angle</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.Quant_Corrections.beam_energy"><code class="docutils literal notranslate"><span class="pre">Quant_Corrections.beam_energy</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.Quant_Corrections.meas_mode"><code class="docutils literal notranslate"><span class="pre">Quant_Corrections.meas_mode</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.Quant_Corrections.Z_els"><code class="docutils literal notranslate"><span class="pre">Quant_Corrections.Z_els</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.Quant_Corrections.W_els"><code class="docutils literal notranslate"><span class="pre">Quant_Corrections.W_els</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.Quant_Corrections.els_nu"><code class="docutils literal notranslate"><span class="pre">Quant_Corrections.els_nu</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.Quant_Corrections.mass_abs_coeffs_lines"><code class="docutils literal notranslate"><span class="pre">Quant_Corrections.mass_abs_coeffs_lines</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.Quant_Corrections.verbose"><code class="docutils literal notranslate"><span class="pre">Quant_Corrections.verbose</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.XSp_quantifier.html#autoemxsp.core.XSp_quantifier.Quant_Corrections.get_ZAF_mult_f_pb"><code class="docutils literal notranslate"><span class="pre">Quant_Corrections.get_ZAF_mult_f_pb()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="autoemxsp.EM_driver.PhenomXL.html" class="btn btn-neutral float-left" title="autoemxsp.EM_driver.PhenomXL module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="autoemxsp.core.particle_segmentation_models.html" class="btn btn-neutral float-right" title="autoemxsp.core.particle_segmentation_models package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Andrea Giunto.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

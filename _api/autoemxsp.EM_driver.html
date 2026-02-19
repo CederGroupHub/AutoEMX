@@ -1,0 +1,201 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>autoemxsp.EM_driver package &mdash; AutoEMXSp 0.1.6 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=6e0256f3"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="autoemxsp.EM_driver.PhenomXL module" href="autoemxsp.EM_driver.PhenomXL.html" />
+    <link rel="prev" title="autoemxsp.XSp_calibs package" href="autoemxsp.XSp_calibs.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            AutoEMXSp
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../user/index.html">User Documentation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced User Documentation:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../advanced_user/index.html">Advanced User Documentation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/sdd_calib.html">EDS Detector Calibration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/new_exp_stds.html">EDS Experimental Standard Collection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/new_XSpdetector.html">Calibrate a new Detector for EDS fit and quantification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/new_EMdriver.html">Add new Electron Microscope Driver</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../advanced_user/advanced_api.html">AutoEMXSp Public API</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.XSp_calibs.html">autoemxsp.XSp_calibs package</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">autoemxsp.EM_driver package</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#autoemxsp.EM_driver.load_microscope_driver"><code class="docutils literal notranslate"><span class="pre">load_microscope_driver()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#submodules">Submodules</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.core.html">autoemxsp.core package</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">AutoEMXSp</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../advanced_user/index.html">Advanced User Documentation</a></li>
+          <li class="breadcrumb-item"><a href="../advanced_user/advanced_api.html">AutoEMXSp Public API</a></li>
+      <li class="breadcrumb-item active">autoemxsp.EM_driver package</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/_api/autoemxsp.EM_driver.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-autoemxsp.EM_driver">
+<span id="autoemxsp-em-driver-package"></span><h1>autoemxsp.EM_driver package<a class="headerlink" href="#module-autoemxsp.EM_driver" title="Link to this heading"></a></h1>
+<p>Electron Microscope Driver Loader</p>
+<p>This module provides a function to dynamically load and inject
+microscope-specific driver parameters and functions for SEM operation
+from the ‘EM_driver’ directory.</p>
+<dl class="simple">
+<dt>Usage from other modules:</dt><dd><p>from autoemxsp import EM_driver
+EM_driver.load_microscope_driver(microscope_ID=’PhenomXL’)</p>
+</dd>
+</dl>
+<p>Author: Andrea Giunto
+Created on: Mon Jan 20 15:40:42 2025</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="autoemxsp.EM_driver.load_microscope_driver">
+<span class="sig-prename descclassname"><span class="pre">autoemxsp.EM_driver.</span></span><span class="sig-name descname"><span class="pre">load_microscope_driver</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">microscope_ID</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../_modules/autoemxsp/EM_driver.html#load_microscope_driver"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.EM_driver.load_microscope_driver" title="Link to this definition"></a></dt>
+<dd><p>Dynamically load driver parameters and functions for a given microscope.</p>
+<p>This function imports all public attributes from the driver file
+named ‘{microscope_ID}.py’ (located inside the EM_driver directory)
+and injects them into the current module’s namespace.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>(</strong><strong>str</strong><strong>)</strong> (<em>microscope_ID</em>)</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If the driver file cannot be found or imported.:</p>
+</dd>
+</dl>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This function injects variables and functions into the module namespace.
+Use with care to avoid name collisions.</p>
+</div>
+</dd></dl>
+
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading"></a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html">autoemxsp.EM_driver.PhenomXL module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html#electron-microscope-driver">Electron Microscope Driver</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html#purpose">Purpose</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html#autoemxsp.EM_driver.PhenomXL.frame_rel_to_pixel_coords"><code class="docutils literal notranslate"><span class="pre">frame_rel_to_pixel_coords()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html#autoemxsp.EM_driver.PhenomXL.frame_pixel_to_rel_coords"><code class="docutils literal notranslate"><span class="pre">frame_pixel_to_rel_coords()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html#autoemxsp.EM_driver.PhenomXL.standby"><code class="docutils literal notranslate"><span class="pre">standby()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html#autoemxsp.EM_driver.PhenomXL.set_electron_detector_mode"><code class="docutils literal notranslate"><span class="pre">set_electron_detector_mode()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html#autoemxsp.EM_driver.PhenomXL.activate"><code class="docutils literal notranslate"><span class="pre">activate()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html#autoemxsp.EM_driver.PhenomXL.to_SEM"><code class="docutils literal notranslate"><span class="pre">to_SEM()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html#autoemxsp.EM_driver.PhenomXL.set_high_tension"><code class="docutils literal notranslate"><span class="pre">set_high_tension()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html#autoemxsp.EM_driver.PhenomXL.set_beam_current"><code class="docutils literal notranslate"><span class="pre">set_beam_current()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html#autoemxsp.EM_driver.PhenomXL.get_EDS_analyser_object"><code class="docutils literal notranslate"><span class="pre">get_EDS_analyser_object()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html#autoemxsp.EM_driver.PhenomXL.acquire_XS_spectral_data"><code class="docutils literal notranslate"><span class="pre">acquire_XS_spectral_data()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html#autoemxsp.EM_driver.PhenomXL.auto_focus"><code class="docutils literal notranslate"><span class="pre">auto_focus()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html#autoemxsp.EM_driver.PhenomXL.auto_contrast_brightness"><code class="docutils literal notranslate"><span class="pre">auto_contrast_brightness()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html#autoemxsp.EM_driver.PhenomXL.adjust_focus"><code class="docutils literal notranslate"><span class="pre">adjust_focus()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html#autoemxsp.EM_driver.PhenomXL.move_to"><code class="docutils literal notranslate"><span class="pre">move_to()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html#autoemxsp.EM_driver.PhenomXL.get_frame_width"><code class="docutils literal notranslate"><span class="pre">get_frame_width()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html#autoemxsp.EM_driver.PhenomXL.get_range_frame_width"><code class="docutils literal notranslate"><span class="pre">get_range_frame_width()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html#autoemxsp.EM_driver.PhenomXL.set_frame_width"><code class="docutils literal notranslate"><span class="pre">set_frame_width()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html#autoemxsp.EM_driver.PhenomXL.get_image_data"><code class="docutils literal notranslate"><span class="pre">get_image_data()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html#autoemxsp.EM_driver.PhenomXL.set_brightness"><code class="docutils literal notranslate"><span class="pre">set_brightness()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html#autoemxsp.EM_driver.PhenomXL.set_contrast"><code class="docutils literal notranslate"><span class="pre">set_contrast()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html#autoemxsp.EM_driver.PhenomXL.get_current_wd"><code class="docutils literal notranslate"><span class="pre">get_current_wd()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html#autoemxsp.EM_driver.PhenomXL.to_nav"><code class="docutils literal notranslate"><span class="pre">to_nav()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoemxsp.EM_driver.PhenomXL.html#autoemxsp.EM_driver.PhenomXL.get_navigation_camera_image"><code class="docutils literal notranslate"><span class="pre">get_navigation_camera_image()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="autoemxsp.XSp_calibs.html" class="btn btn-neutral float-left" title="autoemxsp.XSp_calibs package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="autoemxsp.EM_driver.PhenomXL.html" class="btn btn-neutral float-right" title="autoemxsp.EM_driver.PhenomXL module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Andrea Giunto.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

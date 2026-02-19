@@ -1,0 +1,468 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>autoemxsp.runners.Batch_Acquire_Experimental_Stds &mdash; AutoEMXSp 0.1.6 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=6e0256f3"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            AutoEMXSp
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/index.html">User Documentation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced_user/index.html">Advanced User Documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">AutoEMXSp</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">autoemxsp.runners.Batch_Acquire_Experimental_Stds</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for autoemxsp.runners.Batch_Acquire_Experimental_Stds</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Automated X-Ray Experimental Standard Acquisition and Analysis</span>
+
+<span class="sd">This module configures and runs automated collection and fitting</span>
+<span class="sd">of EDS/WDS spectra from experimental standards (i.e., sampels of known composition)</span>
+<span class="sd">to generate reference values of peak-to-background ratios.</span>
+
+<span class="sd">Import this module in your own Python code and call the</span>
+<span class="sd">`batch_acquire_experimental_stds()` function, passing your desired configuration</span>
+<span class="sd">and sample list as arguments. This enables integration into larger</span>
+<span class="sd">automation workflows or pipelines.</span>
+
+<span class="sd">Workflow includes:</span>
+<span class="sd">    - Configuration of microscope, measurement, substrate, and fitting parameters</span>
+<span class="sd">    - Sample setup (elements, position, reference formulae)</span>
+<span class="sd">    - Calibration and quantification options</span>
+<span class="sd">    - Automated or manual navigation and acquisition modes</span>
+
+<span class="sd">Requirements:</span>
+<span class="sd">    - Proper instrument calibration files and instrument driver for the selected microscope</span>
+
+<span class="sd">Typical usage:</span>
+<span class="sd">    - Edit the &#39;std_list&#39; list to define your standards</span>
+<span class="sd">    - Adjust configuration parameters as needed, either directly in the script or by passing them to `batch_acquire_experimental_stds`</span>
+<span class="sd">    - Run the script, or import and call `batch_acquire_experimental_stds()` to collect experimental standards for one or multiple samples at a time</span>
+
+<span class="sd">Created on Fri Aug 20 09:34:34 2025</span>
+
+<span class="sd">@author: Andrea</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">autoemxsp.core.EMXSp_composition_analyser</span><span class="w"> </span><span class="kn">import</span> <span class="n">EMXSp_Composition_Analyzer</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">autoemxsp.XSp_calibs</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">calibs</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">autoemxsp.config.defaults</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">dflts</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">autoemxsp.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">print_double_separator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">autoemxsp.config</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">MicroscopeConfig</span><span class="p">,</span>
+    <span class="n">SampleConfig</span><span class="p">,</span>
+    <span class="n">MeasurementConfig</span><span class="p">,</span>
+    <span class="n">SampleSubstrateConfig</span><span class="p">,</span>
+    <span class="n">QuantConfig</span><span class="p">,</span>
+    <span class="n">ClusteringConfig</span><span class="p">,</span>
+    <span class="n">PowderMeasurementConfig</span><span class="p">,</span>
+    <span class="n">BulkMeasurementConfig</span><span class="p">,</span>
+    <span class="n">ExpStandardsConfig</span>
+<span class="p">)</span>
+
+<span class="c1"># Configure logging</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span>
+    <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">,</span>
+    <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">%(asctime)s</span><span class="s2"> </span><span class="si">%(levelname)s</span><span class="s2">: </span><span class="si">%(message)s</span><span class="s2">&quot;</span><span class="p">,</span>
+    <span class="n">datefmt</span><span class="o">=</span><span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M:%S&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;batch_acquire_experimental_stds&quot;</span><span class="p">]</span>
+
+<div class="viewcode-block" id="batch_acquire_experimental_stds">
+<a class="viewcode-back" href="../../../_api/autoemxsp.runners.html#autoemxsp.runners.batch_acquire_experimental_stds">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">batch_acquire_experimental_stds</span><span class="p">(</span>
+    <span class="n">stds</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
+    <span class="n">microscope_ID</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">dflts</span><span class="o">.</span><span class="n">microscope_ID</span><span class="p">,</span>
+    <span class="n">microscope_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">dflts</span><span class="o">.</span><span class="n">microscope_type</span><span class="p">,</span>
+    <span class="n">measurement_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">dflts</span><span class="o">.</span><span class="n">measurement_type</span><span class="p">,</span>
+    <span class="n">measurement_mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">dflts</span><span class="o">.</span><span class="n">measurement_mode</span><span class="p">,</span>
+    <span class="n">sample_halfwidth</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">3.0</span><span class="p">,</span>
+    <span class="n">sample_substrate_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Ctape&#39;</span><span class="p">,</span>
+    <span class="n">sample_substrate_shape</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;circle&#39;</span><span class="p">,</span>
+    <span class="n">working_distance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="c1">#mm</span>
+    <span class="n">working_distance_tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="c1">#mm</span>
+    <span class="n">beam_energy</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">15.0</span><span class="p">,</span>
+    <span class="n">spectrum_lims</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">dflts</span><span class="o">.</span><span class="n">spectrum_lims</span><span class="p">,</span>
+    <span class="n">use_instrument_background</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">dflts</span><span class="o">.</span><span class="n">use_instrument_background</span><span class="p">,</span>
+    <span class="n">min_bckgrnd_cnts</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+    <span class="n">fit_during_collection</span><span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">update_std_library</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">is_auto_substrate_detection</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">auto_adjust_brightness_contrast</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">contrast</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">4.3877</span><span class="p">,</span>
+    <span class="n">brightness</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.4504</span><span class="p">,</span>
+    <span class="n">min_n_spectra</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">50</span><span class="p">,</span>
+    <span class="n">max_n_spectra</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
+    <span class="n">target_Xsp_counts</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">250000</span><span class="p">,</span>
+    <span class="n">max_XSp_acquisition_time</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">els_substrate</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">powder_meas_cfg_kwargs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">bulk_meas_cfg_kwargs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">exp_stds_meas_cfg_kwargs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">output_filename_suffix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+    <span class="n">development_mode</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">exp_std_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Batch acquisition (and optional quantification) of X-ray spectra for a list of powder samples.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    stds : list of dict</span>
+<span class="sd">        List of experimental standard definitions.  </span>
+<span class="sd">        Each dictionary must contain:</span>
+<span class="sd">            - &#39;ID&#39; (str): Identifier for the standard sample (SampleConfig.ID).</span>
+<span class="sd">            - &#39;formula&#39; (str): Chemical formula of the standard (ExpStandardsConfig.formula).</span>
+<span class="sd">            - &#39;pos&#39; (tuple of float): (x, y) stage coordinates in mm (SampleConfig.center_pos).</span>
+<span class="sd">            - &#39;sample_type&#39; (str): Sample type (&#39;powder&#39;, &#39;bulk&#39;, etc.) (SampleConfig.type).</span>
+<span class="sd">            - &#39;is_manual_meas&#39; (bool): If True, navigation to positions is manual (MeasurementConfig.is_manual_navigation).</span>
+<span class="sd">    microscope_ID : str, optional</span>
+<span class="sd">        Identifier for the microscope hardware.  </span>
+<span class="sd">        Must correspond to a calibration folder in `./XSp_calibs/Microscopes/&lt;ID&gt;` (MicroscopeConfig.ID).  </span>
+<span class="sd">        Default is `&#39;PhenomXL&#39;`.</span>
+<span class="sd">    microscope_type : str, optional</span>
+<span class="sd">        Type of microscope. Allowed: `&#39;SEM&#39;` (implemented), `&#39;STEM&#39;` (not implemented).  </span>
+<span class="sd">        Default is `&#39;SEM&#39;` (MicroscopeConfig.type).</span>
+<span class="sd">    measurement_type : str, optional</span>
+<span class="sd">        Measurement type. Allowed: `&#39;EDS&#39;` (implemented), `&#39;WDS&#39;` (not implemented).  </span>
+<span class="sd">        Default is `&#39;EDS&#39;` (MeasurementConfig.type).</span>
+<span class="sd">    measurement_mode : str, optional</span>
+<span class="sd">        Acquisition mode (e.g., `&#39;point&#39;`, `&#39;map&#39;`), defining beam/detector calibration settings.  </span>
+<span class="sd">        Default is `&#39;point&#39;` (MeasurementConfig.mode).</span>
+<span class="sd">    sample_halfwidth : float, optional</span>
+<span class="sd">        Half-width of the sample area in mm for mapping/acquisition.  </span>
+<span class="sd">        Default is `3.0` (SampleConfig.half_width_mm).</span>
+<span class="sd">    sample_substrate_type : str, optional</span>
+<span class="sd">        Type of sample substrate. Allowed: `&#39;Ctape&#39;`, `&#39;None&#39;`.  </span>
+<span class="sd">        Default is `&#39;Ctape&#39;` (SampleSubstrateConfig.type).</span>
+<span class="sd">    sample_substrate_shape : str, optional</span>
+<span class="sd">        Shape of the substrate. Allowed: `&#39;circle&#39;`, `&#39;square&#39;`.  </span>
+<span class="sd">        Default is `&#39;circle&#39;` (SampleSubstrateConfig.shape).</span>
+<span class="sd">    working_distance : float, optional</span>
+<span class="sd">        Working distance in mm for acquisition. If None, taken from microscope driver.  </span>
+<span class="sd">        Default is `5.0` (MeasurementConfig.working_distance).</span>
+<span class="sd">    working_distance_tolerance : float, optional</span>
+<span class="sd">        Defines maximum accepted deviation of working distance from its typical value, in mm.</span>
+<span class="sd">            Used to prevent gross mistakes from EM autofocus. Default: 1 mm. </span>
+<span class="sd">    beam_energy : float, optional</span>
+<span class="sd">        Electron beam energy in keV.  </span>
+<span class="sd">        Default is `15.0` (MeasurementConfig.beam_energy_keV).</span>
+<span class="sd">    spectrum_lims : tuple of float, optional</span>
+<span class="sd">        Lower and upper energy limits for spectrum fitting in eV.  </span>
+<span class="sd">        Default is `(14, 1100)` (QuantConfig.spectrum_lims).</span>
+<span class="sd">    use_instrument_background : bool, optional</span>
+<span class="sd">        Whether to use instrument background files during fitting.  </span>
+<span class="sd">        If False, background is computed during fitting.  </span>
+<span class="sd">        Default is `False` (QuantConfig.use_instrument_background).</span>
+<span class="sd">    min_bckgrnd_cnts : float, optional</span>
+<span class="sd">        Minimum background counts required for a spectrum not to be filtered out.  </span>
+<span class="sd">        Default is `5` (QuantConfig.min_bckgrnd_cnts).</span>
+<span class="sd">    fit_during_collection : bool, optional</span>
+<span class="sd">        If True, fit spectra during acquisition; otherwise fit later.  </span>
+<span class="sd">        Default is `True`.</span>
+<span class="sd">    update_std_library : bool, optional</span>
+<span class="sd">        If True, update the stored experimental standards library after acquisition.  </span>
+<span class="sd">        Default is `False`.</span>
+<span class="sd">    is_auto_substrate_detection : bool, optional</span>
+<span class="sd">        If True, substrate elements are detected automatically.  </span>
+<span class="sd">        Implemented only for `&#39;Ctape&#39;` substrates.  </span>
+<span class="sd">        Default is `False` (SampleSubstrateConfig.auto_detection).</span>
+<span class="sd">    auto_adjust_brightness_contrast : bool, optional</span>
+<span class="sd">        If True, brightness/contrast are set automatically.  </span>
+<span class="sd">        Default is `True` (MicroscopeConfig.is_auto_BC).</span>
+<span class="sd">    contrast : float, optional</span>
+<span class="sd">        Manual contrast setting (required if auto_adjust_brightness_contrast is False).  </span>
+<span class="sd">        Default is `4.3877` (MicroscopeConfig.contrast).</span>
+<span class="sd">    brightness : float, optional</span>
+<span class="sd">        Manual brightness setting (required if auto_adjust_brightness_contrast is False).  </span>
+<span class="sd">        Default is `0.4504` (MicroscopeConfig.brightness).</span>
+<span class="sd">    min_n_spectra : int, optional</span>
+<span class="sd">        Minimum number of spectra to acquire.  </span>
+<span class="sd">        Default is `50` (MeasurementConfig.min_n_spectra).</span>
+<span class="sd">    max_n_spectra : int, optional</span>
+<span class="sd">        Maximum number of spectra to acquire.  </span>
+<span class="sd">        Default is `100` (MeasurementConfig.max_n_spectra).</span>
+<span class="sd">    target_Xsp_counts : int, optional</span>
+<span class="sd">        Target counts for spectrum acquisition.  </span>
+<span class="sd">        Default is `250000` (MeasurementConfig.target_acquisition_counts).</span>
+<span class="sd">    max_XSp_acquisition_time : float, optional</span>
+<span class="sd">        Maximum acquisition time in seconds. If None, estimated from target counts.  </span>
+<span class="sd">        Default is `None` (MeasurementConfig.max_acquisition_time).</span>
+<span class="sd">    els_substrate : list of str, optional</span>
+<span class="sd">        List of substrate element symbols.  </span>
+<span class="sd">        Default is `[&#39;C&#39;, &#39;O&#39;, &#39;Al&#39;]` (SampleSubstrateConfig.elements).</span>
+<span class="sd">    powder_meas_cfg_kwargs : dict, optional</span>
+<span class="sd">        Additional keyword arguments for PowderMeasurementConfig.</span>
+<span class="sd">    bulk_meas_cfg_kwargs : dict, optional</span>
+<span class="sd">        Additional keyword arguments for BulkMeasurementConfig.</span>
+<span class="sd">    exp_stds_meas_cfg_kwargs : dict, optional</span>
+<span class="sd">        Additional keyword arguments for ExpStandardsConfig.  </span>
+<span class="sd">        Used to customize experimental standard acquisition and PB ratio filtering.</span>
+<span class="sd">    output_filename_suffix : str, optional</span>
+<span class="sd">        String appended to output filenames.  </span>
+<span class="sd">        Default is `&#39;&#39;`.</span>
+<span class="sd">    development_mode : bool, optional</span>
+<span class="sd">        If True, enables development/debug features.  </span>
+<span class="sd">        Default is `False`.</span>
+<span class="sd">    verbose : bool, optional</span>
+<span class="sd">        If True, print verbose output.  </span>
+<span class="sd">        Default is `True`.</span>
+<span class="sd">    exp_std_dir : str, optional</span>
+<span class="sd">        Directory where experimental standard results are saved.  </span>
+<span class="sd">        Default is `None`.</span>
+<span class="sd">            </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    results : list(EMXSp_Composition_Analyzer)</span>
+<span class="sd">        A list of the composition analysis objects (one per sample) containing the results and methods for further analysis.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">max_XSp_acquisition_time</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">max_XSp_acquisition_time</span> <span class="o">=</span> <span class="n">target_Xsp_counts</span> <span class="o">/</span> <span class="mi">10000</span> <span class="o">*</span> <span class="mi">5</span>
+    <span class="k">if</span> <span class="n">els_substrate</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">els_substrate</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;C&#39;</span><span class="p">,</span> <span class="s1">&#39;O&#39;</span><span class="p">,</span> <span class="s1">&#39;Al&#39;</span><span class="p">]</span>
+    
+    <span class="c1"># --- Configuration objects</span>
+    <span class="n">microscope_cfg</span> <span class="o">=</span> <span class="n">MicroscopeConfig</span><span class="p">(</span>
+        <span class="n">ID</span><span class="o">=</span><span class="n">microscope_ID</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">microscope_type</span><span class="p">,</span>
+        <span class="n">is_auto_BC</span><span class="o">=</span><span class="n">auto_adjust_brightness_contrast</span><span class="p">,</span>
+        <span class="n">brightness</span><span class="o">=</span><span class="n">brightness</span><span class="p">,</span>
+        <span class="n">contrast</span><span class="o">=</span><span class="n">contrast</span>
+    <span class="p">)</span>
+    <span class="c1"># Load microscope calibrations for this instrument and mode</span>
+    <span class="n">calibs</span><span class="o">.</span><span class="n">load_microscope_calibrations</span><span class="p">(</span><span class="n">microscope_ID</span><span class="p">,</span> <span class="n">measurement_mode</span><span class="p">)</span>
+
+
+    <span class="n">quant_cfg</span> <span class="o">=</span> <span class="n">QuantConfig</span><span class="p">(</span>
+        <span class="n">spectrum_lims</span><span class="o">=</span><span class="n">spectrum_lims</span><span class="p">,</span>
+        <span class="n">use_instrument_background</span><span class="o">=</span><span class="n">use_instrument_background</span><span class="p">,</span>
+        <span class="n">min_bckgrnd_cnts</span><span class="o">=</span><span class="n">min_bckgrnd_cnts</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">powder_meas_cfg_kwargs</span><span class="p">:</span>
+        <span class="n">powder_meas_cfg</span> <span class="o">=</span> <span class="n">PowderMeasurementConfig</span><span class="p">(</span><span class="o">**</span><span class="n">powder_meas_cfg_kwargs</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">powder_meas_cfg</span> <span class="o">=</span> <span class="n">PowderMeasurementConfig</span><span class="p">()</span>
+        
+    <span class="k">if</span> <span class="n">bulk_meas_cfg_kwargs</span><span class="p">:</span>
+        <span class="n">bulk_meas_cfg</span> <span class="o">=</span> <span class="n">BulkMeasurementConfig</span><span class="p">(</span><span class="o">**</span><span class="n">bulk_meas_cfg_kwargs</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">bulk_meas_cfg</span> <span class="o">=</span> <span class="n">BulkMeasurementConfig</span><span class="p">()</span>
+        
+
+    <span class="n">sample_substrate_cfg</span> <span class="o">=</span> <span class="n">SampleSubstrateConfig</span><span class="p">(</span>
+        <span class="n">elements</span><span class="o">=</span><span class="n">els_substrate</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="n">sample_substrate_type</span><span class="p">,</span>
+        <span class="n">shape</span><span class="o">=</span><span class="n">sample_substrate_shape</span><span class="p">,</span>
+        <span class="n">auto_detection</span><span class="o">=</span><span class="n">is_auto_substrate_detection</span>
+    <span class="p">)</span>
+    
+    <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+    
+    <span class="k">for</span> <span class="n">std_sample</span> <span class="ow">in</span> <span class="n">stds</span><span class="p">:</span>
+        <span class="c1"># --- Sample configuration</span>
+        <span class="n">sample_ID</span> <span class="o">=</span> <span class="n">std_sample</span><span class="p">[</span><span class="s1">&#39;ID&#39;</span><span class="p">]</span>
+        <span class="n">formula</span> <span class="o">=</span> <span class="n">std_sample</span><span class="p">[</span><span class="s1">&#39;formula&#39;</span><span class="p">]</span>
+        <span class="n">center_pos</span> <span class="o">=</span> <span class="n">std_sample</span><span class="p">[</span><span class="s1">&#39;pos&#39;</span><span class="p">]</span>
+        <span class="n">sample_type</span> <span class="o">=</span> <span class="n">std_sample</span><span class="p">[</span><span class="s1">&#39;sample_type&#39;</span><span class="p">]</span>
+        <span class="n">is_manual_meas</span> <span class="o">=</span> <span class="n">std_sample</span><span class="p">[</span><span class="s1">&#39;is_manual_meas&#39;</span><span class="p">]</span>
+        
+        <span class="n">print_double_separator</span><span class="p">()</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sample &#39;</span><span class="si">{</span><span class="n">sample_ID</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="n">exp_stds_meas_cfg_kwargs</span><span class="p">:</span>
+            <span class="n">exp_stds_cfg</span> <span class="o">=</span> <span class="n">ExpStandardsConfig</span><span class="p">(</span><span class="n">is_exp_std_measurement</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">formula</span> <span class="o">=</span> <span class="n">formula</span><span class="p">,</span> <span class="o">**</span><span class="n">exp_stds_meas_cfg_kwargs</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">exp_stds_cfg</span> <span class="o">=</span> <span class="n">ExpStandardsConfig</span><span class="p">(</span><span class="n">is_exp_std_measurement</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">formula</span> <span class="o">=</span> <span class="n">formula</span><span class="p">)</span>
+        
+        <span class="n">measurement_cfg</span> <span class="o">=</span> <span class="n">MeasurementConfig</span><span class="p">(</span>
+            <span class="nb">type</span><span class="o">=</span><span class="n">measurement_type</span><span class="p">,</span>
+            <span class="n">mode</span><span class="o">=</span><span class="n">measurement_mode</span><span class="p">,</span>
+            <span class="n">working_distance</span> <span class="o">=</span> <span class="n">working_distance</span><span class="p">,</span>
+            <span class="n">working_distance_tolerance</span> <span class="o">=</span> <span class="n">working_distance_tolerance</span><span class="p">,</span>
+            <span class="n">beam_energy_keV</span><span class="o">=</span><span class="n">beam_energy</span><span class="p">,</span>
+            <span class="n">is_manual_navigation</span><span class="o">=</span><span class="n">is_manual_meas</span><span class="p">,</span>
+            <span class="n">max_acquisition_time</span><span class="o">=</span><span class="n">max_XSp_acquisition_time</span><span class="p">,</span>
+            <span class="n">target_acquisition_counts</span><span class="o">=</span><span class="n">target_Xsp_counts</span><span class="p">,</span>
+            <span class="n">min_n_spectra</span><span class="o">=</span><span class="n">min_n_spectra</span><span class="p">,</span>
+            <span class="n">max_n_spectra</span><span class="o">=</span><span class="n">max_n_spectra</span>
+        <span class="p">)</span>
+        
+        
+        <span class="n">elements</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">exp_stds_cfg</span><span class="o">.</span><span class="n">w_frs</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">sample_cfg</span> <span class="o">=</span> <span class="n">SampleConfig</span><span class="p">(</span>
+            <span class="n">ID</span><span class="o">=</span><span class="n">sample_ID</span><span class="p">,</span>
+            <span class="n">elements</span><span class="o">=</span><span class="n">elements</span><span class="p">,</span>
+            <span class="nb">type</span><span class="o">=</span><span class="n">sample_type</span><span class="p">,</span>
+            <span class="n">center_pos</span><span class="o">=</span><span class="n">center_pos</span><span class="p">,</span>
+            <span class="n">half_width_mm</span><span class="o">=</span><span class="n">sample_halfwidth</span>
+        <span class="p">)</span>
+        
+        <span class="c1"># # --- Template: Customizing Parameters Per Sample</span>
+        
+        <span class="c1"># # For any parameter you wish to override on a per-sample basis, add a key:value</span>
+        <span class="c1"># # pair to the sample&#39;s dictionary (e.g., &#39;n_spectra&#39;, &#39;beam_energy&#39;, etc.).</span>
+        <span class="c1"># # In the main loop, check if the key is present; if not, use the default value.</span>
+        <span class="c1"># #</span>
+        <span class="c1"># # Example: To override &#39;n_spectra&#39; for specific samples,</span>
+        <span class="c1"># # add &#39;n_spectra&#39;: &lt;value&gt; in the sample dictionary.</span>
+        <span class="c1"># # Then, after loading the sample parameters, use the following pattern:</span>
+        
+        <span class="c1"># # -- Inside your main sample loop:</span>
+        <span class="c1"># if sample.get(&#39;max_n_spectra&#39;) is not None:</span>
+        <span class="c1">#     max_n_spectra_val = sample[&#39;max_n_spectra&#39;]</span>
+        <span class="c1"># else:</span>
+        <span class="c1">#     max_n_spectra_val = max_n_spectra  # or your chosen default</span>
+        
+        <span class="c1"># # -- Repeat similarly for other parameters you wish to customize per sample:</span>
+        <span class="c1"># if sample.get(&#39;min_n_spectra&#39;) is not None:</span>
+        <span class="c1">#     min_n_spectra_val = sample[&#39;min_n_spectra&#39;]</span>
+        <span class="c1"># else:</span>
+        <span class="c1">#     min_n_spectra_val = min_n_spectra  # or your chosen default</span>
+        
+        <span class="c1"># # -- Make sure to place the configuration object instantiation *after*</span>
+        <span class="c1"># #    these assignments so that each sample&#39;s settings are correctly applied.</span>
+        <span class="c1"># #    For example:</span>
+        <span class="c1"># measurement_cfg = MeasurementConfig(</span>
+        <span class="c1">#     min_n_spectra=min_n_spectra,</span>
+        <span class="c1">#     max_n_spectra=max_n_spectra</span>
+        <span class="c1">#     # ... other parameters ...</span>
+        <span class="c1"># )</span>
+
+
+        <span class="c1"># --- Run Composition Analyzer</span>
+        <span class="n">comp_analyzer</span> <span class="o">=</span> <span class="n">EMXSp_Composition_Analyzer</span><span class="p">(</span>
+            <span class="n">microscope_cfg</span><span class="o">=</span><span class="n">microscope_cfg</span><span class="p">,</span>
+            <span class="n">sample_cfg</span><span class="o">=</span><span class="n">sample_cfg</span><span class="p">,</span>
+            <span class="n">measurement_cfg</span><span class="o">=</span><span class="n">measurement_cfg</span><span class="p">,</span>
+            <span class="n">sample_substrate_cfg</span><span class="o">=</span><span class="n">sample_substrate_cfg</span><span class="p">,</span>
+            <span class="n">quant_cfg</span><span class="o">=</span><span class="n">quant_cfg</span><span class="p">,</span>
+            <span class="n">clustering_cfg</span><span class="o">=</span><span class="n">ClusteringConfig</span><span class="p">(),</span>
+            <span class="n">powder_meas_cfg</span><span class="o">=</span><span class="n">powder_meas_cfg</span><span class="p">,</span>
+            <span class="n">bulk_meas_cfg</span><span class="o">=</span><span class="n">bulk_meas_cfg</span><span class="p">,</span>
+            <span class="n">exp_stds_cfg</span><span class="o">=</span><span class="n">exp_stds_cfg</span><span class="p">,</span>
+            <span class="n">is_acquisition</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">development_mode</span><span class="o">=</span><span class="n">development_mode</span><span class="p">,</span>
+            <span class="n">output_filename_suffix</span><span class="o">=</span><span class="n">output_filename_suffix</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
+            <span class="n">results_dir</span><span class="o">=</span><span class="n">exp_std_dir</span>
+        <span class="p">)</span>
+        
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">comp_analyzer</span><span class="o">.</span><span class="n">run_exp_std_collection</span><span class="p">(</span><span class="n">fit_during_collection</span><span class="o">=</span> <span class="n">fit_during_collection</span><span class="p">,</span> <span class="n">update_std_library</span> <span class="o">=</span> <span class="n">update_std_library</span><span class="p">)</span>
+            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">comp_analyzer</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sample &#39;</span><span class="si">{</span><span class="n">sample_ID</span><span class="si">}</span><span class="s2">&#39;: acquisition/fitting failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">continue</span>
+        
+    
+    <span class="c1"># Put microscope in standby after completion</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">development_mode</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">stds</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">comp_analyzer</span><span class="o">.</span><span class="n">EM_controller</span><span class="o">.</span><span class="n">standby</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not put microscope in standby: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">results</span></div>
+
+    
+    
+    
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Andrea Giunto.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

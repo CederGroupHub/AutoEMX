@@ -1,0 +1,953 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>autoemxsp.core.EM_controller module &mdash; AutoEMXSp 0.1.6 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=6e0256f3"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="autoemxsp.core.EM_particle_finder module" href="autoemxsp.core.EM_particle_finder.html" />
+    <link rel="prev" title="autoemxsp.core.EMXSp_composition_analyser module" href="autoemxsp.core.EMXSp_composition_analyser.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            AutoEMXSp
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../user/index.html">User Documentation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced User Documentation:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../advanced_user/index.html">Advanced User Documentation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/sdd_calib.html">EDS Detector Calibration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/new_exp_stds.html">EDS Experimental Standard Collection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/new_XSpdetector.html">Calibrate a new Detector for EDS fit and quantification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../advanced_user/new_EMdriver.html">Add new Electron Microscope Driver</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../advanced_user/advanced_api.html">AutoEMXSp Public API</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.XSp_calibs.html">autoemxsp.XSp_calibs package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoemxsp.EM_driver.html">autoemxsp.EM_driver package</a></li>
+<li class="toctree-l3 current"><a class="reference internal" href="autoemxsp.core.html">autoemxsp.core package</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="autoemxsp.core.html#subpackages">Subpackages</a></li>
+<li class="toctree-l4 current"><a class="reference internal" href="autoemxsp.core.html#submodules">Submodules</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">AutoEMXSp</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../advanced_user/index.html">Advanced User Documentation</a></li>
+          <li class="breadcrumb-item"><a href="../advanced_user/advanced_api.html">AutoEMXSp Public API</a></li>
+          <li class="breadcrumb-item"><a href="autoemxsp.core.html">autoemxsp.core package</a></li>
+      <li class="breadcrumb-item active">autoemxsp.core.EM_controller module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/_api/autoemxsp.core.EM_controller.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-autoemxsp.core.EM_controller">
+<span id="autoemxsp-core-em-controller-module"></span><h1>autoemxsp.core.EM_controller module<a class="headerlink" href="#module-autoemxsp.core.EM_controller" title="Link to this heading"></a></h1>
+<p>Automated Electron Microscopy (EM) Controller and Sample Image Analyzer</p>
+<p>This module provides classes and functions for automated analysis and acquisition in scanning electron microscopy (SEM),
+including particle detection, stage navigation, X-ray spectra (EDS, WDS) acquisition, and sample management.
+It is designed to interface with an EM driver and streamline the workflow from image acquisition to data export.</p>
+<section id="main-classes">
+<h2>Main Classes<a class="headerlink" href="#main-classes" title="Link to this heading"></a></h2>
+<dl class="simple">
+<dt>EM_Controller</dt><dd><p>Automates particle detection, mask generation, and X-ray spectra acquisition on detected particles.
+Supports both fully automated and manual (user-guided) collection modes.
+Provides methods for collecting particle statistics and managing frame navigation.</p>
+</dd>
+<dt>EM_Sample_Finder</dt><dd><p>Provides utilities for locating and managing samples within the EM.
+Currently includes only the detection of the center of a Carbon tape.</p>
+</dd>
+</dl>
+</section>
+<section id="example-usage">
+<h2>Example Usage<a class="headerlink" href="#example-usage" title="Link to this heading"></a></h2>
+<p># EDS spot acquisition workflow:
+&gt;&gt;&gt; particle_finder = EM_Particle_Finder(…)
+&gt;&gt;&gt; particle_finder.initialise_SEM()
+&gt;&gt;&gt; while True:
+…     particle_finder.go_to_next_particle()
+…     xy_spot_list = particle_finder.get_XS_acquisition_spots_coord_list()
+…     # Collect X-ray spectra at each (x, y) as needed</p>
+<p># Particle analysis workflow:
+&gt;&gt;&gt; from em_analysis import EM_Particle_Finder, EM_Sample_Finder
+&gt;&gt;&gt; microscope_cfg = {…}
+&gt;&gt;&gt; measurement_cfg = {…}
+&gt;&gt;&gt; holder_cfg = {…}
+&gt;&gt;&gt; particle_finder = EM_Particle_Finder(
+…     sample_ID=”Sample1”,
+…     microscope_d=microscope_cfg,
+…     measurement_d=measurement_cfg,
+…     sample_holder_d=holder_cfg,
+…     results_dir=”./results”
+… )
+&gt;&gt;&gt; particle_finder.initialise_SEM()
+&gt;&gt;&gt; particle_finder.get_particle_stats(n_par_target=500)</p>
+<p># C tape detection workflow:
+&gt;&gt;&gt; from em_analysis import EM_Sample_Finder
+&gt;&gt;&gt; finder = EM_Sample_Finder(‘MySEM’, (0, 0), 3, 12, ‘./results’, verbose=True)
+&gt;&gt;&gt; Ctape_coords = finder.detect_Ctape()
+&gt;&gt;&gt; if Ctape_coords:
+…     print(“Center (mm):”, Ctape_coords[0], “Half-width (mm):”, Ctape_coords[1])</p>
+<p class="rubric">Notes</p>
+<ul>
+<li><p>Requires a working EM_driver and appropriate hardware configuration, with the following API functions:</p>
+<blockquote>
+<div><ul class="simple">
+<li><dl class="simple">
+<dt>load_microscope_driver(microscope_ID)</dt><dd><p>Load and initialize the instrument-specific driver.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>activate()</dt><dd><p>Wake up and activate the electron microscope.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>to_SEM()</dt><dd><p>Switch the microscope to SEM (scanning electron microscopy) mode.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>set_electron_detector_mode(mode)</dt><dd><p>Set the electron detector mode (e.g., ‘All’, ‘BSD’).</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>set_high_tension(voltage)</dt><dd><p>Set the accelerating voltage (high tension) for the electron beam.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>set_beam_current(current)</dt><dd><p>Set the electron beam current.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>get_range_frame_width()</dt><dd><p>Query the allowed minimum and maximum frame widths (in mm).</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>set_frame_width(width)</dt><dd><p>Set the field of view/frame width (in mm).</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>adjust_focus(wd)</dt><dd><p>Set the working distance/focus to a specific value (in mm).</p>
+</dd>
+</dl>
+</li>
+</ul>
+<ul class="simple">
+<li><dl class="simple">
+<dt>move_to(x, y)</dt><dd><p>Move the microscope stage to the specified (x, y) position.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>get_frame_width()</dt><dd><p>Get the current frame width (in mm).</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>get_navigation_camera_image()</dt><dd><p>Acquire an image from the navigation camera.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>auto_focus()</dt><dd><p>Run the microscope’s autofocus routine and return the resulting working distance.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>auto_contrast_brightness()</dt><dd><p>Automatically adjust the microscope’s brightness and contrast.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>set_brightness(value)</dt><dd><p>Set the frame brightness to a specific value.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>set_contrast(value)</dt><dd><p>Set the frame contrast to a specific value.
+(NOTE: This may be a typo; check if the correct function is set_contrast.)</p>
+</dd>
+</dl>
+</li>
+</ul>
+<ul class="simple">
+<li><dl class="simple">
+<dt>get_EDS_analyser_object()</dt><dd><p>Create and return an EDS (energy-dispersive X-ray spectroscopy) analyzer object.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>acquire_XS_spectral_data(analyzer, x, y, max_time, target_counts)</dt><dd><p>Acquire an X-ray spectrum at the specified position with given analyzer and parameters.</p>
+</dd>
+</dl>
+</li>
+</ul>
+<ul class="simple">
+<li><dl class="simple">
+<dt>image_to_stage_coords_transform</dt><dd><p>Transformation matrix for converting image to stage coordinates.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>navcam_im_w_mm</dt><dd><p>Navigation camera image width in mm.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>navcam_x_offset</dt><dd><p>Navigation camera X offset.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>navcam_y_offset</dt><dd><p>Navigation camera Y offset.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>microscope_calib_dir</dt><dd><p>Directory containing microscope calibration files.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>is_at_EM</dt><dd><p>Boolean indicating if the code is running at the microscope.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>typical_wd</dt><dd><p>Typical working distance (mm).</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>im_width</dt><dd><p>Image width in pixels.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>im_height</dt><dd><p>Image height in pixels.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+<p>Created on Wed Jul 31 09:28:07 2024</p>
+<p>&#64;author: Andrea</p>
+</section>
+<dl class="py class">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Controller">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoemxsp.core.EM_controller.</span></span><span class="sig-name descname"><span class="pre">EM_Controller</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">microscope_cfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.MicroscopeConfig" title="autoemxsp.config.classes.MicroscopeConfig"><span class="pre">MicroscopeConfig</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_cfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.SampleConfig" title="autoemxsp.config.classes.SampleConfig"><span class="pre">SampleConfig</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">measurement_cfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.MeasurementConfig" title="autoemxsp.config.classes.MeasurementConfig"><span class="pre">MeasurementConfig</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_substrate_cfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.SampleSubstrateConfig" title="autoemxsp.config.classes.SampleSubstrateConfig"><span class="pre">SampleSubstrateConfig</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">powder_meas_cfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.PowderMeasurementConfig" title="autoemxsp.config.classes.PowderMeasurementConfig"><span class="pre">PowderMeasurementConfig</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">bulk_meas_cfg</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="autoemxsp.config.classes.html#autoemxsp.config.classes.BulkMeasurementConfig" title="autoemxsp.config.classes.BulkMeasurementConfig"><span class="pre">BulkMeasurementConfig</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">init_fw</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">results_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">development_mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/core/EM_controller.html#EM_Controller"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Controller" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Controller.an_circle_key">
+<span class="sig-name descname"><span class="pre">an_circle_key</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'circle'</span></em><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Controller.an_circle_key" title="Link to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Controller.an_text_key">
+<span class="sig-name descname"><span class="pre">an_text_key</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'text'</span></em><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Controller.an_text_key" title="Link to this definition"></a></dt>
+<dd><p>Electron Microscope (EM) controller for automated particle analysis and X-ray spectra (EDS, WDS) acquisition.</p>
+<blockquote>
+<div><p>This class provides methods for automated image acquisition, stage navigation, and X-ray spectral acquisition.
+It is designed to interface with a microscope driver (<cite>EM_driver</cite>) for stage movement and image capture.</p>
+<dl class="simple">
+<dt>Configuration is provided via structured dataclasses:</dt><dd><ul class="simple">
+<li><p>MicroscopeConfig</p></li>
+<li><p>SampleConfig</p></li>
+<li><p>MeasurementConfig</p></li>
+<li><p>SampleSubstrateConfig</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="simple">
+<dt>initialise_SEM()</dt><dd><p>Wakes up the SEM microscope, sets measurement parameters, and evaluates locations to scan for particles.</p>
+</dd>
+<dt>initialise_XS_analyzer()</dt><dd><p>Gets EDS/WDS analyzer object from EM_driver, and optionally updates electron beam energy.
+Currently only EDS is supported.</p>
+</dd>
+<dt>acquire_XS_spot_spectrum(x,y)</dt><dd><p>Acquire and return X-Ray spectral data in position (x,y) in current stage position.
+(x,y) are relative coordinates. See function description for more information.
+Currently only EDS spectra are supported.</p>
+</dd>
+</dl>
+<p># EDS spot acquisition workflow:
+&gt;&gt;&gt; EM_controller = EM_Controller(…)
+&gt;&gt;&gt; EM_controller.initialise_SEM()
+&gt;&gt;&gt; particle_finder = EM_Particle_Finder(EM_controller, PowderMeasurementConfig, …)
+&gt;&gt;&gt; while particle_finder.go_to_next_particle():
+…     xy_spot_list = particle_finder.get_XS_acquisition_spots_coord_list()
+…     for (x,y) in xy_spot_list:
+…         EM_controller.acquire_XS_spectrum()</p>
+<p># Particle analysis workflow:
+&gt;&gt;&gt; EM_controller = EM_Controller(…)
+&gt;&gt;&gt; EM_controller.initialise_SEM()
+&gt;&gt;&gt; particle_finder = EM_Particle_Finder(EM_controller, PowderMeasurementConfig, results_dir=”./results”)
+&gt;&gt;&gt; particle_finder.get_particle_stats(n_par_target=500)</p>
+</div></blockquote>
+<dl>
+<dt>Attributes</dt><dd><dl class="simple">
+<dt>sample_cfg<span class="classifier">SampleConfig</span></dt><dd><p>Sample configuration (see dataclass for details).</p>
+</dd>
+<dt>microscope_cfg<span class="classifier">MicroscopeConfig</span></dt><dd><p>Microscope configuration (see dataclass for details).</p>
+</dd>
+<dt>measurement_cfg<span class="classifier">MeasurementConfig</span></dt><dd><p>Measurement/acquisition configuration (see dataclass for details).</p>
+</dd>
+<dt>sample_substrate_cfg<span class="classifier">SampleSubstrateConfig</span></dt><dd><p>Sample substrate configuration (see dataclass for details).</p>
+</dd>
+<dt>powder_meas_cfg<span class="classifier">PowderMeasurementConfig</span></dt><dd><p>Configuration for powder measurement.</p>
+</dd>
+<dt>bulk_meas_cfg<span class="classifier">BulkMeasurementConfig</span></dt><dd><p>Configuration for measurements of bulk or bulk-like samples.</p>
+</dd>
+<dt>init_wd<span class="classifier">float</span></dt><dd><p>Initial working distance in mm (used to limit autofocus range, set at EM driver).</p>
+</dd>
+<dt>im_width<span class="classifier">int</span></dt><dd><p>Image width in pixels (set at EM driver).</p>
+</dd>
+<dt>im_height<span class="classifier">int</span></dt><dd><p>Image height in pixels (set at EM driver).</p>
+</dd>
+<dt>grid_search_fw_mm<span class="classifier">float</span></dt><dd><p>Frame width (in mm) used during initial grid search.</p>
+</dd>
+<dt>pixel_size_um<span class="classifier">float or None</span></dt><dd><p>Pixel size in micrometers of current image.</p>
+</dd>
+<dt>current_frame_label<span class="classifier">str</span></dt><dd><p>Label of currently analyzed frame. Initialized as an empty string for testing</p>
+</dd>
+<dt>refresh_time<span class="classifier">float</span></dt><dd><p>Time in seconds after which autofocus and brightness are refreshed.</p>
+</dd>
+<dt>frame_labels<span class="classifier">list</span></dt><dd><p>List of frame labels or identifiers.</p>
+</dd>
+<dt>results_dir<span class="classifier">str or None</span></dt><dd><p>Directory for saving result images and data.</p>
+</dd>
+<dt>verbose<span class="classifier">bool</span></dt><dd><p>If True, print progress and information to the console.</p>
+</dd>
+<dt>development_mode (bool): Whether class is being used for testing image processing functions, without real-time acquisition.</dt><dd><p>Enables use of class outside microscope enviroment</p>
+</dd>
+</dl>
+<dl class="simple">
+<dt>_center_pos<span class="classifier">tuple of float</span></dt><dd><p>Sample center position (x, y) on the microscope stage (from sample_cfg).</p>
+</dd>
+<dt>_sample_hw_mm<span class="classifier">float</span></dt><dd><p>Half-width of the sample region in mm (from sample_substrate_cfg).</p>
+</dd>
+<dt>_min_wd<span class="classifier">float</span></dt><dd><p>Minimum allowed working distance in mm.</p>
+</dd>
+<dt>_max_wd<span class="classifier">float</span></dt><dd><p>Maximum allowed working distance in mm.</p>
+</dd>
+<dt>_frame_cntr<span class="classifier">int</span></dt><dd><p>Counter for the number of frames analyzed.</p>
+</dd>
+<dt>_current_pos<span class="classifier">tuple of float</span></dt><dd><p>Current (x, y) position in the sample coordinate system.</p>
+</dd>
+<dt>_last_EM_adjustment_time<span class="classifier">float</span></dt><dd><p>Timestamp of the last EM adjustment (autofocus/brightness)</p>
+</dd>
+<dt>_is_first_sprectrum_acq<span class="classifier">bool</span></dt><dd><p>Flag for indicating acquisition of first spectrum. Used to export .msa spectral file</p>
+</dd>
+</dl>
+<ul class="simple">
+<li><p>This class assumes that the global <cite>EM_driver</cite> object is available and properly configured.</p></li>
+<li><p>Configuration is provided via dataclasses. All validation of configuration fields is performed in the dataclasses.</p></li>
+<li><p>Attributes with a leading underscore are for internal use and should not be accessed directly by users.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Controller.initialise_SEM">
+<span class="sig-name descname"><span class="pre">initialise_SEM</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../_modules/autoemxsp/core/EM_controller.html#EM_Controller.initialise_SEM"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Controller.initialise_SEM" title="Link to this definition"></a></dt>
+<dd><p>Activate and configure the Scanning Electron Microscope (SEM) for particle finding.</p>
+<dl class="simple">
+<dt>This method performs the following steps:</dt><dd><ol class="arabic simple">
+<li><p>Wakes up the SEM if necessary.</p></li>
+<li><p>Switches to SEM mode.</p></li>
+<li><p>Sets the electron detector mode to backscattered electrons (BSD).</p></li>
+<li><p>Sets the beam voltage and current according to the current measurement mode calibration.</p></li>
+<li><p>Initializes the EDS analyzer object.</p></li>
+<li><p>Moves to sample center, sets frame width, and working distance.</p></li>
+<li><p>Adjusts focus, brightness, and contrast.</p></li>
+<li><p>Calculates frame centers for searching.</p></li>
+<li><p>Initializes particle/frame counters.</p></li>
+</ol>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>KeyError</strong> – If the current measurement mode is not found in the calibration dictionary.</p></li>
+<li><p><a class="reference internal" href="autoemxsp.utils.helper.html#autoemxsp.utils.helper.EMError" title="autoemxsp.utils.helper.EMError"><strong>EMError</strong></a> – If an error occurs during SEM activation or configuration.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>This method assumes that EM_driver is an initialized and accessible object that provides
+the necessary SEM control methods.</p>
+<dl class="simple">
+<dt>Potential improvement for SEM initialization:</dt><dd><ul class="simple">
+<li><p>Fix initial brightness and contrast so that C tape is fully below threshold.</p></li>
+<li><p>Go to first frame where it finds particles.</p></li>
+<li><p>Go to first (or biggest) particle and adjust brightness and contrast.</p></li>
+<li><p>Go to second, and cross-check values.</p></li>
+<li><p>If equal, use these brightness and contrast values.</p></li>
+<li><p>If encountering multiple contamination particles, repeat this.</p></li>
+<li><p>Revert to these values every time large scale particle segmentation is needed.</p></li>
+<li><p>Alternatively, brightness and contrast could be passed manually.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Controller.initialise_sample_navigator">
+<span class="sig-name descname"><span class="pre">initialise_sample_navigator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">EM_controller</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exclude_sample_margin</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../_modules/autoemxsp/core/EM_controller.html#EM_Controller.initialise_sample_navigator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Controller.initialise_sample_navigator" title="Link to this definition"></a></dt>
+<dd><p>Initialize the sample navigator for automated spectra collection.</p>
+<p>Only ‘powder’ and ‘bulk’ samples are currently supported for automated particle detection and navigation.
+For other sample types, use manual navigation, setting measurement_cfg.is_manual_navigation = True.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>EM_controller</strong> (<em>EM_Controller object</em>) – Required for analysis of samples of type = ‘powder’</p></li>
+<li><p><strong>exclude_sample_margin</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to use a margin when calculating frame centers. Reduces explored sample area,
+but avoids sample edges, which may be contaminated, or affected by larger substrate signal.
+(default: True).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>NotImplementedError</strong> – If the sample type is not ‘powder’ and manual navigation is not enabled.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Controller.initialise_XS_analyzer">
+<span class="sig-name descname"><span class="pre">initialise_XS_analyzer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">beam_voltage</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/core/EM_controller.html#EM_Controller.initialise_XS_analyzer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Controller.initialise_XS_analyzer" title="Link to this definition"></a></dt>
+<dd><p>Initialize the EDS (Energy Dispersive X-ray Spectroscopy) analyzer and optionally set the electron beam voltage.</p>
+<p>If beam_voltage remains unspecified, uses current voltage initially set during EM initialization.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>beam_voltage</strong> (<em>float</em><em>, </em><em>optional</em>) – Desired EM beam voltage (in kilovolts, kV) for EDS acquisition. If provided, sets the high tension
+to this value. If not provided, the current beam voltage is used.</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>This method creates an EDS analyzer object via the EM driver.</p></li>
+<li><p>The beam voltage should be specified in kV (e.g., 20.0 for 20 kV).</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Controller.get_XSp_coords">
+<span class="sig-name descname"><span class="pre">get_XSp_coords</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_tot_sp_collected</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">bool</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/autoemxsp/core/EM_controller.html#EM_Controller.get_XSp_coords"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Controller.get_XSp_coords" title="Link to this definition"></a></dt>
+<dd><p>Determine X-ray spectrum acquisition coordinates for the next spectrum.</p>
+<p>Depending on the navigation mode, either prompts the user to select a spot
+manually, or automatically selects the next particle spot for ‘powder’ samples.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>n_tot_sp_collected</strong> (<em>int</em>) – The current total number of spectra collected (used for labeling and selection).</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>success</strong> (<em>bool</em>) – True if a spot was selected/found, False if user stopped or no more particles.</p></li>
+<li><p><strong>spots_xy_list</strong> (<em>list of tuple[float, float] or None</em>) – List of (x, y) coordinates for acquisition spots, or None if unsuccessful.</p></li>
+<li><p><strong>particle_cntr</strong> (<em>int or None</em>) – The particle counter/index, or None if not applicable.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>For manual navigation, the user is prompted to select the spot.</p></li>
+<li><p>For powder samples, the next particle is selected automatically.</p></li>
+<li><p>Assumes required attributes (e.g., self.im_width, self.particle_finder) are initialized.</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Controller.convert_XS_coords_to_pixels">
+<span class="sig-name descname"><span class="pre">convert_XS_coords_to_pixels</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xy_coords</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/core/EM_controller.html#EM_Controller.convert_XS_coords_to_pixels"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Controller.convert_XS_coords_to_pixels" title="Link to this definition"></a></dt>
+<dd><p>Convert XY coordinates from the XS coordinate system to pixel coordinates.</p>
+<p>This function uses the EM_driver to transform coordinates relative to the frame
+into pixel positions based on the image width and height. The returned pixel
+coordinates are integer values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>xy_coords</strong> (<em>tuple</em><em>(</em><em>float</em><em>, </em><em>float</em><em>)</em>) – The XY coordinates in the XS coordinate system to be converted.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The corresponding (x, y) pixel coordinates as integers.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>tuple(int, int)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Controller.acquire_XS_spot_spectrum">
+<span class="sig-name descname"><span class="pre">acquire_XS_spot_spectrum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_acquisition_time</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_acquisition_counts</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span></span></span><a class="reference internal" href="../_modules/autoemxsp/core/EM_controller.html#EM_Controller.acquire_XS_spot_spectrum"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Controller.acquire_XS_spot_spectrum" title="Link to this definition"></a></dt>
+<dd><p>Acquire an X-ray spectrum (EDS/WDS) at the specified (x, y) position.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>float</em>) – <p>X, Y coordinates for spectrum acquisition (in relative image units, as required by EM_driver).</p>
+<p>The coordinates are expressed in a normalized, aspect-ratio-correct system centered at the image center:</p>
+<blockquote>
+<div><ul>
+<li><p>The origin (0, 0) is at the image center.</p></li>
+<li><p>The x-axis is horizontal, increasing to the right, ranging from -0.5 (left) to +0.5 (right).</p></li>
+<li><dl class="simple">
+<dt>The y-axis is vertical, increasing downward, and scaled by the aspect ratio (height/width):</dt><dd><ul>
+<li><p>Top edge:    y = -0.5 × (height / width)</p></li>
+<li><p>Bottom edge: y = +0.5 × (height / width)</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+<div class="line-block">
+<div class="line">(-0.5, -0.5*height/width)         (0.5, -0.5*height/width)</div>
+<div class="line-block">
+<div class="line">+————————-+</div>
+<div class="line">|                         |</div>
+<div class="line">|                         |</div>
+<div class="line">|           +(0,0)        <a href="#id1"><span class="problematic" id="id2">|</span></a>—–&gt; +x</div>
+<div class="line">|                         |</div>
+<div class="line">|                         |</div>
+</div>
+</div>
+<dl class="simple">
+<dt>v  +y                   +————————-+</dt><dd><p>(-0.5,  0.5*height/width)         (0.5, 0.5*height/width)</p>
+</dd>
+</dl>
+</div></blockquote>
+<p>This ensures the coordinate system is always centered and aspect-ratio-correct, regardless of image size.</p>
+</p></li>
+<li><p><strong>y</strong> (<em>float</em>) – <p>X, Y coordinates for spectrum acquisition (in relative image units, as required by EM_driver).</p>
+<p>The coordinates are expressed in a normalized, aspect-ratio-correct system centered at the image center:</p>
+<blockquote>
+<div><ul>
+<li><p>The origin (0, 0) is at the image center.</p></li>
+<li><p>The x-axis is horizontal, increasing to the right, ranging from -0.5 (left) to +0.5 (right).</p></li>
+<li><dl class="simple">
+<dt>The y-axis is vertical, increasing downward, and scaled by the aspect ratio (height/width):</dt><dd><ul>
+<li><p>Top edge:    y = -0.5 × (height / width)</p></li>
+<li><p>Bottom edge: y = +0.5 × (height / width)</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+<div class="line-block">
+<div class="line">(-0.5, -0.5*height/width)         (0.5, -0.5*height/width)</div>
+<div class="line-block">
+<div class="line">+————————-+</div>
+<div class="line">|                         |</div>
+<div class="line">|                         |</div>
+<div class="line">|           +(0,0)        <a href="#id3"><span class="problematic" id="id4">|</span></a>—–&gt; +x</div>
+<div class="line">|                         |</div>
+<div class="line">|                         |</div>
+</div>
+</div>
+<dl class="simple">
+<dt>v  +y                   +————————-+</dt><dd><p>(-0.5,  0.5*height/width)         (0.5, 0.5*height/width)</p>
+</dd>
+</dl>
+</div></blockquote>
+<p>This ensures the coordinate system is always centered and aspect-ratio-correct, regardless of image size.</p>
+</p></li>
+<li><p><strong>max_acquisition_time</strong> (<em>float</em>) – Maximum allowed acquisition time in seconds.</p></li>
+<li><p><strong>target_acquisition_counts</strong> (<em>int</em>) – Target total X-ray counts for the spectrum.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>spectrum_data</strong> (<em>Any</em>) – The acquired spectrum data (format as returned by EM_driver).</p></li>
+<li><p><strong>background_data</strong> (<em>Any</em>) – The measured background data (format as returned by EM_driver).</p></li>
+<li><p><strong>real_time</strong> (<em>float</em>) – Real elapsed time for the acquisition (seconds).</p></li>
+<li><p><strong>live_time</strong> (<em>float</em>) – Detector live time for the acquisition (seconds).</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="autoemxsp.utils.helper.html#autoemxsp.utils.helper.EMError" title="autoemxsp.utils.helper.EMError"><strong>EMError</strong></a> – If the spectrum acquisition fails.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Controller.adjust_BCF">
+<span class="sig-name descname"><span class="pre">adjust_BCF</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="../_modules/autoemxsp/core/EM_controller.html#EM_Controller.adjust_BCF"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Controller.adjust_BCF" title="Link to this definition"></a></dt>
+<dd><p>Adjust brightness, contrast, and focus (BCF).</p>
+<p>If automatic brightness and contrast adjustment is enabled (self.microscope_cfg.is_auto_BC),
+calls the automatic adjustment method. Otherwise, sets brightness and contrast
+to fixed values and then performs autofocus.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p><em>None</em></p></li>
+<li><p><em>Updates</em></p></li>
+<li><p><em>——-</em></p></li>
+<li><p><em>self._last_EM_adjustment_time</em></p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="autoemxsp.utils.helper.html#autoemxsp.utils.helper.EMError" title="autoemxsp.utils.helper.EMError"><strong>EMError</strong></a> – If an error occurs during brightness, contrast, or focus adjustment.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Controller.set_frame_width">
+<span class="sig-name descname"><span class="pre">set_frame_width</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">frame_width</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/core/EM_controller.html#EM_Controller.set_frame_width"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Controller.set_frame_width" title="Link to this definition"></a></dt>
+<dd><p>Set the frame width at the microscope and update the pixel size accordingly.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>frame_width</strong> (<em>float</em>) – The desired frame width in millimeters.</p></li>
+<li><p><strong>Updates</strong></p></li>
+<li><p><strong>-------</strong></p></li>
+<li><p><strong>self.pixel_size_um</strong> (<em>float</em>) – The image pixel size in micrometers, calculated as (frame_width / image width in pixels) * 1000.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Controller.get_current_image">
+<span class="sig-name descname"><span class="pre">get_current_image</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/core/EM_controller.html#EM_Controller.get_current_image"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Controller.get_current_image" title="Link to this definition"></a></dt>
+<dd><p>Acquire image at microscope.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>image</strong> – Image array acquired at the microscope.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>np.array()</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Controller.move_to_pos">
+<span class="sig-name descname"><span class="pre">move_to_pos</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pos</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/core/EM_controller.html#EM_Controller.move_to_pos"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Controller.move_to_pos" title="Link to this definition"></a></dt>
+<dd><p>Move the EM stage to the specified (x, y) position and update the current position.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pos</strong> (<em>tuple</em><em> of </em><em>float</em>) – Target (x, y) coordinates.</p></li>
+<li><p><strong>Updates</strong></p></li>
+<li><p><strong>-------</strong></p></li>
+<li><p><strong>self._current_pos</strong> (<em>tuple</em><em> of </em><em>float</em>) – The current position is set to the specified (x, y) coordinates.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Controller.convert_pixel_pos_to_mm">
+<span class="sig-name descname"><span class="pre">convert_pixel_pos_to_mm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pos_pixels</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/core/EM_controller.html#EM_Controller.convert_pixel_pos_to_mm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Controller.convert_pixel_pos_to_mm" title="Link to this definition"></a></dt>
+<dd><p>Convert a position from pixel coordinates in the current image to absolute stage coordinates in millimeters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>pos_pixels</strong> (<em>array-like</em><em> of </em><em>float</em>) – Position in pixel coordinates (x, y).</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>pos_abs_mm</strong> – Absolute position in millimeters (x, y), suitable for EM stage movement.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ndarray of float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Controller.standby">
+<em class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">standby</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/core/EM_controller.html#EM_Controller.standby"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Controller.standby" title="Link to this definition"></a></dt>
+<dd><p>Put microscope in standby mode</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Controller.go_to_next_frame">
+<span class="sig-name descname"><span class="pre">go_to_next_frame</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/core/EM_controller.html#EM_Controller.go_to_next_frame"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Controller.go_to_next_frame" title="Link to this definition"></a></dt>
+<dd><p>Moves the microscope to the next frame position in the current sample.</p>
+<p>This function checks if there are remaining frames to analyze. If so, it moves the microscope
+stage to the next frame center, adjusts the frame width if necessary, and (optionally)
+updates EM brightness, contrast and focus.
+It also prints the current frame information if verbose mode is enabled.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>True if moved to the next frame, False if no frames remain to be analysed.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Controller.save_frame_image">
+<span class="sig-name descname"><span class="pre">save_frame_image</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">im_annotations</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scalebar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frame_image</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/core/EM_controller.html#EM_Controller.save_frame_image"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Controller.save_frame_image" title="Link to this definition"></a></dt>
+<dd><p>Save an annotated and raw electron microscopy (EM) frame as a multi-page TIFF.
+If no annotation is done (i.e., im_annotations=None &amp; scalebar = False),
+then only one page is saved in the TIFF.</p>
+<p>This function retrieves a raw grayscale EM image, generates an annotated
+RGB version with optional markers and a scale bar, and saves both images
+into a single multi-page TIFF file. The annotated image is stored as the
+first page, and the raw image as the second page.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filename</strong> (<em>str</em>) – Name used for saved .tif image file</p></li>
+<li><p><strong>im_annotations</strong> (<em>dict</em><em> | </em><em>list</em><em>(</em><em>dict</em><em>) </em><em>| </em><em>None</em><em>, </em><em>optional</em>) – <dl class="simple">
+<dt>A dictionary with the following keys:</dt><dd><ul>
+<li><dl class="simple">
+<dt>’text’<span class="classifier">tuple(text, xy_coords)</span></dt><dd><p>text: str, text to print
+xy_coords : (int, int), coordinates in pixels where to place the text</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>’circle’<span class="classifier">tuple(radius, xy_center, is_filled, border_thickness)</span></dt><dd><p>radius : int, radius of circle, in pixels
+xy_center : (int, int), (x,y) coordinates of center, in pixels
+thickness : int, thickness of circle border. Set to -1 for filling</p>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+<p>For multiple annotations, use a list of dictionaries.
+Do not include the relative key if that particular annotation is not desired.</p>
+</p></li>
+<li><p><strong>scalebar</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to annotate the image with a scalebar.</p></li>
+<li><p><strong>frame_image</strong> (<em>np.array</em><em> | </em><em>None</em><em>, </em><em>opt</em>) – Frame image to save. Captures the current frame image if not provided</p></li>
+<li><p><strong>save_dir</strong> (<em>str</em><em>, </em><em>optional</em>) – Directory in which to save the TIFF file. Defaults to self.results_dir
+if available, otherwise it needs to be provided.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>Images are saved as RGB to maximize compatibility across platforms.</p></li>
+</ul>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Sample_Finder">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoemxsp.core.EM_controller.</span></span><span class="sig-name descname"><span class="pre">EM_Sample_Finder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">microscope_ID</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">center_pos</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">tuple</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_half_width_mm</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">substrate_width_mm</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">development_mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">results_dir</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoemxsp/core/EM_controller.html#EM_Sample_Finder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Sample_Finder" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Class for locating and managing samples in an electron microscope (EM).</p>
+<p>This class provides methods for detecting sample features (such as the center and size of a C tape)
+using the microscope’s navigation camera.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Sample_Finder.microscope_ID">
+<span class="sig-name descname"><span class="pre">microscope_ID</span></span><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Sample_Finder.microscope_ID" title="Link to this definition"></a></dt>
+<dd><p>Identifier for the target microscope.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Sample_Finder.center_pos">
+<span class="sig-name descname"><span class="pre">center_pos</span></span><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Sample_Finder.center_pos" title="Link to this definition"></a></dt>
+<dd><p>Initial center position of sample as a NumPy array of shape (2,), representing [x, y] coordinates.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Sample_Finder.results_dir">
+<span class="sig-name descname"><span class="pre">results_dir</span></span><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Sample_Finder.results_dir" title="Link to this definition"></a></dt>
+<dd><p>Directory path to save results, or None if not set.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Optional[str]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Sample_Finder.verbose">
+<span class="sig-name descname"><span class="pre">verbose</span></span><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Sample_Finder.verbose" title="Link to this definition"></a></dt>
+<dd><p>If True, enables detailed debug output.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Sample_Finder.development_mode">
+<span class="sig-name descname"><span class="pre">development_mode</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bool</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Sample_Finder.development_mode" title="Link to this definition"></a></dt>
+<dd><p>Enables use of class outside microscope enviroment</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Whether class is being used for testing image processing functions, without real-time acquisition.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">sample_center</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">])</span>  <span class="c1"># stage coordinates in mm</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">finder</span> <span class="o">=</span> <span class="n">EM_Sample_Finder</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">microscope_ID</span><span class="o">=</span><span class="s1">&#39;MySEM&#39;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">center_pos</span><span class="o">=</span><span class="n">sample_center</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">sample_half_width_mm</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">substrate_width_mm</span><span class="p">:</span> <span class="mi">12</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">results_dir</span><span class="o">=</span><span class="s1">&#39;./results&#39;</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ctape_result</span> <span class="o">=</span> <span class="n">finder</span><span class="o">.</span><span class="n">detect_Ctape</span><span class="p">()</span>
+<span class="go">Detecting position of C tape</span>
+<span class="go">C tape detected.</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">if</span> <span class="n">ctape_result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="n">center_pos</span><span class="p">,</span> <span class="n">sample_hw_mm</span> <span class="o">=</span> <span class="n">ctape_result</span>
+<span class="gp">... </span>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;C tape center (mm):&quot;</span><span class="p">,</span> <span class="n">center_pos</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;C tape half-width (mm):&quot;</span><span class="p">,</span> <span class="n">sample_hw_mm</span><span class="p">)</span>
+<span class="gp">... </span><span class="k">else</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;C tape detection failed.&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p class="rubric">Notes</p>
+<ul class="simple">
+<li><p>The navigation camera image can be provided directly (for offline testing) or acquired live from the microscope.</p></li>
+<li><p>For successful detection, the microscope calibration file must include the attributes:
+‘navcam_im_w_mm’, ‘navcam_x_offset’, ‘navcam_y_offset’.</p></li>
+<li><p>The detected center and half-width (radius) can be used to configure automated acquisition grids or for quality control.</p></li>
+</ul>
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Sample_Finder.detect_Ctape">
+<span class="sig-name descname"><span class="pre">detect_Ctape</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">navcam_im</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="reference internal" href="../_modules/autoemxsp/core/EM_controller.html#EM_Sample_Finder.detect_Ctape"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Sample_Finder.detect_Ctape" title="Link to this definition"></a></dt>
+<dd><p>Detects the effective center position and radius of the C tape using the navigation camera image.</p>
+<p>Uses navcam_im if provided (e.g., when testing function), or acquires it directly at microscope
+via EM_driver.get_navigation_camera_image()</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>(center_pos, sample_hw_mm) if successful, else None.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoemxsp.core.EM_controller.EM_Sample_Finder.normalise_img">
+<span class="sig-name descname"><span class="pre">normalise_img</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">img</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_brightness</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">128.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span></span></span><a class="reference internal" href="../_modules/autoemxsp/core/EM_controller.html#EM_Sample_Finder.normalise_img"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoemxsp.core.EM_controller.EM_Sample_Finder.normalise_img" title="Link to this definition"></a></dt>
+<dd><p>Normalize brightness of an RGB image to a target brightness level.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>img</strong> (<em>np.ndarray</em>) – Input RGB image (uint8).</p></li>
+<li><p><strong>target_brightness</strong> (<em>float</em>) – Desired average brightness (0–255).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Brightness-normalized RGB image (uint8).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="autoemxsp.core.EMXSp_composition_analyser.html" class="btn btn-neutral float-left" title="autoemxsp.core.EMXSp_composition_analyser module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="autoemxsp.core.EM_particle_finder.html" class="btn btn-neutral float-right" title="autoemxsp.core.EM_particle_finder module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Andrea Giunto.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

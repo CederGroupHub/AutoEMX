@@ -1,0 +1,769 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>autoemxsp.config.classes &mdash; AutoEMXSp 0.1.6 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=6e0256f3"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            AutoEMXSp
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../user/index.html">User Documentation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced User Documentation:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../advanced_user/index.html">Advanced User Documentation</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">AutoEMXSp</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">autoemxsp.config.classes</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for autoemxsp.config.classes</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">AutoEMXSp configuration dataclasses.</span>
+
+<span class="sd">Created on Mon Jul 28 10:33:35 2025</span>
+
+<span class="sd">@author: Andrea</span>
+
+<span class="sd">This module provides configuration dataclasses for all stages of an automated X-ray spectroscopy workflow,</span>
+<span class="sd">including microscope setup, sample and substrate definition, measurement and acquisition settings,</span>
+<span class="sd">spectrum fitting, quantification and filtering, powder measurement, clustering, and plotting.</span>
+
+<span class="sd">Configurations:</span>
+
+<span class="sd">- MicroscopeConfig: Settings for microscope hardware, calibration, and imaging parameters.</span>
+<span class="sd">- SampleConfig: Defines the sample’s identity, elements, and spatial properties.</span>
+<span class="sd">- SampleSubstrateConfig: Specifies the substrate composition and geometry supporting the sample.</span>
+<span class="sd">- MeasurementConfig: Controls measurement type, beam parameters, and acquisition settings.</span>
+<span class="sd">- QuantConfig: Options for spectral fitting and quantification.</span>
+<span class="sd">- PowderMeasurementConfig: Settings for analyzing powder samples and particle selection.</span>
+<span class="sd">- BulkMeasurementConfig: Settings for analyzing non-powder samples.</span>
+<span class="sd">- ClusteringConfig: Configures clustering algorithms and filtering of X-ray spectra.</span>
+<span class="sd">- PlotConfig: Options for saving, displaying, and customizing plots.</span>
+
+<span class="sd">Each dataclass includes attribute documentation and input validation.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">multiprocessing</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Dict</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core.periodic_table</span><span class="w"> </span><span class="kn">import</span> <span class="n">Element</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pymatgen.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">Composition</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">autoemxsp.utils.constants</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cnst</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">autoemxsp.config.defaults</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">dflt</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">autoemxsp.core.particle_segmentation_models</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">par_seg_models</span>
+
+<div class="viewcode-block" id="MicroscopeConfig">
+<a class="viewcode-back" href="../../../_api/autoemxsp.config.classes.html#autoemxsp.config.classes.MicroscopeConfig">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MicroscopeConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration for the microscope hardware.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        ID (str): Identifier for the microscope, defining instrument calibrations at ./XSp_calibs/Microscopes/ID.</span>
+<span class="sd">        type (str): Type of microscope. Allowed: &#39;SEM&#39; (implemented), &#39;STEM&#39; (not implemented).</span>
+<span class="sd">        is_auto_BC (bool): If True, brightness/contrast are set automatically.</span>
+<span class="sd">        brightness (Optional[float]): Manual brightness value; required if is_auto_BC is False.</span>
+<span class="sd">        contrast (Optional[float]): Manual contrast value; required if is_auto_BC is False.</span>
+<span class="sd">        energy_zero (Optional[float]): Set from detector calibration files during spectral collection.</span>
+<span class="sd">        bin_width (Optional[float]): Set from detector calibration files during spectral collection.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - If `is_auto_BC` is False, both `brightness` and `contrast` must be provided.</span>
+<span class="sd">        - STEM mode is not implemented and will raise NotImplementedError.</span>
+<span class="sd">        - The microscope ID must correspond to a folder at ./XSp_calibs/Microscopes/ID containing all necessary calibration files.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">ID</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">dflt</span><span class="o">.</span><span class="n">microscope_ID</span>
+    <span class="nb">type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">dflt</span><span class="o">.</span><span class="n">microscope_type</span>
+    <span class="n">detector_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">dflt</span><span class="o">.</span><span class="n">detector_type</span>
+    <span class="n">is_auto_BC</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">brightness</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">contrast</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">energy_zero</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">bin_width</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">ALLOWED_TYPES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;SEM&quot;</span><span class="p">,</span> <span class="s2">&quot;STEM&quot;</span><span class="p">)</span>
+    <span class="n">ALLOWED_DETECTOR_TYPES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;BSD&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+        <span class="c1"># Check that the calibration folder for this microscope exists</span>
+        <span class="n">parent_dir</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span><span class="p">)</span>
+        <span class="n">calib_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parent_dir</span><span class="p">,</span> <span class="n">cnst</span><span class="o">.</span><span class="n">CALIBS_DIR</span><span class="p">,</span> <span class="n">cnst</span><span class="o">.</span><span class="n">MICROSCOPES_CALIBS_DIR</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ID</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">calib_path</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Calibration folder for microscope ID &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ID</span><span class="si">}</span><span class="s2">&#39; not found at &#39;</span><span class="si">{</span><span class="n">calib_path</span><span class="si">}</span><span class="s2">&#39;.</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="s2">&quot;Please add all necessary calibration files and ensure the folder is named with the same ID.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ALLOWED_TYPES</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Microscope type must be one of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ALLOWED_TYPES</span><span class="si">}</span><span class="s2">, got &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;STEM&quot;</span><span class="p">:</span>
+            <span class="c1"># STEM mode is not supported yet.</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;STEM mode is not implemented yet.&quot;</span><span class="p">)</span>
+            
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">detector_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ALLOWED_DETECTOR_TYPES</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Detector type must be one of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ALLOWED_DETECTOR_TYPES</span><span class="si">}</span><span class="s2">, got &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">detector_type</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">)</span>
+                
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_auto_BC</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">brightness</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">contrast</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;If is_auto_BC is False, both brightness and contrast must be provided.&quot;</span>
+                <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="SampleConfig">
+<a class="viewcode-back" href="../../../_api/autoemxsp.config.classes.html#autoemxsp.config.classes.SampleConfig">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SampleConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration for the sample.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        ID (str): Identifier for the sample.</span>
+<span class="sd">        elements (List[str]): List of elemental symbols (e.g., [&#39;Fe&#39;, &#39;O&#39;]).</span>
+<span class="sd">        type (str): Sample type. Allowed types:</span>
+<span class="sd">            - powder: Expects particles, and uses geometrical correction factors during spectral fits.</span>
+<span class="sd">            - powder_continuous: Expects a quasi-continuous powder mixture, sampled in a grid (NO PARTICLE DETECTION APPLIED).</span>
+<span class="sd">                    Applies geometrical correction factors during spectral fits.</span>
+<span class="sd">            - bulk: Expects a flat, continuous surface, sampled in a grid. Does not apply geometrical factors.</span>
+<span class="sd">            - bulk_rough: Expects a continuous surface, sampled in a grid. Applies geometrical factors.</span>
+<span class="sd">            - film: NOT IMPLEMENTED YET</span>
+<span class="sd">        w_frs (Dict[str,float]): Dict of elemental mass fractions to be kept fixed (e.g., {&#39;Fe&#39;: 0.4, &#39;O&#39;: 0.6}).</span>
+<span class="sd">            Normally not used</span>
+<span class="sd">        center_pos (Tuple[float, float]): (x, y) center position of the sample on the stage, in mm.</span>
+<span class="sd">        half_width_mm (float): Half-width of the sample in millimeters.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - Only &#39;powder&#39; and &#39;bulk&#39; type are implemented. &#39;film&#39; will raise NotImplementedError.</span>
+<span class="sd">        - Element symbols are validated. An error is raised if any symbol is unrecognized.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">ID</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">elements</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    <span class="nb">type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">cnst</span><span class="o">.</span><span class="n">S_POWDER_SAMPLE_TYPE</span>
+    <span class="n">w_frs</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">center_pos</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span> <span class="c1"># in mm</span>
+    <span class="n">half_width_mm</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">2.9</span>  <span class="c1"># in mm</span>
+
+    <span class="n">ALLOWED_TYPES</span> <span class="o">=</span> <span class="p">(</span><span class="n">cnst</span><span class="o">.</span><span class="n">S_POWDER_SAMPLE_TYPE</span><span class="p">,</span>
+                     <span class="n">cnst</span><span class="o">.</span><span class="n">S_POWDER_CONTINUOUS_SAMPLE_TYPE</span><span class="p">,</span>
+                     <span class="n">cnst</span><span class="o">.</span><span class="n">S_BULK_SAMPLE_TYPE</span><span class="p">,</span>
+                     <span class="n">cnst</span><span class="o">.</span><span class="n">S_BULK_ROUGH_SAMPLE_TYPE</span><span class="p">,</span>
+                     <span class="n">cnst</span><span class="o">.</span><span class="n">S_FILM_SAMPLE_TYPE</span>
+                     <span class="p">)</span>
+    
+    <span class="n">POWDER_SAMPLES_TYPES</span> <span class="o">=</span> <span class="p">[</span><span class="n">cnst</span><span class="o">.</span><span class="n">S_POWDER_SAMPLE_TYPE</span><span class="p">,</span> <span class="n">cnst</span><span class="o">.</span><span class="n">S_POWDER_CONTINUOUS_SAMPLE_TYPE</span><span class="p">]</span>
+    <span class="n">is_powder_sample</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span> <span class="c1"># default, overwritten based on type</span>
+    
+    <span class="n">ROUGH_SURFACE_TYPES</span>  <span class="o">=</span> <span class="n">POWDER_SAMPLES_TYPES</span> <span class="o">+</span> <span class="p">[</span><span class="n">cnst</span><span class="o">.</span><span class="n">S_BULK_ROUGH_SAMPLE_TYPE</span><span class="p">]</span>
+    <span class="n">is_surface_rough</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span> <span class="c1"># default, overwritten based on type</span>
+    
+    <span class="n">GRID_ACQUISITION_TYPES</span> <span class="o">=</span> <span class="p">(</span><span class="n">cnst</span><span class="o">.</span><span class="n">S_BULK_SAMPLE_TYPE</span><span class="p">,</span>
+                              <span class="n">cnst</span><span class="o">.</span><span class="n">S_POWDER_CONTINUOUS_SAMPLE_TYPE</span><span class="p">,</span>
+                              <span class="n">cnst</span><span class="o">.</span><span class="n">S_BULK_ROUGH_SAMPLE_TYPE</span><span class="p">,</span>
+                              <span class="n">cnst</span><span class="o">.</span><span class="n">S_FILM_SAMPLE_TYPE</span><span class="p">)</span>
+    <span class="n">is_grid_acquisition</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span> <span class="c1"># default, overwritten based on type</span>
+    
+    <span class="n">PARTICLE_ACQUISITION_TYPES</span> <span class="o">=</span> <span class="p">(</span><span class="n">cnst</span><span class="o">.</span><span class="n">S_POWDER_SAMPLE_TYPE</span><span class="p">)</span>
+    <span class="n">is_particle_acquisition</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span> <span class="c1"># default, overwritten based on type</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Validate and clean sample ID</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ID</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clean_ID</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ID</span><span class="p">)</span>
+        
+        <span class="c1"># Validate sample type</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ALLOWED_TYPES</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sample type must be one of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ALLOWED_TYPES</span><span class="si">}</span><span class="s2">, got &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="p">(</span><span class="n">cnst</span><span class="o">.</span><span class="n">S_FILM_SAMPLE_TYPE</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sample type &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="s2">&#39; is not implemented yet.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Validate element symbols using pymatgen</span>
+        <span class="k">for</span> <span class="n">symbol</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">elements</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">Element</span><span class="p">(</span><span class="n">symbol</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Element symbol &#39;</span><span class="si">{</span><span class="n">symbol</span><span class="si">}</span><span class="s2">&#39; is not a recognized element.&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Set attribute values based on type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_powder_sample</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">POWDER_SAMPLES_TYPES</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_surface_rough</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ROUGH_SURFACE_TYPES</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_grid_acquisition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">GRID_ACQUISITION_TYPES</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_particle_acquisition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">PARTICLE_ACQUISITION_TYPES</span>
+    
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_clean_ID</span><span class="p">(</span><span class="n">ID</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove trailing whitespace and invisible characters from the ID to avoid errors in output saving.&quot;&quot;&quot;</span>
+        <span class="n">cleaned_ID</span> <span class="o">=</span> <span class="n">ID</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">cleaned_ID</span> <span class="o">!=</span> <span class="n">ID</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: ID &#39;</span><span class="si">{</span><span class="n">ID</span><span class="si">}</span><span class="s2">&#39; contained trailing whitespace or invisible characters. Using cleaned ID: &#39;</span><span class="si">{</span><span class="n">cleaned_ID</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+        <span class="c1"># Remove leading and trailing invisible characters</span>
+        <span class="n">cleaned_ID</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;^\W+|\W+$&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">cleaned_ID</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">cleaned_ID</span></div>
+
+
+
+<div class="viewcode-block" id="SampleSubstrateConfig">
+<a class="viewcode-back" href="../../../_api/autoemxsp.config.classes.html#autoemxsp.config.classes.SampleSubstrateConfig">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SampleSubstrateConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration for the sample substrate.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        elements (List[str]): List of element symbols present in the sample substrate.</span>
+<span class="sd">        type (str): Type of the sample substrate. Allowed values: &#39;Ctape&#39;.</span>
+<span class="sd">        shape (str): Shape of the sample substrate. Allowed values: &#39;circle&#39;, &#39;rectangle&#39;.</span>
+<span class="sd">        auto_detection (bool): Whether to attempt automatic detection of substrate. (implemented only for type = Ctape &amp; shape = &#39;circle&#39;)</span>
+<span class="sd">        stub_w_mm (float): Lateral dimension of substrate holder in mm, used for determining image size for auto_detection.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - Element symbols are validated. An error is raised if any symbol is unrecognized.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">elements</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;C&#39;</span><span class="p">,</span> <span class="s1">&#39;O&#39;</span><span class="p">,</span> <span class="s1">&#39;Al&#39;</span><span class="p">])</span>
+    <span class="nb">type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">cnst</span><span class="o">.</span><span class="n">CTAPE_SUBSTRATE_TYPE</span>
+    <span class="n">shape</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">cnst</span><span class="o">.</span><span class="n">CIRCLE_SUBSTRATE_SHAPE</span>
+    <span class="n">auto_detection</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">stub_w_mm</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">12</span>
+
+    <span class="n">ALLOWED_TYPES</span> <span class="o">=</span> <span class="p">(</span><span class="n">cnst</span><span class="o">.</span><span class="n">CTAPE_SUBSTRATE_TYPE</span><span class="p">,</span> <span class="n">cnst</span><span class="o">.</span><span class="n">NONE_SUBSTRATE_TYPE</span><span class="p">)</span>
+    <span class="n">ALLOWED_SHAPES</span> <span class="o">=</span> <span class="p">(</span><span class="n">cnst</span><span class="o">.</span><span class="n">CIRCLE_SUBSTRATE_SHAPE</span><span class="p">,</span> <span class="n">cnst</span><span class="o">.</span><span class="n">SQUARE_SUBSTRATE_SHAPE</span><span class="p">)</span>
+    <span class="n">ALLOWED_AUTO_DETECTION_TYPES</span> <span class="o">=</span> <span class="p">(</span><span class="n">cnst</span><span class="o">.</span><span class="n">CTAPE_SUBSTRATE_TYPE</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ALLOWED_TYPES</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;SampleSubstrate type must be one of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ALLOWED_TYPES</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">shape</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ALLOWED_SHAPES</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;SampleSubstrate shape must be one of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ALLOWED_SHAPES</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">auto_detection</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="n">cnst</span><span class="o">.</span><span class="n">CTAPE_SUBSTRATE_TYPE</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;auto_detection is only implemented for types </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ALLOWED_AUTO_DETECTION_TYPES</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="c1"># Validate element symbols using pymatgen</span>
+        <span class="k">for</span> <span class="n">symbol</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">elements</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">Element</span><span class="p">(</span><span class="n">symbol</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Element symbol &#39;</span><span class="si">{</span><span class="n">symbol</span><span class="si">}</span><span class="s2">&#39; is not a recognized element.&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="MeasurementConfig">
+<a class="viewcode-back" href="../../../_api/autoemxsp.config.classes.html#autoemxsp.config.classes.MeasurementConfig">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MeasurementConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration for the measurement/acquisition.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        type (str): Measurement type. Allowed: &#39;EDS&#39; (implemented), &#39;WDS&#39; (not implemented).</span>
+<span class="sd">        mode (str): Measurement mode (e.g., &#39;point&#39;). Defines set of measurement parameters (i.e., beam current), determining detector calibration parameters</span>
+<span class="sd">        working_distance (Optional[float]): Working distance to use for current measurement, in mm. Takes it from EM_driver if left unspecified. </span>
+<span class="sd">        working_distance_tolerance (Optional[float]): Defines maximum accepted deviation of working distance from its typical value, in mm.</span>
+<span class="sd">            Used to prevent gross mistakes from EM autofocus. Default: 1 mm. </span>
+<span class="sd">        beam_energy_keV (float): Electron beam energy in keV.</span>
+<span class="sd">        beam_current (Optional[float]): Beam current; must be provided at initialization or via detector channel calibration file.</span>
+<span class="sd">        emergence_angle (Optional[float]): Emergence angle; updated from microscope driver file if not provided.</span>
+<span class="sd">        is_manual_navigation (bool): If True, instrument navigation is performed manually.</span>
+<span class="sd">        max_acquisition_time (float): Maximum X-ray spectral acquisition time in seconds.</span>
+<span class="sd">        target_acquisition_counts (int): Target number of counts for acquisition of X-ray spectrum.</span>
+<span class="sd">        min_n_spectra (int): Minimum number of spectra to acquire.</span>
+<span class="sd">        max_n_spectra (int): Maximum number of spectra to acquire.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - Only &#39;EDS&#39; type is implemented. &#39;WDS&#39; will raise NotImplementedError.</span>
+<span class="sd">        - If `beam_current` or `emergence_angle` are not provided, they should be set via calibration or microscope driver.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nb">type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">dflt</span><span class="o">.</span><span class="n">measurement_type</span>
+    <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">dflt</span><span class="o">.</span><span class="n">measurement_mode</span>
+    <span class="n">working_distance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span> <span class="c1"># mm</span>
+    <span class="n">working_distance_tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span> <span class="c1"># mm</span>
+    <span class="n">beam_energy_keV</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">15.0</span>  <span class="c1"># in keV</span>
+    <span class="n">beam_current</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Provide at initialization or via calibration</span>
+    <span class="n">emergence_angle</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Updated from microscope driver if not provided</span>
+    <span class="n">is_manual_navigation</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">max_acquisition_time</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">30.0</span>  <span class="c1"># seconds</span>
+    <span class="n">target_acquisition_counts</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">50000</span>
+    <span class="n">min_n_spectra</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span>
+    <span class="n">max_n_spectra</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span>
+    
+    <span class="n">PARTICLE_STATS_MEAS_TYPE_KEY</span> <span class="o">=</span> <span class="s2">&quot;particle_stats&quot;</span>
+    <span class="n">ALLOWED_TYPES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;EDS&quot;</span><span class="p">,</span> <span class="s2">&quot;WDS&quot;</span><span class="p">,</span> <span class="n">PARTICLE_STATS_MEAS_TYPE_KEY</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ALLOWED_TYPES</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Measurement type must be one of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ALLOWED_TYPES</span><span class="si">}</span><span class="s2">, got &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;WDS&quot;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;WDS measurement type is not implemented yet.&quot;</span><span class="p">)</span></div>
+
+            
+            
+<div class="viewcode-block" id="QuantConfig">
+<a class="viewcode-back" href="../../../_api/autoemxsp.config.classes.html#autoemxsp.config.classes.QuantConfig">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">QuantConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration for X-ray spectrum fitting and quantification.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        method (str): Method to use for quantification. Currently only accepts &#39;PB&#39;</span>
+<span class="sd">        spectrum_lims (Tuple[float, float]): Lower and upper spectral index limits.</span>
+<span class="sd">        fit_tolerance (float): lmfit tolerance for fit convergence</span>
+<span class="sd">        use_instrument_background (bool): Whether to use the instrument background in the fit (Default: False).</span>
+<span class="sd">            If False, AutoEMXSp computes the background while fitting.</span>
+<span class="sd">        interrupt_fits_bad_spectra (bool): If True, fitting will stop early for spectra identified as poor quality.</span>
+<span class="sd">        min_bckgrnd_cnts (Optional[int]): Minimum background counts required for spectrum not to be filtered out. Can be None.</span>
+<span class="sd">        use_project_specific_std_dict (bool): If True, tries to load the dictionary of reference standards from the project folder.</span>
+<span class="sd">            If not found, uses the default file &quot;EDS_Stds_beamenergykeV.json&quot; at XSp_calibs/Microscopes/your_microscope.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">dflt</span><span class="o">.</span><span class="n">quantification_method</span>
+    <span class="n">spectrum_lims</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">dflt</span><span class="o">.</span><span class="n">spectrum_lims</span>
+    <span class="n">fit_tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-4</span>
+    <span class="n">use_instrument_background</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">dflt</span><span class="o">.</span><span class="n">use_instrument_background</span>
+    <span class="n">interrupt_fits_bad_spectra</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">min_bckgrnd_cnts</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">5</span>  <span class="c1"># Can be None</span>
+    <span class="n">num_CPU_cores</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">use_project_specific_std_dict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    
+    <span class="n">ALLOWED_METHODS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;PB&#39;</span><span class="p">]</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ALLOWED_METHODS</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Quantification method must be one of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ALLOWED_METHODS</span><span class="si">}</span><span class="s2">, got &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+                             <span class="s2">&quot;Currently no other method is implemented.&quot;</span><span class="p">)</span>
+            
+        <span class="c1"># Automatically select half of available CPU cores if not specified</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_CPU_cores</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">total_cores</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">num_CPU_cores</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">total_cores</span> <span class="o">//</span> <span class="mi">2</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="PowderMeasurementConfig">
+<a class="viewcode-back" href="../../../_api/autoemxsp.config.classes.html#autoemxsp.config.classes.PowderMeasurementConfig">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">PowderMeasurementConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration for powder measurement.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        is_manual_particle_selection (bool): Whether to manually navigate sample to select particles to analyse (Default = False).</span>
+<span class="sd">        is_known_powder_mixture_meas (bool): Whether sample is a known binary mixture of powders. Used to characterize precursor extent of intermixing (Default = False).</span>
+<span class="sd">        par_search_frame_width_um (float, optional): Frame width used when searching for particles, in um.</span>
+<span class="sd">            Default: min(20*max_par_radius, 500 um)</span>
+<span class="sd">        max_n_par_per_frame (int): Maximum number of particles analyzed in a single frame. </span>
+<span class="sd">            Used to ensure spatial representation of the analyzed sample.</span>
+<span class="sd">        max_spectra_per_par (int): Maximum number of spot X-ray spectra collected in a single particle.</span>
+<span class="sd">            Limiting this ensures more particles are analyzed.</span>
+<span class="sd">        max_area_par (float): Maximum area (in µm²) for a particle to be considered.</span>
+<span class="sd">        min_area_par (float): Minimum area (in µm²) for a particle to be considered.</span>
+<span class="sd">        par_mask_margin (float): Margin (in µm) from particle edge where X-ray spectra should not be collected.</span>
+<span class="sd">        xsp_spots_distance_um (float): Min distance between X-ray spectrum acquisition points</span>
+<span class="sd">        par_segmentation_model (str) : Model to use for particle segmentation. Default: &quot;threshold_bright&quot;</span>
+<span class="sd">        par_brightness_thresh (int): Intensity threshold in 8-bit image that defines a particle over a dark background.</span>
+<span class="sd">        par_xy_spots_thresh (int): Intensity threshold in 8-bit image that defines bright (i.e., thickest) regions in particles.</span>
+<span class="sd">            X-ray spectra are acquired only from these regions.</span>
+<span class="sd">            Particle pixel intensities are scaled to 8-bit prior threhsolding, i.e., darkest pixel will be set to 0, and brightest to 255.</span>
+<span class="sd">        par_feature_selection (str): &#39;random&#39; for random selection of points within bright regions, &#39;peaks&#39; for brightest peak spots (default: &#39;random&#39;).</span>
+<span class="sd">        par_spot_spacing (str): &#39;random&#39; for unbiased spot selecton, &#39;maximized&#39; for maximized spot spacing over particle (default: &#39;random&#39;).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">DEFAULT_PAR_SEGMENTATION_MODEL</span> <span class="o">=</span> <span class="s2">&quot;threshold_bright&quot;</span>
+
+    <span class="n">is_manual_particle_selection</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">is_known_powder_mixture_meas</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">par_search_frame_width_um</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span> 
+    <span class="n">max_n_par_per_frame</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span>
+    <span class="n">max_spectra_per_par</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span>
+    <span class="n">max_area_par</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">300.0</span>    <span class="c1"># µm²</span>
+    <span class="n">min_area_par</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span>     <span class="c1"># µm²</span>
+    <span class="n">par_mask_margin</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span>   <span class="c1"># µm</span>
+    <span class="n">xsp_spots_distance_um</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="c1"># µm</span>
+    <span class="n">par_segmentation_model</span> <span class="p">:</span> <span class="nb">str</span> <span class="o">=</span>  <span class="n">DEFAULT_PAR_SEGMENTATION_MODEL</span>
+    <span class="n">par_brightness_thresh</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span> <span class="c1"># in 8-bit image</span>
+    <span class="n">par_xy_spots_thresh</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span>  <span class="c1"># considering particle pixel intensities are scaled to 8-bit image</span>
+    <span class="n">par_feature_selection</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;random&#39;</span>
+    <span class="n">par_spot_spacing</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;random&#39;</span>
+    
+    <span class="n">AVAILABLE_PAR_SEGMENTATION_MODELS</span> <span class="o">=</span> <span class="p">[</span><span class="n">DEFAULT_PAR_SEGMENTATION_MODEL</span><span class="p">]</span> <span class="o">+</span> <span class="n">par_seg_models</span><span class="o">.</span><span class="n">AVAILABLE_SEGMENTATION_MODELS</span>
+    <span class="n">AVAILABLE_FEATURE_SELECTION</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;random&#39;</span><span class="p">,</span> <span class="s1">&#39;peaks&#39;</span><span class="p">)</span>
+    <span class="n">AVAILABLE_SPOT_SPACING_SELECTION</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;random&#39;</span><span class="p">,</span> <span class="s1">&#39;maximized&#39;</span><span class="p">)</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># --- 0. Check validity of passed variables</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">par_segmentation_model</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">AVAILABLE_PAR_SEGMENTATION_MODELS</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;Value of &quot;par_segmentation_model&quot; set to </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">par_segmentation_model</span><span class="si">}</span><span class="s1"> is invalid. &#39;</span>
+                <span class="sa">f</span><span class="s1">&#39;Must be one of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">AVAILABLE_PAR_SEGMENTATION_MODELS</span><span class="si">}</span><span class="s1">.&#39;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">par_feature_selection</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">AVAILABLE_FEATURE_SELECTION</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;Value of &quot;par_feature_selection&quot; set to </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">par_feature_selection</span><span class="si">}</span><span class="s1"> is invalid. &#39;</span>
+                <span class="sa">f</span><span class="s1">&#39;Must be one of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">available_feature_selection</span><span class="si">}</span><span class="s1">.&#39;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">par_spot_spacing</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">AVAILABLE_SPOT_SPACING_SELECTION</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;Value of &quot;par_spot_spacing&quot; set to </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">par_spot_spacing</span><span class="si">}</span><span class="s1"> is invalid. &#39;</span>
+                <span class="sa">f</span><span class="s1">&#39;Must be one of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">available_spot_spacing</span><span class="si">}</span><span class="s1">.&#39;</span>
+            <span class="p">)</span>
+        <span class="c1"># Additional checks can be added here (e.g., for numeric bounds)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_area_par</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_area_par</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Particle area thresholds must be non-negative.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_area_par</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_area_par</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;max_area_par must be greater than or equal to min_area_par.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_n_par_per_frame</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;max_n_par_per_frame must be positive.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_spectra_per_par</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;max_spectra_per_par must be positive.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">par_mask_margin</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;par_mask_margin must be non-negative.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="mi">0</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">par_brightness_thresh</span> <span class="o">&lt;=</span> <span class="mi">255</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;par_brightness_thresh must be in 0..255.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="mi">0</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">par_xy_spots_thresh</span> <span class="o">&lt;=</span> <span class="mi">255</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;par_xy_spots_thresh must be in 0..255.&quot;</span><span class="p">)</span>
+            
+        <span class="c1"># --- 1. Define default par_search_frame_width_um if None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">par_search_frame_width_um</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">max_par_radius</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_area_par</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>  <span class="c1"># in µm</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">par_search_frame_width_um</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="mi">20</span> <span class="o">*</span> <span class="n">max_par_radius</span><span class="p">,</span> <span class="mf">500.0</span><span class="p">)</span>  <span class="c1"># µm</span></div>
+
+ 
+
+<div class="viewcode-block" id="BulkMeasurementConfig">
+<a class="viewcode-back" href="../../../_api/autoemxsp.config.classes.html#autoemxsp.config.classes.BulkMeasurementConfig">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">BulkMeasurementConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration for characterization or bulk-like samples.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    grid_spot_spacing_um : float</span>
+<span class="sd">        Distance between grid points to measure, in micrometers (µm).</span>
+<span class="sd">    min_xsp_spots_distance_um : float</span>
+<span class="sd">        Offset distance for acquisition spot grid if the original grid</span>
+<span class="sd">        does not contain enough spots to measure the required number</span>
+<span class="sd">        of spectra, in micrometers (µm).</span>
+<span class="sd">    image_frame_width_um : float, optional</span>
+<span class="sd">        Width of the image frame in micrometers (µm). If not specified,</span>
+<span class="sd">        defaults to 10 × grid_spot_spacing_um.</span>
+<span class="sd">    randomize_frames : bool</span>
+<span class="sd">        Whether to randomize the order of spectra acquisition in the constructed grid.</span>
+<span class="sd">    exclude_sample_margin : bool</span>
+<span class="sd">        Whether to exclude the margin of the sample (useful if contaminated).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">grid_spot_spacing_um</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">100.0</span>  <span class="c1"># µm</span>
+    <span class="n">min_xsp_spots_distance_um</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span>  <span class="c1"># µm</span>
+    <span class="n">image_frame_width_um</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span> <span class="c1"># µm</span>
+    <span class="n">randomize_frames</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">exclude_sample_margin</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Validate grid spot spacing</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grid_spot_spacing_um</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;grid_spot_spacing_um must be positive.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Validate minimum spot distance</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">min_xsp_spots_distance_um</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;min_xsp_spots_distance_um must be positive.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_xsp_spots_distance_um</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid_spot_spacing_um</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;min_xsp_spots_distance_um should not exceed grid_spot_spacing_um.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Set default image frame width if unspecified</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">image_frame_width_um</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">image_frame_width_um</span> <span class="o">=</span> <span class="mi">10</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">grid_spot_spacing_um</span></div>
+
+ 
+
+<div class="viewcode-block" id="ExpStandardsConfig">
+<a class="viewcode-back" href="../../../_api/autoemxsp.config.classes.html#autoemxsp.config.classes.ExpStandardsConfig">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ExpStandardsConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration for the collection of experimental standards.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        is_exp_std_measurement (bool): </span>
+<span class="sd">            Whether the configuration corresponds to the measurement of an experimental standard (Default = False)</span>
+<span class="sd">            If True, a valid `formula` must be provided and weight fractions will be automatically calculated.</span>
+
+<span class="sd">        formula (str): </span>
+<span class="sd">            Chemical formula of the experimental standard. Required if `is_exp_std_measurement` is True.</span>
+<span class="sd">            Must be parseable by `pymatgen.core.Composition`.</span>
+<span class="sd">        </span>
+<span class="sd">        use_for_mean_PB_calc (bool):</span>
+<span class="sd">            Whether the acquired experimental standards should be used to calculate the average PB, which is the </span>
+<span class="sd">            reference standard value employed generally during spectral quantification (Default = True).</span>
+<span class="sd">            This should be set to False when collecting powder standards for quantifying the extent of intermixing</span>
+<span class="sd">            in powder standards.</span>
+<span class="sd">                </span>
+<span class="sd">        generate_separate_std_dict (bool):</span>
+<span class="sd">            Whether the acquired reference standard values are added to the current reference dictionary. If True, </span>
+<span class="sd">            copies the current standard dictionary to the project folder and updates it. If such .json file is already</span>
+<span class="sd">            present in the project folder, then it updates it. This is generally used when measuring the extent of</span>
+<span class="sd">            powder precursor intermixing (i.e., powder_meas_cfg_kwargs[&quot;is_known_powder_mixture_meas&quot;] = True).</span>
+<span class="sd">            </span>
+<span class="sd">        min_acceptable_PB_ratio (float): </span>
+<span class="sd">            Minimum PB ratio required for a peak to be accepted as a standard. in cnts/cnts*keV^-1 (Deafult = 10).</span>
+<span class="sd">        </span>
+<span class="sd">        quant_flags_accepted (List[int]): </span>
+<span class="sd">            List of quantification flags considered acceptable. Other spectra are filtered out before clustering.</span>
+<span class="sd">            Quantification flags indicate whether the quantification or the fit of each spectrum is likely to be </span>
+<span class="sd">            affected by large errors:</span>
+<span class="sd">                - 0  : Quantification is ok, although it may be affected by large analytical error.</span>
+<span class="sd">                - \-1  : As above, but quantification did not converge within 30 steps.</span>
+<span class="sd">                - 1  : Error during EDS acquisition. No fit executed.</span>
+<span class="sd">                - 2  : Total counts &lt; 95% of target counts, likely due to wrong segmentation. No fit executed.</span>
+<span class="sd">                - 3  : Too little low-energy signal, causing poor quantification in that region. No fit executed.</span>
+<span class="sd">                - 4  : Poor fit. Fit interrupted if interrupt_fits_bad_spectra=True.</span>
+<span class="sd">                - 5  : High analytical error (&gt;50%), possibly due to missing element or other major error. Fit interrupted if interrupt_fits_bad_spectra=True.</span>
+<span class="sd">                - 6  : Excessive X-ray absorption. Fit interrupted if interrupt_fits_bad_spectra=True.</span>
+<span class="sd">                - 7  : Excessive contamination from substrate.</span>
+<span class="sd">                - 8  : Too few background counts below reference peak, likely leading to large quantification errors.</span>
+<span class="sd">                - 9  : Unknown fitting error.</span>
+<span class="sd">                - 10 : (Only for measurement of experimental standards) Reference peak missing.</span>
+
+<span class="sd">        w_frs (Optional[Dict[str, float]]): </span>
+<span class="sd">            Dictionary of element symbols and their corresponding weight fractions (computed via pymatgen)</span>
+<span class="sd">            if `is_exp_std_measurement` is True and `formula` is valid; otherwise None.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: </span>
+<span class="sd">            If `is_exp_std_measurement` is True but `formula` is missing or invalid.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    
+    <span class="n">is_exp_std_measurement</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">formula</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+    <span class="n">use_for_mean_PB_calc</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">generate_separate_std_dict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">min_acceptable_PB_ratio</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">10</span>
+    <span class="n">quant_flags_accepted</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">w_frs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Will hold calculated weight fractions</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_exp_std_measurement</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">formula</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Formula must be provided when is_exp_std_measurement is True.&quot;</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">comp</span> <span class="o">=</span> <span class="n">Composition</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">formula</span><span class="p">)</span>
+                <span class="c1"># Convert FloatWithUnit to plain float</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">w_frs</span> <span class="o">=</span> <span class="p">{</span><span class="n">el</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">w</span><span class="p">)</span> <span class="k">for</span> <span class="n">el</span><span class="p">,</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">comp</span><span class="o">.</span><span class="n">as_weight_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+                <span class="k">except</span><span class="p">:</span> <span class="c1"># Old pymatgen version</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">w_frs</span> <span class="o">=</span> <span class="p">{</span><span class="n">el</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">w</span><span class="p">)</span> <span class="k">for</span> <span class="n">el</span><span class="p">,</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">comp</span><span class="o">.</span><span class="n">to_weight_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid chemical formula &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">formula</span><span class="si">}</span><span class="s2">&#39;: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+        
+        
+
+<div class="viewcode-block" id="ClusteringConfig">
+<a class="viewcode-back" href="../../../_api/autoemxsp.config.classes.html#autoemxsp.config.classes.ClusteringConfig">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ClusteringConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration for clustering of compositions and their filtering.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        method (str): Clustering algorithm to use. Allowed: &#39;kmeans&#39; (implemented), &#39;dbscan&#39; (not implemented).</span>
+<span class="sd">        features (List[Any]): Feature set to use for clustering.</span>
+<span class="sd">        k (Optional[int]): If provided, defines a fixed number of clusters.</span>
+<span class="sd">        k_finding_method (str): Method to determine the number of clusters. Set to &quot;forced&quot; if a value of &#39;k&#39; is specified manually.</span>
+<span class="sd">            Allowed methods are &quot;silhouette&quot;, &quot;calinski_harabasz&quot;, &quot;elbow&quot;.</span>
+<span class="sd">        max_k (int): Maximum allowed number of clusters.</span>
+<span class="sd">        ref_formulae (List[str]): List of possible phases present in the sample, as chemical formula strings.</span>
+<span class="sd">        do_matrix_decomposition (bool) : Whether to compute matrix decomposition for intermixed phases. Slow if many candidate phases are provided. Default: True</span>
+<span class="sd">        max_analytical_error_percent (float): Maximum analytical error acceptable for composition to be considered in phase determination, expressed as w%. Can be None.</span>
+<span class="sd">        quant_flags_accepted (List[int]): List of quantification flags considered acceptable, others are filtered out prior clustering.</span>
+<span class="sd">            Quantification flags indicate whether the quantification or the fit of each spectrum is likely to be affected by large errors:</span>
+<span class="sd">               - 0: Quantification is ok, although it may be affected by large analytical error</span>
+<span class="sd">               - \-1: As above, but quantification did not converge within 30 steps</span>
+<span class="sd">               - 1: Error during EDS acquisition. No fit executed</span>
+<span class="sd">               - 2: Total number of counts is lower than 95% of target counts, likely due to wrong segmentation. No fit executed</span>
+<span class="sd">               - 3: Spectrum has too low signal in its low-energy portion, leading to poor quantification in this region. No fit executed</span>
+<span class="sd">               - 4: Poor fit. Fit interrupted if interrupt_fits_bad_spectra=True</span>
+<span class="sd">               - 5: Too high analytical error (&gt;50%) indicating a missing element or other major sources of error. Fit interrupted if interrupt_fits_bad_spectra=True</span>
+<span class="sd">               - 6: Excessive X-ray absorption. Fit interrupted if interrupt_fits_bad_spectra=True</span>
+<span class="sd">               - 7: Excessive signal contamination from substrate</span>
+<span class="sd">               - 8: Too few background counts below reference peak, likely leading to large quantification errors</span>
+<span class="sd">               - 9: Unknown fitting error</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;kmeans&#39;</span>
+    <span class="n">features</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">cnst</span><span class="o">.</span><span class="n">AT_FR_CL_FEAT</span><span class="p">)</span>
+    <span class="n">k</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">DEFAULT_K_FINDING_METHOD</span> <span class="o">=</span> <span class="s1">&#39;silhouette&#39;</span>
+    <span class="n">k_finding_method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_K_FINDING_METHOD</span>
+    <span class="n">max_k</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6</span>
+    <span class="n">ref_formulae</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">do_matrix_decomposition</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">max_analytical_error_percent</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">5</span>  <span class="c1"># w%, Can be None</span>
+    <span class="n">quant_flags_accepted</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    
+    <span class="n">FORCED_K_METHOD_KEY</span> <span class="o">=</span> <span class="s1">&#39;forced&#39;</span>
+    <span class="n">ALLOWED_METHODS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;kmeans&quot;</span><span class="p">,</span> <span class="s2">&quot;dbscan&quot;</span><span class="p">)</span>
+    <span class="n">ALLOWED_FEATURE_SETS</span> <span class="o">=</span> <span class="p">(</span><span class="n">cnst</span><span class="o">.</span><span class="n">W_FR_CL_FEAT</span><span class="p">,</span> <span class="n">cnst</span><span class="o">.</span><span class="n">AT_FR_CL_FEAT</span><span class="p">)</span>
+    <span class="n">ALLOWED_K_FINDING_METHODS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;silhouette&quot;</span><span class="p">,</span> <span class="s2">&quot;calinski_harabasz&quot;</span><span class="p">,</span> <span class="s2">&quot;elbow&quot;</span><span class="p">,</span> <span class="n">FORCED_K_METHOD_KEY</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>    
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ALLOWED_METHODS</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Clustering method must be one of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ALLOWED_METHODS</span><span class="si">}</span><span class="s2">, got &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;dbscan&quot;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;DBSCAN clustering is not implemented yet.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">features</span> <span class="o">==</span> <span class="n">allowed</span> <span class="k">for</span> <span class="n">allowed</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ALLOWED_FEATURE_SETS</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Invalid value for features: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">features</span><span class="si">}</span><span class="s2">. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Expected one of: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ALLOWED_FEATURE_SETS</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">k_finding_method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ALLOWED_K_FINDING_METHODS</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;k_finding_method must be one of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ALLOWED_K_FINDING_METHODS</span><span class="si">}</span><span class="s2">, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;got &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">k_finding_method</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">k</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">k_finding_method</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">FORCED_K_METHOD_KEY</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">k_finding_method</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">FORCED_K_METHOD_KEY</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;&#39;k_finding_method&#39; should not be set to </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">FORCED_K_METHOD_KEY</span><span class="si">}</span><span class="s2"> if &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;&#39;k&#39; is left unspecified. Setting &#39;k_finding_method = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">DEFAULT_K_FINDING_METHOD</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+            <span class="p">)</span></div>
+
+            
+    
+    
+<div class="viewcode-block" id="PlotConfig">
+<a class="viewcode-back" href="../../../_api/autoemxsp.config.classes.html#autoemxsp.config.classes.PlotConfig">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">PlotConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Configuration for plotting.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        show_unused_comps_clust (bool): Whether to plot unused data points in clustering plot.</span>
+<span class="sd">        els_excluded_clust_plot (List[str]): Elements to exclude in cluster plot when more than 3 elements are present.</span>
+<span class="sd">        show_legend_clustering bool : Whether to show the legend in the clustering plot. Default: True</span>
+<span class="sd">        save_plots (bool): Whether to save plots to disk.</span>
+<span class="sd">        show_plots (bool): Whether to display plots interactively.</span>
+<span class="sd">        use_custom_plots (bool): Whether to use custom plotting routines.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">show_unused_comps_clust</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">els_excluded_clust_plot</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">show_legend_clustering</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">save_plots</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">show_plots</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">use_custom_plots</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span></div>
+
+    
+    
+<span class="c1"># Dictionary of all dataclasses. Loaded for data import</span>
+<span class="n">config_classes_dict</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">cnst</span><span class="o">.</span><span class="n">SAMPLE_CFG_KEY</span><span class="p">:</span> <span class="n">SampleConfig</span><span class="p">,</span>
+    <span class="n">cnst</span><span class="o">.</span><span class="n">MICROSCOPE_CFG_KEY</span><span class="p">:</span> <span class="n">MicroscopeConfig</span><span class="p">,</span>
+    <span class="n">cnst</span><span class="o">.</span><span class="n">MEASUREMENT_CFG_KEY</span><span class="p">:</span> <span class="n">MeasurementConfig</span><span class="p">,</span>
+    <span class="n">cnst</span><span class="o">.</span><span class="n">SAMPLESUBSTRATE_CFG_KEY</span><span class="p">:</span> <span class="n">SampleSubstrateConfig</span><span class="p">,</span>
+    <span class="n">cnst</span><span class="o">.</span><span class="n">QUANTIFICATION_CFG_KEY</span><span class="p">:</span> <span class="n">QuantConfig</span><span class="p">,</span>
+    <span class="n">cnst</span><span class="o">.</span><span class="n">CLUSTERING_CFG_KEY</span><span class="p">:</span> <span class="n">ClusteringConfig</span><span class="p">,</span>
+    <span class="n">cnst</span><span class="o">.</span><span class="n">PLOT_CFG_KEY</span><span class="p">:</span> <span class="n">PlotConfig</span><span class="p">,</span>
+    <span class="n">cnst</span><span class="o">.</span><span class="n">POWDER_MEASUREMENT_CFG_KEY</span><span class="p">:</span> <span class="n">PowderMeasurementConfig</span><span class="p">,</span>
+    <span class="n">cnst</span><span class="o">.</span><span class="n">BULK_MEASUREMENT_CFG_KEY</span><span class="p">:</span> <span class="n">BulkMeasurementConfig</span><span class="p">,</span>
+    <span class="n">cnst</span><span class="o">.</span><span class="n">EXP_STD_MEASUREMENT_CFG_KEY</span><span class="p">:</span> <span class="n">ExpStandardsConfig</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Andrea Giunto.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
