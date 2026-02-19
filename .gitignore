@@ -84,4 +84,4 @@ temp/
 detector_response_convolution_matrices.json
 paper_data/*/
 tests/outputs/
-autoemxsp/Results/**/*Analysis_*/
+autoemxsp/Results/**/Analysis_*/

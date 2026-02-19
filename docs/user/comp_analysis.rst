@@ -1,4 +1,4 @@
-.. _comp_analysis_tutorial:
+    .. _comp_analysis_tutorial:
 
 Tutorial: EDS compositional analysis for phase identification
 =============================================================
@@ -288,6 +288,10 @@ script, and have been previously decribed. Additional parameters are:
 - ``run_clustering_analysis``: If ``True``, the clustering analysis will run automatically after quantification. Recommended: ``True``.
 - ``num_CPU_cores``: Number of CPU cores used for parallel fitting and quantification. If set to ``None``, `AutoEMXSp` will automatically select half of the available cores.
 - ``quantify_only_unquantified_spectra``: If ``True``, quantifies only the previously unquantified spectra, for example after modifying ``min_bckgrnd_cnts``. If ``False``, all spectra are quantified regardless.
+- ``interrupt_fits_bad_spectra``: If ``True``, saves time by interrupting the quantification of spectra likely leading to large quantification errors, including:
+ - Spectra that cannot be properly fitted, usually occurring due to missing elements and unassigned peaks
+ - Excessive absorption detected in the low-energy portion of the spectrum
+ - Excessive analytical error > 50w%, usually occurring due to missing elements and unassigned peaks
 
 Output
 ^^^^^^
