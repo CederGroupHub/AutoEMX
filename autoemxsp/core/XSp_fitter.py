@@ -2856,7 +2856,7 @@ class Background_Model:
             Exponential tail parameter for φ(ρz).
         """
         Z = Element(el).Z
-        A = Element(el).atomic_mass
+        A = float(Element(el).atomic_mass)
         J = J_df.loc[Z, J_df.columns[0]] / 1000  # keV
     
         # Alpha (Packwood, Tirira)
