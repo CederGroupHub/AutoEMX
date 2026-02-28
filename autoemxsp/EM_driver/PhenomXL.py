@@ -463,6 +463,20 @@ def move_to(x: float, y: float) -> None:
         Y coordinate in millimeters.
     """
     phenom.MoveTo(x * 0.001, y * 0.001)
+    
+
+def move_by(x: float, y: float) -> None:
+    """
+    Move stage relative to current position.
+
+    Parameters
+    ----------
+    x : float
+        X shift in millimeters.
+    y : float
+        Y shift in millimeters.
+    """
+    phenom.MoveBy(x * 0.001, y * 0.001)
 
 # =============================================================================
 # Imaging Parameters
