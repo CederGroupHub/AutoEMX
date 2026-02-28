@@ -362,23 +362,24 @@ class EM_Controller:
         # --- Load microscope driver for instrument microscope_ID
         try:
             EM_driver.load_microscope_driver(microscope_cfg.ID)
+            self.EM_driver = EM_driver
         except Exception as e:
             raise RuntimeError(f"Failed to load microscope driver: {e}")
         if not development_mode:
-            if not EM_driver.is_at_EM:
+            if not getattr(self.EM_driver, "is_at_EM", False):
                 raise EMError("Instrument driver could not be loaded")
 
         # Min and max working distance. To avoid gross failures of autofocus algorithm
         if isinstance(measurement_cfg.working_distance, float):
             self.init_wd = measurement_cfg.working_distance
         else:
-            self.init_wd = EM_driver.typical_wd
+            self.init_wd = self.EM_driver.typical_wd
         self._min_wd = self.init_wd - measurement_cfg.working_distance_tolerance  # in mm
         self._max_wd = self.init_wd + measurement_cfg.working_distance_tolerance  # in mm
 
         # Image width and height in pixels
-        self.im_width = EM_driver.im_width
-        self.im_height = EM_driver.im_height
+        self.im_width = self.EM_driver.im_width
+        self.im_height = self.EM_driver.im_height
 
         # Frame width employed during initial grid search, in mm
         self.grid_search_fw_mm = init_fw  # fallback for offline/test mode
@@ -449,24 +450,24 @@ class EM_Controller:
     
         try:
             # Wake up SEM if necessary
-            EM_driver.activate()
+            self.EM_driver.activate()
     
             # Switch to SEM mode
-            EM_driver.to_SEM()
+            self.EM_driver.to_SEM()
     
             # Set detector type to BSD (Backscattered electron detector)
-            EM_driver.set_electron_detector_mode(self.microscope_cfg.detector_type)
+            self.EM_driver.set_electron_detector_mode(self.microscope_cfg.detector_type)
     
             # Set beam voltage (high tension) for EDS collection
             if self.measurement_cfg.beam_energy_keV:
-                EM_driver.set_high_tension(self.measurement_cfg.beam_energy_keV)
+                self.EM_driver.set_high_tension(self.measurement_cfg.beam_energy_keV)
             else:
                 warnings.warn("No acceleration voltage was provided via measurement_cfg.beam_energy_keV. Using current microscope configurations",
                               UserWarning)
             
             # Set beam current for EDS collection
             if self.measurement_cfg.beam_current:
-                EM_driver.set_beam_current(self.measurement_cfg.beam_current)
+                self.EM_driver.set_beam_current(self.measurement_cfg.beam_current)
             else:
                 warnings.warn("No beam current was provided via measurement_cfg.beam_current. Using current microscope configurations",
                               UserWarning)
@@ -475,7 +476,7 @@ class EM_Controller:
             self.move_to_pos(self._center_pos)
     
             # Set working distance (needed for reliable autofocus)
-            EM_driver.adjust_focus(self.init_wd)  # in mm
+            self.EM_driver.adjust_focus(self.init_wd)  # in mm
     
             # Adjust focus, brightness, and contrast
             if self.verbose:
@@ -525,8 +526,8 @@ class EM_Controller:
         """
         if self.sample_cfg.is_particle_acquisition:
             # Set frame width, and update current pixel size
-            if getattr(EM_driver, "is_at_EM", True):
-                min_fw, max_fw = EM_driver.get_range_frame_width()
+            if getattr(self.EM_driver, "is_at_EM", True):
+                min_fw, max_fw = self.EM_driver.get_range_frame_width()
                 self.grid_search_fw_mm = np.clip(self.powder_meas_cfg.par_search_frame_width_um /1000, min_fw, max_fw)
             self.set_frame_width(self.grid_search_fw_mm)
             
@@ -550,8 +551,8 @@ class EM_Controller:
                 development_mode=self.development_mode
             )
         elif self.sample_cfg.is_grid_acquisition:
-            if getattr(EM_driver, "is_at_EM", True):
-                min_fw, max_fw = EM_driver.get_range_frame_width()
+            if getattr(self.EM_driver, "is_at_EM", True):
+                min_fw, max_fw = self.EM_driver.get_range_frame_width()
                 self.grid_search_fw_mm = np.clip(self.bulk_meas_cfg.image_frame_width_um / 1000, min_fw, max_fw)
             self.set_frame_width(self.grid_search_fw_mm)
             # Construct grid of acquisition spots
@@ -765,11 +766,11 @@ class EM_Controller:
         - The beam voltage should be specified in kV (e.g., 20.0 for 20 kV).
         """
         # Create EDS analyzer object
-        self.analyzer = EM_driver.get_EDS_analyser_object()
+        self.analyzer = self.EM_driver.get_EDS_analyser_object()
         
         if beam_voltage is not None:
             # Set beam voltage (high tension) for EDS collection (expects volts)
-            EM_driver.set_high_tension(beam_voltage)  # Convert kV to V     
+            self.EM_driver.set_high_tension(beam_voltage)  # Convert kV to V     
     
             
     def get_XSp_coords(
@@ -817,7 +818,7 @@ class EM_Controller:
             if prompt.ok_pressed:
                 # Error handling if get_frame_width or im_width are not set or invalid
                 try:
-                    frame_width_mm = EM_driver.get_frame_width()
+                    frame_width_mm = self.EM_driver.get_frame_width()
                     if not hasattr(self, 'im_width') or self.im_width == 0:
                         raise AttributeError("im_width attribute missing or zero.")
                     self.pixel_size_um = frame_width_mm / self.im_width * 1e3  # um
@@ -825,7 +826,7 @@ class EM_Controller:
                     print("Error determining pixel size: {}".format(e))
                     return False, None, None
     
-                spots_xy_list = EM_driver.frame_pixel_to_rel_coords(
+                spots_xy_list = self.EM_driver.frame_pixel_to_rel_coords(
                     (int(self.im_width / 2), int(self.im_height / 2)),
                     self.im_width,
                     self.im_height
@@ -852,7 +853,7 @@ class EM_Controller:
                 
             # Error handling if get_frame_width or im_width are not set or invalid
             try:
-                frame_width_mm = EM_driver.get_frame_width()
+                frame_width_mm = self.EM_driver.get_frame_width()
                 if not hasattr(self, 'im_width') or self.im_width == 0:
                     raise AttributeError("im_width attribute missing or zero.")
                 self.pixel_size_um = frame_width_mm / self.im_width * 1e3  # um
@@ -860,7 +861,7 @@ class EM_Controller:
                 print("Error determining pixel size: {}".format(e))
                 return False, None, None
 
-            spots_xy_list = EM_driver.frame_pixel_to_rel_coords(
+            spots_xy_list = self.EM_driver.frame_pixel_to_rel_coords(
                 (int(self.im_width / 2), int(self.im_height / 2)),
                 self.im_width,
                 self.im_height
@@ -909,7 +910,7 @@ class EM_Controller:
         tuple(int, int)
             The corresponding (x, y) pixel coordinates as integers.
         """
-        xy_coords_pixels = EM_driver.frame_rel_to_pixel_coords(
+        xy_coords_pixels = self.EM_driver.frame_rel_to_pixel_coords(
             xy_coords,
             self.im_width,
             self.im_height
@@ -982,7 +983,7 @@ class EM_Controller:
             msa_file_path = None
             
         try:
-            spectrum_data, background_data, real_time, live_time = EM_driver.acquire_XS_spectral_data(
+            spectrum_data, background_data, real_time, live_time = self.EM_driver.acquire_XS_spectral_data(
                 self.analyzer, x, y, max_acquisition_time, target_acquisition_counts, msa_file_export_path = msa_file_path
             )
             return spectrum_data, background_data, real_time, live_time
@@ -1047,8 +1048,8 @@ class EM_Controller:
         """
         try:
             # Set brightness and contrast to fixed values to ensure C tape is below threshold
-            EM_driver.set_brightness(self.microscope_cfg.brightness)
-            EM_driver.set_contrast(self.microscope_cfg.contrast)
+            self.EM_driver.set_brightness(self.microscope_cfg.brightness)
+            self.EM_driver.set_contrast(self.microscope_cfg.contrast)
         except Exception as e:
             # Wrap any driver exception in a custom error for clarity
             raise EMError(f"Failed to set brightness/contrast: {e}") from e
@@ -1075,7 +1076,7 @@ class EM_Controller:
         """
         try:
             # Automated adjustment of brightness and contrast
-            EM_driver.auto_contrast_brightness()
+            self.EM_driver.auto_contrast_brightness()
             # Automated focus adjustment
             self._auto_focus()
             return time.time()
@@ -1106,14 +1107,14 @@ class EM_Controller:
         """
         try:
             # Perform autofocus and get current working distance
-            wd = EM_driver.auto_focus()
+            wd = self.EM_driver.auto_focus()
     
             # If WD is out of allowed bounds, clip and readjust
             if not (self._min_wd < wd < self._max_wd):
                 print(f"Working distance of {wd:.1f} mm obtained through autofocus was out of accepted limits.")
                 wd = float(np.clip(wd, self._min_wd, self._max_wd))
                 print(f"WD was set to {wd:.1f} mm")
-                EM_driver.adjust_focus(wd)
+                self.EM_driver.adjust_focus(wd)
     
             return time.time()
         except Exception as e:
@@ -1137,7 +1138,7 @@ class EM_Controller:
         """
         try:
             # Set frame width at EM
-            EM_driver.set_frame_width(frame_width)
+            self.EM_driver.set_frame_width(frame_width)
             # Update pixel size (in um)
             self.pixel_size_um = frame_width / self.im_width * 1e3  # um
         except Exception as e:
@@ -1154,7 +1155,7 @@ class EM_Controller:
             Image array acquired at the microscope.
 
         """        
-        image = EM_driver.get_image_data(self.im_width, self.im_height, 1)
+        image = self.EM_driver.get_image_data(self.im_width, self.im_height, 1)
         return image
         
     
@@ -1176,7 +1177,7 @@ class EM_Controller:
             # Extract the x y coordinates
             x, y = pos
             # Move EM
-            EM_driver.move_to(x, y)
+            self.EM_driver.move_to(x, y)
             # Update current position
             self._current_pos = (x, y)
         except Exception as e:
@@ -1207,7 +1208,7 @@ class EM_Controller:
         shift_um = self.pixel_size_um * shift_pixels
     
         # Transform coordinates to match stage reference system
-        shift_um_stage_coords = shift_um * EM_driver.image_to_stage_coords_transform
+        shift_um_stage_coords = shift_um * self.EM_driver.image_to_stage_coords_transform
     
         # Calculate absolute position in mm for the EM
         pos_abs_mm = self._current_pos + shift_um_stage_coords * 1e-3
@@ -1219,7 +1220,7 @@ class EM_Controller:
         """
         Put microscope in standby mode
         """
-        EM_driver.standby()
+        self.EM_driver.standby()
     
     #%% Frame and Particle Navigation Methods
     # =============================================================================
@@ -1252,7 +1253,7 @@ class EM_Controller:
     
             if prompt.ok_pressed:
                 self.current_frame_label = self._frame_cntr
-                frame_width = EM_driver.get_frame_width()
+                frame_width = self.EM_driver.get_frame_width()
                 self.grid_search_fw_mm = frame_width
                 self.pixel_size_um = frame_width / self.im_width * 1e3  # um
         
@@ -1268,7 +1269,7 @@ class EM_Controller:
         
             # Set frame width
             if self.sample_cfg.is_particle_acquisition:
-                min_fw, max_fw = EM_driver.get_range_frame_width()
+                min_fw, max_fw = self.EM_driver.get_range_frame_width()
                 # Check that microscope still accepts the current frame width
                 self.grid_search_fw_mm = np.clip(self.grid_search_fw_mm, min_fw, max_fw)
                 self.set_frame_width(self.grid_search_fw_mm)
@@ -1344,7 +1345,7 @@ class EM_Controller:
 
         if not isinstance(frame_image, np.ndarray):
             # Adjust contrast and brightness in case they changed during acuqisition
-            EM_driver.auto_contrast_brightness()
+            self.EM_driver.auto_contrast_brightness()
             # Get raw grayscale image from EM (H, W), dtype: uint8 or uint16
             frame_image = self.get_current_image()
     
@@ -1509,9 +1510,9 @@ class EM_Sample_Finder:
         """
         self.microscope_ID = microscope_ID
         # Load microscope driver for instrument microscope_ID
-        EM_driver.load_microscope_driver(microscope_ID)
+        self.EM_driver.load_microscope_driver(microscope_ID)
         if not development_mode:
-            if not EM_driver.is_at_EM:
+            if not self.EM_driver.is_at_EM:
                 raise EMError("Instrument driver could not be loaded")
         
         self._sample_half_width_mm = sample_half_width_mm
@@ -1541,7 +1542,7 @@ class EM_Sample_Finder:
         
         # Collect NavCam image
         if navcam_im is None:
-            navcam_im = EM_driver.get_navigation_camera_image()
+            navcam_im = self.EM_driver.get_navigation_camera_image()
             
         if navcam_im is None or not hasattr(navcam_im, "shape"):
             print("No valid navigation camera image provided or acquired. C-tape detection skipped")
@@ -1553,15 +1554,15 @@ class EM_Sample_Finder:
         # Load navigation camera calibrated parameters and check their presence
         required_attrs = ['navcam_im_w_mm', 'navcam_x_offset', 'navcam_y_offset']
         for attr in required_attrs:
-            if not hasattr(EM_driver, attr):
-                raise AttributeError(f"Microscope calibration file at {EM_driver.microscope_calib_dir} is missing required attribute '{attr}'")
+            if not hasattr(self.EM_driver, attr):
+                raise AttributeError(f"Microscope calibration file at {self.EM_driver.microscope_calib_dir} is missing required attribute '{attr}'")
 
         # Calculate pixel size
-        navcam_pixel_size = EM_driver.navcam_im_w_mm / navcam_w
+        navcam_pixel_size = self.EM_driver.navcam_im_w_mm / navcam_w
 
         # Calculate position of center of stub within navcam_im (in pixels)
         stub_c = ((self._center_pos / navcam_pixel_size + np.array([navcam_w, -navcam_h]) / 2) * np.array([1, -1])).astype(np.uint16)
-        stub_c += np.array([EM_driver.navcam_x_offset, EM_driver.navcam_y_offset]).astype(np.uint16)
+        stub_c += np.array([self.EM_driver.navcam_x_offset, self.EM_driver.navcam_y_offset]).astype(np.uint16)
 
         # Calculate size of stub half-width in pixels
         stub_hw = int(self._substrate_width_mm / navcam_pixel_size / 2)
