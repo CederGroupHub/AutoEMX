@@ -1220,7 +1220,7 @@ class EM_Controller:
         """
         Put microscope in standby mode
         """
-        self.EM_driver.standby()
+        EM_driver.standby()
     
     #%% Frame and Particle Navigation Methods
     # =============================================================================
@@ -1510,7 +1510,8 @@ class EM_Sample_Finder:
         """
         self.microscope_ID = microscope_ID
         # Load microscope driver for instrument microscope_ID
-        self.EM_driver.load_microscope_driver(microscope_ID)
+        EM_driver.load_microscope_driver(microscope_ID)
+        self.EM_driver = EM_driver
         if not development_mode:
             if not self.EM_driver.is_at_EM:
                 raise EMError("Instrument driver could not be loaded")
