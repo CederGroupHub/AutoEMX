@@ -322,6 +322,7 @@ class PowderMeasurementConfig:
     Configuration for powder measurement.
 
     Attributes:
+        auto_drift_detection (bool) : Whether to use automated particle drift detection for precise EDS spot location
         is_manual_particle_selection (bool): Whether to manually navigate sample to select particles to analyse (Default = False).
         is_known_powder_mixture_meas (bool): Whether sample is a known binary mixture of powders. Used to characterize precursor extent of intermixing (Default = False).
         par_search_frame_width_um (float, optional): Frame width used when searching for particles, in um.
@@ -343,7 +344,8 @@ class PowderMeasurementConfig:
         par_spot_spacing (str): 'random' for unbiased spot selecton, 'maximized' for maximized spot spacing over particle (default: 'random').
     """
     DEFAULT_PAR_SEGMENTATION_MODEL = "threshold_bright"
-
+    
+    auto_drift_detection: bool = True
     is_manual_particle_selection: bool = False
     is_known_powder_mixture_meas: bool = False
     par_search_frame_width_um: float = None 

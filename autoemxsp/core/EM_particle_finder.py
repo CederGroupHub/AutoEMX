@@ -225,6 +225,7 @@ class EM_Particle_Finder:
         self.development_mode = development_mode  # Set whether in code development mode. Triggers visualisations and image saving
 
         # --- Variable initializations
+        self.current_image = None
         self.tot_par_cntr = 0  # Keeps track of total number of particles analysed
         self._fr_par_cntr = 0
         self._num_par_in_frame = 0
@@ -252,7 +253,7 @@ class EM_Particle_Finder:
             )
             
             
-    #%% Particle Navigation
+    #%% Particle Navigation and Image Acquisition
     # =============================================================================
     def go_to_next_particle(self):
         '''
@@ -317,6 +318,20 @@ class EM_Particle_Finder:
         return True
     
     
+    def get_current_image(self):
+        """
+        Acquire image at microscope.
+    
+        Returns
+        -------
+        image : np.array()
+            Image array acquired at the microscope.
+
+        """        
+        image = EM_driver.get_image_data(self._im_width, self._im_height, 1)
+        
+        return image
+    
     #%% Particle Segmentation Operations
     # =============================================================================
     def _get_particles_coordinates_in_frame(self, frame_image=None, pixel_size=None, results_dir=None):
@@ -366,7 +381,7 @@ class EM_Particle_Finder:
             move_to_frame_success = self.EM.go_to_next_frame()
             if move_to_frame_success:
                 # Collect image
-                frame_image = EM_driver.get_image_data(self._im_width, self._im_height, 1)
+                frame_image = self.get_current_image()
             else:
                 # No more frames are available
                 return None
@@ -698,7 +713,7 @@ class EM_Particle_Finder:
         # Get particle mask
         if EM_driver.is_at_EM:
             self._check_EM_controller_initialization()
-            par_image = EM_driver.get_image_data(self._im_width, self._im_height, 1)
+            par_image = self.get_current_image()
         elif par_image is not None and pixel_size_um is not None:
             self._im_height, self._im_width = par_image.shape
             self.EM.pixel_size_um = pixel_size_um
@@ -994,7 +1009,7 @@ class EM_Particle_Finder:
                 self.results_dir = results_dir
         else:
             raise ValueError('This function must be run at the microscope, or it needs to be passed both image and its pixel size')
-    
+        
         # Check if a particle was detected. If not, return empty list
         if par_mask_return is None:
             return []
@@ -1047,7 +1062,7 @@ class EM_Particle_Finder:
             # cv2.imshow('Selected XS spots', color_image)
             cv2.imwrite(os.path.join(self.results_dir, self._sample_ID + f'_par{self.tot_par_cntr}_fr{self.EM.current_frame_label}_xyspots.png'), color_image)
     
-        return pts_rel_coords
+        return par_image, pts_rel_coords
 
         
     def _collect_candidate_points(self, thresholded_image, par_image, feature_selection, min_area_pixels):
@@ -1510,7 +1525,7 @@ class EM_Particle_Finder:
             move_to_frame_success = self.EM.go_to_next_frame()
             if move_to_frame_success:
                 # Collect image
-                frame_image = EM_driver.get_image_data(self._im_width, self._im_height, 1)
+                frame_image = self.get_current_image()
                 if self.development_mode:
                     cv2.imwrite(os.path.join(self.results_dir, self._sample_ID + f'_fr_{self.EM.current_frame_label}.png'), frame_image)
             else:

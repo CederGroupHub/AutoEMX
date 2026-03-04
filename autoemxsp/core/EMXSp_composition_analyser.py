@@ -1199,7 +1199,29 @@ class EMXSp_Composition_Analyzer:
                     if key in value_map
                 }) # Ensures any modification of keys is done at the level of LIST_SPECTRUM_COORDINATES_KEYS
                     # This allows correct loading when quantifying or analysing spectra after acquisition
-
+                
+                # For particle analysis, get image drift for precise controlling of EDS spot position
+                if self.sample_cfg.is_particle_acquisition and self.powder_meas_cfg.auto_drift_detection:
+                    if self.verbose:
+                        print("Evaluating image drift...")
+                    try:
+                        drift_vector = self.EM_controller.get_image_drift_pixels()
+                    except Exception as e:
+                        drift_vector = None
+                        print(f"Image drift detection generated an error: {e}")
+                        
+                    if drift_vector:
+                        if self.verbose:
+                            print("drift detected and applied")
+                        # Convert selected (x,y) into pixel coordinates
+                        x_pix, y_pix = self.EM_controller.convert_XS_coords_to_pixels((x,y))
+                        dx, dy = drift_vector
+                        # Reconvert to EDS coordinates in microscope coordinates
+                        x, y = self.EM_controller.convert_pixels_coords_to_XS((x_pix + dx, y_pix + dy))
+                    elif self.verbose:
+                        print("No drift applied.")
+                    
+                
                 if self.verbose:
                     print_single_separator()
                     print(f'Acquiring spectrum #{n_tot_sp_collected}...')
@@ -1244,7 +1266,8 @@ class EMXSp_Composition_Analyzer:
                         self.EM_controller.an_circle_key: (10, xy_center, -1)
                     })
                 # Save image with annotations
-                self.EM_controller.save_frame_image(filename, im_annotations = im_annotations)
+                ref_image = self.EM_controller.ref_image # Ensure correct image is annotated with EDS spot locations 
+                self.EM_controller.save_frame_image(filename, im_annotations = im_annotations, frame_image=ref_image)
                 
             if quantify:
                 self._fit_and_quantify_spectra()

@@ -25,7 +25,7 @@ Example Usage
 >>> particle_finder.initialise_SEM()
 >>> while True:
 ...     particle_finder.go_to_next_particle()
-...     xy_spot_list = particle_finder.get_XS_acquisition_spots_coord_list()
+...     xy_spot_list, _ = particle_finder.get_XS_acquisition_spots_coord_list()
 ...     # Collect X-ray spectra at each (x, y) as needed
 
 
@@ -220,7 +220,7 @@ class EM_Controller:
     >>> EM_controller.initialise_SEM()
     >>> particle_finder = EM_Particle_Finder(EM_controller, PowderMeasurementConfig, ...)
     >>> while particle_finder.go_to_next_particle():
-    ...     xy_spot_list = particle_finder.get_XS_acquisition_spots_coord_list()
+    ...     xy_spot_list, _ = particle_finder.get_XS_acquisition_spots_coord_list()
     ...     for (x,y) in xy_spot_list:
     ...         EM_controller.acquire_XS_spectrum()
     
@@ -397,6 +397,7 @@ class EM_Controller:
         self.pixel_size_um: Optional[float] = None
         self.frame_labels: List[Any] = []
         self.current_frame_label: str = ''
+        self.ref_image = None
         self._frame_cntr = 0  # Keeps track of number of frames analysed
         self._current_pos = self._center_pos
         self._bulk_offset_cntr = 0
@@ -802,7 +803,7 @@ class EM_Controller:
         - For powder samples, the next particle is selected automatically.
         - Assumes required attributes (e.g., self.im_width, self.particle_finder) are initialized.
         """
-    
+        self.ref_image = None
         if self.measurement_cfg.is_manual_navigation:
             # Prompt user to select the X-ray acquisition spot
             prompt = Prompt_User(
@@ -879,9 +880,10 @@ class EM_Controller:
     
             particle_cntr = self.particle_finder.tot_par_cntr
             try:
-                spots_xy_list = self.particle_finder.get_XS_acquisition_spots_coord_list(
+                spots_xy_list, par_image = self.particle_finder.get_XS_acquisition_spots_coord_list(
                     n_tot_sp_collected
                 )
+                self.ref_image = par_image
             except Exception as e:
                 print("Error getting acquisition spot coordinates: {}".format(e))
                 return False, None, None
@@ -915,6 +917,33 @@ class EM_Controller:
             self.im_width,
             self.im_height
         ).astype(int)[0]
+    
+        return xy_coords_pixels
+    
+    
+    def convert_pixels_coords_to_XS(self, xy_coords):
+        """
+        Convert XY coordinates from pixel coordinates to the XS coordinate system.
+    
+        This function uses the EM_driver to transform pixel positions to coordinates
+        relative to the frame  based on the image width and height. The returned frame 
+        coordinates are float values.
+    
+        Parameters
+        ----------
+        xy_coords : tuple(float, float)
+            The XY pixel coordinates to be converted.
+    
+        Returns
+        -------
+        tuple(float, float)
+            The corresponding (x, y) pixel coordinates as integers.
+        """
+        xy_coords_pixels = self.EM_driver.frame_rel_to_pixel_coords(
+            xy_coords,
+            self.im_width,
+            self.im_height
+        )[0]
     
         return xy_coords_pixels
 
@@ -1157,7 +1186,7 @@ class EM_Controller:
         """        
         image = self.EM_driver.get_image_data(self.im_width, self.im_height, 1)
         return image
-        
+    
     
     def move_to_pos(self, pos):
         """
@@ -1221,74 +1250,30 @@ class EM_Controller:
         Put microscope in standby mode
         """
         EM_driver.standby()
-    
-    #%% Frame and Particle Navigation Methods
+        
+    #%% Image operations
     # =============================================================================
-    def go_to_next_frame(self):
-        '''
-        Moves the microscope to the next frame position in the current sample.
-    
-        This function checks if there are remaining frames to analyze. If so, it moves the microscope 
-        stage to the next frame center, adjusts the frame width if necessary, and (optionally) 
-        updates EM brightness, contrast and focus.
-        It also prints the current frame information if verbose mode is enabled.
+    def get_image_drift_pixels(self):
+        """
+        Evaluates image drift with respect to reference image, cached when evaluating
+        EDS spot positions.
     
         Returns
         -------
-        bool
-            True if moved to the next frame, False if no frames remain to be analysed.
-        '''
-        is_particle_stats_measurement = self.measurement_cfg.type == self.measurement_cfg.PARTICLE_STATS_MEAS_TYPE_KEY
-        if is_particle_stats_measurement and self.measurement_cfg.is_manual_navigation:
-            # Prompt user to select the X-ray acquisition spot
-            prompt = Prompt_User(
-                title="Select next Frame",
-                message="Go to next frame to analyze (#{}).".format(self._frame_cntr)
-            )
-            prompt.run()
-    
-            if prompt.execution_stopped:
-                print("Execution stopped by the user.")
-                return False
-    
-            if prompt.ok_pressed:
-                self.current_frame_label = self._frame_cntr
-                frame_width = self.EM_driver.get_frame_width()
-                self.grid_search_fw_mm = frame_width
-                self.pixel_size_um = frame_width / self.im_width * 1e3  # um
+        drift_vector : np.array() or None
+            (dx, dy) vector indicating drift in pixels with respect to reference image.
+            Returns None if an errors occurs.
+        """    
+        drift_vector = None
+        self.ref_image # THIS IS THE IMAGE THAT WAS USED AT THE MOMENT OF EVALUATING THE EDS SPOTS
+        current_img = self.get_current_image() # CAPTURES THE IMAGE AND RETURNS THE NP.ARRAY
+        # ADD CODE TO EVALUATE drift HERE
+        # CONSIDER THAT THIS VECTOR WILL BE ADDED TO THE PREVIOUSLY DETERMINED (X,Y) TO ONBTAIN THE NEW POSITION,
+        # SO ENSURE THAT THE SIGNS ARE CORRECT
         
-        else:
-            # Check if all frames have been analysed in the current sample.
-            if self._frame_cntr >= self.num_frames:
-                # Return False if there are no more frames available
-                return False
-        
-            # Move to frame
-            self.move_to_pos(self.frame_pos_mm[self._frame_cntr])
-            self.current_frame_label = self.frame_labels[self._frame_cntr]
-        
-            # Set frame width
-            if self.sample_cfg.is_particle_acquisition:
-                min_fw, max_fw = self.EM_driver.get_range_frame_width()
-                # Check that microscope still accepts the current frame width
-                self.grid_search_fw_mm = np.clip(self.grid_search_fw_mm, min_fw, max_fw)
-                self.set_frame_width(self.grid_search_fw_mm)
-        
-            # Adjust EM settings (focus, contrast, brightness) if too long has passed since last adjustments
-            if time.time() - self._last_EM_adjustment_time > self.refresh_time:
-                self.adjust_BCF()
-            
-        
-        if self.verbose:
-            print_single_separator()
-            print(f"Moved to frame {self.current_frame_label} (#{self._frame_cntr + 1}/{self.num_frames}).")
-    
-        # Update frame counter
-        self._frame_cntr += 1
-    
-        return True
-    
-    
+        return drift_vector
+
+
     def save_frame_image(self, filename, im_annotations=None, scalebar = True, frame_image = None, save_dir=None):
         """
         Save an annotated and raw electron microscopy (EM) frame as a multi-page TIFF.
@@ -1434,6 +1419,72 @@ class EM_Controller:
                 compression=None
             )
         
+    #%% Navigation Methods
+    # =============================================================================
+    def go_to_next_frame(self):
+        '''
+        Moves the microscope to the next frame position in the current sample.
+    
+        This function checks if there are remaining frames to analyze. If so, it moves the microscope 
+        stage to the next frame center, adjusts the frame width if necessary, and (optionally) 
+        updates EM brightness, contrast and focus.
+        It also prints the current frame information if verbose mode is enabled.
+    
+        Returns
+        -------
+        bool
+            True if moved to the next frame, False if no frames remain to be analysed.
+        '''
+        is_particle_stats_measurement = self.measurement_cfg.type == self.measurement_cfg.PARTICLE_STATS_MEAS_TYPE_KEY
+        if is_particle_stats_measurement and self.measurement_cfg.is_manual_navigation:
+            # Prompt user to select the X-ray acquisition spot
+            prompt = Prompt_User(
+                title="Select next Frame",
+                message="Go to next frame to analyze (#{}).".format(self._frame_cntr)
+            )
+            prompt.run()
+    
+            if prompt.execution_stopped:
+                print("Execution stopped by the user.")
+                return False
+    
+            if prompt.ok_pressed:
+                self.current_frame_label = self._frame_cntr
+                frame_width = self.EM_driver.get_frame_width()
+                self.grid_search_fw_mm = frame_width
+                self.pixel_size_um = frame_width / self.im_width * 1e3  # um
+        
+        else:
+            # Check if all frames have been analysed in the current sample.
+            if self._frame_cntr >= self.num_frames:
+                # Return False if there are no more frames available
+                return False
+        
+            # Move to frame
+            self.move_to_pos(self.frame_pos_mm[self._frame_cntr])
+            self.current_frame_label = self.frame_labels[self._frame_cntr]
+        
+            # Set frame width
+            if self.sample_cfg.is_particle_acquisition:
+                min_fw, max_fw = self.EM_driver.get_range_frame_width()
+                # Check that microscope still accepts the current frame width
+                self.grid_search_fw_mm = np.clip(self.grid_search_fw_mm, min_fw, max_fw)
+                self.set_frame_width(self.grid_search_fw_mm)
+        
+            # Adjust EM settings (focus, contrast, brightness) if too long has passed since last adjustments
+            if time.time() - self._last_EM_adjustment_time > self.refresh_time:
+                self.adjust_BCF()
+            
+        
+        if self.verbose:
+            print_single_separator()
+            print(f"Moved to frame {self.current_frame_label} (#{self._frame_cntr + 1}/{self.num_frames}).")
+    
+        # Update frame counter
+        self._frame_cntr += 1
+    
+        return True
+    
     
 #%% Electron Microscope Sample Finder class    
 class EM_Sample_Finder:
