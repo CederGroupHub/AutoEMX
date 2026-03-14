@@ -161,6 +161,9 @@ import cv2
 import numpy as np
 from PIL import Image
 
+#Drift estimation imports
+from autoemxsp.utils.drift_correction import estimate_drift_of
+
 # Typing (Python 3.5+)
 from typing import Any, List, Optional, Tuple, Union
 
@@ -1270,7 +1273,8 @@ class EM_Controller:
         # ADD CODE TO EVALUATE drift HERE
         # CONSIDER THAT THIS VECTOR WILL BE ADDED TO THE PREVIOUSLY DETERMINED (X,Y) TO ONBTAIN THE NEW POSITION,
         # SO ENSURE THAT THE SIGNS ARE CORRECT
-        
+        drift_vector = estimate_drift_of(self.ref_image, current_img)
+
         return drift_vector
 
 
