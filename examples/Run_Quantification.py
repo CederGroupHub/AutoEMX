@@ -19,8 +19,6 @@ Created on Tue Jul 29 13:18:16 2025
 
 @author: Andrea
 """
-from autoemxsp.runners import batch_quantify_and_analyze
-
 # =============================================================================
 # Examples
 # =============================================================================
@@ -47,6 +45,8 @@ output_filename_suffix = ''
 # =============================================================================
 # Run
 # =============================================================================
+from autoemxsp.runners.Batch_Quantify_and_Analyze import batch_quantify_and_analyze
+
 comp_analyzer = batch_quantify_and_analyze(
     sample_IDs=sample_IDs,
     quantification_method = 'PB',

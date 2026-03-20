@@ -18,9 +18,6 @@ Created on Fri Jul 26 09:34:34 2024
 @author: Andrea
 """
 
-from autoemxsp.runners.Batch_Acquire_and_Analyze import batch_acquire_and_analyze
-
-
 # =============================================================================
 # Sample Definitions
 # =============================================================================
@@ -118,6 +115,8 @@ bulk_meas_cfg_kwargs = dict(
 # =============================================================================
 # Run
 # =============================================================================
+from autoemxsp.runners.Batch_Acquire_and_Analyze import batch_acquire_and_analyze
+
 comp_analyzer = batch_acquire_and_analyze(
     samples=samples,
     sample_type=sample_type,

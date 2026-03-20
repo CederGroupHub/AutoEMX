@@ -17,8 +17,6 @@ Created on Tue Jul 29 13:18:16 2025
 @author: Andrea
 """
 
-from autoemxsp.runners.Fit_and_Quantify_Spectrum_fromDatacsv import fit_and_quantify_spectrum_fromDatacsv
-
 # =============================================================================
 # Sample and spectrum to process
 # =============================================================================
@@ -49,6 +47,12 @@ interrupt_fits_bad_spectra = False
 # Params loaded from configuration file when left unspecified
 spectrum_lims = None # (80, 1100)
 els_substrate = None # ['C', 'O', 'Al']
+
+
+# =============================================================================
+# Run
+# =============================================================================
+from autoemxsp.runners.Fit_and_Quantify_Spectrum_fromDatacsv import fit_and_quantify_spectrum_fromDatacsv
 
 quantifier = fit_and_quantify_spectrum_fromDatacsv(
     sample_ID=sample_ID,

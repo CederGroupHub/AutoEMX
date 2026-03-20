@@ -19,9 +19,6 @@ Created on Tue Jul 29 13:18:16 2025
 @author: Andrea
 """
 
-from autoemxsp.runners.Analyze_Sample import analyze_sample
-
-
 # =============================================================================
 # Sample Definition
 # =============================================================================
@@ -71,6 +68,8 @@ output_filename_suffix = ''
 # =============================================================================
 # Run
 # =============================================================================
+from autoemxsp.runners.Analyze_Sample import analyze_sample
+
 comp_analyzer = analyze_sample(
     sample_ID=sample_ID,
     results_path=results_path,
