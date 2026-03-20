@@ -3693,47 +3693,102 @@ class DetectorResponseFunction():
         cls.det_eff_vals = det_eff_vals
     
         # --- Load or calculate convolution matrices ---
-        
         conv_matrices_file_path = os.path.join(
             parent_dir, cnst.XRAY_SPECTRA_CALIBS_DIR, cnst.MICROSCOPES_CALIBS_DIR, microscope_ID, cnst.DETECTOR_CONV_MATRICES_FILENAME
         )
-        if os.path.exists(conv_matrices_file_path):
-            with open(conv_matrices_file_path, 'r') as file:
-                conv_matrices_dict = json.load(file)
-        else:
-            conv_matrices_dict = {}
-    
-        # Key for current detector channel settings
+        lock_file_path = conv_matrices_file_path + ".lock"
         conv_mat_key = f"O{det_ch_offset},W{det_ch_width}"
-        conv_matrices = conv_matrices_dict.get(conv_mat_key)
-    
+        
+        conv_matrices = None
+
+        # 1. FAST PATH: Try to read the file without a lock first.
+        # If the file exists and our key is in it, we don't need to lock anything.
+        if os.path.exists(conv_matrices_file_path):
+            try:
+                with open(conv_matrices_file_path, 'r') as file:
+                    conv_matrices_dict = json.load(file)
+                    conv_matrices = conv_matrices_dict.get(conv_mat_key)
+            except Exception:
+                pass # Ignore decode errors (another core might be mid-write)
+
+        # 2. SLOW PATH: We need to compute it (or wait for another core to compute it)
         if conv_matrices is None:
-            # Generate full energy vector for all detector channels
-            full_en_vector = [
-                det_ch_offset + j * det_ch_width for j in range(calibs.detector_ch_n)
-            ]
-    
-            # Calculate and save convolution matrices
-            det_res_conv_matrix = cls._calc_det_res_conv_matrix(full_en_vector)
-            icc_conv_matrix = cls._calc_icc_conv_matrix(full_en_vector)
-    
-            # Store as lists for JSON serialization
-            conv_matrices_dict[conv_mat_key] = (
-                det_res_conv_matrix.tolist(), icc_conv_matrix.tolist()
-            )
-            with open(conv_matrices_file_path, 'w') as file:
-                json.dump(conv_matrices_dict, file)
+            start_wait_time = time.time()
+            max_wait_time = 600  # 10 minute timeout for stale locks
+            
+            # Loop until conv_matrices is successfully populated
+            while conv_matrices is None:
+                try:
+                    # Attempt to exclusively create the lock file
+                    with open(lock_file_path, 'x') as f:
+                        f.write(f"PID {os.getpid()}")
+                    
+                    # === WE HAVE THE LOCK ===
+                    try:
+                        # Reload JSON: another process might have JUST calculated it while we waited
+                        conv_matrices_dict = {}
+                        if os.path.exists(conv_matrices_file_path):
+                            with open(conv_matrices_file_path, 'r') as file:
+                                conv_matrices_dict = json.load(file)
+                        
+                        conv_matrices = conv_matrices_dict.get(conv_mat_key)
+                        
+                        # If it's STILL missing, we actually do the heavy lifting
+                        if conv_matrices is None:
+                            if verbose:
+                                print(f"Calculating convolution matrices for key {conv_mat_key}...")
+                                
+                            full_en_vector = [det_ch_offset + j * det_ch_width for j in range(calibs.detector_ch_n)]
+                            det_res_conv_matrix = cls._calc_det_res_conv_matrix(full_en_vector, verbose)
+                            icc_conv_matrix = cls._calc_icc_conv_matrix(full_en_vector, verbose)
+                            
+                            conv_matrices_dict[conv_mat_key] = (det_res_conv_matrix.tolist(), icc_conv_matrix.tolist())
+                            
+                            with open(conv_matrices_file_path, 'w') as file:
+                                json.dump(conv_matrices_dict, file)
+                            
+                            conv_matrices = (det_res_conv_matrix, icc_conv_matrix)
+                            
+                    finally:
+                        # === RELEASE THE LOCK ===
+                        if os.path.exists(lock_file_path):
+                            os.remove(lock_file_path)
+                            
+                except FileExistsError:
+                    # === ANOTHER CORE HAS THE LOCK ===
+                    if time.time() - start_wait_time > max_wait_time:
+                        # Lock is stale (the other core crashed). Force delete it.
+                        try:
+                            os.remove(lock_file_path)
+                            start_wait_time = time.time() # Reset timeout
+                        except OSError:
+                            pass
+                    else:
+                        # Wait patiently
+                        if verbose:
+                            print("Waiting for another core to finish computing matrices...")
+                        time.sleep(3)
+                        
+                        # Peek at the file to see if the other core finished our key
+                        if os.path.exists(conv_matrices_file_path):
+                            try:
+                                with open(conv_matrices_file_path, 'r') as file:
+                                    conv_matrices = json.load(file).get(conv_mat_key)
+                            except Exception:
+                                pass # File is currently being written to, loop will retry naturally
+
         else:
             if verbose:
                 print_single_separator()
                 print("Detector response convolution matrices loaded")
-            det_res_conv_matrix, icc_conv_matrix = conv_matrices
+                
+        det_res_conv_matrix, icc_conv_matrix = conv_matrices
     
         # --- Crop matrices to match spectrum limits ---
         low_l = spectrum_lims[0] + 1
         high_l = spectrum_lims[1] + cls.energy_vals_padding // 2 + cls.energy_vals_padding - 1
         cls.det_res_conv_matrix = np.array(det_res_conv_matrix)[low_l:high_l, low_l:high_l]
-        cls.icc_conv_matrix = np.array(icc_conv_matrix)[low_l:high_l, low_l:high_l]
+        cls.icc_conv_matrix = np.array(icc_conv_matrix)[low_l:high_l, low_l:high_l] 
 
     # =============================================================================
     # Convolution of signal with detector response function
@@ -4162,7 +4217,7 @@ class DetectorResponseFunction():
         """
         if verbose:
             start_time = time.time()
-            print("Calculating convolution matrix for incomplete charge collection")
+            print("Calculating convolution matrix for incomplete charge collection", file=sys.stderr, flush=True)
     
         deltaE = energy_vals[5] - energy_vals[4]
         n_intervals = cls.energy_vals_padding

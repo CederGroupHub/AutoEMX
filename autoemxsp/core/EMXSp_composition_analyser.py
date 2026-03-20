@@ -539,7 +539,10 @@ class EMXSp_Composition_Analyzer:
             valid_formulae.append(formula)
             
             # Get mass fractions as dictionary el: w_fr
-            w_fr_dict = comp.to_weight_dict
+            try:
+                w_fr_dict = comp.as_weight_dict()
+            except AttributeError:
+                w_fr_dict = comp.to_weight_dict
     
             # Check for detectable elements at the beginning
             detectable_in_formula = [el for el in self.detectable_els_sample if el in w_fr_dict]
