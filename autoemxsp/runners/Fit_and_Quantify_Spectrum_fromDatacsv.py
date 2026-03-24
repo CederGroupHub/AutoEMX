@@ -82,10 +82,12 @@ def fit_and_quantify_spectrum_fromDatacsv(
         Sample identifier.
     spectrum_ID : int
         Value reported in 'Spectrum #' column in Data.csv.
-    els_sample : list, optional
-        List of elements in the sample.
-    els_substrate : list, optional
-        List of substrate elements.
+    els_sample : list(str), optional
+        List of elements in the sample. If the first entry is "" or None, the rest of the list is appended to the 
+        list loaded from Comp_analysis_configs.json; otherwise, the provided list replaces it.
+    els_substrate : list(str), optional
+        List of substrate elements. If the first entry is "" or None, the rest of the list is appended to the 
+        list loaded from Comp_analysis_configs.json; otherwise, the provided list replaces it.
     is_standard : bool
         Defines whether measurement is from an experimental standard (i.e., sample of known composition)
     results_path : str, optional
@@ -244,13 +246,19 @@ def fit_and_quantify_spectrum_fromDatacsv(
     # Sample elements
     if els_sample is None:
         els_sample = el_to_quantify
+    elif (els_sample[0] == "" or els_sample[0] is None):
+        els_sample = el_to_quantify + els_sample[1:]
+            
     # Substrate elements
     if els_substrate is None:
         els_substrate = sample_substrate_cfg.elements
+    elif (els_substrate[0] == "" or els_substrate[0] is None):
+        els_substrate = sample_substrate_cfg.elements + els_substrate[1:]
+        
     # Spectral limits
     if spectrum_lims is None:
         spectrum_lims = quant_cfg.spectrum_lims
-        
+            
     quantifier = fit_and_quantify_spectrum(
         spectrum_vals = spectrum,
         spectrum_lims = spectrum_lims,

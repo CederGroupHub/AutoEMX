@@ -11,7 +11,7 @@ Created on Thu Jan 15 15:49:51 2026
 
 @author: Andrea
 """
-import logging, os
+import os
 
 from autoemxsp.utils import load_msa
 from autoemxsp.config import defaults
@@ -34,7 +34,7 @@ spectrum_lims = (14, 1100)
 fit_tol = 1e-3
 max_undetectable_w_fr = 0
 
-interrupt_fits_bad_spectra = True
+interrupt_fits_bad_spectra = False
 force_single_iteration = False
 
 print_results = True
@@ -49,12 +49,13 @@ measurement_mode = defaults.measurement_mode
 _, spectrum_vals, metadata = load_msa(spectrum_path)
 # print(metadata)
 en_axis_units = metadata['XUNITS']
-if en_axis_units == 'eV':
-    en_scaling_factor = 1000
-elif en_axis_units == 'keV':
+if 'keV' in en_axis_units:
     en_scaling_factor = 1
+elif 'eV' in en_axis_units:
+    en_scaling_factor = 1000
 else:
-    logging.error(f"Energy axis unit {en_axis_units} unrecognized. Please correct")
+    raise ValueError(f"Energy axis unit '{en_axis_units}' unrecognized. Please correct")
+
 offset = float(metadata['OFFSET'])/en_scaling_factor
 scale = float(metadata['XPERCHAN'])/en_scaling_factor
 
