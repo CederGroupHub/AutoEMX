@@ -73,6 +73,7 @@ import os
 import re
 import time
 import json
+import sys
 import warnings
 from itertools import combinations
 
@@ -357,7 +358,7 @@ class XSp_Fitter:
         DetectorResponseFunction.det_res_conv_matrix = None
         DetectorResponseFunction.icc_conv_matrix = None
         DetectorResponseFunction.setup_detector_response_vars(
-            det_ch_offset, det_ch_width, spectrum_lims, microscope_ID, verbose=verbose
+            det_ch_offset, det_ch_width, spectrum_lims, microscope_ID, verbose = verbose
         )
 
         self.print_evolving_params = print_evolving_params
@@ -3735,7 +3736,7 @@ class DetectorResponseFunction():
                         
                         # If it's STILL missing, we actually do the heavy lifting
                         if conv_matrices is None:
-                            if verbose:
+                            if True: # verbose:
                                 print(f"Calculating convolution matrices for key {conv_mat_key}...")
                                 
                             full_en_vector = [det_ch_offset + j * det_ch_width for j in range(calibs.detector_ch_n)]
