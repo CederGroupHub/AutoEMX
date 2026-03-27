@@ -373,12 +373,12 @@ class PowderMeasurementConfig:
         if self.par_feature_selection not in self.AVAILABLE_FEATURE_SELECTION:
             raise ValueError(
                 f'Value of "par_feature_selection" set to {self.par_feature_selection} is invalid. '
-                f'Must be one of {self.available_feature_selection}.'
+                f'Must be one of {self.AVAILABLE_FEATURE_SELECTION}.'
             )
         if self.par_spot_spacing not in self.AVAILABLE_SPOT_SPACING_SELECTION:
             raise ValueError(
                 f'Value of "par_spot_spacing" set to {self.par_spot_spacing} is invalid. '
-                f'Must be one of {self.available_spot_spacing}.'
+                f'Must be one of {self.AVAILABLE_SPOT_SPACING_SELECTION}.'
             )
         # Additional checks can be added here (e.g., for numeric bounds)
         if self.min_area_par < 0 or self.max_area_par < 0:
