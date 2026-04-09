@@ -178,6 +178,7 @@ def analyze_sample(
         clustering_cfg.do_matrix_decomposition = do_matrix_decomposition
     
     # --- Modify Plot Configuration
+    plot_cfg.show_plots = True # show plots by default, but can be turned off for batch processing
     plot_cfg.show_unused_comps_clust = show_unused_compositions_cluster_plot
     plot_cfg.use_custom_plots = plot_custom_plots
     if els_excluded_clust_plot is not None:

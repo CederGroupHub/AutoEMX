@@ -3375,7 +3375,8 @@ class EMXSp_Composition_Analyzer:
             ax.legend(fontsize = fontsize)
         
         # plt.ion()
-        # plt.show()
+        if self.plot_cfg.show_plots:
+            plt.show()
         # plt.pause(0.001)
         fig.savefig(os.path.join(self.analysis_dir, cnst.CLUSTERING_PLOT_FILENAME + cnst.CLUSTERING_PLOT_FILEEXT))
         # plt.close(fig)
@@ -3493,7 +3494,6 @@ class EMXSp_Composition_Analyzer:
             pad_inches=0
         )
 
-            
     @staticmethod
     def _save_silhouette_plot(
         model: 'KMeans',

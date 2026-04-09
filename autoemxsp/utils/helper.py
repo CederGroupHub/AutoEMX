@@ -763,7 +763,7 @@ if __name__ == "__main__":
     
 
 #%% Images
-def draw_scalebar(image, pixel_size_um, bar_width = 0.25):
+def draw_scalebar(image, pixel_size_um, bar_width = 0.25, color = None):
     """
     Draw a scale bar on the given image.
 
@@ -824,14 +824,16 @@ def draw_scalebar(image, pixel_size_um, bar_width = 0.25):
                         bottom_left_corner[1] - bar_thickness)
 
     # Draw the rectangular scalebar
-    cv2.rectangle(image, bottom_left_corner, top_right_corner, white_color, -1)  # Thickness of -1 fills the rectangle
+    if color is None:
+        color = white_color
+    cv2.rectangle(image, bottom_left_corner, top_right_corner, color, -1)  # Thickness of -1 fills the rectangle
 
     # Set position of label
     label_x = bottom_left_corner[0] + int(bar_length_pixels / 2) - 60
     label_y = top_right_corner[1] - bar_thickness * 2
 
     # Add the label for the scalebar
-    cv2.putText(image, bar_label, (label_x, label_y), cv2.FONT_HERSHEY_SIMPLEX, 1.5, white_color, 2, cv2.LINE_AA)
+    cv2.putText(image, bar_label, (label_x, label_y), cv2.FONT_HERSHEY_SIMPLEX, 1.5, color, 2, cv2.LINE_AA)
 
     # cv2.imshow('Added scalebar', image)
     return image 

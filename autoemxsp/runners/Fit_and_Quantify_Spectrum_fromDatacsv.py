@@ -28,6 +28,7 @@ Created on Tue Jul 29 13:18:16 2025
 import os
 import warnings
 import logging
+from typing import Optional, List  
 
 from autoemxsp.utils import (
     print_double_separator,
@@ -53,11 +54,11 @@ __all__ = ["fit_and_quantify_spectrum_fromDatacsv"]
 def fit_and_quantify_spectrum_fromDatacsv(
     sample_ID: str,
     spectrum_ID: int,
-    els_sample: list = None,
-    els_substrate: list = None,
+    els_sample: Optional[List[str]] = None,
+    els_substrate: Optional[List[str]] = None,
     is_standard: bool = False,
-    spectrum_lims: tuple = None,
-    results_path: str = None,
+    spectrum_lims: Optional[tuple] = None,
+    results_path: Optional[str] = None,
     use_instrument_background: bool = dflt.use_instrument_background,
     quantify_plot: bool = True,
     plot_signal: bool = True,
@@ -68,7 +69,7 @@ def fit_and_quantify_spectrum_fromDatacsv(
     max_undetectable_w_fr: float = 0,
     force_single_iteration: bool = False,
     interrupt_fits_bad_spectra: bool = False,
-    standards_dict: dict = None,
+    standards_dict: Optional[dict] = None,
     print_results: bool = True,
     quant_verbose: bool = True,
     fitting_verbose: bool = True
