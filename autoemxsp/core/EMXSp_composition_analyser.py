@@ -164,12 +164,12 @@ class EMXSp_Composition_Analyzer:
         sample_cfg: SampleConfig,
         measurement_cfg: MeasurementConfig,
         sample_substrate_cfg: SampleSubstrateConfig,
-        quant_cfg: QuantConfig = QuantConfig(),
-        clustering_cfg: ClusteringConfig = ClusteringConfig(),
-        powder_meas_cfg: PowderMeasurementConfig = PowderMeasurementConfig(),
-        bulk_meas_cfg: BulkMeasurementConfig = BulkMeasurementConfig(),
-        exp_stds_cfg: ExpStandardsConfig = ExpStandardsConfig(),
-        plot_cfg: PlotConfig = PlotConfig(),
+        quant_cfg: Optional[QuantConfig] = QuantConfig(),
+        clustering_cfg: Optional[ClusteringConfig] = ClusteringConfig(),
+        powder_meas_cfg: Optional[PowderMeasurementConfig] = PowderMeasurementConfig(),
+        bulk_meas_cfg: Optional[BulkMeasurementConfig] = BulkMeasurementConfig(),
+        exp_stds_cfg: Optional[ExpStandardsConfig] = ExpStandardsConfig(),
+        plot_cfg: Optional[PlotConfig] = PlotConfig(),
         is_acquisition: bool = False,
         standards_dict: dict = None,
         development_mode: bool = False,
@@ -1381,7 +1381,8 @@ class EMXSp_Composition_Analyzer:
             else:
                 # Calculate most frequent number of clusters (k) with elbow method. Does not save the plot
                 k = EMXSp_Composition_Analyzer._get_most_freq_k(
-                    compositions_df, self.clustering_cfg.max_k, self.clustering_cfg.k_finding_method, verbose=self.verbose
+                    compositions_df, self.clustering_cfg.max_k, self.clustering_cfg.k_finding_method,
+                    verbose=self.verbose
                 )
         elif self.verbose:
             print_single_separator()
@@ -3540,6 +3541,7 @@ class EMXSp_Composition_Analyzer:
             plt.ion()
             sil_visualizer.show()
             plt.pause(0.001)
+            plt.ioff()
     
         fig = sil_visualizer.fig
         fig.savefig(os.path.join(results_dir, 'Silhouette_plot.png'))

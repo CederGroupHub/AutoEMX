@@ -59,11 +59,11 @@ __all__ = ["analyze_sample"]
 
 def analyze_sample(
     sample_ID: str,
-    results_path: str = None,
+    results_path: Optional[str] = None,
     output_filename_suffix: str = "",
     ref_formulae: Optional[List[str]] = None,
     els_excluded_clust_plot: Optional[List[str]] = None,
-    clustering_features: Optional[List[str]] = None,
+    clustering_features: Optional[str] = None,
     k_finding_method: Optional[str] = None,
     k_forced: Optional[int] = None,
     do_matrix_decomposition: bool = True,
@@ -71,7 +71,7 @@ def analyze_sample(
     quant_flags_accepted: Optional[List[int]] = None,
     plot_custom_plots: bool = False,
     show_unused_compositions_cluster_plot: bool = True,
-) -> None:
+) -> Optional[EMXSp_Composition_Analyzer]:
     """
     Run clustering and analysis for a single sample.
 

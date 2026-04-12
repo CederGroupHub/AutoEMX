@@ -59,7 +59,6 @@ import sys
 import re
 import json
 import warnings
-import tkinter as tk
 import pandas as pd
 import ast
 import unicodedata
@@ -868,20 +867,23 @@ class Prompt_User:
     def press_ok(self):
         """Handle OK button or Return key press."""
         self.ok_pressed = True
-        self.root.quit()
-        self.root.destroy()
+        if self.root:
+            self.root.quit()
+            self.root.destroy()
 
     def stop_execution(self):
         """Handle window close (X) or Esc key press."""
         self.execution_stopped = True
-        self.root.quit()
-        self.root.destroy()
+        if self.root:
+            self.root.quit()
+            self.root.destroy()
 
     def run(self):
         """
         Start the prompt window and wait for user interaction.
         Sets ok_pressed or execution_stopped depending on user action.
         """
+        import tkinter as tk
         self.root = tk.Tk()
         self.root.title(self.title)
 
