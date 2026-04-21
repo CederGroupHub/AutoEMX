@@ -95,7 +95,7 @@ from autoemxsp.utils import (
 from autoemxsp.data.Xray_lines import get_el_xray_lines
 from autoemxsp.data.Xray_absorption_coeffs import xray_mass_absorption_coeff
 from autoemxsp.data.mean_ionization_potentials import J_df
-from autoemxsp.core.XSp_fitter import (
+from autoemxsp.core.fitting import (
     XSp_Fitter,
     Background_Model,
     Peaks_Model

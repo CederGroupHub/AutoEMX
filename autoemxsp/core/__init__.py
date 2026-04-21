@@ -6,3 +6,5 @@ Created on Thu Sep 18 13:30:06 2025
 @author: Andrea
 """
 
+# Keep package initialization minimal to avoid circular imports.
+
