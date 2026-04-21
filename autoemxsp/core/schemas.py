@@ -32,18 +32,18 @@ from autoemxsp.config.classes import (
 class RawSpectralData(BaseModel):
     """Validated single-spectrum input for fitting.
 
-    This model is intentionally minimal and is safe to construct independently
-    in parallel quantifier instances.
+    Contains only per-spectrum fields. Shared acquisition context (energy_vals, beam_energy,
+    emergence_angle, microscope_id, meas_mode) is provided separately via SharedAcquisitionContext.
+    This model is safe to construct independently in parallel quantifier instances.
     """
 
     spectrum_vals: List[float]  # counts per channel
-    energy_vals: List[float]  # keV per channel
-    collection_time: float  # seconds
-    beam_energy: float  # keV
-    emergence_angle: float  # degrees
-    microscope_id: str
-    meas_mode: str  # expected: "point" or "map"
-    total_counts: int | None = None
+    background_vals: Optional[List[float]] = None  # optional background counts per channel
+    live_time: float  # seconds (actual counting time)
+    real_time: float  # seconds (wall-clock time)
+    total_counts: Optional[int] = None  # sum of spectrum_vals
+    spectrum_id: Optional[str] = None
+    metadata: Optional[Dict[str, str]] = None
 
     model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
 
@@ -56,69 +56,63 @@ class RawSpectralData(BaseModel):
             raise ValueError("Spectrum values cannot be negative")
         return v
 
-    @field_validator("energy_vals")
+    @field_validator("background_vals")
     @classmethod
-    def validate_energy_vals(cls, v: List[float]) -> List[float]:
-        if not v:
-            raise ValueError("Energy axis cannot be empty")
-        if any(v[i] >= v[i + 1] for i in range(len(v) - 1)):
-            raise ValueError("Energy axis must be strictly increasing")
+    def validate_background_vals(cls, v: Optional[List[float]]) -> Optional[List[float]]:
+        if v is not None:
+            if not v:
+                raise ValueError("Background cannot be empty if provided")
+            if any(val < 0 for val in v):
+                raise ValueError("Background values cannot be negative")
         return v
 
-    @field_validator("collection_time")
+    @field_validator("live_time")
     @classmethod
-    def validate_collection_time(cls, v: float) -> float:
+    def validate_live_time(cls, v: float) -> float:
         if v <= 0:
-            raise ValueError("Collection time must be positive")
+            raise ValueError("Live time must be positive")
         return v
 
-    @field_validator("beam_energy")
+    @field_validator("real_time")
     @classmethod
-    def validate_beam_energy(cls, v: float) -> float:
+    def validate_real_time(cls, v: float) -> float:
         if v <= 0:
-            raise ValueError("Beam energy must be positive")
-        if v > 100:
-            raise ValueError("Beam energy > 100 keV is unrealistic for EDS")
-        return v
-
-    @field_validator("emergence_angle")
-    @classmethod
-    def validate_emergence_angle(cls, v: float) -> float:
-        if not 10 <= v <= 90:
-            raise ValueError("Emergence angle must be between 10 and 90 degrees")
-        return v
-
-    @field_validator("meas_mode")
-    @classmethod
-    def validate_meas_mode(cls, v: str) -> str:
-        valid = {"point", "map"}
-        if v not in valid:
-            raise ValueError(f"meas_mode must be one of {sorted(valid)}")
+            raise ValueError("Real time must be positive")
         return v
 
     @field_validator("total_counts")
     @classmethod
-    def validate_total_counts(cls, v: int | None) -> int | None:
+    def validate_total_counts(cls, v: Optional[int]) -> Optional[int]:
         if v is not None and v < 0:
             raise ValueError("total_counts cannot be negative")
         return v
 
     @model_validator(mode="after")
-    def validate_shape_and_total(self) -> "RawSpectralData":
-        if len(self.spectrum_vals) != len(self.energy_vals):
-            raise ValueError("spectrum_vals and energy_vals must have identical length")
-
+    def validate_total_and_background(self) -> "RawSpectralData":
         if self.total_counts is not None:
             computed = int(round(float(np.sum(self.spectrum_vals))))
             if self.total_counts != computed:
                 raise ValueError(
                     f"total_counts ({self.total_counts}) does not match sum(spectrum_vals) ({computed})"
                 )
+        
+        if self.background_vals is not None and len(self.background_vals) != len(self.spectrum_vals):
+            raise ValueError(
+                f"background_vals ({len(self.background_vals)} channels) must match "
+                f"spectrum_vals ({len(self.spectrum_vals)} channels)"
+            )
+        
         return self
 
-    def to_arrays(self) -> Tuple[np.ndarray, np.ndarray]:
-        """Return spectrum and energy arrays for fitter consumption."""
-        return np.asarray(self.spectrum_vals, dtype=float), np.asarray(self.energy_vals, dtype=float)
+    def spectrum_array(self) -> np.ndarray:
+        """Return spectrum as numpy array."""
+        return np.asarray(self.spectrum_vals, dtype=float)
+
+    def background_array(self) -> Optional[np.ndarray]:
+        """Return background as numpy array, or None if not provided."""
+        if self.background_vals is None:
+            return None
+        return np.asarray(self.background_vals, dtype=float)
 
 
 class SharedAcquisitionContext(BaseModel):
@@ -170,7 +164,9 @@ class SpectrumEntry(BaseModel):
     """Minimal per-spectrum record inside a sample ledger."""
 
     spectrum_vals: List[float]  # counts per channel
-    collection_time: float  # seconds
+    background_vals: Optional[List[float]] = None  # optional background counts per channel
+    live_time: float  # seconds (actual counting time)
+    real_time: float  # seconds (wall-clock time)
     total_counts: Optional[int] = None
     spectrum_id: Optional[str] = None
     metadata: Optional[Dict[str, str]] = None
@@ -186,11 +182,28 @@ class SpectrumEntry(BaseModel):
             raise ValueError("Spectrum values cannot be negative")
         return v
 
-    @field_validator("collection_time")
+    @field_validator("background_vals")
     @classmethod
-    def validate_collection_time(cls, v: float) -> float:
+    def validate_background_vals(cls, v: Optional[List[float]]) -> Optional[List[float]]:
+        if v is not None:
+            if not v:
+                raise ValueError("Background cannot be empty if provided")
+            if any(val < 0 for val in v):
+                raise ValueError("Background values cannot be negative")
+        return v
+
+    @field_validator("live_time")
+    @classmethod
+    def validate_live_time(cls, v: float) -> float:
         if v <= 0:
-            raise ValueError("Collection time must be positive")
+            raise ValueError("Live time must be positive")
+        return v
+
+    @field_validator("real_time")
+    @classmethod
+    def validate_real_time(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError("Real time must be positive")
         return v
 
     @field_validator("total_counts")
@@ -201,13 +214,20 @@ class SpectrumEntry(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def validate_total_if_present(self) -> "SpectrumEntry":
+    def validate_total_and_background(self) -> "SpectrumEntry":
         if self.total_counts is not None:
             computed = int(round(float(np.sum(self.spectrum_vals))))
             if self.total_counts != computed:
                 raise ValueError(
                     f"total_counts ({self.total_counts}) does not match sum(spectrum_vals) ({computed})"
                 )
+        
+        if self.background_vals is not None and len(self.background_vals) != len(self.spectrum_vals):
+            raise ValueError(
+                f"background_vals ({len(self.background_vals)} channels) must match "
+                f"spectrum_vals ({len(self.spectrum_vals)} channels)"
+            )
+        
         return self
 
 
@@ -299,19 +319,21 @@ class SampleLedger(BaseModel):
         return self
 
     def to_raw_spectrum(self, index: int) -> RawSpectralData:
-        """Resolve one ledger entry into fitter-ready RawSpectralData."""
+        """Resolve one ledger entry into fitter-ready RawSpectralData (per-spectrum fields only).
+        
+        The caller must separately access self.shared for SharedAcquisitionContext fields.
+        """
         s = self.spectra[index]
         return RawSpectralData(
             spectrum_vals=s.spectrum_vals,
-            energy_vals=self.shared.energy_vals,
+            background_vals=s.background_vals,
+            live_time=s.live_time,
+            real_time=s.real_time,
             total_counts=s.total_counts
             if s.total_counts is not None
             else int(round(float(np.sum(s.spectrum_vals)))),
-            collection_time=s.collection_time,
-            beam_energy=self.shared.beam_energy,
-            emergence_angle=self.shared.emergence_angle,
-            microscope_id=self.shared.microscope_id,
-            meas_mode=self.shared.meas_mode,
+            spectrum_id=s.spectrum_id,
+            metadata=s.metadata,
         )
 
     def iter_raw_spectra(self) -> Iterator[RawSpectralData]:
