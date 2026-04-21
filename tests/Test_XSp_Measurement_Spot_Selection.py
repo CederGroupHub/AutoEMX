@@ -30,8 +30,8 @@ import json
 import cv2
 import tifffile
 
-from autoemxsp.core.EM_particle_finder import EM_Particle_Finder
-from autoemxsp.core.EM_controller import EM_Controller
+from autoemxsp.core.em_runtime.particle_finder import EM_Particle_Finder
+from autoemxsp.core.em_runtime.controller import EM_Controller
 from autoemxsp.config.classes import (
     PowderMeasurementConfig,
     MicroscopeConfig,

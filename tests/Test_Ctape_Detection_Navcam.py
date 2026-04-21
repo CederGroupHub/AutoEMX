@@ -5,7 +5,7 @@ Created on Thu Aug  7 16:23:45 2025
 
 @author: Andrea
 """
-from autoemxsp.core.EM_controller import EM_Sample_Finder
+from autoemxsp.core.em_runtime.sample_finder import EM_Sample_Finder
 
 import cv2
 import os

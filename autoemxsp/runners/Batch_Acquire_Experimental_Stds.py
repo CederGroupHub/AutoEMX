@@ -34,7 +34,7 @@ Created on Fri Aug 20 09:34:34 2025
 import logging
 from typing import List, Dict, Tuple, Any
 
-from autoemxsp.core.EMXSp_composition_analyser import EMXSp_Composition_Analyzer
+from autoemxsp.core.composition_analyzer import EMXSp_Composition_Analyzer
 import autoemxsp.XSp_calibs as calibs
 import autoemxsp.config.defaults as dflts
 from autoemxsp.utils import print_double_separator

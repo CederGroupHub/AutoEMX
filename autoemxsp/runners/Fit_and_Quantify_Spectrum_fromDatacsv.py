@@ -39,7 +39,7 @@ from autoemxsp.utils import (
 import autoemxsp.utils.constants as cnst
 import autoemxsp.config.defaults as dflt
 from autoemxsp.config import config_classes_dict, ExpStandardsConfig
-from autoemxsp.core.EMXSp_composition_analyser import EMXSp_Composition_Analyzer
+from autoemxsp.core.composition_analyzer import EMXSp_Composition_Analyzer
 from autoemxsp.runners.Fit_and_Quantify_Spectrum import fit_and_quantify_spectrum
 
 # Configure logging

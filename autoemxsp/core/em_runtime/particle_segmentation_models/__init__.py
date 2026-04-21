@@ -33,8 +33,6 @@ Created on Thu Oct  9 09:34:39 2025
 import os
 import importlib
 
-import autoemxsp.utils.constants as cnst
-
 # Dictionary to hold the available models
 PAR_SEGMENTATION_MODEL_REGISTRY = {}
 
@@ -59,7 +57,7 @@ def load_models():
         
         if model_file.endswith(".py") and model_file != "__init__.py":
             model_name = model_file[:-3]  # Remove .py extension
-            module = importlib.import_module(f'autoemxsp.core.{cnst.PAR_SEGMENTATION_MODELS_DIR}.{model_name}')
+            module = importlib.import_module(f'{__package__}.{model_name}')
             PAR_SEGMENTATION_MODEL_REGISTRY[model_name] = module  # Save the module to the registry
             module_names.append(model_name)
     return module_names

@@ -36,7 +36,7 @@ from pymatgen.core import Composition
 
 import autoemxsp.utils.constants as cnst
 import autoemxsp.config.defaults as dflt
-import autoemxsp.core.particle_segmentation_models as par_seg_models
+import autoemxsp.core.em_runtime.particle_segmentation_models as par_seg_models
 
 @dataclass
 class MicroscopeConfig:

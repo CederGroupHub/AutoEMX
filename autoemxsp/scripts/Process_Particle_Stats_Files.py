@@ -14,7 +14,7 @@ Created on Wed Jul 31 10:40:26 2024
 import os
 import pandas as pd
 
-from autoemxsp.core.EM_particle_finder import EM_Particle_Finder
+from autoemxsp.core.em_runtime.particle_finder import EM_Particle_Finder
 import autoemxsp.utils.constants as cnst
 from autoemxsp.utils import get_sample_dir
 

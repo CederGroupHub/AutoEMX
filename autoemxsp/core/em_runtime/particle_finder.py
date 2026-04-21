@@ -83,7 +83,7 @@ from autoemxsp.config import (
 )
 import autoemxsp.utils.constants as cnst
 from autoemxsp import EM_driver
-import autoemxsp.core.particle_segmentation_models as par_seg_models
+import autoemxsp.core.em_runtime.particle_segmentation_models as par_seg_models
 
 #%% Electron Microscope Particle Finder class    
 class EM_Particle_Finder:

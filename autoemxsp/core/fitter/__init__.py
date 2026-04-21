@@ -14,7 +14,7 @@ Main Components:
 
 Typical Usage:
     ```python
-    from autoemxsp.core.fitting import XSp_Fitter
+    from autoemxsp.core.fitter import XSp_Fitter
     
     fitter = XSp_Fitter(
         spectrum_vals, energy_vals, 

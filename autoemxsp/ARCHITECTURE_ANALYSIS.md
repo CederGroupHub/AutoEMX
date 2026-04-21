@@ -45,7 +45,7 @@ AutoEMXSp is a sophisticated system for automated Electron Microscopy X-ray Spec
 - **Instance Methods**: Calculate physical correction factors
 - **Used By**: `XSp_Quantifier` for converting fitted peak intensities to compositions
 
-#### **EMXSp_Composition_Analyzer** (`core/EMXSp_composition_analyser.py`)
+#### **EMXSp_Composition_Analyzer** (`core/composition_analyzer.py`)
 - **Responsibility**: Master orchestrator for complete analysis workflow
 - **Main Methods**:
   - `__init__()`: Initialize with all configuration objects
@@ -61,7 +61,7 @@ AutoEMXSp is a sophisticated system for automated Electron Microscopy X-ray Spec
 
 ### **Automation Classes**
 
-#### **EM_Controller** (`core/EM_controller.py`)
+#### **EM_Controller** (`core/em_runtime/controller.py`)
 - **Responsibility**: Microscope hardware control and X-ray spectra acquisition
 - **Main Methods**:
   - `initialise_SEM()`: Wake up microscope, set beam parameters
@@ -73,7 +73,7 @@ AutoEMXSp is a sophisticated system for automated Electron Microscopy X-ray Spec
   - Creates/uses `EM_Particle_Finder` for automated particle analysis
   - Returns raw spectral data (counts array, collection time)
 
-#### **EM_Particle_Finder** (`core/EM_particle_finder.py`)
+#### **EM_Particle_Finder** (`core/em_runtime/particle_finder.py`)
 - **Responsibility**: Particle detection, selection, and X-ray spot planning
 - **Main Methods**:
   - `go_to_next_particle()`: Navigate to next particle
@@ -82,7 +82,7 @@ AutoEMXSp is a sophisticated system for automated Electron Microscopy X-ray Spec
 - **Configuration**: `PowderMeasurementConfig` with particle detection/filtering params
 - **Outputs**: Particle positions, acquisition spot coordinates
 
-#### **EM_Sample_Finder** (`core/EM_controller.py`)
+#### **EM_Sample_Finder** (`core/em_runtime/sample_finder.py`)
 - **Responsibility**: Sample location detection (e.g., carbon tape center detection)
 
 ---

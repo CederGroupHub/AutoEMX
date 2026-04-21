@@ -19,7 +19,7 @@ from autoemxsp.utils import (
     weight_to_atomic_fr,
 )
 from autoemxsp.data import J_df, xray_mass_absorption_coeff
-from autoemxsp.core.fitting import Background_Model
+from autoemxsp.core.fitter import Background_Model
 
 
 class Quant_Corrections:
