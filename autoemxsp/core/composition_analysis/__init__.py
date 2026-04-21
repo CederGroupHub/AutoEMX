@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Composition analysis package.
+
+This package encapsulates all composition analysis functionality including:
+- Clustering of compositional data
+- Visualization and plotting
+- Reference material standards handling
+- Phase identification and reference matching
+- Main analysis orchestration
+
+Modules
+-------
+- clustering: K-means and DBSCAN clustering algorithms
+- plotting: Visualization of analysis results
+- standards: Reference material and correction factor management
+- reference_matching: Phase identification and correlation
+- analyser: Main EMXSp_Composition_Analyzer orchestrator
+
+Public API
+----------
+EMXSp_Composition_Analyzer: Main analysis class
+
+Examples
+--------
+    >>> from autoemxsp.core.composition_analysis import EMXSp_Composition_Analyzer
+    >>> analyzer = EMXSp_Composition_Analyzer(...)
+    >>> analyzer.run_collection_and_quantification()
+
+@author: Andrea
+Created during refactoring of EMXSp_Composition_Analyzer
+"""
+
+# Version and metadata
+__version__ = "0.1.0"
+__author__ = "Andrea"
+
+# Import submodules for easy access
+from .clustering import ClusteringModule
+from .plotting import PlottingModule
+from .standards import StandardsModule
+from .reference_matching import ReferenceMatchingModule
+
+# Import main class once analyser.py is populated
+# from .analyser import EMXSp_Composition_Analyzer
+
+__all__ = [
+    'ClusteringModule',
+    'PlottingModule',
+    'StandardsModule',
+    'ReferenceMatchingModule',
+    # 'EMXSp_Composition_Analyzer',
+]
