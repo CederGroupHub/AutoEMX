@@ -78,7 +78,7 @@ import cvxpy as cp
 from yellowbrick.cluster import KElbowVisualizer, SilhouetteVisualizer
 
 # Project-specific imports
-from autoemxsp.core.XSp_quantifier import XSp_Quantifier, Quant_Corrections
+from autoemxsp.core.quantifier import XSp_Quantifier, Quant_Corrections
 from autoemxsp.core.EM_controller import EM_Controller, EM_Sample_Finder
 import autoemxsp.XSp_calibs as calibs
 import autoemxsp.utils.constants as cnst

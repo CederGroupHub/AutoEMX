@@ -14,7 +14,7 @@ import time
 import logging
 
 from autoemxsp.utils import print_double_separator
-from autoemxsp.core.XSp_quantifier import XSp_Quantifier
+from autoemxsp.core.quantifier import XSp_Quantifier
 
 # Configure logging
 logging.basicConfig(
