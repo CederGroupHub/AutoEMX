@@ -1,12 +1,12 @@
 <div align="center">
 
-# AutoEMXSp 
+# AutoEMX 
 
 [![PyPI version](https://badge.fury.io/py/autoemxsp.svg)](https://pypi.org/project/autoemxsp/)
 [![Python Version](https://img.shields.io/pypi/pyversions/autoemxsp.svg)](https://pypi.org/project/autoemxsp/)
-[![License: Custom Non-Commercial](https://img.shields.io/badge/license-Custom%20Non--Commercial-blue.svg)](https://github.com/CederGroupHub/AutoEMXSp/blob/main/LICENSE.txt)
+[![License: Custom Non-Commercial](https://img.shields.io/badge/license-Custom%20Non--Commercial-blue.svg)](https://github.com/CederGroupHub/AutoEMX/blob/main/LICENSE.txt)
 [![Research Square Preprint](https://img.shields.io/badge/Research%20Square-preprint-orange)](https://doi.org/10.21203/rs.3.rs-7837297/v2)  
-[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://cedergrouphub.github.io/AutoEMXSp/)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://cedergrouphub.github.io/AutoEMX/)
 [![PR Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat)](https://pypi.org/project/autoemxsp/)
 
 
@@ -14,11 +14,11 @@
 
 </div>
 
-AutoEMXSp is a **fully automated framework** for SEM-EDS workflows — from spectral acquisition and quantification, to principled filtering and compositional analysis — all in **one click**.
+AutoEMX is a **fully automated framework** for SEM-EDS workflows — from spectral acquisition and quantification, to principled filtering and compositional analysis — all in **one click**.
 
-🎥 Watch AutoEMXSp in action on a desktop SEM-EDS system at https://youtu.be/Bym58gNxlj0
+🎥 Watch AutoEMX in action on a desktop SEM-EDS system at https://youtu.be/Bym58gNxlj0
 
-🧪 Test AutoEMXSp to fit and quantify EDS spectra you have collected on your commercial SEM-EDS system (see [Tutorials](https://cedergrouphub.github.io/AutoEMXSp/user/tutorials.html)).
+🧪 Test AutoEMX to fit and quantify EDS spectra you have collected on your commercial SEM-EDS system (see [Tutorials](https://cedergrouphub.github.io/AutoEMX/user/tutorials.html)).
 
 📖 This work is described in:  
 A. Giunto *et al.*, *Accurate SEM‑EDS Quantification, Automation, and Machine Learning Enable High‑Throughput Compositional Characterization of Powders*, 2025.  
@@ -77,9 +77,9 @@ DOI: [https://doi.org/10.21203/rs.3.rs-7837297/v2](https://doi.org/10.21203/rs.3
 
 ## 📘 Documentation
 
-Installation instructions, usage examples, and workflow descriptions are available in the AutoEMXSp documentation:
+Installation instructions, usage examples, and workflow descriptions are available in the AutoEMX documentation:
 
-👉 https://cedergrouphub.github.io/AutoEMXSp/
+👉 https://cedergrouphub.github.io/AutoEMX/
 
 
 ---
@@ -102,7 +102,7 @@ Installation instructions, usage examples, and workflow descriptions are availab
 ---
 
 ## 🆕 Coming Soon
-Here’s what’s planned for future releases of **AutoEMXSp**:
+Here’s what’s planned for future releases of **AutoEMX**:
 - 🐍 Verify with the latest **Python** version for improved compatibility with current scientific libraries
 - 📏 New scripts for **spectral parameter calibration** to extend the `XSp_calibs` library to your own instrument.
 
@@ -113,7 +113,7 @@ Here’s what’s planned for future releases of **AutoEMXSp**:
 The repository is organized as follows:
 
 ```text
-AutoEMXSp/
+AutoEMX/
 ├── autoemxsp/                 # Main package source code
 │   ├── _custom_plotting.py     # Customizable clustering plot function
 │   ├── config/                 # Configuration files, including default values to employ during measurements.
@@ -140,14 +140,14 @@ AutoEMXSp/
 
 ## 📁 Scripts
 
-This repository includes a collection of scripts that streamline the use of **AutoEMXSp**.  
+This repository includes a collection of scripts that streamline the use of **AutoEMX**.  
 Each script is tailored for a specific task in spectral acquisition, calibration, quantification, or analysis.
 
 ### 🔬 Acquisition, Quantification & Analysis
 - **Run_Acquisition_Quant_Analysis.py** — Acquire X-ray spectra and optionally perform quantification and composition analysis.  
 - **Run_Quantification_Analysis.py** — Quantify acquired spectra (single or multiple samples) and perform machine-learning analysis.  
 - **Run_Analysis.py** — Launch customized machine-learning analysis on previously quantified data. 
-- **Fit_Quant_Single_AutoEMXSp_Spectrum.py** — Fit and optionally quantify a single spectrum measured with AutoEMXSp. Prints fitting parameters and plots fitted spectrum for detailed inspection of model performance.  
+- **Fit_Quant_Single_AutoEMX_Spectrum.py** — Fit and optionally quantify a single spectrum measured with AutoEMX. Prints fitting parameters and plots fitted spectrum for detailed inspection of model performance.  
 - **Fit_Quant_Single_MSA_Spectrum.py** — Fit and optionally quantify a single spectrum exported by proprietary software. 
 
 ### 📊 Particle Size Distribution Measurements
@@ -184,7 +184,7 @@ LICENSE — see the LICENSE file for details.
 
 ## 📖 Citation
 
-If you use **AutoEMXSp** in your research, please cite the following publication:
+If you use **AutoEMX** in your research, please cite the following publication:
 
 > A. Giunto, Y. Fei, P. Nevatia, B. Rendy, N. Szymanski and G. Ceder;
 > *Accurate SEM‑EDS Quantification, Automation, and Machine Learning Enable High‑Throughput Compositional Characterization of Powders*, 2025.  
@@ -192,7 +192,7 @@ If you use **AutoEMXSp** in your research, please cite the following publication
 
 ### BibTeX
 ```bibtex
-@article{Giunto2025AutoEMXSp,
+@article{Giunto2025AutoEMX,
   author  = {Giunto, Andrea and Fei, Yuxing and Nevatia, Pragnay and Rendy, Bernardus and Szymanski, Nathan and Ceder, Gerbrand},
   title   = {Accurate SEM‑EDS Quantification, Automation, and Machine Learning Enable High‑Throughput Compositional Characterization of Powders},
   year    = {2025},
