@@ -102,6 +102,12 @@ from autoemxsp.config import (
     ExpStandardsConfig,
     PlotConfig,
 )
+from autoemxsp.core.composition_analysis import (
+    ClusteringModule,
+    PlottingModule,
+    ReferenceMatchingModule,
+    StandardsModule,
+)
 
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -4802,4 +4808,36 @@ class EMXSp_Composition_Analyzer:
                 json.dump(standards, file, indent=2)
         except Exception as e:
             raise RuntimeError(f"Failed to save updated standards to {stds_filepath}.") from e
+
+
+# Delegation to extracted composition_analysis modules.
+# This preserves the current public class/API while routing implementation
+# to the new modular structure.
+EMXSp_Composition_Analyzer._find_optimal_k = ClusteringModule._find_optimal_k
+EMXSp_Composition_Analyzer._get_most_freq_k = ClusteringModule._get_most_freq_k
+EMXSp_Composition_Analyzer._get_k = ClusteringModule._get_k
+EMXSp_Composition_Analyzer._is_single_cluster = ClusteringModule._is_single_cluster
+EMXSp_Composition_Analyzer._run_kmeans_clustering = ClusteringModule._run_kmeans_clustering
+EMXSp_Composition_Analyzer._prepare_composition_dataframes = ClusteringModule._prepare_composition_dataframes
+EMXSp_Composition_Analyzer._get_clustering_kmeans = ClusteringModule._get_clustering_kmeans
+EMXSp_Composition_Analyzer._get_clustering_dbscan = ClusteringModule._get_clustering_dbscan
+EMXSp_Composition_Analyzer._compute_cluster_statistics = ClusteringModule._compute_cluster_statistics
+
+EMXSp_Composition_Analyzer._correlate_centroids_to_refs = ReferenceMatchingModule._correlate_centroids_to_refs
+EMXSp_Composition_Analyzer._assign_reference_phases = ReferenceMatchingModule._assign_reference_phases
+EMXSp_Composition_Analyzer._get_ref_confidences = ReferenceMatchingModule._get_ref_confidences
+
+EMXSp_Composition_Analyzer._save_plots = PlottingModule._save_plots
+EMXSp_Composition_Analyzer._save_clustering_plot = PlottingModule._save_clustering_plot
+EMXSp_Composition_Analyzer._save_violin_plot_powder_mixture = PlottingModule._save_violin_plot_powder_mixture
+EMXSp_Composition_Analyzer._save_silhouette_plot = PlottingModule._save_silhouette_plot
+
+EMXSp_Composition_Analyzer._compile_standards_from_references = StandardsModule._compile_standards_from_references
+EMXSp_Composition_Analyzer._fit_stds_and_save_results = StandardsModule._fit_stds_and_save_results
+EMXSp_Composition_Analyzer._evaluate_exp_std_fit = StandardsModule._evaluate_exp_std_fit
+EMXSp_Composition_Analyzer._assemble_std_PB_data = StandardsModule._assemble_std_PB_data
+EMXSp_Composition_Analyzer._calc_corrected_PB = StandardsModule._calc_corrected_PB
+EMXSp_Composition_Analyzer._save_std_results = StandardsModule._save_std_results
+EMXSp_Composition_Analyzer._load_xsp_standards = StandardsModule._load_xsp_standards
+EMXSp_Composition_Analyzer._update_standard_library = StandardsModule._update_standard_library
  

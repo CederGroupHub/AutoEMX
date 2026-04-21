@@ -32,23 +32,14 @@ Examples
 Created during refactoring of EMXSp_Composition_Analyzer
 """
 
-# Version and metadata
-__version__ = "0.1.0"
-__author__ = "Andrea"
-
-# Import submodules for easy access
 from .clustering import ClusteringModule
 from .plotting import PlottingModule
-from .standards import StandardsModule
 from .reference_matching import ReferenceMatchingModule
-
-# Import main class once analyser.py is populated
-# from .analyser import EMXSp_Composition_Analyzer
+from .standards import StandardsModule
 
 __all__ = [
     'ClusteringModule',
     'PlottingModule',
-    'StandardsModule',
     'ReferenceMatchingModule',
-    # 'EMXSp_Composition_Analyzer',
+    'StandardsModule',
 ]
