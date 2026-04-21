@@ -623,58 +623,83 @@ def get_sample_dir(
     results_path = os.path.abspath(os.path.expanduser(results_path))
     if verbose:
         print(f"[get_sample_dir] Searching for '{sample_ID}' under '{results_path}'", file=sys.stderr)
-    
+
+    if not os.path.isdir(results_path):
+        raise FileNotFoundError(f"Search root does not exist or is not a directory: '{results_path}'")
+
     def _norm_name(s: str) -> str:
-        """Normalize unicode and collapse case for comparison on most systems."""
+        """Normalize unicode and collapse case for robust name matching."""
         return unicodedata.normalize("NFKC", s).strip()
-    
-    # Normalize the sample ID for comparison
+
     sample_norm = _norm_name(sample_ID)
+
     def match_name(name: str) -> bool:
         name_norm = _norm_name(name)
         return name_norm.lower() == sample_norm.lower() if case_insensitive else name_norm == sample_norm
 
-    # Walk recursively and collect matches
+    # Fast-path: direct child under results_path.
+    direct_candidate = os.path.join(results_path, sample_ID)
+    if os.path.isdir(direct_candidate):
+        return os.path.abspath(direct_candidate)
+
+    # One-level check (case-insensitive if requested) before deeper traversal.
+    try:
+        with os.scandir(results_path) as it:
+            for entry in it:
+                if entry.is_dir(follow_symlinks=False) and match_name(entry.name):
+                    return os.path.abspath(entry.path)
+    except PermissionError:
+        pass
+
+    # Skip known expensive/irrelevant directory names while walking.
+    skip_dir_names = {
+        ".git", "__pycache__", ".ipynb_checkpoints", ".DS_Store",
+        "node_modules", "Library", "Applications", "System",
+    }
+
     matches: List[str] = []
-    for root, dirs, _ in os.walk(results_path):
+    seen_names = set()
+    verbose_listed_paths: List[str] = []
+
+    for root, dirs, _ in os.walk(results_path, topdown=True, followlinks=False):
+        # In-place prune: hidden dirs and known large/system trees.
+        dirs[:] = [
+            d for d in dirs
+            if d not in skip_dir_names and not d.startswith('.')
+        ]
+
         for d in dirs:
+            seen_names.add(d)
+            if verbose and len(verbose_listed_paths) < 50:
+                verbose_listed_paths.append(os.path.join(root, d))
             if match_name(d):
                 matches.append(os.path.abspath(os.path.join(root, d)))
+                # We only need to know if there is ambiguity, not all possible matches.
+                if len(matches) > 1:
+                    break
+        if len(matches) > 1:
+            break
 
     matches = sorted(set(matches))
     if len(matches) == 1:
         return matches[0]
-    elif len(matches) > 1:
+    if len(matches) > 1:
         raise RuntimeError(f"Ambiguous '{sample_ID}' — found in multiple locations:\n" + "\n".join(matches))
+
+    close = difflib.get_close_matches(sample_ID, sorted(seen_names), n=5, cutoff=0.6)
+    debug_msg_lines = [
+        f"'{sample_ID}' folder not found in '{results_path}' or its subdirectories."
+    ]
+    if close:
+        debug_msg_lines.append(f"Did you mean one of: {close}?")
     else:
-        # No exact match found — suggest close matches
-        all_dir_names = []
-        for root, dirs, _ in os.walk(results_path):
-            all_dir_names.extend(dirs)
-        all_dir_names = sorted(set(all_dir_names))
-        close = difflib.get_close_matches(sample_ID, all_dir_names, n=5, cutoff=0.6)
+        debug_msg_lines.append("No similar directory names found.")
 
-        debug_msg_lines = [
-            f"'{sample_ID}' folder not found in '{results_path}' or its subdirectories."
-        ]
-        if close:
-            debug_msg_lines.append(f"Did you mean one of: {close}?")
-        else:
-            debug_msg_lines.append("No similar directory names found.")
+    if verbose and verbose_listed_paths:
+        debug_msg_lines.append("\nSome directories under the search root (first 50):")
+        debug_msg_lines.extend(verbose_listed_paths)
 
-        if verbose:
-            debug_msg_lines.append("\nSome directories under the search root (first 50):")
-            listed = 0
-            for root, dirs, _ in os.walk(results_path):
-                for d in dirs:
-                    debug_msg_lines.append(os.path.join(root, d))
-                    listed += 1
-                    if listed >= 50:
-                        break
-                if listed >= 50:
-                    break
-
-        raise FileNotFoundError("\n".join(debug_msg_lines))
+    raise FileNotFoundError("\n".join(debug_msg_lines))
         
 
 def load_msa(filepath: str) -> Tuple[np.ndarray, np.ndarray, Dict[str, str]]:
