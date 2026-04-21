@@ -194,7 +194,7 @@ def batch_quantify_and_analyze(
                 )
                 
         # Change is_known_precursor_mixture if provided
-        if is_known_precursor_mixture:
+        if is_known_precursor_mixture is not None:
             powder_meas_cfg.is_known_precursor_mixture = is_known_precursor_mixture
 
         # Decide which spectra to quantify

@@ -2493,7 +2493,11 @@ class EMXSp_Composition_Analyzer:
         # Set a minimum reconstruction error threshold for accepting mixtures
         min_acceptable_recon_error = 2  # Empirically determined
         
-        save_violin_plot = self.powder_meas_cfg.is_known_powder_mixture_meas
+        save_violin_plot = getattr(
+            self.powder_meas_cfg,
+            "is_known_powder_mixture_meas",
+            False,
+        )
         
         if reconstruction_error < min_acceptable_recon_error or save_violin_plot:
             # Calculate confidence score: 0.66 when error is 0.5 (empirical)
