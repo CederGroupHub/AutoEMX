@@ -169,7 +169,7 @@ class SpectrumEntry(BaseModel):
     real_time: float  # seconds (wall-clock time)
     total_counts: Optional[int] = None
     spectrum_id: Optional[str] = None
-    metadata: Optional[Dict[str, str]] = None
+    metadata: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(extra="forbid")
 

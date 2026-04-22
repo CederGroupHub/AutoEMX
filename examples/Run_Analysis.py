@@ -19,6 +19,8 @@ Created on Tue Jul 29 13:18:16 2025
 @author: Andrea
 """
 
+import os
+
 from autoemxsp.runners import analyze_sample
 
 
@@ -29,7 +31,7 @@ from autoemxsp.runners import analyze_sample
 sample_ID = 'K-412_NISTstd_example'
 # sample_ID = 'known_powder_mixture_example'
 
-results_path = None # Looks in default Results folder if left unspecified
+results_path = os.path.join(os.path.dirname(__file__), 'Results')
 
 # =============================================================================
 # Clustering options

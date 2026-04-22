@@ -18,7 +18,7 @@ import time
 import warnings
 
 from autoemxsp.utils import EMError, print_single_separator
-from autoemxsp import EM_driver
+from autoemxsp import microscope_drivers as EM_driver
 import numpy as np
 
 

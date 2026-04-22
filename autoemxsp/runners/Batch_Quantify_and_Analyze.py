@@ -55,7 +55,7 @@ from autoemxsp.utils import (
 import autoemxsp.utils.constants as cnst
 import autoemxsp.config.defaults as dflt
 from autoemxsp.config import config_classes_dict
-from autoemxsp.core.composition_analyzer import EMXSp_Composition_Analyzer
+from autoemxsp.core.composition_analysis import EMXSp_Composition_Analyzer
 
 # Configure logging
 logging.basicConfig(
@@ -129,8 +129,7 @@ def batch_quantify_and_analyze(
         List of EMXSp_Composition_Analyzer, the composition analysis object containing the results and methods for further analysis.
     """
     if results_path is None:
-        parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        results_path = os.path.join(parent_dir, cnst.RESULTS_DIR)
+        results_path = os.path.join(os.getcwd(), cnst.RESULTS_DIR)
         
     quant_results = []
     for sample_ID in sample_IDs:

@@ -122,8 +122,7 @@ def batch_fit_spectra(sample_IDs,
     """
     
     if samples_path is None:
-        parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        samples_path = os.path.join(parent_dir, cnst.RESULTS_DIR)
+        samples_path = os.path.join(os.getcwd(), cnst.RESULTS_DIR)
     
     print_double_separator()
     logging.info("Starting batch fitting process...")

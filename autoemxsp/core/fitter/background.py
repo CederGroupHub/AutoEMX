@@ -18,12 +18,12 @@ from lmfit.models import GaussianModel
 from pymatgen.core import Element
 import sympy as sp
 
-import autoemxsp.XSp_calibs as calibs
+import autoemxsp.calibrations as calibs
 from autoemxsp.data import (
     xray_mass_absorption_coeff,
-    weight_to_atomic_fr,
     J_df,
 )
+from autoemxsp.utils import weight_to_atomic_fr
 from .detector_response import DetectorResponseFunction
 
 

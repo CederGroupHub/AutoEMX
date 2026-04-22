@@ -40,7 +40,7 @@ import pandas as pd
 from autoemxsp.runners.Batch_Acquire_Experimental_Stds import batch_acquire_experimental_stds
 from autoemxsp.runners.Batch_Fit_Spectra import batch_fit_spectra
 from autoemxsp.data.Xray_lines import get_el_xray_lines
-import autoemxsp.XSp_calibs as calibs
+import autoemxsp.calibrations as calibs
 import autoemxsp.utils.constants as cnst
 
 

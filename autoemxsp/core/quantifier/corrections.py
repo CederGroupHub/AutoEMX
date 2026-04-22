@@ -8,7 +8,7 @@ import numpy as np
 import sympy as sp
 from pymatgen.core import Element
 
-import autoemxsp.XSp_calibs as calibs
+import autoemxsp.calibrations as calibs
 import autoemxsp.utils.constants as cnst
 from autoemxsp.utils import (
     EDSError,

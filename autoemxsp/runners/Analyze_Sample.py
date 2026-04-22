@@ -46,7 +46,7 @@ from autoemxsp.utils import (
 )
 import autoemxsp.utils.constants as cnst
 from autoemxsp.config import config_classes_dict
-from autoemxsp.core.composition_analyzer import EMXSp_Composition_Analyzer
+from autoemxsp.core.composition_analysis import EMXSp_Composition_Analyzer
 
 # Configure logging
 logging.basicConfig(
@@ -112,14 +112,15 @@ def analyze_sample(
         The composition analysis object containing the results and methods for further analysis.
     """
     if results_path is None:
-        parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        results_path = os.path.join(parent_dir, cnst.RESULTS_DIR)
+        results_path = os.path.join(os.getcwd(), cnst.RESULTS_DIR)
         
     print_double_separator()
     logging.info(f"Sample '{sample_ID}'")
     
     sample_dir = get_sample_dir(results_path, sample_ID)
-    spectral_info_f_path = os.path.join(sample_dir, f'{cnst.ACQUISITION_INFO_FILENAME}.json')
+    config_path_new = os.path.join(sample_dir, f"{cnst.CONFIG_FILENAME}.json")
+    config_path_legacy = os.path.join(sample_dir, f"{cnst.ACQUISITION_INFO_FILENAME}.json")
+    spectral_info_f_path = config_path_new if os.path.exists(config_path_new) else config_path_legacy
     try:
         configs, metadata = load_configurations_from_json(spectral_info_f_path, config_classes_dict)
     except FileNotFoundError:

@@ -71,17 +71,16 @@ def load_microscope_calibrations(
     global microscope_calib_dir
     microscope_calib_dir = os.path.join(
         os.path.dirname(__file__),
-        cnst.MICROSCOPES_CALIBS_DIR,
         microscope_ID
     )
     if not os.path.isdir(microscope_calib_dir):
         raise ValueError(
             f"Could not find the microscope calibration folder at '{microscope_calib_dir}'.\n"
-            f"Please ensure microscope_ID ('{microscope_ID}') matches a folder in '{cnst.MICROSCOPES_CALIBS_DIR}'."
+            f"Please ensure microscope_ID ('{microscope_ID}') matches a folder in '{os.path.dirname(__file__)}'."
         )
 
     # Build the module name for importlib
-    module_name = f".{cnst.MICROSCOPES_CALIBS_DIR}.{microscope_ID}.XS_calibrations"
+    module_name = f".{microscope_ID}.XS_calibrations"
     try:
         mod = importlib.import_module(module_name, package=__name__)
     except ModuleNotFoundError as e:

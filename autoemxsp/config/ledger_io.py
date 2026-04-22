@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Literal
 
-from autoemxsp.core.schemas import LedgerConfigs, SampleLedger
+from autoemxsp.config.schemas import LedgerConfigs, SampleLedger
 
 
 def load_sample_ledger(file_path: str | Path) -> SampleLedger:

@@ -119,10 +119,10 @@ PAR_EQ_D_KEY = 'Equivalent Diameter (μm)'
 RESULTS_DIR = 'Results'
 STDS_DIR = 'Std_measurements'
 ANALYSIS_DIR = 'Analysis'
+ANALYSIS_SUBDIR = 'analysis'  # new lowercase subdirectory for timestamped analysis folders
 IMAGES_DIR = 'SEM images'
-CALIBS_DIR = 'XSp_calibs'
-MICROSCOPES_CALIBS_DIR = 'Microscopes'
-XRAY_SPECTRA_CALIBS_DIR = 'XSp_calibs'
+CALIBS_DIR = 'calibrations'
+XRAY_SPECTRA_CALIBS_DIR = 'calibrations'
 DETECTOR_CHANNEL_PARAMS_CALIBR_DIR = 'Detector_channel_params_calibs'
 SDD_CALIBS_MEAS_DIR = 'SDD calibrations'
 PAR_SEGMENTATION_MODELS_DIR = 'particle_segmentation_models'
@@ -130,7 +130,11 @@ PAR_SEGMENTATION_MODELS_DIR = 'particle_segmentation_models'
 
 # File names
 STD_FILENAME = 'Stds'
-ACQUISITION_INFO_FILENAME = 'Comp_analysis_configs'
+ACQUISITION_INFO_FILENAME = 'Comp_analysis_configs'  # legacy config filename (kept during transition)
+CONFIG_FILENAME = 'config'  # new config filename
+LEDGER_FILENAME = 'ledger'  # new per-sample spectral ledger filename
+LEDGER_FILEEXT = '.json'
+ANALYSIS_TIMESTAMP_FORMAT = '%Y-%m-%d_%H-%M'  # timestamp format for analysis subdirectory names
 DATA_FILENAME = 'Data'
 MSA_SP_FILENAME = "EM_metadata.msa"
 PARTICLE_STATS_FILENAME = 'Par_size_stats'

@@ -14,7 +14,7 @@ from autoemxsp.runners.Fit_and_Quantify_Spectrum_fromDatacsv import (
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-RESULTS_PATH = REPO_ROOT / "autoemxsp" / "Results"
+RESULTS_PATH = REPO_ROOT / "examples" / "Results"
 
 
 # Force a non-interactive backend for CI runners.

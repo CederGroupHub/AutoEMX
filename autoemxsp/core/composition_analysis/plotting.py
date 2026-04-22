@@ -15,7 +15,7 @@ import seaborn as sns
 from sklearn.cluster import KMeans
 from yellowbrick.cluster import SilhouetteVisualizer
 
-import autoemxsp.XSp_calibs as calibs
+import autoemxsp.calibrations as calibs
 import autoemxsp._custom_plotting as custom_plotting
 import autoemxsp.utils.constants as cnst
 from autoemxsp.utils import print_single_separator, to_latex_formula

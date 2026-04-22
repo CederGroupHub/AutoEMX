@@ -39,7 +39,7 @@ from autoemxsp.utils import (
 import autoemxsp.utils.constants as cnst
 import autoemxsp.config.defaults as dflt
 from autoemxsp.config import config_classes_dict, ExpStandardsConfig
-from autoemxsp.core.composition_analyzer import EMXSp_Composition_Analyzer
+from autoemxsp.core.composition_analysis import EMXSp_Composition_Analyzer
 from autoemxsp.runners.Fit_and_Quantify_Spectrum import fit_and_quantify_spectrum
 
 # Configure logging
@@ -127,8 +127,7 @@ def fit_and_quantify_spectrum_fromDatacsv(
         The quantifier object containing the results, fit parameters, and methods for further analysis and plotting.
     """
     if results_path is None:
-        parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        results_path = os.path.join(parent_dir, cnst.RESULTS_DIR)
+        results_path = os.path.join(os.getcwd(), cnst.RESULTS_DIR)
         
     try:
         sample_dir = get_sample_dir(results_path, sample_ID)
@@ -136,7 +135,9 @@ def fit_and_quantify_spectrum_fromDatacsv(
         logging.warning("Failed to get sample directory for %s: %s", sample_ID, e)
         return
 
-    spectral_info_f_path = os.path.join(sample_dir, f"{cnst.ACQUISITION_INFO_FILENAME}.json")
+    config_path_new = os.path.join(sample_dir, f"{cnst.CONFIG_FILENAME}.json")
+    config_path_legacy = os.path.join(sample_dir, f"{cnst.ACQUISITION_INFO_FILENAME}.json")
+    spectral_info_f_path = config_path_new if os.path.exists(config_path_new) else config_path_legacy
     data_filename = cnst.STDS_MEAS_FILENAME if is_standard else cnst.DATA_FILENAME
     data_path = os.path.join(sample_dir, f"{data_filename}.csv")
     

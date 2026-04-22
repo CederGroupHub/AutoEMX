@@ -25,7 +25,7 @@ Created: Mon Oct 13 15:38:36 2025
 """
 
 import numpy as np
-from autoemxsp import EM_driver
+from autoemxsp import microscope_drivers as EM_driver
 from autoemxsp.utils.helper import print_single_separator, print_double_separator
 
 #%% -------------------------------------------------------------------------

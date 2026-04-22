@@ -160,7 +160,7 @@ from autoemxsp.utils import (
     weight_to_atomic_fr, load_msa
 )
 import autoemxsp.utils.constants as cnst
-import autoemxsp.XSp_calibs as calibs 
+import autoemxsp.calibrations as calibs 
 from autoemxsp.data.Xray_lines import get_el_xray_lines
 from autoemxsp.data.Xray_absorption_coeffs import xray_mass_absorption_coeff
 from autoemxsp.data.mean_ionization_potentials import J_df

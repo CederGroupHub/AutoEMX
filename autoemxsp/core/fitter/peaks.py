@@ -18,7 +18,7 @@ from scipy.signal import find_peaks, peak_prominences
 from lmfit import Model, Parameters, Parameter
 from pymatgen.core import Element
 
-import autoemxsp.XSp_calibs as calibs
+import autoemxsp.calibrations as calibs
 from autoemxsp.data.Xray_lines import get_el_xray_lines
 from .detector_response import DetectorResponseFunction
 

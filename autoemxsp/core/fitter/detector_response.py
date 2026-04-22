@@ -24,7 +24,7 @@ from scipy.optimize import root_scalar
 
 from autoemxsp.utils import print_single_separator, load_msa
 import autoemxsp.utils.constants as cnst
-import autoemxsp.XSp_calibs as calibs
+import autoemxsp.calibrations as calibs
 from autoemxsp.data.Xray_absorption_coeffs import xray_mass_absorption_coeff
 
 parent_dir = str(Path(__file__).resolve().parent.parent.parent)
@@ -96,7 +96,7 @@ class DetectorResponseFunction:
     
         # --- Load EDS detector efficiency spectrum ---
         detector_efficiency_path = os.path.join(
-            parent_dir, cnst.XRAY_SPECTRA_CALIBS_DIR, cnst.MICROSCOPES_CALIBS_DIR, microscope_ID, cnst.DETECTOR_EFFICIENCY_FILENAME
+            parent_dir, cnst.XRAY_SPECTRA_CALIBS_DIR, microscope_ID, cnst.DETECTOR_EFFICIENCY_FILENAME
         )
         det_eff_energy_vals, det_eff_vals, metadata = load_msa(detector_efficiency_path)
         if metadata['XUNITS'] == 'eV':
@@ -107,7 +107,7 @@ class DetectorResponseFunction:
     
         # --- Load or calculate convolution matrices ---
         conv_matrices_file_path = os.path.join(
-            parent_dir, cnst.XRAY_SPECTRA_CALIBS_DIR, cnst.MICROSCOPES_CALIBS_DIR, microscope_ID, cnst.DETECTOR_CONV_MATRICES_FILENAME
+            parent_dir, cnst.XRAY_SPECTRA_CALIBS_DIR, microscope_ID, cnst.DETECTOR_CONV_MATRICES_FILENAME
         )
         lock_file_path = conv_matrices_file_path + ".lock"
         conv_mat_key = f"O{det_ch_offset},W{det_ch_width}"

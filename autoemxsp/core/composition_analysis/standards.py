@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 from pymatgen.core.composition import Composition
 
-import autoemxsp.XSp_calibs as calibs
+import autoemxsp.calibrations as calibs
 import autoemxsp.utils.constants as cnst
 from autoemxsp.core.quantifier import Quant_Corrections, XSp_Quantifier
 from autoemxsp.utils import make_unique_path, print_double_separator, print_single_separator

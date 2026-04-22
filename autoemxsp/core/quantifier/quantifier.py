@@ -82,7 +82,7 @@ from pymatgen.core import Element
 # =============================================================================
 # Local application/library imports
 # =============================================================================
-import autoemxsp.XSp_calibs as calibs 
+import autoemxsp.calibrations as calibs 
 import autoemxsp.utils.constants as cnst
 from autoemxsp.utils import (
     print_nice_1d_row,

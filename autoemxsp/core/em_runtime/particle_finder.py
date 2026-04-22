@@ -82,7 +82,7 @@ from autoemxsp.config import (
     PowderMeasurementConfig,
 )
 import autoemxsp.utils.constants as cnst
-from autoemxsp import EM_driver
+from autoemxsp import microscope_drivers as EM_driver
 import autoemxsp.core.em_runtime.particle_segmentation_models as par_seg_models
 
 #%% Electron Microscope Particle Finder class    

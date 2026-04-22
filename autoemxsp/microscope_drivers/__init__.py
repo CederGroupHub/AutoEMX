@@ -5,7 +5,7 @@ Electron Microscope Driver Loader
 
 This module provides a function to dynamically load and inject
 microscope-specific driver parameters and functions for SEM operation
-from the 'EM_driver' directory.
+from the 'microscope_drivers' directory.
 
 Usage from other modules:
     from autoemxsp import EM_driver
@@ -24,12 +24,12 @@ def load_microscope_driver(microscope_ID: str) -> None:
     Dynamically load driver parameters and functions for a given microscope.
 
     This function imports all public attributes from the driver file
-    named '{microscope_ID}.py' (located inside the EM_driver directory)
+    named '{microscope_ID}.py' (located inside the microscope_drivers directory)
     and injects them into the current module's namespace.
 
     Args
     ----
-        microscope_ID (str): The name of the microscope (must match a .py file in the EM_driver directory).
+        microscope_ID (str): The name of the microscope (must match a .py file in the microscope_drivers directory).
 
     Raises
     ------
@@ -46,11 +46,11 @@ def load_microscope_driver(microscope_ID: str) -> None:
     if not os.path.isfile(driver_file):
         raise ValueError(
             f"Could not find the microscope driver file at '{driver_file}'.\n"
-            f"Please ensure microscope_ID ('{microscope_ID}') matches a .py file in 'EM_driver'."
+            f"Please ensure microscope_ID ('{microscope_ID}') matches a .py file in 'microscope_drivers'."
         )
 
     # Import the driver module dynamically
-    module_name = f"autoemxsp.EM_driver.{microscope_ID}"
+    module_name = f"autoemxsp.microscope_drivers.{microscope_ID}"
     try:
         pkg = __package__ if __package__ else __name__
         mod = importlib.import_module(module_name, package=pkg)

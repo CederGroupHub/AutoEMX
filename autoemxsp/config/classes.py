@@ -76,7 +76,7 @@ class MicroscopeConfig:
 
         # Check that the calibration folder for this microscope exists
         parent_dir = str(Path(__file__).resolve().parent.parent)
-        calib_path = os.path.join(parent_dir, cnst.CALIBS_DIR, cnst.MICROSCOPES_CALIBS_DIR, self.ID)
+        calib_path = os.path.join(parent_dir, cnst.CALIBS_DIR, self.ID)
         if not os.path.isdir(calib_path):
             raise FileNotFoundError(
                 f"Calibration folder for microscope ID '{self.ID}' not found at '{calib_path}'.\n"

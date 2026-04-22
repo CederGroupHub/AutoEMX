@@ -50,7 +50,7 @@ from autoemxsp.config import (
     PowderMeasurementConfig,
     BulkMeasurementConfig
 )
-from autoemxsp import EM_driver
+from autoemxsp import microscope_drivers as EM_driver
 
 # Component modules
 from autoemxsp.core.em_runtime.microscope_controller import MicroscopeController

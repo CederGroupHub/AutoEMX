@@ -23,7 +23,7 @@ import cv2
 from autoemxsp.utils import EMError, print_single_separator
 from autoemxsp.core.em_runtime.image_utilities import normalise_img
 import autoemxsp.utils.constants as cnst
-from autoemxsp import EM_driver
+from autoemxsp import microscope_drivers as EM_driver
 
 
 class EM_Sample_Finder:

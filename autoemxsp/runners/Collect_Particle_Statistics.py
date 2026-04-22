@@ -9,7 +9,7 @@ Created on Thu Oct  9 10:14:12 2025
 import logging
 from typing import List, Dict, Any
 
-from autoemxsp.core.composition_analyzer import EMXSp_Composition_Analyzer
+from autoemxsp.core.composition_analysis import EMXSp_Composition_Analyzer
 from autoemxsp.utils import print_double_separator
 import autoemxsp.config.defaults as dflt
 from autoemxsp.config import (

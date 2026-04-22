@@ -74,6 +74,7 @@ from pymatgen.core import Element, Composition
 from typing import Any, Sequence, List, Optional, Tuple, Dict, Union
 
 import autoemxsp.utils.constants as cnst
+from autoemxsp.config.schemas import SampleLedger, SharedAcquisitionContext, SpectrumEntry
 
 
 #%% Compositions and formulas
@@ -476,13 +477,13 @@ def extract_spectral_data(data_csv_path):
     """
     df = pd.read_csv(data_csv_path)
 
-    # --- Extract spectral data ---
+    # --- Extract spectral data from CSV (legacy path) ---
     spectral_keys = cnst.LIST_SPECTRAL_DATA_KEYS
     spectral_data = {}
 
     for key in spectral_keys:
         if key in df.columns:
-            # For spectrum and background, convert string "[1.1,2.2,...]" to list of floats
+            # For spectrum and background, convert string "[1.1,2.2,...]" to list
             if key in [cnst.SPECTRUM_DF_KEY, cnst.BACKGROUND_DF_KEY]:
                 spectral_data[key] = [
                     ast.literal_eval(val) if pd.notnull(val) else None
@@ -493,9 +494,140 @@ def extract_spectral_data(data_csv_path):
         else:
             spectral_data[key] = [None] * len(df)
 
-    # --- Extract spectral coordinates ---
+    # --- Extract spectral coordinates from CSV ---
     available_cols = [col for col in cnst.LIST_SPECTRUM_COORDINATES_KEYS if col in df.columns]
     sp_coords = df[available_cols].to_dict(orient='records')
+
+    # --- Shared migration path for all Data.csv readers ---
+    # Create config.json from legacy config filename if needed.
+    sample_dir = Path(data_csv_path).parent
+    config_path_new = sample_dir / f"{cnst.CONFIG_FILENAME}.json"
+    config_path_legacy = sample_dir / f"{cnst.ACQUISITION_INFO_FILENAME}.json"
+    if (not config_path_new.exists()) and config_path_legacy.exists():
+        try:
+            config_path_new.write_text(config_path_legacy.read_text(encoding="utf-8"), encoding="utf-8")
+        except Exception:
+            pass
+
+    # Create ledger.json from Data.csv + config if missing.
+    ledger_path = sample_dir / f"{cnst.LEDGER_FILENAME}{cnst.LEDGER_FILEEXT}"
+    if not ledger_path.exists():
+        try:
+            spectra_vals = spectral_data.get(cnst.SPECTRUM_DF_KEY, [])
+            backgrounds = spectral_data.get(cnst.BACKGROUND_DF_KEY, [])
+            real_times = spectral_data.get(cnst.REAL_TIME_DF_KEY, [])
+            live_times = spectral_data.get(cnst.LIVE_TIME_DF_KEY, [])
+
+            if spectra_vals and all(s is not None for s in spectra_vals):
+                cfg_path = config_path_new if config_path_new.exists() else config_path_legacy
+                cfg_payload = json.loads(cfg_path.read_text(encoding="utf-8")) if cfg_path.exists() else {}
+
+                microscope_cfg = cfg_payload.get(cnst.MICROSCOPE_CFG_KEY, {})
+                measurement_cfg = cfg_payload.get(cnst.MEASUREMENT_CFG_KEY, {})
+                quant_cfg = cfg_payload.get(cnst.QUANTIFICATION_CFG_KEY, {})
+                sample_cfg = cfg_payload.get(cnst.SAMPLE_CFG_KEY, {})
+
+                n_channels = len(spectra_vals[0])
+                spectrum_lims = quant_cfg.get("spectrum_lims", [0, n_channels])
+                sp_start = int(spectrum_lims[0]) if isinstance(spectrum_lims, (list, tuple)) and len(spectrum_lims) >= 1 else 0
+                energy_zero = float(microscope_cfg.get("energy_zero", 0.0))
+                bin_width = float(microscope_cfg.get("bin_width", 1.0))
+                energy_vals = [energy_zero + bin_width * i for i in range(sp_start, sp_start + n_channels)]
+
+                entries: List[SpectrumEntry] = []
+                for i, spectrum in enumerate(spectra_vals):
+                    coords = sp_coords[i] if i < len(sp_coords) else {}
+                    bg_vals = backgrounds[i] if i < len(backgrounds) else None
+                    rt = real_times[i] if i < len(real_times) else None
+                    lt = live_times[i] if i < len(live_times) else None
+
+                    metadata = {
+                        cnst.SP_X_COORD_DF_KEY: str(coords.get(cnst.SP_X_COORD_DF_KEY, "")),
+                        cnst.SP_Y_COORD_DF_KEY: str(coords.get(cnst.SP_Y_COORD_DF_KEY, "")),
+                        cnst.PAR_ID_DF_KEY: str(coords.get(cnst.PAR_ID_DF_KEY, "")),
+                        cnst.FRAME_ID_DF_KEY: str(coords.get(cnst.FRAME_ID_DF_KEY, "")),
+                    }
+
+                    entries.append(
+                        SpectrumEntry(
+                            spectrum_vals=list(spectrum),
+                            background_vals=list(bg_vals) if bg_vals is not None else None,
+                            real_time=float(rt) if rt is not None else 1.0,
+                            live_time=float(lt) if lt is not None else 1.0,
+                            spectrum_id=str(coords.get(cnst.SP_ID_DF_KEY, i)),
+                            metadata=metadata,
+                        )
+                    )
+
+                ledger = SampleLedger(
+                    ledger_id=f"{sample_cfg.get('ID', 'sample')}_ledger",
+                    shared=SharedAcquisitionContext(
+                        energy_vals=energy_vals,
+                        beam_energy=float(measurement_cfg.get("beam_energy_keV", 1.0)),
+                        emergence_angle=float(measurement_cfg.get("emergence_angle", 35.0)),
+                        microscope_id=str(microscope_cfg.get("ID", "unknown")),
+                        meas_mode=str(measurement_cfg.get("mode", "point")),
+                    ),
+                    spectra=entries,
+                )
+                ledger.to_json_file(ledger_path)
+        except Exception:
+            # Fail open: if migration cannot run, keep read behavior unchanged.
+            pass
+
+    # --- If available, load spectral arrays + missing coords from ledger.json ---
+    if ledger_path.exists():
+        try:
+            ledger = SampleLedger.from_json_file(ledger_path)
+            entries = ledger.spectra
+
+            # Build row -> ledger-entry mapping (prefer Spectrum #, fallback to row index)
+            row_to_entry_idx = {}
+            entry_idx_by_id = {}
+            for i, entry in enumerate(entries):
+                if entry.spectrum_id is not None and entry.spectrum_id != "":
+                    entry_idx_by_id[str(entry.spectrum_id)] = i
+
+            if cnst.SP_ID_DF_KEY in df.columns and entry_idx_by_id:
+                for row_idx, sp_id in enumerate(df[cnst.SP_ID_DF_KEY].tolist()):
+                    row_to_entry_idx[row_idx] = entry_idx_by_id.get(str(sp_id), row_idx)
+            else:
+                for row_idx in range(len(df)):
+                    row_to_entry_idx[row_idx] = row_idx
+
+            for row_idx in range(len(df)):
+                entry_idx = row_to_entry_idx.get(row_idx)
+                if entry_idx is None or entry_idx >= len(entries):
+                    continue
+
+                entry = entries[entry_idx]
+                spectral_data[cnst.SPECTRUM_DF_KEY][row_idx] = entry.spectrum_vals
+                spectral_data[cnst.BACKGROUND_DF_KEY][row_idx] = entry.background_vals
+                spectral_data[cnst.REAL_TIME_DF_KEY][row_idx] = entry.real_time
+                spectral_data[cnst.LIVE_TIME_DF_KEY][row_idx] = entry.live_time
+
+                metadata = entry.metadata or {}
+                # Ensure a row dict exists
+                if row_idx >= len(sp_coords):
+                    sp_coords.append({})
+
+                for coord_key in [cnst.SP_X_COORD_DF_KEY, cnst.SP_Y_COORD_DF_KEY, cnst.PAR_ID_DF_KEY, cnst.FRAME_ID_DF_KEY]:
+                    if coord_key not in sp_coords[row_idx] or pd.isna(sp_coords[row_idx].get(coord_key)):
+                        if coord_key in metadata and metadata[coord_key] != "":
+                            value = metadata[coord_key]
+                            if coord_key in [cnst.SP_X_COORD_DF_KEY, cnst.SP_Y_COORD_DF_KEY]:
+                                try:
+                                    value = float(value)
+                                except Exception:
+                                    pass
+                            sp_coords[row_idx][coord_key] = value
+
+                if (cnst.SP_ID_DF_KEY not in sp_coords[row_idx] or pd.isna(sp_coords[row_idx].get(cnst.SP_ID_DF_KEY))) and entry.spectrum_id is not None:
+                    sp_coords[row_idx][cnst.SP_ID_DF_KEY] = entry.spectrum_id
+
+        except Exception:
+            # Fail open: if ledger is present but malformed, keep legacy CSV parsing results.
+            pass
 
     # --- Extract quantification results ---
     spectra_quant = []
