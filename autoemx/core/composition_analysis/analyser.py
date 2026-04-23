@@ -52,6 +52,7 @@ import shutil
 import itertools
 import warnings
 import traceback
+from pathlib import Path
 from datetime import datetime
 from dataclasses import asdict
 from typing import Any, Optional, Tuple, List, Dict, Iterable, Union
@@ -83,6 +84,7 @@ from autoemx.core.em_runtime.controller import EM_Controller
 from autoemx.core.em_runtime.sample_finder import EM_Sample_Finder
 import autoemx.calibrations as calibs
 import autoemx.utils.constants as cnst
+import autoemx.config.defaults as dflt
 import autoemx._custom_plotting as custom_plotting
 from autoemx.utils import (
     print_single_separator,
@@ -103,10 +105,21 @@ from autoemx.config import (
     ExpStandardsConfig,
     PlotConfig,
 )
-from autoemx.config.schemas import SampleLedger, SharedAcquisitionContext, SpectrumEntry
+from autoemx.config.schemas import (
+    AcquisitionDetails,
+    Coordinate2D,
+    LedgerConfigs,
+    QuantificationConfig,
+    QuantificationResult,
+    SampleLedger,
+    SpotCoordinates,
+    SpectrumEntry,
+)
 from .clustering import ClusteringModule
+from autoemx.utils.legacy.legacy_backfill import backfill_spectra_from_data_csv, load_ledger_configs_from_legacy_json
 from .plotting import PlottingModule
 from .reference_matching import ReferenceMatchingModule
+from autoemx.utils.legacy.spectrum_pointer_writer import load_vendor_msa_template_lines, write_spectrum_pointer_file
 from .standards import StandardsModule
 
 parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -307,9 +320,10 @@ class EMXSp_Composition_Analyzer:
                 else:
                     results_folder = cnst.RESULTS_DIR
                 results_dir = make_unique_path(os.path.join(os.getcwd(), results_folder), sample_cfg.ID)
+                os.makedirs(results_dir)
             else:
-                results_dir = make_unique_path(results_dir, sample_cfg.ID)
-            os.makedirs(results_dir)
+                # Reuse the provided directory (resume or continuation scenario).
+                os.makedirs(results_dir, exist_ok=True)
 
         self.sample_result_dir = results_dir
         self.output_filename_suffix = output_filename_suffix
@@ -326,6 +340,9 @@ class EMXSp_Composition_Analyzer:
             
             # List containing the quantification results of each of the collected spectra (composition and analytical error)
             self.spectra_quant = []
+            self.spectra_quant_records = []
+            self.current_quant_config: Optional[QuantificationConfig] = None
+            self.current_quantification_id: Optional[str] = None
             
         
         # --- Save configurations
@@ -342,6 +359,7 @@ class EMXSp_Composition_Analyzer:
             
             if is_XSp_measurement:
                 self._initialise_Xsp_analyzer()
+                self._initialise_acquisition_ledger()
         
 
     #%% Instrument initializations
@@ -431,7 +449,28 @@ class EMXSp_Composition_Analyzer:
             raise NotImplementedError(
                 f"X-ray spectroscopy analyzer initialization for measurement type '{self.measurement_cfg.type}' is not currently implemented."
             )
-        
+
+    def _initialise_acquisition_ledger(self) -> None:
+        """Create the sample ledger with configs at acquisition start, before any spectra are collected.
+
+        Does nothing if a ledger already exists (resume scenario).
+        The ledger is created with an empty spectra list; entries are populated from
+        the written .msa pointer files when quantification is later launched.
+        """
+        ledger_path = self._get_ledger_path()
+        if os.path.exists(ledger_path):
+            return
+        spectra_dir = self._get_spectra_dir()
+        os.makedirs(spectra_dir, exist_ok=True)
+        ledger = SampleLedger(
+            sample_id=f"{self.sample_cfg.ID}_ledger",
+            sample_path=os.path.abspath(self.sample_result_dir),
+            configs=self._build_ledger_configs(),
+            spectra=[],
+            quantification_configs=[],
+        )
+        ledger.to_json_file(ledger_path)
+
     #%% Other initializations
     # =============================================================================
     def _make_analysis_dir(self) -> None:
@@ -602,7 +641,13 @@ class EMXSp_Composition_Analyzer:
         
     #%% Single spectrum operations
     # =============================================================================            
-    def _acquire_spectrum(self, x: float, y: float) -> Tuple:
+    def _acquire_spectrum(
+        self,
+        x: float,
+        y: float,
+        spectrum_id: str,
+        msa_file_path: Optional[str] = None,
+    ) -> Tuple[float, int]:
         """
         Acquire an X-ray spectrum at the specified stage position and store the results.
     
@@ -634,33 +679,59 @@ class EMXSp_Composition_Analyzer:
     
         Returns
         -------
-        spectrum_data : np.array
-            The acquired spectrum data.
-        background_data : np.array, None
-            The acquired background data.
-        real_time : float
-            Real acquisition time used.
-        live_time : float
-            Live acquisition time used.
+        collection_time : float
+            Real acquisition time used, read from the persisted pointer file when possible.
+        total_counts : int
+            Total counts in the acquired spectrum, derived from persisted data.
     
         Notes
         -----
         - Results are appended to self.spectral_data using the keys defined in `cnst`.
         """
-        # Get spectral data from the EM controller
-        spectrum_data, background_data, real_time, live_time = self.EM_controller.acquire_XS_spot_spectrum(
+        # Acquire at the instrument and rely on persisted pointer files as source of truth.
+        background_elements = None
+        if self.quant_cfg.use_instrument_background:
+            background_elements = list(getattr(self, "detectable_els_sample", []) or [])
+
+        spectrum_data, background_data = self.EM_controller.acquire_XS_spot_spectrum(
             x, y,
             self.measurement_cfg.max_acquisition_time,
-            self.measurement_cfg.target_acquisition_counts
+            self.measurement_cfg.target_acquisition_counts,
+            elements=background_elements,
+            msa_file_path=msa_file_path,
         )
+
+        counts_arr = np.asarray(spectrum_data, dtype=float)
+        real_time = None
+        if msa_file_path:
+            pointer_path = Path(msa_file_path)
+            loaded_counts = SampleLedger._load_counts_from_pointer_file(pointer_path)
+            counts_arr = np.asarray(loaded_counts, dtype=float)
+            real_time = self._load_realtime_from_pointer_file(pointer_path)
+        if real_time is None:
+            real_time = 1.0
+
+        if self.quant_cfg.use_instrument_background and background_data is not None:
+            self._write_manufacturer_background_vector(
+                spectrum_id=spectrum_id,
+                background_vals=list(map(float, background_data)),
+            )
+        elif self.quant_cfg.use_instrument_background and background_data is None:
+            warnings.warn(
+                "Instrument background retrieval failed during acquisition; "
+                "falling back to automatic background subtraction for the "
+                "remaining spectra in this run."
+            )
+            self.quant_cfg.use_instrument_background = False
     
         # Store results in the spectral_data dictionary
-        self.spectral_data[cnst.SPECTRUM_DF_KEY].append(spectrum_data)
-        self.spectral_data[cnst.BACKGROUND_DF_KEY].append(background_data)
+        self.spectral_data[cnst.SPECTRUM_DF_KEY].append(counts_arr)
+        # Background vectors are file-backed sidecars and hydrated before quantification.
+        self.spectral_data[cnst.BACKGROUND_DF_KEY].append(None)
         self.spectral_data[cnst.REAL_TIME_DF_KEY].append(real_time)
-        self.spectral_data[cnst.LIVE_TIME_DF_KEY].append(live_time)
+        self.spectral_data[cnst.LIVE_TIME_DF_KEY].append(real_time)
     
-        return spectrum_data, background_data, real_time, live_time
+        return real_time, int(round(float(np.sum(counts_arr))))
     
     
     def _fit_exp_std_spectrum(
@@ -825,6 +896,8 @@ class EMXSp_Composition_Analyzer:
         background: Optional[Iterable] = None,
         sp_collection_time: float = None,
         sp_id: str = '',
+        spectrum_index: Optional[int] = None,
+        interrupt_fits_bad_spectra: bool = True,
         verbose: bool = True
     ) -> Optional[Dict]:
         """
@@ -869,7 +942,12 @@ class EMXSp_Composition_Analyzer:
         # Check if spectrum is worth fitting
         is_sp_valid_for_fitting, quant_flag, comment = self._is_spectrum_valid_for_fitting(spectrum, background)
         if not is_sp_valid_for_fitting:
-            return None, quant_flag, comment
+            quant_record = QuantificationResult(
+                quantification_id=self.current_quantification_id,
+                quant_flag=quant_flag,
+                comment=comment,
+            )
+            return None, quant_record, quant_flag, comment
         
         # Initialize class to quantify spectrum
         quantifier = XSp_Quantifier(
@@ -900,16 +978,29 @@ class EMXSp_Composition_Analyzer:
             # Returns dictionary containing calculated composition in atomic fractions + analytical error
             quant_result, min_bckgrnd_ref_lines, bad_quant_flag = quantifier.quantify_spectrum(
                 print_result=False,
-                interrupt_fits_bad_spectra=self.quant_cfg.interrupt_fits_bad_spectra
+                interrupt_fits_bad_spectra=interrupt_fits_bad_spectra
             )
             is_quant_fit_valid = True if quant_result is not None else False
         except Exception as e:
             print(f"{type(e).__name__}: {e}")
             is_quant_fit_valid = False
             quant_flag, comment = self._check_fit_quant_validity(is_quant_fit_valid, None, None, None)
-            return None, quant_flag, comment
+            quant_record = quantifier.export_quantification_result(
+                quantification_id=self.current_quantification_id,
+                quant_result=None,
+                quant_flag=quant_flag,
+                comment=comment,
+            )
+            return None, quant_record, quant_flag, comment
         else:
             quant_flag, comment = self._check_fit_quant_validity(is_quant_fit_valid, bad_quant_flag, quantifier, min_bckgrnd_ref_lines)
+            quant_record = quantifier.export_quantification_result(
+                quantification_id=self.current_quantification_id,
+                quant_result=quant_result,
+                quant_flag=quant_flag,
+                comment=comment,
+                metadata={"spectrum_index": spectrum_index} if spectrum_index is not None else None,
+            )
         
         if verbose and quant_result:
             quantification_time = time.time() - start_quant_time
@@ -918,7 +1009,709 @@ class EMXSp_Composition_Analyzer:
             print(f"An. er.: {quant_result[cnst.AN_ER_KEY]*100:.2f}%")
             print(f"Quantification took {quantification_time:.2f} s")
     
-        return quant_result, quant_flag, comment
+        return quant_result, quant_record, quant_flag, comment
+
+
+    def _get_ledger_path(self) -> str:
+        """Return the ledger path for the current sample result directory."""
+        return os.path.join(self.sample_result_dir, cnst.LEDGER_FILENAME + cnst.LEDGER_FILEEXT)
+
+
+    def _resolve_or_create_spectrum_pointer(
+        self,
+        spectrum_id: str,
+        spectrum_vals: List[float],
+        *,
+        live_time: Optional[float] = None,
+        real_time: Optional[float] = None,
+    ) -> str:
+        """Return a relative spectrum pointer path and create the spectrum file when missing.
+
+        This is used by ledger reconstruction/update code paths (including legacy
+        Data.csv backfill). If no vendor template file is available in the sample
+        directory, the spectrum is written with the minimal EMSA fallback format.
+        """
+        spectrum_relpath = self._build_spectrum_relpath(spectrum_id)
+        spectrum_pointer_abs_path = os.path.join(self.sample_result_dir, spectrum_relpath)
+
+        if os.path.exists(spectrum_pointer_abs_path):
+            return spectrum_relpath
+
+        if not hasattr(self, "_vendor_msa_template_lines"):
+            setattr(
+                self,
+                "_vendor_msa_template_lines",
+                load_vendor_msa_template_lines(self.sample_result_dir, cnst.MSA_SP_FILENAME),
+            )
+
+        write_spectrum_pointer_file(
+            spectrum_pointer_abs_path,
+            spectrum_vals,
+            self.energy_vals,
+            template_lines=getattr(self, "_vendor_msa_template_lines"),
+            live_time=live_time,
+            real_time=real_time,
+        )
+        return spectrum_relpath
+
+
+    def _build_spectrum_relpath(self, spectrum_id: str) -> str:
+        """Build the relative path for one raw spectrum pointer file."""
+        filename = f"{cnst.SPECTRUM_FILENAME_PREFIX}{spectrum_id}{dflt.RAW_SPECTRUM_EXT}"
+        return os.path.join(cnst.SPECTRA_DIR, filename)
+
+
+    def _build_background_relpath(self, spectrum_id: str) -> str:
+        """Build relative path for one manufacturer background vector file."""
+        filename = (
+            f"{cnst.SPECTRUM_FILENAME_PREFIX}{spectrum_id}"
+            f"{cnst.SPECTRUM_MAN_BACKGROUND_SUFFIX}{cnst.VECTOR_FILEEXT}"
+        )
+        return os.path.join(cnst.SPECTRA_DIR, filename)
+
+
+    def _write_manufacturer_background_vector(self, spectrum_id: str, background_vals: Optional[List[float]]) -> Optional[str]:
+        """Persist manufacturer background counts as a companion vector file when enabled."""
+        if background_vals is None or not self.quant_cfg.use_instrument_background:
+            return None
+
+        background_relpath = self._build_background_relpath(spectrum_id)
+        background_abs_path = os.path.join(self.sample_result_dir, background_relpath)
+        os.makedirs(os.path.dirname(background_abs_path), exist_ok=True)
+        np.save(background_abs_path, np.asarray(list(map(float, background_vals)), dtype=float))
+        return background_relpath
+
+
+    @staticmethod
+    def _load_background_vector_from_file(background_path: Path) -> Optional[np.ndarray]:
+        """Load an instrument background vector from a sidecar file when available."""
+        if not background_path.exists() or background_path.suffix.lower() != cnst.VECTOR_FILEEXT:
+            return None
+        try:
+            background_vals = np.load(background_path, allow_pickle=False)
+        except Exception:
+            return None
+        if background_vals is None:
+            return None
+        return np.asarray(background_vals, dtype=float)
+
+
+    @staticmethod
+    def _load_realtime_from_pointer_file(pointer_path: Path) -> Optional[float]:
+        """Read REALTIME from an EMSA-like header when available."""
+        if pointer_path.suffix.lower() not in {".msa", ".msg"}:
+            return None
+
+        try:
+            with pointer_path.open("r", encoding="utf-8") as f:
+                for raw_line in f:
+                    line = raw_line.strip()
+                    if not line.startswith("#") or ":" not in line:
+                        continue
+                    if line.upper().startswith("#SPECTRUM"):
+                        break
+                    key, value = line[1:].split(":", maxsplit=1)
+                    key_norm = key.strip().replace("_", "").replace(" ", "").upper()
+                    if key_norm == "REALTIME":
+                        return float(value.strip())
+        except Exception:
+            return None
+
+        return None
+
+
+    def _load_existing_ledger(self) -> Optional[SampleLedger]:
+        """Load an existing ledger if present and valid."""
+        ledger_path = self._get_ledger_path()
+        if not os.path.exists(ledger_path):
+            return None
+        try:
+            return SampleLedger.from_json_file(ledger_path)
+        except Exception:
+            return None
+
+
+    def _get_spectra_dir(self) -> str:
+        """Return the absolute path to the spectra pointer directory."""
+        return os.path.join(self.sample_result_dir, cnst.SPECTRA_DIR)
+
+
+    def _list_pointer_files_in_spectra_dir(self) -> List[Path]:
+        """List pointer files currently present in the spectra directory."""
+        spectra_dir = Path(self._get_spectra_dir())
+        if not spectra_dir.exists():
+            return []
+
+        allowed_ext = {".msa", ".msg", ".json"}
+        files = []
+        for path in spectra_dir.iterdir():
+            if not path.is_file() or path.suffix.lower() not in allowed_ext:
+                continue
+            stem = path.stem
+            if not stem.startswith(cnst.SPECTRUM_FILENAME_PREFIX):
+                continue
+            if stem.endswith(cnst.SPECTRUM_MAN_BACKGROUND_SUFFIX):
+                continue
+            files.append(path)
+
+        def sort_key(path: Path) -> Tuple[int, Union[int, str], str]:
+            stem = path.stem
+            spectrum_id = stem[len(cnst.SPECTRUM_FILENAME_PREFIX):] if stem.startswith(cnst.SPECTRUM_FILENAME_PREFIX) else stem
+            if spectrum_id.isdigit():
+                return (0, int(spectrum_id), path.name)
+            return (1, spectrum_id.lower(), path.name)
+
+        return sorted(files, key=sort_key)
+
+
+    def _populate_spectra_dir_from_data_csv(self) -> int:
+        """Backfill spectra pointer files from Data.csv when legacy datasets lack external spectra files."""
+        data_csv_path = os.path.join(self.sample_result_dir, cnst.DATA_FILENAME + cnst.DATA_FILEEXT)
+        if not os.path.exists(data_csv_path):
+            return 0
+
+        n_written = backfill_spectra_from_data_csv(
+            data_csv_path,
+            self._resolve_or_create_spectrum_pointer,
+            spectrum_key=cnst.SPECTRUM_DF_KEY,
+            spectrum_id_key=cnst.SP_ID_DF_KEY,
+            live_time_key=cnst.LIVE_TIME_DF_KEY,
+            real_time_key=cnst.REAL_TIME_DF_KEY,
+            background_key=cnst.BACKGROUND_DF_KEY,
+            write_background_pointer=(
+                self._write_manufacturer_background_vector
+                if self.quant_cfg.use_instrument_background
+                else None
+            ),
+        )
+
+        if n_written > 0 and not getattr(self, "_legacy_backfill_warned", False):
+            warnings.warn(
+                "Deprecation warning: legacy Data.csv compatibility path was used to reconstruct spectra files. "
+                "Please reanalyse all old samples so a ledger is created; all new AutoEMX versions will read that ledger.",
+                UserWarning,
+            )
+            self._legacy_backfill_warned = True
+
+        return n_written
+
+
+    @staticmethod
+    def _parse_optional_int(value: Any) -> Optional[int]:
+        if value is None or pd.isna(value) or value == "":
+            return None
+        try:
+            return int(float(value))
+        except Exception:
+            return None
+
+
+    @staticmethod
+    def _parse_optional_float(value: Any) -> Optional[float]:
+        if value is None or pd.isna(value) or value == "":
+            return None
+        try:
+            return float(value)
+        except Exception:
+            return None
+
+
+    def _build_spot_coordinates(
+        self,
+        machine_x: Any,
+        machine_y: Any,
+        pixel_x: Any = None,
+        pixel_y: Any = None,
+    ) -> Optional[SpotCoordinates]:
+        machine_coords = None
+        pixel_coords = None
+
+        x_machine = self._parse_optional_float(machine_x)
+        y_machine = self._parse_optional_float(machine_y)
+        if x_machine is not None and y_machine is not None:
+            machine_coords = Coordinate2D(x=x_machine, y=y_machine)
+
+        x_pixel = self._parse_optional_float(pixel_x)
+        y_pixel = self._parse_optional_float(pixel_y)
+        if x_pixel is not None and y_pixel is not None:
+            pixel_coords = Coordinate2D(x=x_pixel, y=y_pixel)
+
+        if machine_coords is None and pixel_coords is None:
+            return None
+
+        return SpotCoordinates(
+            machine_coordinates=machine_coords,
+            pixel_coordinates=pixel_coords,
+        )
+
+
+    def _load_legacy_acquisition_details_by_spectrum_id(self) -> Dict[str, AcquisitionDetails]:
+        """Load acquisition details keyed by spectrum_id from legacy Data.csv when available."""
+        details_by_id: Dict[str, AcquisitionDetails] = {}
+        data_csv_path = os.path.join(self.sample_result_dir, cnst.DATA_FILENAME + cnst.DATA_FILEEXT)
+        if not os.path.exists(data_csv_path):
+            return details_by_id
+
+        try:
+            data_df = pd.read_csv(data_csv_path)
+        except Exception:
+            return details_by_id
+
+        for row_idx, row in data_df.iterrows():
+            spectrum_id_val = row.get(cnst.SP_ID_DF_KEY, row_idx)
+            spectrum_id = str(int(spectrum_id_val)) if isinstance(spectrum_id_val, (int, float, np.integer)) and not pd.isna(spectrum_id_val) else str(spectrum_id_val)
+            if not spectrum_id:
+                spectrum_id = str(row_idx)
+
+            details_by_id[spectrum_id] = AcquisitionDetails(
+                frame_id=str(row.get(cnst.FRAME_ID_DF_KEY)).strip() if row.get(cnst.FRAME_ID_DF_KEY) is not None and not pd.isna(row.get(cnst.FRAME_ID_DF_KEY)) else None,
+                particle_id=self._parse_optional_int(row.get(cnst.PAR_ID_DF_KEY)),
+                spot_coordinates=self._build_spot_coordinates(
+                    row.get(cnst.SP_X_COORD_DF_KEY),
+                    row.get(cnst.SP_Y_COORD_DF_KEY),
+                    row.get(cnst.SP_X_PIXEL_COORD_DF_KEY),
+                    row.get(cnst.SP_Y_PIXEL_COORD_DF_KEY),
+                ),
+            )
+
+        return details_by_id
+
+
+    def _build_spectrum_entry_from_pointer_file(
+        self,
+        pointer_file: Path,
+        existing_results: Optional[List[QuantificationResult]] = None,
+        acquisition_details_by_id: Optional[Dict[str, AcquisitionDetails]] = None,
+    ) -> SpectrumEntry:
+        """Build a SpectrumEntry by inspecting one file under sample_path/spectra."""
+        sample_root = Path(self.sample_result_dir).resolve()
+        pointer_abs = pointer_file.resolve()
+        pointer_rel = str(pointer_abs.relative_to(sample_root))
+        stem = pointer_file.stem
+        if stem.startswith(cnst.SPECTRUM_FILENAME_PREFIX):
+            spectrum_id = stem[len(cnst.SPECTRUM_FILENAME_PREFIX):]
+        else:
+            spectrum_id = stem
+
+        try:
+            counts = SampleLedger._load_counts_from_pointer_file(pointer_abs)
+            total_counts = int(round(float(np.sum(counts))))
+        except Exception:
+            total_counts = None
+
+        acquisition_details = None
+        if acquisition_details_by_id is not None:
+            acquisition_details = acquisition_details_by_id.get(spectrum_id)
+
+        realtime_from_header = self._load_realtime_from_pointer_file(pointer_abs)
+        background_relpath = None
+        candidate_background = Path(
+            self.sample_result_dir,
+            self._build_background_relpath(spectrum_id),
+        )
+        if candidate_background.exists():
+            background_relpath = str(candidate_background.resolve().relative_to(sample_root))
+
+        return SpectrumEntry(
+            real_time=realtime_from_header if realtime_from_header is not None else 1.0,
+            total_counts=total_counts,
+            spectrum_id=spectrum_id,
+            spectrum_relpath=pointer_rel,
+            instrument_background_relpath=background_relpath,
+            acquisition_details=acquisition_details,
+            quantification_results=list(existing_results or []),
+        )
+
+
+    def _load_or_create_ledger(self) -> SampleLedger:
+        """Load ledger or create/sync it from files in the spectra directory."""
+        ledger_path = self._get_ledger_path()
+        spectra_dir = self._get_spectra_dir()
+        os.makedirs(spectra_dir, exist_ok=True)
+
+        pointer_files = self._list_pointer_files_in_spectra_dir()
+        if not pointer_files:
+            # Backward compatibility: legacy datasets may only have Data.csv and no spectra/ files.
+            self._populate_spectra_dir_from_data_csv()
+            pointer_files = self._list_pointer_files_in_spectra_dir()
+
+        ledger = self._load_existing_ledger()
+        ledger_changed = False
+        legacy_acq_details = self._load_legacy_acquisition_details_by_spectrum_id()
+
+        if ledger is None:
+            if pointer_files:
+                legacy_configs = load_ledger_configs_from_legacy_json(self.sample_result_dir)
+                spectra_entries = [
+                    self._build_spectrum_entry_from_pointer_file(
+                        pointer_file,
+                        acquisition_details_by_id=legacy_acq_details,
+                    )
+                    for pointer_file in pointer_files
+                ]
+                ledger = SampleLedger(
+                    sample_id=f"{self.sample_cfg.ID}_ledger",
+                    sample_path=os.path.abspath(self.sample_result_dir),
+                    configs=legacy_configs if legacy_configs is not None else self._build_ledger_configs(),
+                    spectra=spectra_entries,
+                    quantification_configs=[],
+                )
+                ledger_changed = True
+            else:
+                ledger = self._build_ledger_from_current_state(existing_ledger=None)
+                ledger_changed = True
+
+        existing_relpaths = {
+            spectrum.spectrum_relpath
+            for spectrum in ledger.spectra
+            if spectrum.spectrum_relpath is not None
+        }
+        pointer_files = self._list_pointer_files_in_spectra_dir()
+        for pointer_file in pointer_files:
+            pointer_rel = str(pointer_file.resolve().relative_to(Path(self.sample_result_dir).resolve()))
+            if pointer_rel in existing_relpaths:
+                continue
+            ledger.spectra.append(
+                self._build_spectrum_entry_from_pointer_file(
+                    pointer_file,
+                    acquisition_details_by_id=legacy_acq_details,
+                )
+            )
+            existing_relpaths.add(pointer_rel)
+            ledger_changed = True
+
+        if ledger.sample_path != os.path.abspath(self.sample_result_dir):
+            ledger.sample_path = os.path.abspath(self.sample_result_dir)
+            ledger_changed = True
+
+        if ledger_changed:
+            ledger.to_json_file(ledger_path)
+
+        return ledger
+
+
+    def _sync_in_memory_spectra_from_ledger(self) -> None:
+        """Hydrate in-memory spectral arrays from pointer files tracked in the ledger."""
+        if self.sample_result_dir is None:
+            return
+
+        ledger = self._load_or_create_ledger()
+        if ledger is None or not ledger.spectra:
+            return
+
+        spectra_vals: List[np.ndarray] = []
+        background_vals: List[Optional[np.ndarray]] = []
+        real_times: List[float] = []
+        live_times: List[float] = []
+        coords: List[Dict[str, Any]] = []
+
+        for i, spectrum in enumerate(ledger.spectra):
+            if not spectrum.spectrum_relpath:
+                continue
+
+            pointer_abs = Path(ledger.sample_path, spectrum.spectrum_relpath)
+            try:
+                counts = SampleLedger._load_counts_from_pointer_file(pointer_abs)
+            except Exception:
+                continue
+
+            spectra_vals.append(np.asarray(counts, dtype=float))
+
+            background_vector = None
+            if self.quant_cfg.use_instrument_background and spectrum.instrument_background_relpath:
+                background_abs = Path(ledger.sample_path, spectrum.instrument_background_relpath)
+                background_vector = self._load_background_vector_from_file(background_abs)
+            background_vals.append(background_vector)
+
+            realtime = float(spectrum.real_time) if spectrum.real_time is not None else 1.0
+            real_times.append(realtime)
+            live_times.append(realtime)
+
+            acquisition_details = spectrum.acquisition_details
+            x_val = ""
+            y_val = ""
+            x_pixel_val = ""
+            y_pixel_val = ""
+            par_id = ""
+            frame_id = ""
+
+            if acquisition_details is not None:
+                if acquisition_details.spot_coordinates is not None:
+                    machine_coords = acquisition_details.spot_coordinates.machine_coordinates
+                    pixel_coords = acquisition_details.spot_coordinates.pixel_coordinates
+                    if machine_coords is not None:
+                        x_val = str(machine_coords.x)
+                        y_val = str(machine_coords.y)
+                    if pixel_coords is not None:
+                        x_pixel_val = str(pixel_coords.x)
+                        y_pixel_val = str(pixel_coords.y)
+                par_id = str(acquisition_details.particle_id or "")
+                frame_id = str(acquisition_details.frame_id or "")
+
+            resolved_spectrum_id = str(spectrum.spectrum_id) if spectrum.spectrum_id is not None else str(i)
+            coords.append(
+                {
+                    cnst.SP_ID_DF_KEY: resolved_spectrum_id,
+                    cnst.SP_X_COORD_DF_KEY: x_val,
+                    cnst.SP_Y_COORD_DF_KEY: y_val,
+                    cnst.SP_X_PIXEL_COORD_DF_KEY: x_pixel_val,
+                    cnst.SP_Y_PIXEL_COORD_DF_KEY: y_pixel_val,
+                    cnst.PAR_ID_DF_KEY: par_id,
+                    cnst.FRAME_ID_DF_KEY: frame_id,
+                }
+            )
+
+        if not spectra_vals:
+            return
+
+        self.spectral_data[cnst.SPECTRUM_DF_KEY] = spectra_vals
+        self.spectral_data[cnst.BACKGROUND_DF_KEY] = background_vals
+        self.spectral_data[cnst.REAL_TIME_DF_KEY] = real_times
+        self.spectral_data[cnst.LIVE_TIME_DF_KEY] = live_times
+        self.spectral_data[cnst.COMMENTS_DF_KEY] = [None] * len(spectra_vals)
+        self.spectral_data[cnst.QUANT_FLAG_DF_KEY] = [None] * len(spectra_vals)
+        self.sp_coords = coords
+
+
+    def _build_spectrum_entry(self, index: int, existing_results: Optional[List[QuantificationResult]] = None) -> SpectrumEntry:
+        """Build one ledger spectrum entry from the current in-memory spectral data."""
+        coords = self.sp_coords[index] if index < len(self.sp_coords) else {}
+        spectrum_id = str(coords.get(cnst.SP_ID_DF_KEY, index))
+        spectrum_vals = list(self.spectral_data[cnst.SPECTRUM_DF_KEY][index])
+        real_time = self.spectral_data[cnst.REAL_TIME_DF_KEY][index] if index < len(self.spectral_data[cnst.REAL_TIME_DF_KEY]) else None
+        live_time = self.spectral_data[cnst.LIVE_TIME_DF_KEY][index] if index < len(self.spectral_data[cnst.LIVE_TIME_DF_KEY]) else None
+        spectrum_relpath = self._resolve_or_create_spectrum_pointer(
+            spectrum_id=spectrum_id,
+            spectrum_vals=spectrum_vals,
+            live_time=float(live_time) if live_time is not None else None,
+            real_time=float(real_time) if real_time is not None else None,
+        )
+        background_relpath = None
+        background = None
+        if index < len(self.spectral_data[cnst.BACKGROUND_DF_KEY]):
+            background = self.spectral_data[cnst.BACKGROUND_DF_KEY][index]
+        if background is not None:
+            background_relpath = self._write_manufacturer_background_vector(spectrum_id, list(background))
+
+        raw_x = coords.get(cnst.SP_X_COORD_DF_KEY, '')
+        raw_y = coords.get(cnst.SP_Y_COORD_DF_KEY, '')
+        raw_x_pixel = coords.get(cnst.SP_X_PIXEL_COORD_DF_KEY, '')
+        raw_y_pixel = coords.get(cnst.SP_Y_PIXEL_COORD_DF_KEY, '')
+
+        acquisition_details = AcquisitionDetails(
+            frame_id=str(coords.get(cnst.FRAME_ID_DF_KEY, '')).strip() or None,
+            particle_id=self._parse_optional_int(coords.get(cnst.PAR_ID_DF_KEY, '')),
+            spot_coordinates=self._build_spot_coordinates(raw_x, raw_y, raw_x_pixel, raw_y_pixel),
+        )
+
+        metadata = {
+            cnst.SP_X_COORD_DF_KEY: str(raw_x),
+            cnst.SP_Y_COORD_DF_KEY: str(raw_y),
+            cnst.SP_X_PIXEL_COORD_DF_KEY: str(raw_x_pixel),
+            cnst.SP_Y_PIXEL_COORD_DF_KEY: str(raw_y_pixel),
+            cnst.PAR_ID_DF_KEY: str(coords.get(cnst.PAR_ID_DF_KEY, '')),
+            cnst.FRAME_ID_DF_KEY: str(coords.get(cnst.FRAME_ID_DF_KEY, '')),
+        }
+
+        return SpectrumEntry(
+            real_time=float(real_time) if real_time is not None else 1.0,
+            total_counts=int(round(float(np.sum(spectrum_vals)))),
+            spectrum_id=spectrum_id,
+            spectrum_relpath=spectrum_relpath,
+            instrument_background_relpath=background_relpath,
+            acquisition_details=acquisition_details,
+            metadata=metadata,
+            quantification_results=list(existing_results or []),
+        )
+
+
+    def _build_ledger_configs(self) -> LedgerConfigs:
+        """Build inline ledger configs from current analyzer configuration objects."""
+        return LedgerConfigs(
+            microscope_cfg=self.microscope_cfg,
+            sample_cfg=self.sample_cfg,
+            measurement_cfg=self.measurement_cfg,
+            sample_substrate_cfg=self.sample_substrate_cfg,
+            quant_cfg=self.quant_cfg,
+            clustering_cfg=self.clustering_cfg,
+            plot_cfg=self.plot_cfg,
+            powder_meas_cfg=self.powder_meas_cfg,
+            bulk_meas_cfg=self.bulk_meas_cfg,
+            exp_stds_cfg=self.exp_stds_cfg,
+        )
+
+
+    def _build_ledger_from_current_state(self, existing_ledger: Optional[SampleLedger] = None) -> SampleLedger:
+        """Build a ledger from current spectral data while preserving existing quantification records."""
+        spectra = []
+        n_spectra = len(self.spectral_data[cnst.SPECTRUM_DF_KEY])
+        for index in range(n_spectra):
+            existing_results = []
+            if existing_ledger is not None and index < len(existing_ledger.spectra):
+                existing_results = list(existing_ledger.spectra[index].quantification_results)
+            spectra.append(self._build_spectrum_entry(index, existing_results=existing_results))
+
+        existing_configs = []
+        if existing_ledger is not None:
+            existing_configs = list(existing_ledger.quantification_configs)
+
+        return SampleLedger(
+            sample_id=f"{self.sample_cfg.ID}_ledger",
+            sample_path=os.path.abspath(self.sample_result_dir),
+            configs=(
+                existing_ledger.configs
+                if existing_ledger is not None and existing_ledger.configs is not None
+                else self._build_ledger_configs()
+            ),
+            spectra=spectra,
+            quantification_configs=existing_configs,
+        )
+
+
+    def _ensure_quant_tracking_length(self, total_spectra: int) -> None:
+        """Ensure in-memory quantification tracking lists are indexable for all spectra."""
+        if len(self.spectra_quant) < total_spectra:
+            self.spectra_quant.extend([None] * (total_spectra - len(self.spectra_quant)))
+        if len(self.spectra_quant_records) < total_spectra:
+            self.spectra_quant_records.extend([None] * (total_spectra - len(self.spectra_quant_records)))
+        for key in (cnst.COMMENTS_DF_KEY, cnst.QUANT_FLAG_DF_KEY):
+            if len(self.spectral_data[key]) < total_spectra:
+                self.spectral_data[key].extend([None] * (total_spectra - len(self.spectral_data[key])))
+
+
+    def _legacy_quant_dict_from_record(self, record: Optional[QuantificationResult]) -> Optional[Dict[str, Any]]:
+        """Convert a stored quantification record back to the legacy quant dict shape used elsewhere."""
+        if record is None:
+            return None
+        if (
+            record.composition_atomic_fractions is None
+            or record.composition_weight_fractions is None
+            or record.analytical_error is None
+        ):
+            return None
+
+        quant_result = {
+            cnst.COMP_AT_FR_KEY: dict(record.composition_atomic_fractions),
+            cnst.COMP_W_FR_KEY: dict(record.composition_weight_fractions),
+            cnst.AN_ER_KEY: float(record.analytical_error),
+        }
+        if record.fit_result is not None:
+            if record.fit_result.r_squared is not None:
+                quant_result[cnst.R_SQ_KEY] = float(record.fit_result.r_squared)
+            if record.fit_result.reduced_chi_squared is not None:
+                quant_result[cnst.REDCHI_SQ_KEY] = float(record.fit_result.reduced_chi_squared)
+        return quant_result
+
+
+    def _ensure_current_quantification_run(self, force_new: bool = False) -> None:
+        """Reuse an existing quantification id for matching options, or create a new one.
+
+        Parameters
+        ----------
+        force_new : bool
+            If True, always create a new quantification id even when options match an
+            existing run.
+        """
+        if force_new:
+            quant_timestamp = datetime.now().strftime("%Y%m%dT%H%M%S%f")
+            quantification_id = f"quant_{quant_timestamp}"
+            self.current_quant_config = QuantificationConfig(
+                quantification_id=quantification_id,
+                label=f"Quantification {quant_timestamp}",
+                options=self.quant_cfg.model_dump(),
+            )
+            self.current_quantification_id = quantification_id
+            return
+
+        current_options = self.quant_cfg.model_dump()
+        if self.current_quant_config is not None and self.current_quant_config.options == current_options:
+            self.current_quantification_id = self.current_quant_config.quantification_id
+            return
+
+        existing_ledger = self._load_or_create_ledger()
+        if existing_ledger is not None:
+            # Pick the last (newest/highest-index) matching config
+            last_match = None
+            for quant_config in existing_ledger.quantification_configs:
+                if quant_config.options == current_options:
+                    last_match = quant_config
+            if last_match is not None:
+                self.current_quant_config = last_match
+                self.current_quantification_id = last_match.quantification_id
+                return
+
+        quant_timestamp = datetime.now().strftime("%Y%m%dT%H%M%S%f")
+        quantification_id = f"quant_{quant_timestamp}"
+        self.current_quant_config = QuantificationConfig(
+            quantification_id=quantification_id,
+            label=f"Quantification {quant_timestamp}",
+            options=current_options,
+        )
+        self.current_quantification_id = quantification_id
+
+
+    def _sync_existing_quantification_from_ledger(self) -> None:
+        """Populate in-memory quantification slots from ledger results with the current id."""
+        if self.current_quantification_id is None:
+            return
+        existing_ledger = self._load_or_create_ledger()
+        if existing_ledger is None:
+            return
+
+        total_spectra = len(self.spectral_data[cnst.SPECTRUM_DF_KEY])
+        self._ensure_quant_tracking_length(total_spectra)
+
+        for index, spectrum in enumerate(existing_ledger.spectra[:total_spectra]):
+            matching = next(
+                (
+                    result for result in spectrum.quantification_results
+                    if result.quantification_id == self.current_quantification_id
+                ),
+                None,
+            )
+            if matching is None:
+                continue
+
+            self.spectra_quant_records[index] = matching
+            self.spectra_quant[index] = self._legacy_quant_dict_from_record(matching)
+            self.spectral_data[cnst.COMMENTS_DF_KEY][index] = matching.comment
+            self.spectral_data[cnst.QUANT_FLAG_DF_KEY][index] = matching.quant_flag
+
+
+    def _persist_quantification_record(self, spectrum_index: int, quant_record: QuantificationResult, overwrite: bool = False) -> None:
+        """Write one quantification result to the ledger immediately for interruption-safe progress.
+
+        Parameters
+        ----------
+        overwrite : bool
+            If True and a result with the same quantification_id already exists for this spectrum,
+            replace it (used when requantify_only_unquantified_spectra=True).
+        """
+        existing_ledger = self._load_or_create_ledger()
+        ledger = self._build_ledger_from_current_state(existing_ledger)
+
+        if self.current_quant_config is None:
+            raise ValueError("Current quantification config is not initialized")
+
+        if not any(
+            config.quantification_id == self.current_quant_config.quantification_id
+            for config in ledger.quantification_configs
+        ):
+            ledger.append_quantification_config(self.current_quant_config)
+
+        existing_ids = {
+            existing.quantification_id
+            for existing in ledger.spectra[spectrum_index].quantification_results
+        }
+        if quant_record.quantification_id not in existing_ids:
+            ledger.append_quantification_result(spectrum_index, quant_record)
+        elif overwrite:
+            ledger.spectra[spectrum_index].quantification_results = [
+                quant_record if r.quantification_id == quant_record.quantification_id else r
+                for r in ledger.spectra[spectrum_index].quantification_results
+            ]
+
+        ledger.to_json_file(self._get_ledger_path())
 
 
     def _check_fit_quant_validity(
@@ -1194,12 +1987,16 @@ class EMXSp_Composition_Analyzer:
             latest_spot_id = None # For image annotations
             for i, (x, y) in enumerate(spots_xy_list):
                 latest_spot_id = i
+                xy_center = self.EM_controller.convert_XS_coords_to_pixels((x, y))
                 value_map = {
                     cnst.SP_ID_DF_KEY: n_tot_sp_collected,
                     cnst.FRAME_ID_DF_KEY : frame_ID,
                     cnst.SP_X_COORD_DF_KEY: f'{x:.3f}',
-                    cnst.SP_Y_COORD_DF_KEY: f'{y:.3f}'
+                    cnst.SP_Y_COORD_DF_KEY: f'{y:.3f}',
                 }
+                if xy_center is not None:
+                    value_map[cnst.SP_X_PIXEL_COORD_DF_KEY] = f'{xy_center[0]:.2f}'
+                    value_map[cnst.SP_Y_PIXEL_COORD_DF_KEY] = f'{xy_center[1]:.2f}'
                 # Add particle ID only if not None
                 if self.particle_cntr is not None:
                     value_map[cnst.PAR_ID_DF_KEY] = self.particle_cntr
@@ -1215,17 +2012,27 @@ class EMXSp_Composition_Analyzer:
                     print_single_separator()
                     print(f'Acquiring spectrum #{n_tot_sp_collected}...')
 
+                current_spectrum_id = str(n_tot_sp_collected)
+                spectrum_relpath = self._build_spectrum_relpath(current_spectrum_id)
+                manufacturer_msa_path = os.path.join(self.sample_result_dir, spectrum_relpath)
+
                 n_tot_sp_collected += 1
-                spectrum_data, background_data, collection_time, live_time = self._acquire_spectrum(x, y)
-                
+                collection_time, total_counts = self._acquire_spectrum(
+                    x,
+                    y,
+                    spectrum_id=current_spectrum_id,
+                    msa_file_path=manufacturer_msa_path,
+                )
+
                 if self.verbose:
                     print(f"Acquisition took {collection_time:.2f} s")
                 
                 # Contamination check: skip quantification if counts are too low (only at first measurement spot)
                 if i==0 and self.sample_cfg.is_particle_acquisition:
-                    if sum(spectrum_data) < 0.95 * self.measurement_cfg.target_acquisition_counts:
+                    if total_counts < 0.95 * self.measurement_cfg.target_acquisition_counts:
                         if quantify:
                             self.spectra_quant.append(None)
+                            self.spectra_quant_records.append(None)
                         if self.verbose:
                                 print('Current particle is unlikely to be part of the sample.\nSkipping to the next particle.')
                                 print('Increase measurement_cfg.max_acquisition_time if this behavior is undesired.')
@@ -1265,44 +2072,74 @@ class EMXSp_Composition_Analyzer:
         return n_tot_sp_collected, success
     
     
-    def _fit_and_quantify_spectra(self, quantify: bool = True) -> None:
+    def _fit_and_quantify_spectra(
+        self,
+        quantify: bool = True,
+        force_requantification: bool = False,
+        requantify_only_unquantified_spectra: bool = False,
+        interrupt_fits_bad_spectra: bool = True,
+        num_CPU_cores: Optional[int] = None,
+    ) -> None:
         """
-        Fit and (optionally) quantify all collected spectra that have not yet been processed.
-        
-        Used when spectral acquisition and quantification are performed separately,
-         or when measuring standards, for which quantify msut be set to False.
-         
-        Parallelizes spectral fitting and quantification, in a robust way that preserves the
-        order of spectra regardless of any internal reordering inside the fitting function.
-         
+        Fit and (optionally) quantify all collected spectra.
+
         Parameters
         ----------
-        quantify: bool
-            If False, does not perform quantification. Used for fitting of standards (Default = True).
-        
-        This method:
-          - Iterates over all unquantified spectra in self.spectral_data.
-          - Retrieves the spectrum, (optionally) background, and collection time for each.
-          - If quantify == True, performs quantification using self._fit_quantify_spectrum,
-               otherwise only fits the spectra.
-          - Prints results and timing information if self.verbose is True.
-          - Appends each quantification result to self.spectra_quant.
+        quantify : bool
+            If False, only fits spectra (used for experimental standards). Default True.
+        force_requantification : bool
+            Create a new quantification run and reprocess every spectrum, even when
+            an identical run already exists.
+        requantify_only_unquantified_spectra : bool
+            Reuse the latest matching run but reprocess only spectra that have no
+            composition result (never quantified, or previously skipped/flagged).
+            Overwrites the prior skipped record in the ledger. Ignored when
+            force_requantification=True.
+        interrupt_fits_bad_spectra : bool
+            If True, abort the fit early for spectra identified as poor quality.
+        num_CPU_cores : Optional[int]
+            Number of CPU cores for parallel fitting (non-quantify path only).
+            None uses half of available cores.
         """
         
-        """
-        Parallel, robust version that preserves the order of spectra regardless of
-        any internal reordering inside the fitting function.
-        """
-        
-        # Quantify all spectra that have not been quantified yet
-        quant_sp_cntr = len(self.spectra_quant)
+        self._sync_in_memory_spectra_from_ledger()
         tot_spectra_collected = len(self.spectral_data[cnst.SPECTRUM_DF_KEY])
-        n_spectra_to_quant = tot_spectra_collected - quant_sp_cntr
+
+        _n_cores = min(
+            (num_CPU_cores if num_CPU_cores is not None else max(1, os.cpu_count() // 2)),
+            os.cpu_count(),
+        )
+
+        if quantify:
+            # Always bootstrap/sync ledger before quantification cycles.
+            self._load_or_create_ledger()
+            self._ensure_current_quantification_run(force_new=force_requantification)
+            self._ensure_quant_tracking_length(tot_spectra_collected)
+            if force_requantification:
+                indices_to_process = list(range(tot_spectra_collected))
+            elif requantify_only_unquantified_spectra:
+                self._sync_existing_quantification_from_ledger()
+                indices_to_process = [
+                    i for i in range(tot_spectra_collected)
+                    if self.spectra_quant_records[i] is None
+                    or self.spectra_quant_records[i].composition_atomic_fractions is None
+                ]
+            else:
+                self._sync_existing_quantification_from_ledger()
+                indices_to_process = [
+                    i for i in range(tot_spectra_collected)
+                    if self.spectra_quant_records[i] is None
+                ]
+        else:
+            quant_sp_cntr = len(self.spectra_quant)
+            indices_to_process = list(range(quant_sp_cntr, tot_spectra_collected))
+
+        n_spectra_to_quant = len(indices_to_process)
     
         if self.verbose and n_spectra_to_quant > 0:
             print_single_separator()
             quant_str = "quantification" if quantify else "fitting"
-            print(f"Starting {quant_str} of {n_spectra_to_quant} spectra on up to {self.quant_cfg.num_CPU_cores} cores")
+            print(f"Starting {quant_str} of {n_spectra_to_quant} spectra on up to {_n_cores} cores")
     
         # Worker returns (index, result) tuple
         def _process_one(i):
@@ -1316,13 +2153,34 @@ class EMXSp_Composition_Analyzer:
             sp_id = f"{i}/{tot_spectra_collected - 1}"
     
             if quantify:
-                result, quant_flag, comment = self._fit_quantify_spectrum(spectrum, background, sp_collection_time, sp_id)
+                result, quant_record, quant_flag, comment = self._fit_quantify_spectrum(
+                    spectrum,
+                    background,
+                    sp_collection_time,
+                    sp_id,
+                    spectrum_index=i,
+                    interrupt_fits_bad_spectra=interrupt_fits_bad_spectra,
+                )
             else:
                 result, quant_flag, comment = self._fit_exp_std_spectrum(spectrum, background, sp_collection_time, sp_id)
+                quant_record = None
     
-            return i, result, quant_flag, comment
+            return i, result, quant_record, quant_flag, comment
+
+        if quantify:
+            for i in indices_to_process:
+                had_prior_record = self.spectra_quant_records[i] is not None
+                _, result, quant_record, quant_flag, comment = _process_one(i)
+                self.spectra_quant[i] = result
+                self.spectra_quant_records[i] = quant_record
+                self.spectral_data[cnst.COMMENTS_DF_KEY][i] = comment
+                self.spectral_data[cnst.QUANT_FLAG_DF_KEY][i] = quant_flag
+                if quant_record is not None:
+                    overwrite = requantify_only_unquantified_spectra and had_prior_record
+                    self._persist_quantification_record(i, quant_record, overwrite=overwrite)
+            return
     
-        n_cores = min(self.quant_cfg.num_CPU_cores, os.cpu_count())
+        n_cores = _n_cores
     
         # Temporarily remove the analyzer to avoid pickling errors from 'loky' backend
         tmp_analyzer = None
@@ -1334,12 +2192,12 @@ class EMXSp_Composition_Analyzer:
         try:
             # Run in parallel
             results_with_idx = Parallel(n_jobs=n_cores, backend='loky')(
-                delayed(_process_one)(i) for i in range(quant_sp_cntr, tot_spectra_collected)
+                delayed(_process_one)(i) for i in indices_to_process
             )
         except Exception as e:
             print(f"Parallel quantification failed ({type(e).__name__}: {e}), falling back to sequential execution.")
             # Sequential fallback, also collect results
-            results_with_idx = [ _process_one(i) for i in range(quant_sp_cntr, tot_spectra_collected) ]
+            results_with_idx = [_process_one(i) for i in indices_to_process]
         finally:
             # Restore analyzer
             if tmp_analyzer is not None:
@@ -1350,15 +2208,17 @@ class EMXSp_Composition_Analyzer:
             results_with_idx.sort(key=lambda x: x[0])
             
             # Unpack into separate lists
-            _, results_in_order, quant_flags_in_order, comments_in_order = zip(*results_with_idx)
+            _, results_in_order, quant_records_in_order, quant_flags_in_order, comments_in_order = zip(*results_with_idx)
             
             # Convert from tuples to lists
             results_in_order = list(results_in_order)
+            quant_records_in_order = list(quant_records_in_order)
             quant_flags_in_order = list(quant_flags_in_order)
             comments_in_order = list(comments_in_order)
         
             # Append to global spectra_quant
             self.spectra_quant.extend(results_in_order)
+            self.spectra_quant_records.extend(quant_records_in_order)
             self.spectral_data[cnst.COMMENTS_DF_KEY].extend(comments_in_order)
             self.spectral_data[cnst.QUANT_FLAG_DF_KEY].extend(quant_flags_in_order)
 
@@ -1945,6 +2805,10 @@ class EMXSp_Composition_Analyzer:
         min_conf : float or None
             Minimum confidence among assigned candidate phases.
         """
+        # Ensure ledger exists/is synced before analysis workflows.
+        if self.sample_result_dir is not None:
+            self._load_or_create_ledger()
+
         # 1. Select compositions to use for clustering
         if max_analytical_error_percent is not None:
             max_analytical_error = max_analytical_error_percent / 100
@@ -3063,20 +3927,38 @@ class EMXSp_Composition_Analyzer:
         return is_converged
     
 
-    def run_quantification(self) -> None:
+    def run_quantification(
+        self,
+        force_requantification: bool = False,
+        requantify_only_unquantified_spectra: bool = False,
+        interrupt_fits_bad_spectra: bool = True,
+        num_CPU_cores: Optional[int] = None,
+    ) -> None:
         """
         Perform quantification of all collected spectra and save the results.
     
-        This method quantifies the spectra using self._fit_and_quantify_spectra(),
-        then saves the quantification results to file using self._save_collected_data().
-    
-        Notes
-        -----
-        - The arguments (None, None) to _save_collected_data indicate that all spectra are to be saved.
-        - Assumes that spectra have been correctly saved in self.quant_results
+        Parameters
+        ----------
+        force_requantification : bool, optional
+            If True, quantifies all spectra again even when the same quantification
+            settings were already used before (creates a new run).
+        requantify_only_unquantified_spectra : bool, optional
+            Reuse the latest matching run but reprocess only spectra with no composition
+            result (never quantified or previously skipped/flagged). Overwrites prior
+            skipped records. Ignored when force_requantification=True.
+        interrupt_fits_bad_spectra : bool, optional
+            If True, abort the fit early for spectra identified as poor quality (default True).
+        num_CPU_cores : Optional[int], optional
+            Number of CPU cores for parallel fitting (non-quantify path only).
+            None uses half of available cores.
         """
-        self._initialise_std_dict() # Initialise dictionary of standards to (optionally) pass onto XSp_Quantifier. Only used with known powder mixtures
-        self._fit_and_quantify_spectra()
+        self._initialise_std_dict()
+        self._fit_and_quantify_spectra(
+            force_requantification=force_requantification,
+            requantify_only_unquantified_spectra=requantify_only_unquantified_spectra,
+            interrupt_fits_bad_spectra=interrupt_fits_bad_spectra,
+            num_CPU_cores=num_CPU_cores,
+        )
         self._save_collected_data(None, None, backup_previous_data=True, include_spectral_data=True)
         
     
@@ -3920,6 +4802,7 @@ class EMXSp_Composition_Analyzer:
         csv_exclude_columns = [
             cnst.SPECTRUM_DF_KEY, cnst.BACKGROUND_DF_KEY,
             cnst.SP_X_COORD_DF_KEY, cnst.SP_Y_COORD_DF_KEY,
+            cnst.SP_X_PIXEL_COORD_DF_KEY, cnst.SP_Y_PIXEL_COORD_DF_KEY,
         ]
         csv_df = data_df.drop(columns=[c for c in csv_exclude_columns if c in data_df.columns])
 
@@ -3981,36 +4864,94 @@ class EMXSp_Composition_Analyzer:
                     cnst.LEDGER_FILENAME + cnst.LEDGER_FILEEXT
                 )
                 try:
+                    existing_ledger = self._load_or_create_ledger()
+
                     spectra = []
-                    for entry in ledger_entries:
+                    for i, entry in enumerate(ledger_entries):
+                        raw_x = entry.get(cnst.SP_X_COORD_DF_KEY, '')
+                        raw_y = entry.get(cnst.SP_Y_COORD_DF_KEY, '')
+                        raw_x_pixel = entry.get(cnst.SP_X_PIXEL_COORD_DF_KEY, '')
+                        raw_y_pixel = entry.get(cnst.SP_Y_PIXEL_COORD_DF_KEY, '')
+
+                        acquisition_details = AcquisitionDetails(
+                            frame_id=str(entry.get(cnst.FRAME_ID_DF_KEY, '')).strip() or None,
+                            particle_id=self._parse_optional_int(entry.get(cnst.PAR_ID_DF_KEY, '')),
+                            spot_coordinates=self._build_spot_coordinates(raw_x, raw_y, raw_x_pixel, raw_y_pixel),
+                        )
+
                         metadata = {
-                            cnst.SP_X_COORD_DF_KEY: str(entry.get(cnst.SP_X_COORD_DF_KEY, '')),
-                            cnst.SP_Y_COORD_DF_KEY: str(entry.get(cnst.SP_Y_COORD_DF_KEY, '')),
+                            cnst.SP_X_COORD_DF_KEY: str(raw_x),
+                            cnst.SP_Y_COORD_DF_KEY: str(raw_y),
+                            cnst.SP_X_PIXEL_COORD_DF_KEY: str(raw_x_pixel),
+                            cnst.SP_Y_PIXEL_COORD_DF_KEY: str(raw_y_pixel),
                             cnst.PAR_ID_DF_KEY: str(entry.get(cnst.PAR_ID_DF_KEY, '')),
                             cnst.FRAME_ID_DF_KEY: str(entry.get(cnst.FRAME_ID_DF_KEY, '')),
                         }
+                        existing_results = []
+                        if existing_ledger is not None and i < len(existing_ledger.spectra):
+                            existing_results = list(existing_ledger.spectra[i].quantification_results)
+                        spectrum_id = str(entry.get(cnst.SP_ID_DF_KEY, ''))
+                        spectrum_vals = list(entry[cnst.SPECTRUM_DF_KEY])
+                        spectrum_id_resolved = spectrum_id if spectrum_id else str(i)
+                        spectrum_relpath = self._resolve_or_create_spectrum_pointer(
+                            spectrum_id=spectrum_id_resolved,
+                            spectrum_vals=spectrum_vals,
+                            live_time=float(entry[cnst.LIVE_TIME_DF_KEY]) if entry.get(cnst.LIVE_TIME_DF_KEY) is not None else None,
+                            real_time=float(entry[cnst.REAL_TIME_DF_KEY]) if entry.get(cnst.REAL_TIME_DF_KEY) is not None else None,
+                        )
+                        background_relpath = None
+                        background_vals = list(entry[cnst.BACKGROUND_DF_KEY]) if entry.get(cnst.BACKGROUND_DF_KEY) is not None else None
+                        if background_vals is not None:
+                            background_relpath = self._write_manufacturer_background_vector(
+                                spectrum_id=spectrum_id_resolved,
+                                background_vals=background_vals,
+                            )
                         spectra.append(
                             SpectrumEntry(
-                                spectrum_vals=list(entry[cnst.SPECTRUM_DF_KEY]),
-                                background_vals=list(entry[cnst.BACKGROUND_DF_KEY]) if entry.get(cnst.BACKGROUND_DF_KEY) is not None else None,
-                                live_time=float(entry[cnst.LIVE_TIME_DF_KEY]) if entry.get(cnst.LIVE_TIME_DF_KEY) is not None else 1.0,
                                 real_time=float(entry[cnst.REAL_TIME_DF_KEY]) if entry.get(cnst.REAL_TIME_DF_KEY) is not None else 1.0,
-                                spectrum_id=str(entry.get(cnst.SP_ID_DF_KEY, '')),
+                                total_counts=int(round(float(np.sum(spectrum_vals)))),
+                                spectrum_id=spectrum_id_resolved,
+                                spectrum_relpath=spectrum_relpath,
+                                instrument_background_relpath=background_relpath,
+                                acquisition_details=acquisition_details,
                                 metadata=metadata,
+                                quantification_results=existing_results,
                             )
                         )
 
+                    existing_configs = []
+                    if existing_ledger is not None:
+                        existing_configs = list(existing_ledger.quantification_configs)
+
                     ledger = SampleLedger(
-                        ledger_id=f"{self.sample_cfg.ID}_ledger",
-                        shared=SharedAcquisitionContext(
-                            energy_vals=list(map(float, self.energy_vals)),
-                            beam_energy=float(self.measurement_cfg.beam_energy_keV),
-                            emergence_angle=float(self.measurement_cfg.emergence_angle),
-                            microscope_id=str(self.microscope_cfg.ID),
-                            meas_mode=str(self.measurement_cfg.mode),
+                        sample_id=f"{self.sample_cfg.ID}_ledger",
+                        sample_path=os.path.abspath(self.sample_result_dir),
+                        configs=(
+                            existing_ledger.configs
+                            if existing_ledger is not None and existing_ledger.configs is not None
+                            else self._build_ledger_configs()
                         ),
                         spectra=spectra,
+                        quantification_configs=existing_configs,
                     )
+
+                    if quantify:
+                        if not any(
+                            cfg.quantification_id == self.current_quant_config.quantification_id
+                            for cfg in ledger.quantification_configs
+                        ):
+                            ledger.append_quantification_config(self.current_quant_config)
+
+                        for i, quant_record in enumerate(getattr(self, 'spectra_quant_records', [])):
+                            if quant_record is None or i >= len(ledger.spectra):
+                                continue
+                            existing_ids = {
+                                existing.quantification_id
+                                for existing in ledger.spectra[i].quantification_results
+                            }
+                            if quant_record.quantification_id not in existing_ids:
+                                ledger.append_quantification_result(i, quant_record)
+
                     ledger.to_json_file(ledger_path)
                 except Exception as e:
                     raise OSError(f"Could not write ledger to '{ledger_path}': {e}")

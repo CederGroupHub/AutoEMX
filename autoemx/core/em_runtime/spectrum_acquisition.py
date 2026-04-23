@@ -58,7 +58,6 @@ class SpectrumAcquisition:
         self.verbose = verbose
         
         self.analyzer = None
-        self._is_first_spectrum_acq = True
     
     
     def initialise_XS_analyzer(self, beam_voltage: float = None) -> None:
@@ -220,8 +219,10 @@ class SpectrumAcquisition:
         x: float,
         y: float,
         max_acquisition_time: float,
-        target_acquisition_counts: int
-    ) -> tuple:
+        target_acquisition_counts: int,
+        elements: Optional[List[str]] = None,
+        msa_file_path: Optional[str] = None,
+    ) -> Tuple:
         """
         Acquire an X-ray spectrum (EDS/WDS) at the specified position.
         
@@ -234,6 +235,9 @@ class SpectrumAcquisition:
             Maximum allowed acquisition time in seconds.
         target_acquisition_counts : int
             Target total X-ray counts for the spectrum.
+        elements : list[str], optional
+            Element symbols used by the microscope proprietary quantification to
+            estimate instrument background.
         
         Returns
         -------
@@ -241,36 +245,24 @@ class SpectrumAcquisition:
             The acquired spectrum data.
         background_data : Any
             The measured background data.
-        real_time : float
-            Real elapsed time for acquisition (seconds).
-        live_time : float
-            Detector live time for acquisition (seconds).
         
         Raises
         ------
         EMError
             If the spectrum acquisition fails.
         """
-        import os
-        import autoemx.utils.constants as cnst
-        
-        if self._is_first_spectrum_acq:
-            msa_file_path = os.path.join(
-                os.path.dirname(self.results_dir), 
-                cnst.MSA_SP_FILENAME
-            )
-            self._is_first_spectrum_acq = False
-        else:
-            msa_file_path = None
-        
         try:
-            spectrum_data, background_data, real_time, live_time = (
+            spectrum_data, background_data, _, _ = (
                 self.EM_driver.acquire_XS_spectral_data(
-                    self.analyzer, x, y, max_acquisition_time, 
-                    target_acquisition_counts, 
+                    self.analyzer,
+                    x,
+                    y,
+                    max_acquisition_time,
+                    target_acquisition_counts,
+                    elements=elements,
                     msa_file_export_path=msa_file_path
                 )
             )
-            return spectrum_data, background_data, real_time, live_time
+            return spectrum_data, background_data
         except Exception as e:
             raise EMError(f"Failed to acquire X-ray spectrum at ({x}, {y}): {e}") from e

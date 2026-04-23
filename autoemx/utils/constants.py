@@ -79,6 +79,8 @@ PAR_ID_DF_KEY = 'Particle #'
 FRAME_ID_DF_KEY = 'Frame ID'
 SP_X_COORD_DF_KEY = 'x'
 SP_Y_COORD_DF_KEY = 'y'
+SP_X_PIXEL_COORD_DF_KEY = 'x_px'
+SP_Y_PIXEL_COORD_DF_KEY = 'y_px'
 SPECTRUM_DF_KEY = 'Spectrum'
 BACKGROUND_DF_KEY = 'Background'
 REAL_TIME_DF_KEY = 'Real_time'
@@ -120,6 +122,7 @@ RESULTS_DIR = 'Results'
 STDS_DIR = 'Std_measurements'
 ANALYSIS_DIR = 'Analysis'
 ANALYSIS_SUBDIR = 'analysis'  # new lowercase subdirectory for timestamped analysis folders
+SPECTRA_DIR = 'spectra'  # directory containing per-spectrum pointer files
 IMAGES_DIR = 'SEM images'
 CALIBS_DIR = 'calibrations'
 XRAY_SPECTRA_CALIBS_DIR = 'calibrations'
@@ -137,6 +140,9 @@ LEDGER_FILEEXT = '.json'
 ANALYSIS_TIMESTAMP_FORMAT = '%Y-%m-%d_%H-%M'  # timestamp format for analysis subdirectory names
 DATA_FILENAME = 'Data'
 MSA_SP_FILENAME = "EM_metadata.msa"
+SPECTRUM_FILENAME_PREFIX = "spectrum_"
+SPECTRUM_MAN_BACKGROUND_SUFFIX = "_man_bckgrnd"
+VECTOR_FILEEXT = ".npy"
 PARTICLE_STATS_FILENAME = 'Par_size_stats'
 PARTICLE_SIZES_FILENAME = 'Par_sizes'
 PARTICLE_STAT_HIST_FILENAME = 'Par_size_distribution_hist'
@@ -174,7 +180,9 @@ LIST_SPECTRUM_COORDINATES_KEYS = [
     FRAME_ID_DF_KEY,
     PAR_ID_DF_KEY,
     SP_X_COORD_DF_KEY,
-    SP_Y_COORD_DF_KEY
+    SP_Y_COORD_DF_KEY,
+    SP_X_PIXEL_COORD_DF_KEY,
+    SP_Y_PIXEL_COORD_DF_KEY,
     ] # Update this list if adding keys
 # This allows correct loading when quantifying or analysing spectra after acquisition
 

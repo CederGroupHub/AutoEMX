@@ -74,7 +74,8 @@ from pymatgen.core import Element, Composition
 from typing import Any, Sequence, List, Optional, Tuple, Dict, Union
 
 import autoemx.utils.constants as cnst
-from autoemx.config.schemas import SampleLedger, SharedAcquisitionContext, SpectrumEntry
+from autoemx.config.schemas import SampleLedger, SpectrumEntry
+from autoemx.utils.legacy.legacy_backfill import load_ledger_configs_from_legacy_json
 
 
 #%% Compositions and formulas
@@ -498,6 +499,40 @@ def extract_spectral_data(data_csv_path):
     available_cols = [col for col in cnst.LIST_SPECTRUM_COORDINATES_KEYS if col in df.columns]
     sp_coords = df[available_cols].to_dict(orient='records')
 
+    def _write_fallback_pointer_file(
+        pointer_path: Path,
+        energy_vals: List[float],
+        spectrum_vals: List[float],
+        *,
+        live_time: Optional[float] = None,
+        real_time: Optional[float] = None,
+    ) -> None:
+        """Write a minimal EMSA-like fallback file from Data.csv spectrum values."""
+        pointer_path.parent.mkdir(parents=True, exist_ok=True)
+        n_points = len(spectrum_vals)
+        if n_points == 0:
+            raise ValueError("Cannot write an empty spectrum pointer file")
+
+        offset = float(energy_vals[0]) if energy_vals else 0.0
+        if len(energy_vals) > 1:
+            xperchan = float(energy_vals[1] - energy_vals[0])
+        else:
+            xperchan = 1.0
+
+        with pointer_path.open("w", encoding="utf-8") as f:
+            f.write("#FORMAT      : EMSA/MAS Spectral Data File\n")
+            f.write("#VERSION     : 1.0\n")
+            f.write("#NPOINTS     : %d\n" % n_points)
+            if live_time is not None:
+                f.write("#LIVETIME    : %.8f\n" % float(live_time))
+            if real_time is not None:
+                f.write("#REALTIME    : %.8f\n" % float(real_time))
+            f.write("#OFFSET      : %.8f\n" % offset)
+            f.write("#XPERCHAN    : %.8f\n" % xperchan)
+            f.write("#SPECTRUM\n")
+            for i, count in enumerate(spectrum_vals):
+                f.write("%d,%.10f\n" % (i, float(count)))
+
     # --- Shared migration path for all Data.csv readers ---
     # Create config.json from legacy config filename if needed.
     sample_dir = Path(data_csv_path).parent
@@ -523,9 +558,7 @@ def extract_spectral_data(data_csv_path):
                 cfg_payload = json.loads(cfg_path.read_text(encoding="utf-8")) if cfg_path.exists() else {}
 
                 microscope_cfg = cfg_payload.get(cnst.MICROSCOPE_CFG_KEY, {})
-                measurement_cfg = cfg_payload.get(cnst.MEASUREMENT_CFG_KEY, {})
                 quant_cfg = cfg_payload.get(cnst.QUANTIFICATION_CFG_KEY, {})
-                sample_cfg = cfg_payload.get(cnst.SAMPLE_CFG_KEY, {})
 
                 n_channels = len(spectra_vals[0])
                 spectrum_lims = quant_cfg.get("spectrum_lims", [0, n_channels])
@@ -533,6 +566,7 @@ def extract_spectral_data(data_csv_path):
                 energy_zero = float(microscope_cfg.get("energy_zero", 0.0))
                 bin_width = float(microscope_cfg.get("bin_width", 1.0))
                 energy_vals = [energy_zero + bin_width * i for i in range(sp_start, sp_start + n_channels)]
+                ext = ".msa"
 
                 entries: List[SpectrumEntry] = []
                 for i, spectrum in enumerate(spectra_vals):
@@ -547,30 +581,58 @@ def extract_spectral_data(data_csv_path):
                         cnst.PAR_ID_DF_KEY: str(coords.get(cnst.PAR_ID_DF_KEY, "")),
                         cnst.FRAME_ID_DF_KEY: str(coords.get(cnst.FRAME_ID_DF_KEY, "")),
                     }
+                    spectrum_id = str(coords.get(cnst.SP_ID_DF_KEY, i))
+                    spectrum_relpath = os.path.join(
+                        cnst.SPECTRA_DIR,
+                        f"{cnst.SPECTRUM_FILENAME_PREFIX}{spectrum_id}{ext}",
+                    )
+                    pointer_path = sample_dir / spectrum_relpath
+                    if not pointer_path.exists():
+                        _write_fallback_pointer_file(
+                            pointer_path,
+                            energy_vals,
+                            list(spectrum),
+                            live_time=float(lt) if lt is not None else None,
+                            real_time=float(rt) if rt is not None else None,
+                        )
+
+                    if bg_vals is not None:
+                        background_relpath = os.path.join(
+                            cnst.SPECTRA_DIR,
+                            (
+                                f"{cnst.SPECTRUM_FILENAME_PREFIX}{spectrum_id}"
+                                f"{cnst.SPECTRUM_BACKGROUND_SUFFIX}{ext}"
+                            ),
+                        )
+                        background_pointer_path = sample_dir / background_relpath
+                        _write_fallback_pointer_file(
+                            background_pointer_path,
+                            energy_vals,
+                            list(bg_vals),
+                            live_time=None,
+                            real_time=None,
+                        )
 
                     entries.append(
                         SpectrumEntry(
-                            spectrum_vals=list(spectrum),
-                            background_vals=list(bg_vals) if bg_vals is not None else None,
                             real_time=float(rt) if rt is not None else 1.0,
-                            live_time=float(lt) if lt is not None else 1.0,
-                            spectrum_id=str(coords.get(cnst.SP_ID_DF_KEY, i)),
+                            total_counts=int(round(float(np.sum(spectrum)))),
+                            spectrum_id=spectrum_id,
+                            spectrum_relpath=spectrum_relpath,
                             metadata=metadata,
                         )
                     )
 
-                ledger = SampleLedger(
-                    ledger_id=f"{sample_cfg.get('ID', 'sample')}_ledger",
-                    shared=SharedAcquisitionContext(
-                        energy_vals=energy_vals,
-                        beam_energy=float(measurement_cfg.get("beam_energy_keV", 1.0)),
-                        emergence_angle=float(measurement_cfg.get("emergence_angle", 35.0)),
-                        microscope_id=str(microscope_cfg.get("ID", "unknown")),
-                        meas_mode=str(measurement_cfg.get("mode", "point")),
-                    ),
-                    spectra=entries,
-                )
-                ledger.to_json_file(ledger_path)
+                ledger_configs = load_ledger_configs_from_legacy_json(str(sample_dir))
+                if ledger_configs is not None:
+                    ledger = SampleLedger(
+                        sample_id=f"{sample_dir.name}_ledger",
+                        sample_path=str(sample_dir.resolve()),
+                        configs=ledger_configs,
+                        spectra=entries,
+                        quantification_configs=[],
+                    )
+                    ledger.to_json_file(ledger_path)
         except Exception:
             # Fail open: if migration cannot run, keep read behavior unchanged.
             pass
@@ -601,10 +663,34 @@ def extract_spectral_data(data_csv_path):
                     continue
 
                 entry = entries[entry_idx]
-                spectral_data[cnst.SPECTRUM_DF_KEY][row_idx] = entry.spectrum_vals
-                spectral_data[cnst.BACKGROUND_DF_KEY][row_idx] = entry.background_vals
-                spectral_data[cnst.REAL_TIME_DF_KEY][row_idx] = entry.real_time
-                spectral_data[cnst.LIVE_TIME_DF_KEY][row_idx] = entry.live_time
+                pointer_path: Optional[Path] = None
+                try:
+                    if entry.spectrum_relpath:
+                        pointer_path = (Path(ledger.sample_path) / entry.spectrum_relpath).resolve()
+                        raw_counts = SampleLedger._load_counts_from_pointer_file(pointer_path)
+                    else:
+                        raw_counts = None
+                except Exception:
+                    # Keep legacy Data.csv arrays if pointer resolution fails.
+                    raw_counts = None
+
+                if raw_counts is not None:
+                    spectral_data[cnst.SPECTRUM_DF_KEY][row_idx] = raw_counts
+
+                if pointer_path is not None:
+                    background_path = pointer_path.with_name(
+                        f"{pointer_path.stem}{cnst.SPECTRUM_BACKGROUND_SUFFIX}{pointer_path.suffix}"
+                    )
+                    if background_path.exists():
+                        try:
+                            spectral_data[cnst.BACKGROUND_DF_KEY][row_idx] = (
+                                SampleLedger._load_counts_from_pointer_file(background_path)
+                            )
+                        except Exception:
+                            pass
+
+                if pd.isna(spectral_data[cnst.REAL_TIME_DF_KEY][row_idx]) and entry.real_time is not None:
+                    spectral_data[cnst.REAL_TIME_DF_KEY][row_idx] = entry.real_time
 
                 metadata = entry.metadata or {}
                 # Ensure a row dict exists

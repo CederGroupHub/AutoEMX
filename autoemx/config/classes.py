@@ -28,8 +28,9 @@ Each dataclass includes attribute documentation and input validation.
 import re
 import numpy as np
 import multiprocessing
-from dataclasses import dataclass, field
-from typing import Any, List, Optional, Tuple, Dict
+from typing import Any, ClassVar, Dict, List, Optional, Tuple
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from pymatgen.core.periodic_table import Element
 from pymatgen.core import Composition
@@ -38,8 +39,7 @@ import autoemx.utils.constants as cnst
 import autoemx.config.defaults as dflt
 import autoemx.core.em_runtime.particle_segmentation_models as par_seg_models
 
-@dataclass
-class MicroscopeConfig:
+class MicroscopeConfig(BaseModel):
     """
     Configuration for the microscope hardware.
 
@@ -67,14 +67,16 @@ class MicroscopeConfig:
     energy_zero: Optional[float] = None
     bin_width: Optional[float] = None
 
-    ALLOWED_TYPES = ("SEM", "STEM")
-    ALLOWED_DETECTOR_TYPES = ("BSD")
+    ALLOWED_TYPES: ClassVar[Tuple[str, ...]] = ("SEM", "STEM")
+    ALLOWED_DETECTOR_TYPES: ClassVar[Tuple[str, ...]] = ("BSD",)
 
-    def __post_init__(self) -> None:
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def _validate(self) -> "MicroscopeConfig":
         import os
         from pathlib import Path
 
-        # Check that the calibration folder for this microscope exists
         parent_dir = str(Path(__file__).resolve().parent.parent)
         calib_path = os.path.join(parent_dir, cnst.CALIBS_DIR, self.ID)
         if not os.path.isdir(calib_path):
@@ -87,21 +89,21 @@ class MicroscopeConfig:
             raise ValueError(f"Microscope type must be one of {self.ALLOWED_TYPES}, got '{self.type}'.")
 
         if self.type == "STEM":
-            # STEM mode is not supported yet.
             raise NotImplementedError("STEM mode is not implemented yet.")
-            
+
         if self.detector_type not in self.ALLOWED_DETECTOR_TYPES:
             raise ValueError(f"Detector type must be one of {self.ALLOWED_DETECTOR_TYPES}, got '{self.detector_type}'.")
-                
+
         if not self.is_auto_BC:
             if self.brightness is None or self.contrast is None:
                 raise ValueError(
                     "If is_auto_BC is False, both brightness and contrast must be provided."
                 )
 
+        return self
 
-@dataclass
-class SampleConfig:
+
+class SampleConfig(BaseModel):
     """
     Configuration for the sample.
 
@@ -128,69 +130,71 @@ class SampleConfig:
     ID: str
     elements: List[str]
     type: str = cnst.S_POWDER_SAMPLE_TYPE
-    w_frs: Dict[str, float] = None
-    center_pos: Tuple[float, float] = (0.0, 0.0) # in mm
+    w_frs: Optional[Dict[str, float]] = None
+    center_pos: Tuple[float, float] = (0.0, 0.0)  # in mm
     half_width_mm: float = 2.9  # in mm
 
-    ALLOWED_TYPES = (cnst.S_POWDER_SAMPLE_TYPE,
-                     cnst.S_POWDER_CONTINUOUS_SAMPLE_TYPE,
-                     cnst.S_BULK_SAMPLE_TYPE,
-                     cnst.S_BULK_ROUGH_SAMPLE_TYPE,
-                     cnst.S_FILM_SAMPLE_TYPE
-                     )
-    
-    POWDER_SAMPLES_TYPES = [cnst.S_POWDER_SAMPLE_TYPE, cnst.S_POWDER_CONTINUOUS_SAMPLE_TYPE]
-    is_powder_sample: bool = False # default, overwritten based on type
-    
-    ROUGH_SURFACE_TYPES  = POWDER_SAMPLES_TYPES + [cnst.S_BULK_ROUGH_SAMPLE_TYPE]
-    is_surface_rough: bool = False # default, overwritten based on type
-    
-    GRID_ACQUISITION_TYPES = (cnst.S_BULK_SAMPLE_TYPE,
-                              cnst.S_POWDER_CONTINUOUS_SAMPLE_TYPE,
-                              cnst.S_BULK_ROUGH_SAMPLE_TYPE,
-                              cnst.S_FILM_SAMPLE_TYPE)
-    is_grid_acquisition: bool = False # default, overwritten based on type
-    
-    PARTICLE_ACQUISITION_TYPES = (cnst.S_POWDER_SAMPLE_TYPE)
-    is_particle_acquisition: bool = False # default, overwritten based on type
+    ALLOWED_TYPES: ClassVar[Tuple[str, ...]] = (
+        cnst.S_POWDER_SAMPLE_TYPE,
+        cnst.S_POWDER_CONTINUOUS_SAMPLE_TYPE,
+        cnst.S_BULK_SAMPLE_TYPE,
+        cnst.S_BULK_ROUGH_SAMPLE_TYPE,
+        cnst.S_FILM_SAMPLE_TYPE,
+    )
 
-    def __post_init__(self) -> None:
-        # Validate and clean sample ID
+    POWDER_SAMPLES_TYPES: ClassVar[List[str]] = [cnst.S_POWDER_SAMPLE_TYPE, cnst.S_POWDER_CONTINUOUS_SAMPLE_TYPE]
+    is_powder_sample: bool = False  # overwritten based on type
+
+    ROUGH_SURFACE_TYPES: ClassVar[List[str]] = POWDER_SAMPLES_TYPES + [cnst.S_BULK_ROUGH_SAMPLE_TYPE]
+    is_surface_rough: bool = False  # overwritten based on type
+
+    GRID_ACQUISITION_TYPES: ClassVar[Tuple[str, ...]] = (
+        cnst.S_BULK_SAMPLE_TYPE,
+        cnst.S_POWDER_CONTINUOUS_SAMPLE_TYPE,
+        cnst.S_BULK_ROUGH_SAMPLE_TYPE,
+        cnst.S_FILM_SAMPLE_TYPE,
+    )
+    is_grid_acquisition: bool = False  # overwritten based on type
+
+    PARTICLE_ACQUISITION_TYPES: ClassVar[str] = cnst.S_POWDER_SAMPLE_TYPE
+    is_particle_acquisition: bool = False  # overwritten based on type
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def _validate(self) -> "SampleConfig":
         self.ID = self._clean_ID(self.ID)
-        
-        # Validate sample type
+
         if self.type not in self.ALLOWED_TYPES:
             raise ValueError(f"Sample type must be one of {self.ALLOWED_TYPES}, got '{self.type}'.")
 
         if self.type in (cnst.S_FILM_SAMPLE_TYPE):
             raise NotImplementedError(f"Sample type '{self.type}' is not implemented yet.")
 
-        # Validate element symbols using pymatgen
         for symbol in self.elements:
             try:
                 Element(symbol)
             except Exception:
                 raise ValueError(f"Element symbol '{symbol}' is not a recognized element.")
-        
-        # Set attribute values based on type
+
         self.is_powder_sample = self.type in self.POWDER_SAMPLES_TYPES
         self.is_surface_rough = self.type in self.ROUGH_SURFACE_TYPES
         self.is_grid_acquisition = self.type in self.GRID_ACQUISITION_TYPES
         self.is_particle_acquisition = self.type in self.PARTICLE_ACQUISITION_TYPES
-    
+
+        return self
+
     @staticmethod
     def _clean_ID(ID: str) -> str:
         """Remove trailing whitespace and invisible characters from the ID to avoid errors in output saving."""
         cleaned_ID = ID.rstrip()
         if cleaned_ID != ID:
             print(f"Warning: ID '{ID}' contained trailing whitespace or invisible characters. Using cleaned ID: '{cleaned_ID}'")
-        # Remove leading and trailing invisible characters
         cleaned_ID = re.sub(r'^\W+|\W+$', '', cleaned_ID)
         return cleaned_ID
 
 
-@dataclass
-class SampleSubstrateConfig:
+class SampleSubstrateConfig(BaseModel):
     """
     Configuration for the sample substrate.
 
@@ -204,42 +208,45 @@ class SampleSubstrateConfig:
     Notes:
         - Element symbols are validated. An error is raised if any symbol is unrecognized.
     """
-    elements: List[str] = field(default_factory=lambda: ['C', 'O', 'Al'])
+
+    elements: List[str] = Field(default_factory=lambda: ['C', 'O', 'Al'])
     type: str = cnst.CTAPE_SUBSTRATE_TYPE
     shape: str = cnst.CIRCLE_SUBSTRATE_SHAPE
     auto_detection: bool = True
     stub_w_mm: float = 12
 
-    ALLOWED_TYPES = (cnst.CTAPE_SUBSTRATE_TYPE, cnst.NONE_SUBSTRATE_TYPE)
-    ALLOWED_SHAPES = (cnst.CIRCLE_SUBSTRATE_SHAPE, cnst.SQUARE_SUBSTRATE_SHAPE)
-    ALLOWED_AUTO_DETECTION_TYPES = (cnst.CTAPE_SUBSTRATE_TYPE)
+    ALLOWED_TYPES: ClassVar[Tuple[str, ...]] = (cnst.CTAPE_SUBSTRATE_TYPE, cnst.NONE_SUBSTRATE_TYPE)
+    ALLOWED_SHAPES: ClassVar[Tuple[str, ...]] = (cnst.CIRCLE_SUBSTRATE_SHAPE, cnst.SQUARE_SUBSTRATE_SHAPE)
+    ALLOWED_AUTO_DETECTION_TYPES: ClassVar[str] = cnst.CTAPE_SUBSTRATE_TYPE
 
-    def __post_init__(self):
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def _validate(self) -> "SampleSubstrateConfig":
         if self.type not in self.ALLOWED_TYPES:
             raise ValueError(f"SampleSubstrate type must be one of {self.ALLOWED_TYPES}")
         if self.shape not in self.ALLOWED_SHAPES:
             raise ValueError(f"SampleSubstrate shape must be one of {self.ALLOWED_SHAPES}")
         if self.auto_detection and self.type != cnst.CTAPE_SUBSTRATE_TYPE:
             raise NotImplementedError(f"auto_detection is only implemented for types {self.ALLOWED_AUTO_DETECTION_TYPES}.")
-        # Validate element symbols using pymatgen
         for symbol in self.elements:
             try:
                 Element(symbol)
             except Exception:
                 raise ValueError(f"Element symbol '{symbol}' is not a recognized element.")
+        return self
 
 
-@dataclass
-class MeasurementConfig:
+class MeasurementConfig(BaseModel):
     """
     Configuration for the measurement/acquisition.
 
     Attributes:
         type (str): Measurement type. Allowed: 'EDS' (implemented), 'WDS' (not implemented).
         mode (str): Measurement mode (e.g., 'point'). Defines set of measurement parameters (i.e., beam current), determining detector calibration parameters
-        working_distance (Optional[float]): Working distance to use for current measurement, in mm. Takes it from EM_driver if left unspecified. 
+        working_distance (Optional[float]): Working distance to use for current measurement, in mm. Takes it from EM_driver if left unspecified.
         working_distance_tolerance (Optional[float]): Defines maximum accepted deviation of working distance from its typical value, in mm.
-            Used to prevent gross mistakes from EM autofocus. Default: 1 mm. 
+            Used to prevent gross mistakes from EM autofocus. Default: 1 mm.
         beam_energy_keV (float): Electron beam energy in keV.
         beam_current (Optional[float]): Beam current; must be provided at initialization or via detector channel calibration file.
         emergence_angle (Optional[float]): Emergence angle; updated from microscope driver file if not provided.
@@ -256,30 +263,32 @@ class MeasurementConfig:
 
     type: str = dflt.measurement_type
     mode: str = dflt.measurement_mode
-    working_distance: float = None # mm
-    working_distance_tolerance: float = 1 # mm
+    working_distance: Optional[float] = None  # mm
+    working_distance_tolerance: float = 1  # mm
     beam_energy_keV: float = 15.0  # in keV
-    beam_current: Optional[float] = None  # Provide at initialization or via calibration
-    emergence_angle: Optional[float] = None  # Updated from microscope driver if not provided
+    beam_current: Optional[float] = None
+    emergence_angle: Optional[float] = None
     is_manual_navigation: bool = False
     max_acquisition_time: float = 30.0  # seconds
     target_acquisition_counts: int = 50000
     min_n_spectra: int = 30
     max_n_spectra: int = 100
-    
-    PARTICLE_STATS_MEAS_TYPE_KEY = "particle_stats"
-    ALLOWED_TYPES = ("EDS", "WDS", PARTICLE_STATS_MEAS_TYPE_KEY)
 
-    def __post_init__(self) -> None:
+    PARTICLE_STATS_MEAS_TYPE_KEY: ClassVar[str] = "particle_stats"
+    ALLOWED_TYPES: ClassVar[Tuple[str, ...]] = ("EDS", "WDS", "particle_stats")
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def _validate(self) -> "MeasurementConfig":
         if self.type not in self.ALLOWED_TYPES:
             raise ValueError(f"Measurement type must be one of {self.ALLOWED_TYPES}, got '{self.type}'.")
-
         if self.type == "WDS":
             raise NotImplementedError("WDS measurement type is not implemented yet.")
-            
-            
-@dataclass
-class QuantConfig:
+        return self
+
+
+class QuantConfig(BaseModel):
     """
     Configuration for X-ray spectrum fitting and quantification.
 
@@ -289,35 +298,32 @@ class QuantConfig:
         fit_tolerance (float): lmfit tolerance for fit convergence
         use_instrument_background (bool): Whether to use the instrument background in the fit (Default: False).
             If False, AutoEMX computes the background while fitting.
-        interrupt_fits_bad_spectra (bool): If True, fitting will stop early for spectra identified as poor quality.
         min_bckgrnd_cnts (Optional[int]): Minimum background counts required for spectrum not to be filtered out. Can be None.
         use_project_specific_std_dict (bool): If True, tries to load the dictionary of reference standards from the project folder.
-            If not found, uses the default file "EDS_Stds_beamenergykeV.json" at XSp_calibs/Microscopes/your_microscope.
+            If not found, uses the default file "EDS_Stds_{beamenergy}keV.json" at XSp_calibs/Microscopes/your_microscope.
     """
     method: str = dflt.quantification_method
     spectrum_lims: Tuple[float, float] = dflt.spectrum_lims
     fit_tolerance: float = 1e-4
     use_instrument_background: bool = dflt.use_instrument_background
-    interrupt_fits_bad_spectra: bool = True
     min_bckgrnd_cnts: Optional[int] = 5  # Can be None
-    num_CPU_cores: Optional[int] = None
     use_project_specific_std_dict: bool = False
-    
-    ALLOWED_METHODS = ['PB']
-    
-    def __post_init__(self) -> None:
+
+    ALLOWED_METHODS: ClassVar[List[str]] = ['PB']
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def _validate(self) -> "QuantConfig":
         if self.method not in self.ALLOWED_METHODS:
-            raise ValueError(f"Quantification method must be one of {self.ALLOWED_METHODS}, got '{self.method}'."
-                             "Currently no other method is implemented.")
-            
-        # Automatically select half of available CPU cores if not specified
-        if self.num_CPU_cores is None:
-            total_cores = multiprocessing.cpu_count()
-            self.num_CPU_cores = max(1, total_cores // 2)
+            raise ValueError(
+                f"Quantification method must be one of {self.ALLOWED_METHODS}, got '{self.method}'."
+                "Currently no other method is implemented."
+            )
+        return self
 
 
-@dataclass
-class PowderMeasurementConfig:
+class PowderMeasurementConfig(BaseModel):
     """
     Configuration for powder measurement.
 
@@ -342,29 +348,31 @@ class PowderMeasurementConfig:
         par_feature_selection (str): 'random' for random selection of points within bright regions, 'peaks' for brightest peak spots (default: 'random').
         par_spot_spacing (str): 'random' for unbiased spot selecton, 'maximized' for maximized spot spacing over particle (default: 'random').
     """
-    DEFAULT_PAR_SEGMENTATION_MODEL = "threshold_bright"
+    DEFAULT_PAR_SEGMENTATION_MODEL: ClassVar[str] = "threshold_bright"
 
     is_manual_particle_selection: bool = False
     is_known_powder_mixture_meas: bool = False
-    par_search_frame_width_um: float = None 
+    par_search_frame_width_um: Optional[float] = None
     max_n_par_per_frame: int = 30
     max_spectra_per_par: int = 3
     max_area_par: float = 300.0    # µm²
     min_area_par: float = 10.0     # µm²
     par_mask_margin: float = 1.0   # µm
-    xsp_spots_distance_um: float = 1.0 # µm
-    par_segmentation_model : str =  DEFAULT_PAR_SEGMENTATION_MODEL
-    par_brightness_thresh: int = 100 # in 8-bit image
-    par_xy_spots_thresh: int = 100  # considering particle pixel intensities are scaled to 8-bit image
+    xsp_spots_distance_um: float = 1.0  # µm
+    par_segmentation_model: str = "threshold_bright"
+    par_brightness_thresh: int = 100  # in 8-bit image
+    par_xy_spots_thresh: int = 100
     par_feature_selection: str = 'random'
     par_spot_spacing: str = 'random'
-    
-    AVAILABLE_PAR_SEGMENTATION_MODELS = [DEFAULT_PAR_SEGMENTATION_MODEL] + par_seg_models.AVAILABLE_SEGMENTATION_MODELS
-    AVAILABLE_FEATURE_SELECTION = ('random', 'peaks')
-    AVAILABLE_SPOT_SPACING_SELECTION = ('random', 'maximized')
-    
-    def __post_init__(self):
-        # --- 0. Check validity of passed variables
+
+    AVAILABLE_PAR_SEGMENTATION_MODELS: ClassVar[List[str]] = ["threshold_bright"] + par_seg_models.AVAILABLE_SEGMENTATION_MODELS
+    AVAILABLE_FEATURE_SELECTION: ClassVar[Tuple[str, ...]] = ('random', 'peaks')
+    AVAILABLE_SPOT_SPACING_SELECTION: ClassVar[Tuple[str, ...]] = ('random', 'maximized')
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def _validate(self) -> "PowderMeasurementConfig":
         if self.par_segmentation_model not in self.AVAILABLE_PAR_SEGMENTATION_MODELS:
             raise ValueError(
                 f'Value of "par_segmentation_model" set to {self.par_segmentation_model} is invalid. '
@@ -380,7 +388,6 @@ class PowderMeasurementConfig:
                 f'Value of "par_spot_spacing" set to {self.par_spot_spacing} is invalid. '
                 f'Must be one of {self.AVAILABLE_SPOT_SPACING_SELECTION}.'
             )
-        # Additional checks can be added here (e.g., for numeric bounds)
         if self.min_area_par < 0 or self.max_area_par < 0:
             raise ValueError("Particle area thresholds must be non-negative.")
         if self.max_area_par < self.min_area_par:
@@ -395,15 +402,13 @@ class PowderMeasurementConfig:
             raise ValueError("par_brightness_thresh must be in 0..255.")
         if not (0 <= self.par_xy_spots_thresh <= 255):
             raise ValueError("par_xy_spots_thresh must be in 0..255.")
-            
-        # --- 1. Define default par_search_frame_width_um if None
         if self.par_search_frame_width_um is None:
             max_par_radius = np.sqrt(self.max_area_par / np.pi)  # in µm
             self.par_search_frame_width_um = min(20 * max_par_radius, 500.0)  # µm
- 
+        return self
 
-@dataclass
-class BulkMeasurementConfig:
+
+class BulkMeasurementConfig(BaseModel):
     """
     Configuration for characterization or bulk-like samples.
 
@@ -423,63 +428,59 @@ class BulkMeasurementConfig:
     exclude_sample_margin : bool
         Whether to exclude the margin of the sample (useful if contaminated).
     """
+
     grid_spot_spacing_um: float = 100.0  # µm
     min_xsp_spots_distance_um: float = 5.0  # µm
-    image_frame_width_um: float = None # µm
+    image_frame_width_um: Optional[float] = None  # µm
     randomize_frames: bool = False
     exclude_sample_margin: bool = False
 
-    def __post_init__(self):
-        # Validate grid spot spacing
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def _validate(self) -> "BulkMeasurementConfig":
         if not (self.grid_spot_spacing_um > 0):
             raise ValueError("grid_spot_spacing_um must be positive.")
-
-        # Validate minimum spot distance
         if not (self.min_xsp_spots_distance_um > 0):
             raise ValueError("min_xsp_spots_distance_um must be positive.")
-
         if self.min_xsp_spots_distance_um > self.grid_spot_spacing_um:
-            raise ValueError(
-                "min_xsp_spots_distance_um should not exceed grid_spot_spacing_um."
-            )
-
-        # Set default image frame width if unspecified
+            raise ValueError("min_xsp_spots_distance_um should not exceed grid_spot_spacing_um.")
         if self.image_frame_width_um is None:
             self.image_frame_width_um = 10 * self.grid_spot_spacing_um
- 
+        return self
 
-@dataclass
-class ExpStandardsConfig:
+
+class ExpStandardsConfig(BaseModel):
     """
     Configuration for the collection of experimental standards.
 
     Attributes:
-        is_exp_std_measurement (bool): 
+        is_exp_std_measurement (bool):
             Whether the configuration corresponds to the measurement of an experimental standard (Default = False)
             If True, a valid `formula` must be provided and weight fractions will be automatically calculated.
 
-        formula (str): 
+        formula (str):
             Chemical formula of the experimental standard. Required if `is_exp_std_measurement` is True.
             Must be parseable by `pymatgen.core.Composition`.
-        
+
         use_for_mean_PB_calc (bool):
-            Whether the acquired experimental standards should be used to calculate the average PB, which is the 
+            Whether the acquired experimental standards should be used to calculate the average PB, which is the
             reference standard value employed generally during spectral quantification (Default = True).
             This should be set to False when collecting powder standards for quantifying the extent of intermixing
             in powder standards.
-                
+
         generate_separate_std_dict (bool):
-            Whether the acquired reference standard values are added to the current reference dictionary. If True, 
+            Whether the acquired reference standard values are added to the current reference dictionary. If True,
             copies the current standard dictionary to the project folder and updates it. If such .json file is already
             present in the project folder, then it updates it. This is generally used when measuring the extent of
             powder precursor intermixing (i.e., powder_meas_cfg_kwargs["is_known_powder_mixture_meas"] = True).
-            
-        min_acceptable_PB_ratio (float): 
-            Minimum PB ratio required for a peak to be accepted as a standard. in cnts/cnts*keV^-1 (Deafult = 10).
-        
-        quant_flags_accepted (List[int]): 
+
+        min_acceptable_PB_ratio (float):
+            Minimum PB ratio required for a peak to be accepted as a standard. in cnts/cnts*keV^-1 (Default = 10).
+
+        quant_flags_accepted (List[int]):
             List of quantification flags considered acceptable. Other spectra are filtered out before clustering.
-            Quantification flags indicate whether the quantification or the fit of each spectrum is likely to be 
+            Quantification flags indicate whether the quantification or the fit of each spectrum is likely to be
             affected by large errors:
                 - 0  : Quantification is ok, although it may be affected by large analytical error.
                 - \-1  : As above, but quantification did not converge within 30 steps.
@@ -494,42 +495,42 @@ class ExpStandardsConfig:
                 - 9  : Unknown fitting error.
                 - 10 : (Only for measurement of experimental standards) Reference peak missing.
 
-        w_frs (Optional[Dict[str, float]]): 
+        w_frs (Optional[Dict[str, float]]):
             Dictionary of element symbols and their corresponding weight fractions (computed via pymatgen)
             if `is_exp_std_measurement` is True and `formula` is valid; otherwise None.
 
     Raises:
-        ValueError: 
+        ValueError:
             If `is_exp_std_measurement` is True but `formula` is missing or invalid.
     """
 
-    
     is_exp_std_measurement: bool = False
     formula: str = ''
     use_for_mean_PB_calc: bool = True
     generate_separate_std_dict: bool = False
     min_acceptable_PB_ratio: float = 10
-    quant_flags_accepted: List[int] = field(default_factory=lambda: [0])
-    w_frs: Optional[Dict[str, float]] = None  # Will hold calculated weight fractions
+    quant_flags_accepted: List[int] = Field(default_factory=lambda: [0])
+    w_frs: Optional[Dict[str, float]] = None
 
-    def __post_init__(self) -> None:
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def _validate(self) -> "ExpStandardsConfig":
         if self.is_exp_std_measurement:
             if not self.formula:
                 raise ValueError("Formula must be provided when is_exp_std_measurement is True.")
             try:
                 comp = Composition(self.formula)
-                # Convert FloatWithUnit to plain float
                 try:
                     self.w_frs = {el: float(w) for el, w in comp.as_weight_dict.items()}
-                except: # Old pymatgen version
+                except Exception:
                     self.w_frs = {el: float(w) for el, w in comp.to_weight_dict.items()}
             except Exception as e:
                 raise ValueError(f"Invalid chemical formula '{self.formula}': {e}")
-        
-        
+        return self
 
-@dataclass
-class ClusteringConfig:
+
+class ClusteringConfig(BaseModel):
     """
     Configuration for clustering of compositions and their filtering.
 
@@ -557,23 +558,27 @@ class ClusteringConfig:
                - 8: Too few background counts below reference peak, likely leading to large quantification errors
                - 9: Unknown fitting error
     """
+
+    DEFAULT_K_FINDING_METHOD: ClassVar[str] = 'silhouette'
+    FORCED_K_METHOD_KEY: ClassVar[str] = 'forced'
+    ALLOWED_METHODS: ClassVar[Tuple[str, ...]] = ("kmeans", "dbscan")
+    ALLOWED_FEATURE_SETS: ClassVar[tuple] = (cnst.W_FR_CL_FEAT, cnst.AT_FR_CL_FEAT)
+    ALLOWED_K_FINDING_METHODS: ClassVar[Tuple[str, ...]] = ("silhouette", "calinski_harabasz", "elbow", "forced")
+
     method: str = 'kmeans'
-    features: List[Any] = field(default_factory=lambda: cnst.AT_FR_CL_FEAT)
+    features: List[Any] = Field(default_factory=lambda: cnst.AT_FR_CL_FEAT)
     k: Optional[int] = None
-    DEFAULT_K_FINDING_METHOD = 'silhouette'
-    k_finding_method: str = DEFAULT_K_FINDING_METHOD
+    k_finding_method: str = 'silhouette'
     max_k: int = 6
-    ref_formulae: List[str] = field(default_factory=list)
+    ref_formulae: List[str] = Field(default_factory=list)
     do_matrix_decomposition: bool = True
     max_analytical_error_percent: float = 5  # w%, Can be None
-    quant_flags_accepted: List[int] = field(default_factory=lambda: [0, -1])
-    
-    FORCED_K_METHOD_KEY = 'forced'
-    ALLOWED_METHODS = ("kmeans", "dbscan")
-    ALLOWED_FEATURE_SETS = (cnst.W_FR_CL_FEAT, cnst.AT_FR_CL_FEAT)
-    ALLOWED_K_FINDING_METHODS = ("silhouette", "calinski_harabasz", "elbow", FORCED_K_METHOD_KEY)
+    quant_flags_accepted: List[int] = Field(default_factory=lambda: [0, -1])
 
-    def __post_init__(self):    
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def _validate(self) -> "ClusteringConfig":
         if self.method not in self.ALLOWED_METHODS:
             raise ValueError(f"Clustering method must be one of {self.ALLOWED_METHODS}, got '{self.method}'.")
         if self.method == "dbscan":
@@ -595,11 +600,10 @@ class ClusteringConfig:
                 f"'k_finding_method' should not be set to {self.FORCED_K_METHOD_KEY} if "
                 f"'k' is left unspecified. Setting 'k_finding_method = {self.DEFAULT_K_FINDING_METHOD}'."
             )
-            
-    
-    
-@dataclass
-class PlotConfig:
+        return self
+
+
+class PlotConfig(BaseModel):
     """
     Configuration for plotting.
 
@@ -611,15 +615,18 @@ class PlotConfig:
         show_plots (bool): Whether to display plots interactively.
         use_custom_plots (bool): Whether to use custom plotting routines.
     """
+
     show_unused_comps_clust: bool = True
-    els_excluded_clust_plot: List[str] = field(default_factory=list)
+    els_excluded_clust_plot: List[str] = Field(default_factory=list)
     show_legend_clustering: bool = True
     save_plots: bool = True
     show_plots: bool = False
     use_custom_plots: bool = False
-    
-    
-# Dictionary of all dataclasses. Loaded for data import
+
+    model_config = ConfigDict(extra="forbid")
+
+
+# Dictionary of all config models. Loaded for data import
 config_classes_dict = {
     cnst.SAMPLE_CFG_KEY: SampleConfig,
     cnst.MICROSCOPE_CFG_KEY: MicroscopeConfig,

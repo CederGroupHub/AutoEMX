@@ -366,50 +366,86 @@ def acquire_XS_spectral_data(
     EMError
         If acquisition or quantification fails.
     """
-    spectrum_data = background_data = real_time = live_time = None
+    phenom_spectrum = _acquire_spot_spectrum(
+        analyzer,
+        x,
+        y,
+        max_collection_time,
+        target_counts,
+    )
 
+    background_data = _try_extract_instrument_background(phenom_spectrum, elements)
+
+    spectrum_data = phenom_spectrum.spectrum.data
+    real_time = phenom_spectrum.metadata.realTime
+    live_time = phenom_spectrum.metadata.liveTime
+
+    _export_msa_if_requested(phenom_spectrum, msa_file_export_path)
+
+    return spectrum_data, background_data, real_time, live_time
+
+
+def _acquire_spot_spectrum(
+    analyzer,
+    x: float,
+    y: float,
+    max_collection_time: float,
+    target_counts: int,
+):
+    """Acquire one spot spectrum and return the proprietary spectrum object."""
     try:
-        # Add a new spot measurement.  
-        spotData = analyzer.AddSpot(
+        spot_data = analyzer.AddSpot(
             ppi.Position(x, y),
             maxTime=max_collection_time,
-            maxCounts=target_counts
+            maxCounts=target_counts,
         )
     except Exception as er:
         raise EMError(
             f"The following error was encountered during X-Ray Spectrum acquisition:\n{er}\nSpectrum not recorded."
         )
 
-    # Wait for EDS spectrum collection to complete.
     analyzer.Wait()
+    return spot_data.spotSpectrum
 
-    # Fetch spectrum data.
-    phenom_spectrum = spotData.spotSpectrum
 
-    # Quantify spectrum to retrieve background if elements are provided.
-    if elements:
+def _try_extract_instrument_background(phenom_spectrum, elements: Optional[List[str]]) -> Optional[np.ndarray]:
+    """Attempt proprietary background estimation; warn and return None on failure."""
+    if not elements:
+        return None
+
+    try:
         ppi_elements = [getattr(ppi.Spectroscopy.Element, el) for el in elements]
-        try:
-            phenom_background = ppi.Spectroscopy.Quantify(phenom_spectrum, ppi_elements).background
-            background_data = phenom_background.data
-        except Exception as er:
-            raise EMError(
-                f"The following error was encountered during spectral quantification by EM proprietary software:\n{er}\nBackground not recorded."
-            )
+    except Exception as er:
+        warnings.warn(
+            "Could not map requested elements for instrument background estimation; "
+            f"falling back to automatic background subtraction. Details: {er}"
+        )
+        return None
 
-    spectrum_data = phenom_spectrum.spectrum.data
-    real_time = phenom_spectrum.metadata.realTime
-    live_time = phenom_spectrum.metadata.liveTime
-    
-    if msa_file_export_path is not None:
-        import os
-        base_dir = os.path.dirname(msa_file_export_path)
-        if os.path.exists(base_dir):
-            ppi.Spectroscopy.WriteMsaFile(phenom_spectrum, msa_file_export_path)
-        else:
-            print(f"msa file could not be exported because the provided path does not exist: {base_dir}")
+    try:
+        phenom_background = ppi.Spectroscopy.Quantify(phenom_spectrum, ppi_elements).background
+        return phenom_background.data
+    except Exception as er:
+        warnings.warn(
+            "Instrument background estimation failed in microscope software; "
+            f"falling back to automatic background subtraction. Details: {er}"
+        )
+        return None
 
-    return spectrum_data, background_data, real_time, live_time
+
+def _export_msa_if_requested(phenom_spectrum, msa_file_export_path: Optional[str]) -> None:
+    """Write the proprietary .msa file when a valid export path is provided."""
+    if msa_file_export_path is None:
+        return
+
+    base_dir = os.path.dirname(msa_file_export_path)
+    if os.path.exists(base_dir):
+        ppi.Spectroscopy.WriteMsaFile(phenom_spectrum, msa_file_export_path)
+    else:
+        warnings.warn(
+            "MSA file could not be exported because the provided path does not exist: "
+            f"{base_dir}"
+        )
     
 # =============================================================================
 # Focus and Image Adjustment

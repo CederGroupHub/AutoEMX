@@ -67,7 +67,7 @@ import os
 import re
 import warnings
 import traceback
-from typing import Optional, Dict, Tuple, Sequence, List, Union
+from typing import Any, Optional, Dict, Tuple, Sequence, List, Union
 
 # =============================================================================
 # Third-party library imports
@@ -99,6 +99,12 @@ from autoemx.core.fitter import (
     XSp_Fitter,
     Background_Model,
     Peaks_Model
+)
+from autoemx.config.schemas import (
+    FitResult as QuantFitResult,
+    FittedPeakResult,
+    QuantificationDiagnostics,
+    QuantificationResult,
 )
 from .corrections import Quant_Corrections
 
@@ -313,6 +319,10 @@ class XSp_Quantifier:
         # Standards
         self.standards = standards_dict  # If None, it is loaded during quantification
         self.bad_quant_flag = None # Initialise, for spectra that are not quantified
+        self.iterations_run: Optional[int] = None
+        self.quant_converged: Optional[bool] = None
+        self.ref_lines_for_quant: List[str] = []
+        self.missing_reference_peaks: List[str] = []
 
         self.verbose = verbose
         self.fitting_verbose = fitting_verbose
@@ -765,6 +775,7 @@ class XSp_Quantifier:
     
         self.ref_lines_for_quant = ref_lines_for_quant # List of el_lines used for quantification
         self.fitted_els_quant = [el for el in self.fitted_els_quant if el not in els_absent] # Updates list of quantified elements
+        self.missing_reference_peaks = els_absent
 
 
     #%% Setup compositional quantification
@@ -899,6 +910,7 @@ class XSp_Quantifier:
         initial_weights_dict = {}
         iter_counter = 1 # Iteration counter
         max_iterations = 30  # Maximum allowed iterations
+        converged = True
 
     
         # Get initial value for parameter 'K' before initializing the fitter (Iteration 0)
@@ -960,6 +972,7 @@ class XSp_Quantifier:
         if is_fit_valid and fit_iteratively:
             w_fr_change_convergence = 0.0001 # ZAF corrections converge when change in mass fraction is less than 0.01%
             diff_mass_fractions = 1  # To monitor convergence
+            converged = False
 
             # Normalize mass fractions
             prev_weight_fractions = self._normalise_mass_fractions(weight_fractions)
@@ -1018,6 +1031,8 @@ class XSp_Quantifier:
     
                 # Update for next iteration
                 prev_weight_fractions = norm_mass_fractions
+
+            converged = diff_mass_fractions <= w_fr_change_convergence
     
             if self.verbose:
                 print(f"Spectrum fitted with {iter_counter} iterations")
@@ -1052,8 +1067,11 @@ class XSp_Quantifier:
         else:
             quant_result = None
             min_bckgrnd_ref_lines = 0
+            converged = False
         
         self.bad_quant_flag = bad_quant_flag
+        self.iterations_run = iter_counter
+        self.quant_converged = converged and is_fit_valid
         
         return quant_result, min_bckgrnd_ref_lines, bad_quant_flag
 
@@ -1085,6 +1103,108 @@ class XSp_Quantifier:
                 min_bckgrnd_ref_lines = min(min_bckgrnd_ref_lines, min_background)
     
         return min_bckgrnd_ref_lines
+
+
+    def _get_min_bckgrnd_cnts_by_ref_quant_line(self) -> Dict[str, float]:
+        """Return minimum background counts for each reference line used for quantification."""
+        min_background_by_line: Dict[str, float] = {}
+
+        if not hasattr(self, 'background_vals'):
+            return min_background_by_line
+
+        for el_line in self.ref_lines_for_quant:
+            peak_center = self.fitted_peaks_info[el_line][cnst.PEAK_CENTER_KEY]
+            peak_fwhm = self.fitted_peaks_info[el_line][cnst.PEAK_FWHM_KEY]
+
+            peak_indices = [
+                i for i, energy in enumerate(self.energy_vals)
+                if (peak_center - peak_fwhm) < energy < (peak_center + peak_fwhm)
+            ]
+
+            if peak_indices:
+                min_background_by_line[el_line] = float(min(self.background_vals[i] for i in peak_indices))
+
+        return min_background_by_line
+
+
+    def _get_reference_lines_by_element(self) -> Dict[str, str]:
+        """Map each quantified element to the fitted line selected for quantification."""
+        return {
+            el_line.split('_', 1)[0]: el_line
+            for el_line in self.ref_lines_for_quant
+        }
+
+
+    def _get_r_squared(self) -> float:
+        """Compute R-squared from the current fit."""
+        return float(1 - self.fit_result.residual.var() / np.var(self.spectrum_vals))
+
+
+    def export_fit_result(self) -> QuantFitResult:
+        """Build a schema-ready fit summary from the current fitted peak state."""
+        if not hasattr(self, 'fitted_peaks_info') or not hasattr(self, 'fit_result'):
+            raise ValueError("Fit results are not available. Fit the spectrum before exporting fit data.")
+
+        fitted_peaks: Dict[str, FittedPeakResult] = {}
+        for el_line, peak_info in self.fitted_peaks_info.items():
+            try:
+                element, line = el_line.split('_', 1)
+            except ValueError as exc:
+                raise ValueError(f"Unexpected fitted peak key format: '{el_line}'") from exc
+
+            fitted_peaks[el_line] = FittedPeakResult(
+                element=element,
+                line=line,
+                area=peak_info.get(cnst.PEAK_AREA_KEY),
+                sigma=peak_info.get(cnst.PEAK_SIGMA_KEY),
+                center=peak_info.get(cnst.PEAK_CENTER_KEY),
+                fwhm=peak_info.get(cnst.PEAK_FWHM_KEY),
+                peak_intensity=peak_info.get(cnst.PEAK_INTENSITY_KEY),
+                background_intensity=peak_info.get(cnst.BACKGROUND_INT_KEY),
+                theoretical_energy=peak_info.get(cnst.PEAK_TH_ENERGY_KEY),
+                height=peak_info.get(cnst.PEAK_HEIGHT_KEY),
+                pb_ratio=peak_info.get(cnst.PB_RATIO_KEY),
+            )
+
+        return QuantFitResult(
+            r_squared=self._get_r_squared(),
+            reduced_chi_squared=float(self.fit_result.redchi),
+            fitted_peaks=fitted_peaks,
+            reference_lines_by_element=self._get_reference_lines_by_element(),
+        )
+
+
+    def export_quantification_result(
+        self,
+        quantification_id: str,
+        quant_result: Optional[Dict[str, Any]],
+        quant_flag: Optional[int] = None,
+        comment: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> QuantificationResult:
+        """Build a persisted quantification result for the current fitted spectrum."""
+        return QuantificationResult(
+            quantification_id=quantification_id,
+            quant_flag=quant_flag,
+            comment=comment,
+            composition_atomic_fractions=(
+                dict(quant_result[cnst.COMP_AT_FR_KEY]) if quant_result else None
+            ),
+            composition_weight_fractions=(
+                dict(quant_result[cnst.COMP_W_FR_KEY]) if quant_result else None
+            ),
+            analytical_error=(
+                float(quant_result[cnst.AN_ER_KEY]) if quant_result and cnst.AN_ER_KEY in quant_result else None
+            ),
+            fit_result=self.export_fit_result() if hasattr(self, 'fit_result') else None,
+            diagnostics=QuantificationDiagnostics(
+                iterations_run=self.iterations_run,
+                converged=self.quant_converged,
+                min_background_ref_lines=self._get_min_bckgrnd_cnts_by_ref_quant_line(),
+                missing_reference_peaks=list(self.missing_reference_peaks),
+            ),
+            metadata=metadata,
+        )
     
     
     def _assemble_quantification_result(self, weight_fractions, analytical_er):
@@ -1120,9 +1240,7 @@ class XSp_Quantifier:
         # Add analytical error, reduced chi-square, and R-squared to results
         quant_result[cnst.AN_ER_KEY] = round(analytical_er, 4)
         quant_result[cnst.REDCHI_SQ_KEY] = round(self.fit_result.redchi, 1)
-        quant_result[cnst.R_SQ_KEY] = round(
-            1 - self.fit_result.residual.var() / np.var(self.spectrum_vals), 6
-        )
+        quant_result[cnst.R_SQ_KEY] = round(self._get_r_squared(), 6)
     
         return quant_result
     

@@ -30,6 +30,9 @@ use_instrument_background : bool
     Whether to use instrument background files during fitting.
     If False, background is computed during fitting.
     Default is `False` (QuantConfig.use_instrument_background).
+RAW_SPECTRUM_EXT : str
+    File extension used when writing per-spectrum raw data pointer files.
+    Default is `'.msa'` (EMSA/MAS format).
 
 Created on Sun Dec 21 18:59:50 2025
 
@@ -51,4 +54,6 @@ quantification_method: str = 'PB'
 spectrum_lims: (float, float) = (14, 1100)
 
 use_instrument_background: bool = False
+
+RAW_SPECTRUM_EXT: str = '.msa'
 

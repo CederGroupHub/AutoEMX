@@ -339,8 +339,10 @@ class EM_Controller:
         x: float,
         y: float,
         max_acquisition_time: float,
-        target_acquisition_counts: int
-    ) -> tuple:
+        target_acquisition_counts: int,
+        elements: Optional[List[str]] = None,
+        msa_file_path: Optional[str] = None,
+    ) -> Tuple:
         """
         Acquire an X-ray spectrum at the specified position.
         
@@ -357,10 +359,15 @@ class EM_Controller:
         
         Returns
         -------
-        spectrum_data, background_data, real_time, live_time
+        spectrum_data, background_data
         """
         return self.spectrum_acq.acquire_XS_spot_spectrum(
-            x, y, max_acquisition_time, target_acquisition_counts
+            x,
+            y,
+            max_acquisition_time,
+            target_acquisition_counts,
+            elements=elements,
+            msa_file_path=msa_file_path,
         )
     
     
