@@ -19,12 +19,12 @@ Created on Tue Jul 29 13:18:16 2025
 @author: Andrea
 """
 
-from autoemxsp.runners import analyze_sample
+from autoemx.runners import analyze_sample
 
 
 # =============================================================================
 # Paper data (Download data from github repository:
-#       https://github.com/CederGroupHub/AutoEMXSp/tree/main/paper_data)   
+#       https://github.com/CederGroupHub/AutoEMX/tree/main/paper_data)   
 # =============================================================================
 # --- Minerals
 # sample_ID = 'Alamosite_mineral'

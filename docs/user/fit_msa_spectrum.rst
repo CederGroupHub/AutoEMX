@@ -25,7 +25,7 @@ Phenom` SEM-EDS and by `Oxford Aztec` software.
 Step 1 - Open script to edit
 -------------------------------
 
-Open ``autoemxsp/scripts/Fit_Quant_Single_MSA_Spectrum.py``.
+Open ``autoemx/scripts/Fit_Quant_Single_MSA_Spectrum.py``.
 
 
 Step 2 - Define Spectrum to Fit

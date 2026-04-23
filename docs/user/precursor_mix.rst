@@ -8,7 +8,7 @@ When mixing two powder precursors together, use EDS to evaluate the extent of
 their spatial intermixing, known to affect solid-state reactions and the final
 impurity content.
 
-`AutoEMXSp` offers a method to quantify the extent of intermixing, helping the
+`AutoEMX` offers a method to quantify the extent of intermixing, helping the
 rationalization of impurity formation in solid-state reactions.
 See for example Fig. 6 in:
 
@@ -22,11 +22,11 @@ Output
 -------------------
 
 **The procedure to measure the extent of particle intermixing is analogous to 
-the standard AutoEMXSp EDS compositional analysis workflow**, except for a 
+the standard AutoEMX EDS compositional analysis workflow**, except for a 
 couple of small differences:
 
 - To enhance compositional measurement accuracy, given that the analysed material
-  is known, `AutoEMXSp` uses standard reference values for EDS
+  is known, `AutoEMX` uses standard reference values for EDS
   quantification that have been collected from the individual precursor
   chemistries, if available. If not available, the regular P/B reference
   values are used instead.
@@ -78,7 +78,7 @@ This will trigger two configurations:
 - ``exp_stds_meas_cfg_kwargs.generate_separate_std_dict = True``; this creates
   a new standard file for a set of precursor mix measurements for a specific
   project, and saves it in ``exp_std_dir``. If ``exp_std_dir`` is left to ``None``,
-  the default path will be used (i.e., ``autoemxsp/Std_measurements``).
+  the default path will be used (i.e., ``autoemx/Std_measurements``).
  
 Once all standards are measured, copy the ``EDS_Stds_{beam-energy}keV.json`` 
 file from ``exp_std_dir`` to the project folder, defined
@@ -102,12 +102,12 @@ The only differences are that, when preparing the acquisition script (i.e.,
   dictionary saved in the project folder, defined in ``results_dir``.
   If not found, it will use the default standard reference values.
 - Set ``powder_meas_cfg_kwargs.is_known_powder_mixture_meas = True``. This
-  option tells `AutoEMXSp` to use reference P/B values obtained from the known
+  option tells `AutoEMX` to use reference P/B values obtained from the known
   powder compositions, instead of the `Mean` of reference values measured also
   from other chemistries. Note that you can always turn off this option later
   when quantifying the spectra in ``Run_Quantification_Analysis.py``, setting
   ``is_known_precursor_mixture = False`` and passing this option to
-  ``batch_quantify_and_analyze()``. In this case, `AutoEMXSp` will use
+  ``batch_quantify_and_analyze()``. In this case, `AutoEMX` will use
   the P/B reference values commonly employed during regular compositional
   characterization of unknown sample chemistries for phase identification. 
 

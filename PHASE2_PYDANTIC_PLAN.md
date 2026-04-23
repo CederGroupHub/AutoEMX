@@ -7,7 +7,7 @@ Replace dictionary-based data flow with Pydantic models for type safety, validat
 
 ### 1. `QuantificationResult` ⭐ HIGHEST PRIORITY
 **Purpose:** Output of quantitative analysis  
-**Location:** To be placed in `autoemxsp/core/schemas.py`
+**Location:** To be placed in `autoemx/core/schemas.py`
 
 ```python
 class QuantificationResult(BaseModel):
@@ -33,7 +33,7 @@ class QuantificationResult(BaseModel):
 
 ### 2. `RawSpectralData`
 **Purpose:** Microscope acquisition data  
-**Location:** `autoemxsp/core/schemas.py`
+**Location:** `autoemx/core/schemas.py`
 
 ```python
 class RawSpectralData(BaseModel):
@@ -59,7 +59,7 @@ class RawSpectralData(BaseModel):
 
 ### 3. `SpectrumFitResult`
 **Purpose:** Complete fit information  
-**Location:** `autoemxsp/core/schemas.py`
+**Location:** `autoemx/core/schemas.py`
 
 ```python
 class SpectrumFitResult(BaseModel):
@@ -98,7 +98,7 @@ class FitParameter(BaseModel):
 
 ### 4. `SpectralDataBatch`
 **Purpose:** Collection of spectra for batch processing  
-**Location:** `autoemxsp/core/schemas.py`
+**Location:** `autoemx/core/schemas.py`
 
 ```python
 class SpectralDataBatch(BaseModel):
@@ -173,7 +173,7 @@ class SampleComposition(BaseModel):
 ## Implementation Strategy
 
 ### Phase 2a: Schema Definitions (Days 1-3)
-1. Create `autoemxsp/core/schemas.py`
+1. Create `autoemx/core/schemas.py`
 2. Define Priority 1 schemas with full validation
 3. Add custom validators for physics constraints
 4. Create utility functions for schema conversion
@@ -302,10 +302,10 @@ class Config:
 
 ## Related Files to Update
 
-- `autoemxsp/core/XSp_quantifier.py` — Return types
-- `autoemxsp/core/fitting/fitter.py` — Accept RawSpectralData
-- `autoemxsp/core/fitting/__init__.py` — Export schemas
-- `autoemxsp/runners/*.py` — Pass RawSpectralData objects
+- `autoemx/core/XSp_quantifier.py` — Return types
+- `autoemx/core/fitting/fitter.py` — Accept RawSpectralData
+- `autoemx/core/fitting/__init__.py` — Export schemas
+- `autoemx/runners/*.py` — Pass RawSpectralData objects
 - Test suite — Add schema validation tests
 
 ---

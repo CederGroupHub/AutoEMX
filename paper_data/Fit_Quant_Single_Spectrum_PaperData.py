@@ -17,7 +17,7 @@ Created on Tue Jul 29 13:18:16 2025
 @author: Andrea
 """
 
-from autoemxsp.runners import fit_and_quantify_spectrum
+from autoemx.runners import fit_and_quantify_spectrum
 
 # =============================================================================
 # Sample and spectrum to process
@@ -71,7 +71,7 @@ quantifier = fit_and_quantify_spectrum(
 )
 
 #%% Optionally print atomic and mass fractions of reference compound
-# from autoemxsp.tools.utils import print_element_fractions_table
+# from autoemx.tools.utils import print_element_fractions_table
 
 # This uses the elements from the loaded sample config
 # print_element_fractions_table('ZnF2')  # Or use: print_element_fractions_table(''.join(sample_cfg.elements))

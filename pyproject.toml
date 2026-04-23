@@ -1,6 +1,6 @@
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["autoemxsp"]
+include = ["autoemx", "autoemx.*", "autoemxsp", "autoemxsp.*"]
 exclude = ["paper_data", "examples", "tests"]
 
 [build-system]
@@ -8,9 +8,9 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "autoemxsp"
+name = "autoemx"
 version = "0.1.7"
-description = "AutoEMXSp - Automated Electron Microscopy X-Ray Spectroscopy for Compositional Characterization of Materials"
+description = "AutoEMX - Automated Electron Microscopy X-Ray Spectroscopy for Compositional Characterization of Materials"
 readme = "README.md"
 license = "LicenseRef-AcademicNonCommercial"
 license-files = ["LICENSE.txt"]

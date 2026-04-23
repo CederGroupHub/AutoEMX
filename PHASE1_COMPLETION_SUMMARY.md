@@ -1,4 +1,4 @@
-# AutoEMXSp Refactoring: Phase 1 & Phase 2 Summary
+# AutoEMX Refactoring: Phase 1 & Phase 2 Summary
 
 **Date:** April 20, 2026  
 **Status:** Phase 1 Complete ✅ | Phase 2 Schemas Created 📋
@@ -11,7 +11,7 @@
 Refactored the monolithic 4,252-line `XSp_fitter.py` into a clean, modular structure:
 
 ```
-autoemxsp/core/fitting/
+autoemx/core/fitting/
 ├── __init__.py                (31 lines)  - Public API exports
 ├── detector_response.py        (612 lines) - DetectorResponseFunction class
 ├── peaks.py                    (1,100 lines) - Peaks_Model class
@@ -29,10 +29,10 @@ autoemxsp/core/fitting/
 ✅ **Better import paths**
 ```python
 # OLD (hard to find classes)
-from autoemxsp.core.XSp_fitter import XSp_Fitter, Peaks_Model, Background_Model
+from autoemx.core.XSp_fitter import XSp_Fitter, Peaks_Model, Background_Model
 
 # NEW (clear module organization)
-from autoemxsp.core.fitting import XSp_Fitter, Peaks_Model, Background_Model, DetectorResponseFunction
+from autoemx.core.fitting import XSp_Fitter, Peaks_Model, Background_Model, DetectorResponseFunction
 ```
 
 ✅ **Dependency cleanup**
@@ -42,21 +42,21 @@ from autoemxsp.core.fitting import XSp_Fitter, Peaks_Model, Background_Model, De
 - All syntax validated ✓
 
 ### Files Modified/Created
-- ✅ Created `/autoemxsp/core/fitting/` directory
-- ✅ Created `/autoemxsp/core/fitting/__init__.py`
-- ✅ Created `/autoemxsp/core/fitting/detector_response.py`
-- ✅ Created `/autoemxsp/core/fitting/peaks.py`
-- ✅ Created `/autoemxsp/core/fitting/background.py`
-- ✅ Created `/autoemxsp/core/fitting/fitter.py`
-- ✅ Updated `/autoemxsp/core/XSp_quantifier.py` imports
-- ✅ Deleted old `/autoemxsp/core/XSp_fitter.py`
+- ✅ Created `/autoemx/core/fitting/` directory
+- ✅ Created `/autoemx/core/fitting/__init__.py`
+- ✅ Created `/autoemx/core/fitting/detector_response.py`
+- ✅ Created `/autoemx/core/fitting/peaks.py`
+- ✅ Created `/autoemx/core/fitting/background.py`
+- ✅ Created `/autoemx/core/fitting/fitter.py`
+- ✅ Updated `/autoemx/core/XSp_quantifier.py` imports
+- ✅ Deleted old `/autoemx/core/XSp_fitter.py`
 
 ---
 
 ## Phase 2: Pydantic Data Models 📋 IN PROGRESS
 
 ### What Was Created
-New file: `/autoemxsp/core/schemas.py` (450+ lines)
+New file: `/autoemx/core/schemas.py` (450+ lines)
 
 **Six core Pydantic models defined:**
 
@@ -147,7 +147,7 @@ Export to JSON/dict as needed
 - [ ] Add methods to `XSp_Fitter` to accept `RawSpectralData`
 - [ ] Add methods to `XSp_Quantifier` to return `SampleComposition`
 - [ ] Create conversion functions (lmfit → SpectrumFitResult)
-- [ ] Update runners in `/autoemxsp/runners/` to use new schemas
+- [ ] Update runners in `/autoemx/runners/` to use new schemas
 
 ### Week 2-3: Dataclass Refactoring
 - [ ] Convert `Peaks_Model` → `@dataclass` (lighter weight)

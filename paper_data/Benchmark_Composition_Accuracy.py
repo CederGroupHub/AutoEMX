@@ -21,9 +21,9 @@ from pymatviz.ptable import ptable_heatmap
 from collections import Counter
 from scipy.optimize import curve_fit
 
-import autoemxsp
-from autoemxsp.utils.helper import print_single_separator, print_double_separator, get_sample_dir
-import autoemxsp.utils.constants as cnst
+import autoemx
+from autoemx.utils.helper import print_single_separator, print_double_separator, get_sample_dir
+import autoemx.utils.constants as cnst
 
 okabeito_green = '#009E73'
 okabeito_orange = '#E69F00'

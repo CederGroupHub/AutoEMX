@@ -8,7 +8,7 @@ These tests intentionally avoid hardware-dependent paths and interactive plottin
 import os
 from pathlib import Path
 
-from autoemxsp.runners.Fit_and_Quantify_Spectrum_fromDatacsv import (
+from autoemx.runners.Fit_and_Quantify_Spectrum_fromDatacsv import (
     fit_and_quantify_spectrum_fromDatacsv,
 )
 

@@ -6,7 +6,7 @@ You can install the package using pip:
 
 .. code-block:: bash
 
-   pip install autoemxsp
+   pip install autoemx
 
 
 Alternatively, to ensure you are constantly up to date with the package during minor developments, you can clone the GitHub repository and use editable installation. This allows you to access the latest features or bug fixes that are not yet included in the latest release version.
@@ -24,7 +24,7 @@ To do this, follow these steps:
    
 .. code-block:: bash
 
-    git clone https://github.com/CederGroupHub/AutoEMXSp.git
+    git clone https://github.com/CederGroupHub/AutoEMX.git
 
 3. **Install the Package in Editable Mode:**
 
@@ -39,7 +39,7 @@ To ensure that you always have the latest version of the package, complete with 
 
 .. code-block:: bash
    
-    cd your/path/to/AutoEMXSp
+    cd your/path/to/AutoEMX
     
     
 2. **Pull Updates:**

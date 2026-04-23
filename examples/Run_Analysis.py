@@ -21,7 +21,7 @@ Created on Tue Jul 29 13:18:16 2025
 
 import os
 
-from autoemxsp.runners import analyze_sample
+from autoemx.runners import analyze_sample
 
 
 # =============================================================================

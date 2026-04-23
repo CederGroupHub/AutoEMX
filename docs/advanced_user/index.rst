@@ -3,7 +3,7 @@
 Advanced User Documentation
 ===========================
 
-Welcome to the AutoEMXSp user documentation.  
+Welcome to the AutoEMX user documentation.  
 Here you will find installation instructions, a quickstart guide, and the public API.
 
 .. toctree::

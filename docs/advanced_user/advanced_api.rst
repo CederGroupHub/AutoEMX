@@ -1,4 +1,4 @@
-AutoEMXSp Public API
+AutoEMX Public API
 ====================
 
 The following modules are intended for users.
@@ -6,6 +6,6 @@ The following modules are intended for users.
 .. toctree::
    :maxdepth: 2
     
-   ../_api/autoemxsp.XSp_calibs
-   ../_api/autoemxsp.EM_driver
-   ../_api/autoemxsp.core
+   ../_api/autoemx.XSp_calibs
+   ../_api/autoemx.EM_driver
+   ../_api/autoemx.core

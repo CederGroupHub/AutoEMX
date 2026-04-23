@@ -17,7 +17,7 @@ Created on Tue Jul 29 13:18:16 2025
 @author: Andrea
 """
 
-from autoemxsp.runners import fit_and_quantify_spectrum_fromDatacsv
+from autoemx.runners import fit_and_quantify_spectrum_fromDatacsv
 
 # =============================================================================
 # Sample and spectrum to process

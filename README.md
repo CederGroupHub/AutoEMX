@@ -2,12 +2,12 @@
 
 # AutoEMX 
 
-[![PyPI version](https://badge.fury.io/py/autoemxsp.svg)](https://pypi.org/project/autoemxsp/)
-[![Python Version](https://img.shields.io/pypi/pyversions/autoemxsp.svg)](https://pypi.org/project/autoemxsp/)
+[![PyPI version](https://badge.fury.io/py/autoemx.svg)](https://pypi.org/project/autoemx/)
+[![Python Version](https://img.shields.io/pypi/pyversions/autoemx.svg)](https://pypi.org/project/autoemx/)
 [![License: Custom Non-Commercial](https://img.shields.io/badge/license-Custom%20Non--Commercial-blue.svg)](https://github.com/CederGroupHub/AutoEMX/blob/main/LICENSE.txt)
 [![Research Square Preprint](https://img.shields.io/badge/Research%20Square-preprint-orange)](https://doi.org/10.21203/rs.3.rs-7837297/v2)  
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://cedergrouphub.github.io/AutoEMX/)
-[![PR Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat)](https://pypi.org/project/autoemxsp/)
+[![PR Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat)](https://pypi.org/project/autoemx/)
 
 
 **Automated Electron Microscopy X-Ray Spectroscopy for Compositional Characterization of Materials**
@@ -114,7 +114,7 @@ The repository is organized as follows:
 
 ```text
 AutoEMX/
-├── autoemxsp/                 # Main package source code
+├── autoemx/                 # Main package source code
 │   ├── _custom_plotting.py     # Customizable clustering plot function
 │   ├── config/                 # Configuration files, including default values to employ during measurements.
 │   ├── core/                   # Core objects and source code

@@ -2,7 +2,7 @@
 Quickstart Guide
 =========================
 
-This guide introduces how to use ``AutoEMXSp`` for typical workflows:
+This guide introduces how to use ``AutoEMX`` for typical workflows:
 
 - Identify how many phases you have in your sample, and measure their compositions via SEM-EDS
 - Fit and optionally quantify a single EDS spectrum to evaluate the model performance
@@ -11,7 +11,7 @@ This guide introduces how to use ``AutoEMXSp`` for typical workflows:
 
 .. warning::
 
-   If this is the first time `AutoEMXSp` is run on your microscope, note that there are a few steps required to set it up before `AutoEMXSp` can be properly run. Refer to :ref:`Advanced User <advanced_user_index>` docs.
+   If this is the first time `AutoEMX` is run on your microscope, note that there are a few steps required to set it up before `AutoEMX` can be properly run. Refer to :ref:`Advanced User <advanced_user_index>` docs.
 
 .. warning::
 
@@ -21,7 +21,7 @@ This guide introduces how to use ``AutoEMXSp`` for typical workflows:
 Workflows
 ----------------------------------------------------
 
-``AutoEMXSp`` comes with a selection of scripts (located at autoemxsp/scripts/) that require a minimal set of user-defined
+``AutoEMX`` comes with a selection of scripts (located at autoemx/scripts/) that require a minimal set of user-defined
 parameters for running:
 
 
@@ -30,7 +30,7 @@ EDS compositional analysis for phase identification
 
 Run the ``Run_Acquisition_Quant_Analysis.py`` script (:ref:`Tutorial <comp_analysis_tutorial>`):
 
-With one click, `AutoEMXSp` handles the full workflow from EDS spectral acquisition and quantification, to
+With one click, `AutoEMX` handles the full workflow from EDS spectral acquisition and quantification, to
 rule-based filtering of the quantified compositions and unsupervised machine-learning analysis to identify
 the different phase compositions in your sample.
 
@@ -45,10 +45,10 @@ See full workflow at:
 Fit and quantify a single EDS spectrum
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Run the ``Fit_Quant_Single_AutoEMXSp_Spectrum.py`` (:ref:`Tutorial <fit_autoemxsp_spectrum_tutorial>`)
+Run the ``Fit_Quant_Single_AutoEMX_Spectrum.py`` (:ref:`Tutorial <fit_autoemx_spectrum_tutorial>`)
 or the ``Fit_Quant_Single_MSA_Spectrum.py`` script (:ref:`Tutorial <fit_msa_spectrum_tutorial>`):
 
-Fit--and optionall quantify-- a single EDS spectrum acquired using ``AutoEMXSp`` or exported by commercial
+Fit--and optionall quantify-- a single EDS spectrum acquired using ``AutoEMX`` or exported by commercial
 EDS software (.msa, .emsa, .txt spectra files).
 
 These scripts print the full process in the terminal, the employed fit parameters and their final values. 
@@ -60,7 +60,7 @@ Measure particle size distribution via SEM
 
 Run the ``Collect_Particle_Statistics.py`` script (:ref:`Tutorial <particle_size_tutorial>`).
 
-Have `AutoEMXSp` collect multiple images, detect particles, and quantify their size distribution.
+Have `AutoEMX` collect multiple images, detect particles, and quantify their size distribution.
 
 
 
@@ -70,7 +70,7 @@ Quantify the extent of intermixing in precursor powders
 Run the ``Run_Acquisition_PrecursorMix.py`` script (:ref:`Tutorial <precursor_mix_tutorial>`):
 
 Use EDS to evaluate the extent of spatial intermixing of different precursor powders, known to affect
-the output of solid-state reactions. `AutoEMXSp` offers a method to quantify the intermixing, helping
+the output of solid-state reactions. `AutoEMX` offers a method to quantify the intermixing, helping
 the rationalization of impurity formation in solid-state reactions. See for example Fig. 6 in:
 
     Chem. Mater. 2025, 37, 6807−6822 (https://pubs.acs.org/doi/10.1021/acs.chemmater.5c01573)

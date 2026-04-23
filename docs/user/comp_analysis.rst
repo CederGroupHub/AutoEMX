@@ -28,7 +28,7 @@ Key output includes:
 Step 1 – Open script to edit
 ---------------------------
 
-Open ``autoemxsp/scripts/Run_Acquisition_Quant_Analysis.py``.
+Open ``autoemx/scripts/Run_Acquisition_Quant_Analysis.py``.
 
 In this tutorial, we'll walk you through all the necessary parameters to configure
 the measurement. For further details, see the :ref:`API <runners_acquire_spectra>` for the
@@ -69,7 +69,7 @@ is defined by a dictionary with the following keys:
   modified later when re-running clustering analysis.
 
 Additional keys may be defined in
-``autoemxsp.runners.batch_acquire_and_analyze`` to launch all together the
+``autoemx.runners.batch_acquire_and_analyze`` to launch all together the
 analysis of different types of samples, e.g. a `powder' and a `bulk`.
 See the *Template: Customizing Parameters Per Sample* section in the
 ``batch_acquire_and_analyze`` script.
@@ -79,12 +79,12 @@ Step 3 – Define measurement configurations
 ------------------------------------------
 
 Several parameters are microscope-specific and defined during the initial
-``AutoEMXSp`` setup.
+``AutoEMX`` setup.
 
 Additional user-modifiable parameters include:
 
 - ``results_dir``: Path to the project folder, where an individual folder per
-  sample will be created. If ``None``, defaults to ``autoemxsp/Results``.
+  sample will be created. If ``None``, defaults to ``autoemx/Results``.
 - ``beam_energy``: Beam energy (keV). A standard reference file must exist for
   this voltage.
 - ``is_manual_navigation``: Whether to manually navigate to the region of
@@ -132,7 +132,7 @@ parallelised but may be slow on less powerful microscope computers.
 In this case, it is recommended to set ``quantify_spectra = False``, and
 follow step 8 after EDS acquisition.
 
-When ``quantify_spectra = True``, ``AutoEMXSp`` periodically checks for
+When ``quantify_spectra = True``, ``AutoEMX`` periodically checks for
 convergence and may stop acquisition early.
 
 **Convergence criteria**
@@ -168,7 +168,7 @@ The following parameters require only re-analysis of compositions:
   for filtering compositions during clustering. Compositions exceeding this
   threshold will be discarded.
 - ``quant_flags_accepted``: Specifies which quantification flags are considered
-  valid during clustering. See :class:`Quantification Flag Descriptions <autoemxsp.config.classes.ClusteringConfig>` 
+  valid during clustering. See :class:`Quantification Flag Descriptions <autoemx.config.classes.ClusteringConfig>` 
   for details on each flag.
 - ``max_n_clusters``: Defines the maximum number of clusters that can be
   identified in the sample. This value should be large enough to capture all
@@ -190,8 +190,8 @@ Depending on ``sample_type``, define the following configurations:
   ``sample_type = 'powder_continuous'``, ``'bulk'``, or ``'bulk_rough'``. Set 
   dimensions to define a grid of EDS acquisition spots. 
 
-See the :class:`Powder Measurement Configurations <autoemxsp.config.classes.PowderMeasurementConfig>`
-for :class:`Bulk Measurement Configurations <autoemxsp.config.classes.BulkMeasurementConfig>` details.
+See the :class:`Powder Measurement Configurations <autoemx.config.classes.PowderMeasurementConfig>`
+for :class:`Bulk Measurement Configurations <autoemx.config.classes.BulkMeasurementConfig>` details.
 
 
 Step 7 – Launch spectra acquisition
@@ -202,10 +202,10 @@ The script must be launched at the SEM.
 Output
 ^^^^^^
 
-For each sample, ``AutoEMXSp`` creates a folder named after ``ID`` containing:
+For each sample, ``AutoEMX`` creates a folder named after ``ID`` containing:
 
 - ``Comp_analysis_configs.json``  
-  JSON file containing the full set of ``AutoEMXSp`` configurations used during
+  JSON file containing the full set of ``AutoEMX`` configurations used during
   acquisition and analysis.
 
 - ``EM_metadata.msa``  
@@ -250,7 +250,7 @@ For each sample, ``AutoEMXSp`` creates a folder named after ``ID`` containing:
   - ``(x, y)``  
     Position of the spectrum in the corresponding SEM image, expressed in relative
     coordinates as defined in the microscope driver located at 
-    ``autoemxsp/EM_driver/your_microscope_ID``.
+    ``autoemx/EM_driver/your_microscope_ID``.
 
   - ``Real_time``  
     Total acquisition time in seconds, measured from the beginning to the end
@@ -265,7 +265,7 @@ For each sample, ``AutoEMXSp`` creates a folder named after ``ID`` containing:
 
   - ``Background``  
     Background spectrum fitted by the microscope manufacturer.  
-    Only present if ``autoemxsp.config.defaults.use_instrument_background = True``.
+    Only present if ``autoemx.config.defaults.use_instrument_background = True``.
 
 
 
@@ -276,7 +276,7 @@ This step allows you to quantify spectra after acquisition. It is performed auto
 ``quantify_spectra = True`` was set during acquisition.
 
 Alternatively, the acquired data folder can be copied to a more performant machine (for example,
-with more CPU cores for faster parallel processing) and processed using ``autoemxsp/scripts/Run_Quantification_Analysis.py``
+with more CPU cores for faster parallel processing) and processed using ``autoemx/scripts/Run_Quantification_Analysis.py``
 
 Parameters
 ^^^^^^^^^^
@@ -286,7 +286,7 @@ All other parameters are optional; many are in common with th acquisition
 script, and have been previously decribed. Additional parameters are:
 
 - ``run_clustering_analysis``: If ``True``, the clustering analysis will run automatically after quantification. Recommended: ``True``.
-- ``num_CPU_cores``: Number of CPU cores used for parallel fitting and quantification. If set to ``None``, `AutoEMXSp` will automatically select half of the available cores.
+- ``num_CPU_cores``: Number of CPU cores used for parallel fitting and quantification. If set to ``None``, `AutoEMX` will automatically select half of the available cores.
 - ``quantify_only_unquantified_spectra``: If ``True``, quantifies only the previously unquantified spectra, for example after modifying ``min_bckgrnd_cnts``. If ``False``, all spectra are quantified regardless.
 - ``interrupt_fits_bad_spectra``: If ``True``, saves time by interrupting the quantification of spectra likely leading to large quantification errors, including:
  - Spectra that cannot be properly fitted, usually occurring due to missing elements and unassigned peaks
@@ -303,7 +303,7 @@ The quantification step updates the ``Data.csv`` file with the following columns
 - ``An er w%``: Analytical total error (mass fraction). See the paper for details.
 - ``r_squared``: R² metric indicating the goodness of fit.
 - ``redchi_sq``: Reduced chi-squared value used to assess fit quality.
-- ``Quant_flag``: Flags indicating whether the quantification is reliable and, if not, the reason. See :class:`Quantification Flag Descriptions <autoemxsp.config.classes.ClusteringConfig>`.
+- ``Quant_flag``: Flags indicating whether the quantification is reliable and, if not, the reason. See :class:`Quantification Flag Descriptions <autoemx.config.classes.ClusteringConfig>`.
 - ``Comments``: For reliable spectra, reports the lowest counts fitted below a reference peak. For unreliable spectra, typically explains the reason for unreliability.
 
 
@@ -316,7 +316,7 @@ This step is performed automatically if:
 - ``run_clustering_analysis = True`` was set during quantification.
 
 To run or re-run the clustering analysis of the extracted compositional data, 
-execute ``autoemxsp/scripts/Run_Analysis.py``
+execute ``autoemx/scripts/Run_Analysis.py``
 
 This step is not computationally intensive compared to quantification and can
 be run on the same machine or on a separate workstation.
@@ -343,7 +343,7 @@ options are available:
     it will be re-evaluated automatically.
 
 - ``k_finding_method`` : Method used to determine the number of clusters.
-  See the available methods at :class:`Clustering Config <autoemxsp.config.classes.ClusteringConfig>`.
+  See the available methods at :class:`Clustering Config <autoemx.config.classes.ClusteringConfig>`.
   Only applied if ``k_forced`` is ``None``. Note that if ``k`` was forced
   during acquisition, setting ``k_finding_method`` to anything other than
   ``None`` will force ``k`` to be re-evaluated.
@@ -368,7 +368,7 @@ Plotting options
   clustering plot. By default, elements are used in the order defined in
   ``els``.
 - ``plot_custom_plots`` : If ``True``, use the custom plot function defined
-  in ``autoemxsp/_custom_plotting.py``. Useful for customize plots for publication.
+  in ``autoemx/_custom_plotting.py``. Useful for customize plots for publication.
 - ``show_unused_compositions_cluster_plot`` : If ``True``, display discarded
   compositions as black triangles in the clustering plot. Consider that compositions
   discarded due to their analytical error may still be very close to the true

@@ -1,7 +1,7 @@
-autoemxsp
+autoemx
 =========
 
 .. toctree::
    :maxdepth: 4
 
-   autoemxsp
+   autoemx

@@ -1,22 +1,22 @@
-.. AutoEMXSp documentation master file, created by
+.. AutoEMX documentation master file, created by
    sphinx-quickstart on Mon Dec 15 16:11:19 2025.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
 
-AutoEMXSp Documentation
+AutoEMX Documentation
 ==========================
 
-Welcome to ``AutoEMXSp``, a Python package for **Automated Electron Microscopy
+Welcome to ``AutoEMX``, a Python package for **Automated Electron Microscopy
 X-ray Spectroscopy**:
 
-https://github.com/CederGroupHub/AutoEMXSp
+https://github.com/CederGroupHub/AutoEMX
 
-`AutoEMXSp` is a framework for running **automated acquisition and analysis
+`AutoEMX` is a framework for running **automated acquisition and analysis
 routines** on electron microscopes (EM), offering both X-ray spectroscopy
 and image acquisition and analysis workflows.
 
-`AutoEMXSp` currently supports **Energy-Dispersive X-ray Spectroscopy (EDS)**
+`AutoEMX` currently supports **Energy-Dispersive X-ray Spectroscopy (EDS)**
 in **Scanning Electron Microscopy (SEM)**.
 
 The package was primarily conceived for **automated EDS compositional analysis**,
@@ -29,7 +29,7 @@ This work is described in:
     of Powders*, 2025.  
     DOI: https://doi.org/10.21203/rs.3.rs-7837297/v2
     
-Please cite this work if you use ``AutoEMXSp``.
+Please cite this work if you use ``AutoEMX``.
 
 
 Key Features
@@ -67,7 +67,7 @@ Supported Use Cases
 Demo
 ---------------------------
 
-Watch ``AutoEMXSp`` in action on a desktop SEM–EDS system:
+Watch ``AutoEMX`` in action on a desktop SEM–EDS system:
 https://youtu.be/Bym58gNxlj0
 
 
@@ -92,10 +92,10 @@ Requirements
 - Python 3.11 or above
 
 - Electron Microscope provided with an API.
-  ``AutoEMXSp`` comes with a driver for Thermofisher PyPhenom. For different microscopes, 
+  ``AutoEMX`` comes with a driver for Thermofisher PyPhenom. For different microscopes, 
   the EM_driver must be adapted (see :ref:`EM Driver Set Up <advanced_new_EM_driver>`).
   
-- ``AutoEMXSp`` comes with EDS calibrations for the Thermofisher Phenom XL series. Different microscopes or detectors
+- ``AutoEMX`` comes with EDS calibrations for the Thermofisher Phenom XL series. Different microscopes or detectors
   require recalibration (see :ref:`Calibrating EDS <advanced_new_XSp_calibs>`).
 
 
@@ -104,7 +104,7 @@ Scope of the Documentation
 --------------------------
 
 This documentation is intended for **both standard and advanced users** of the
-AutoEMXSp package.
+AutoEMX package.
 
 - **Standard users**
 
@@ -115,10 +115,10 @@ AutoEMXSp package.
 
 - **Advanced users**
 
-  You interact with AutoEMXSp beyond simple script execution (workflows setup,
+  You interact with AutoEMX beyond simple script execution (workflows setup,
   EDS detector calibration, etc...).
   This documentation guides you through the **initial configuration and setup**
-  required to deploy AutoEMXSp on a **new microscope** and adapt it to new
+  required to deploy AutoEMX on a **new microscope** and adapt it to new
   experimental workflows.
 
 .. toctree::

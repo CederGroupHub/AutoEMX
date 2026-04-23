@@ -1,4 +1,4 @@
-AutoEMXSp Public API
+AutoEMX Public API
 ====================
 
 The following modules are intended for users.
@@ -6,7 +6,7 @@ The following modules are intended for users.
 .. toctree::
    :maxdepth: 3
 
-   ../_api/autoemxsp.config
-   ../_api/autoemxsp.runners
+   ../_api/autoemx.config
+   ../_api/autoemx.runners
 
 

@@ -3,7 +3,7 @@ include LICENSE*
 include README*
 
 # Include all files in the package
-recursive-include autoemxsp *
+recursive-include autoemx *
 
 # Exclude common junk files
 global-exclude *.py[cod]

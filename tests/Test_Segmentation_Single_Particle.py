@@ -5,7 +5,7 @@ Particle Segmentation Test Script
 =================================
 
 This script is designed to test the particle segmentation algorithms used in the 
-`autoemxsp` framework. It loads a sample particle image in TIFF format, processes it, 
+`autoemx` framework. It loads a sample particle image in TIFF format, processes it, 
 and runs segmentation using the `EM_Particle_Finder` module. The segmentation results 
 are saved to a dedicated output directory for further validation.
 
@@ -30,9 +30,9 @@ import json
 import cv2
 import tifffile
 
-from autoemxsp.core.em_runtime.particle_finder import EM_Particle_Finder
-from autoemxsp.core.em_runtime.controller import EM_Controller
-from autoemxsp.config.classes import (
+from autoemx.core.em_runtime.particle_finder import EM_Particle_Finder
+from autoemx.core.em_runtime.controller import EM_Controller
+from autoemx.config.classes import (
     PowderMeasurementConfig,
     MicroscopeConfig,
     MeasurementConfig,
@@ -40,7 +40,7 @@ from autoemxsp.config.classes import (
     SampleSubstrateConfig,
     BulkMeasurementConfig
 )
-from autoemxsp.utils.helper import print_single_separator
+from autoemx.utils.helper import print_single_separator
 
 # -------------------------------------------------------------------------
 # Configuration Parameters

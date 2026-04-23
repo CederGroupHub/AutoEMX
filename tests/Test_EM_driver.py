@@ -5,7 +5,7 @@ Manual Testing of Functions defined in the Electron Microscope Driver
 =================================================
 
 This script is designed for manual verification of each function in the
-`EM_driver` module of the `autoemxsp` framework. It runs each function once
+`EM_driver` module of the `autoemx` framework. It runs each function once
 with safe, example parameters so the tester can visually/ logically verify
 correct execution.
 
@@ -13,7 +13,7 @@ IMPORTANT
 ---------
 - Make sure you have the appropriate microscope connection when running
   hardware-specific functions.
-- All of the functions below should work properly for automated spectral acquisition with AutoEMXSp.
+- All of the functions below should work properly for automated spectral acquisition with AutoEMX.
     None of these is required for spectral quantification and clustering analysis.
 
 Usage
@@ -25,8 +25,8 @@ Created: Mon Oct 13 15:38:36 2025
 """
 
 import numpy as np
-from autoemxsp import microscope_drivers as EM_driver
-from autoemxsp.utils.helper import print_single_separator, print_double_separator
+from autoemx import microscope_drivers as EM_driver
+from autoemx.utils.helper import print_single_separator, print_double_separator
 
 #%% -------------------------------------------------------------------------
 # Configuration Parameters
@@ -147,5 +147,5 @@ print("\n========== EM_driver Manual Function Test ==========\n")
 # print("NavCam image shape:", nav_img.shape if nav_img is not None else None)
 
 print("\n✅ Manual function test script loaded. Uncomment calls to run and verify.\n"
-      "All of these commands should work properly for automated spectral acquisition with AutoEMXSp. "
+      "All of these commands should work properly for automated spectral acquisition with AutoEMX. "
       "None is required for spectral quantification and clustering analysis.")
