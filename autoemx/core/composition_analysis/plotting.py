@@ -347,7 +347,12 @@ class PlottingModule:
         _plot_clustering_scene(ax)
         if self.plot_cfg.show_plots:
             plt.show()
-        fig.savefig(os.path.join(self.analysis_dir, cnst.CLUSTERING_PLOT_FILENAME + cnst.CLUSTERING_PLOT_FILEEXT))
+        fig.savefig(
+            os.path.join(self.analysis_dir, cnst.CLUSTERING_PLOT_FILENAME + cnst.CLUSTERING_PLOT_FILEEXT),
+            dpi=300,
+            bbox_inches='tight',
+            pad_inches=0.1,
+        )
 
         fig_zoomed = plt.figure(figsize=(6, 6))
         if len(elements) == 3:
@@ -389,7 +394,10 @@ class PlottingModule:
             os.path.join(
                 self.analysis_dir,
                 cnst.CLUSTERING_PLOT_FILENAME + '_zoomed' + cnst.CLUSTERING_PLOT_FILEEXT,
-            )
+            ),
+            dpi=300,
+            bbox_inches='tight',
+            pad_inches=0.1,
         )
 
     def _save_violin_plot_powder_mixture(
