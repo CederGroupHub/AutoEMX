@@ -358,7 +358,6 @@ def batch_acquire_and_analyze(
             method='kmeans',
             features=clustering_features,
             k_finding_method=k_finding_method,
-            k=None,
             max_k=max_n_clusters,
             ref_formulae=ref_formulae,
             max_analytical_error_percent=max_analytical_error_percent,

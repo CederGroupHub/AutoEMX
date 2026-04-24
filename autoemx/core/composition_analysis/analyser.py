@@ -1907,7 +1907,8 @@ class EMXSp_Composition_Analyzer:
             clustering_id=clustering_id,
             method=self.clustering_cfg.method,
             features=self.clustering_cfg.features,
-            k=self.clustering_cfg.k,
+            k_forced=self.clustering_cfg.k_forced,
+            k_resolved=self.clustering_cfg.k_resolved,
             k_finding_method=self.clustering_cfg.k_finding_method,
             max_k=self.clustering_cfg.max_k,
             ref_formulae=list(self.clustering_cfg.ref_formulae),
@@ -3131,12 +3132,12 @@ class EMXSp_Composition_Analyzer:
             return
 
         resolved_k_int = int(resolved_k)
-        self.clustering_cfg.k = resolved_k_int
+        self.clustering_cfg.k_resolved = resolved_k_int
 
         if self.current_quant_config is not None:
             active_clustering_config = self.current_quant_config.get_active_clustering_config()
-            if active_clustering_config is not None and active_clustering_config.k != resolved_k_int:
-                active_clustering_config.k = resolved_k_int
+            if active_clustering_config is not None and active_clustering_config.k_resolved != resolved_k_int:
+                active_clustering_config.k_resolved = resolved_k_int
                 self._persist_current_quantification_config()
             return
 
@@ -3146,10 +3147,10 @@ class EMXSp_Composition_Analyzer:
             return
 
         active_clustering_config = active_quant_config.get_active_clustering_config()
-        if active_clustering_config is None or active_clustering_config.k == resolved_k_int:
+        if active_clustering_config is None or active_clustering_config.k_resolved == resolved_k_int:
             return
 
-        active_clustering_config.k = resolved_k_int
+        active_clustering_config.k_resolved = resolved_k_int
         ledger.to_json_file(self._get_ledger_path())
 
 
@@ -3281,8 +3282,13 @@ class EMXSp_Composition_Analyzer:
 
         # 4. Perform clustering
         if k is None:
-            # Extract k value from configurations (None if not provided)
-            k = self.clustering_cfg.k
+            if self.clustering_cfg.k_finding_method == "forced":
+                k = self.clustering_cfg.k_forced
+                if k is None:
+                    raise ValueError("k_finding_method='forced' requires k_forced to be set")
+            else:
+                # Recompute k for non-forced methods on each analysis run.
+                k = None
         if self.clustering_cfg.method == 'kmeans':
             k = self._find_optimal_k(compositions_df, k, compute_k_only_once)
             self._persist_resolved_k_on_active_clustering_config(k)
@@ -4293,7 +4299,7 @@ class EMXSp_Composition_Analyzer:
         try:
             is_analysis_successful, max_cl_rmsdist, min_conf = self.analyse_data(
                 self.clustering_cfg.max_analytical_error_percent,
-                k=self.clustering_cfg.k
+                k=self.clustering_cfg.k_forced if self.clustering_cfg.k_finding_method == "forced" else None
             )
         except Exception as e:
             raise RuntimeError(f"Error during clustering analysis: {e}") from e

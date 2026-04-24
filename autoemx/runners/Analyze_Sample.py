@@ -202,7 +202,7 @@ def analyze_sample(
         clustering_cfg.features = clustering_features
     if isinstance(k_forced, int):
         # Forces the k to be the provided number of clusters
-        clustering_cfg.k = k_forced
+        clustering_cfg.k_forced = k_forced
         clustering_cfg.k_finding_method = forced_key
     elif k_finding_method == forced_key:
         raise ValueError(
@@ -210,8 +210,8 @@ def analyze_sample(
             f"but not {forced_key}, if 'k_forced' is set to None"
         )
     elif k_finding_method is not None:
-        # If k_forced is None, and a k_finding_method is defined, it forces the recomputation of k, despite of the values loaded from from clustering_cfg
-        clustering_cfg.k = k_forced
+        # If k_forced is None and a method is specified, force recomputation of k in each run.
+        clustering_cfg.k_forced = None
         clustering_cfg.k_finding_method = k_finding_method
     else:
         # If a finding method is not specified and k_forced is None, simply loads the default values from clustering_cfg
@@ -265,7 +265,7 @@ def analyze_sample(
     try:
         analysis_successful, _, _ = comp_analyzer.analyse_data(
             max_analytical_error_percent,
-            k=comp_analyzer.clustering_cfg.k,
+            k=comp_analyzer.clustering_cfg.k_forced if comp_analyzer.clustering_cfg.k_finding_method == forced_key else None,
         )
     except Exception as e:
         logging.exception(f'Error during clustering analysis for {sample_ID}: {e}')

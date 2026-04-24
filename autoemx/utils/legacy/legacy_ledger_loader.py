@@ -506,7 +506,11 @@ def build_legacy_import_quantification_config(
                 clustering_id=0,
                 method=str(getattr(ledger_configs.clustering_cfg, "method", "kmeans")),
                 features=str(getattr(ledger_configs.clustering_cfg, "features", "")),
-                k=getattr(ledger_configs.clustering_cfg, "k", None),
+                k_forced=getattr(
+                    ledger_configs.clustering_cfg,
+                    "k_forced",
+                    getattr(ledger_configs.clustering_cfg, "k", None),
+                ),
                 k_finding_method=str(getattr(ledger_configs.clustering_cfg, "k_finding_method", "silhouette")),
                 max_k=int(getattr(ledger_configs.clustering_cfg, "max_k", 6)),
                 ref_formulae=list(getattr(ledger_configs.clustering_cfg, "ref_formulae", []) or []),

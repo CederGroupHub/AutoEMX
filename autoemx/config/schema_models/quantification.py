@@ -105,8 +105,9 @@ class ClusteringConfig(BaseModel):
     Attributes:
         method (str): Clustering algorithm to use. Allowed: 'kmeans' (implemented), 'dbscan' (not implemented).
         features (str): Feature set to use for clustering.
-        k (Optional[int]): If provided, defines a fixed number of clusters.
-        k_finding_method (str): Method to determine the number of clusters. Set to "forced" if a value of 'k' is specified manually.
+        k_forced (Optional[int]): Forced number of clusters when `k_finding_method` is "forced".
+        k_resolved (Optional[int]): Number of clusters resolved from data for this run.
+        k_finding_method (str): Method to determine the number of clusters. Set to "forced" when `k_forced` is specified manually.
             Allowed methods are "silhouette", "calinski_harabasz", "elbow".
         max_k (int): Maximum allowed number of clusters.
         ref_formulae (List[str]): List of possible phases present in the sample, as chemical formula strings.
@@ -132,7 +133,8 @@ class ClusteringConfig(BaseModel):
     clustering_id: int = 0
     method: str = "kmeans"
     features: str = "at_fr"
-    k: Optional[int] = None
+    k_forced: Optional[int] = None
+    k_resolved: Optional[int] = None
     k_finding_method: str = "silhouette"
     max_k: int = 6
     ref_formulae: List[str] = Field(default_factory=list)
@@ -172,12 +174,22 @@ class ClusteringConfig(BaseModel):
             raise ValueError("max_k must be positive")
         return value
 
-    @field_validator("k")
+    @field_validator("k_forced", "k_resolved")
     @classmethod
     def validate_k(cls, value: Optional[int]) -> Optional[int]:
         if value is not None and value <= 0:
-            raise ValueError("k must be positive when provided")
+            raise ValueError("k values must be positive when provided")
         return value
+
+    @model_validator(mode="after")
+    def validate_k_semantics(self) -> "ClusteringConfig":
+        """Enforce forced-k semantics and normalize method when a forced k is provided."""
+        forced_key = "forced"
+        if self.k_forced is not None and self.k_finding_method != forced_key:
+            self.k_finding_method = forced_key
+        if self.k_forced is None and self.k_finding_method == forced_key:
+            raise ValueError("k_finding_method='forced' requires k_forced to be set")
+        return self
 
     @field_validator("max_analytical_error_percent")
     @classmethod
@@ -224,7 +236,7 @@ class ClusteringConfig(BaseModel):
         return {
             "method": self.method,
             "features": self.features,
-            "k": self.k,
+            "k_forced": self.k_forced,
             "k_finding_method": self.k_finding_method,
             "max_k": self.max_k,
             "ref_formulae": sorted(self.ref_formulae),
