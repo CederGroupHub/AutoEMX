@@ -64,11 +64,13 @@ def backfill_spectra_from_data_csv(
         real_time = row.get(real_time_key)
         live_time = None if pd.isna(live_time) else float(live_time)
         real_time = None if pd.isna(real_time) else float(real_time)
+        # Legacy Data.csv files may only carry real_time; treat it as collection time.
+        collection_time = live_time if live_time is not None else real_time
 
         pointer_relpath = resolve_or_create_pointer(
             spectrum_id=spectrum_id,
             spectrum_vals=list(map(float, spectrum_vals)),
-            live_time=live_time,
+            live_time=collection_time,
             real_time=real_time,
         )
         if pointer_relpath:

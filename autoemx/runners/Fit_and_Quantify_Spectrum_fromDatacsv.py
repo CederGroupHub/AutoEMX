@@ -39,6 +39,7 @@ from autoemx.utils import (
 import autoemx.utils.constants as cnst
 import autoemx.config.defaults as dflt
 from autoemx.config import config_classes_dict, ExpStandardsConfig
+from autoemx.config.schemas import ClusteringConfig
 from autoemx.core.composition_analysis import EMXSp_Composition_Analyzer
 from autoemx.runners.Fit_and_Quantify_Spectrum import fit_and_quantify_spectrum
 
@@ -160,26 +161,31 @@ def fit_and_quantify_spectrum_fromDatacsv(
         measurement_cfg     = configs[cnst.MEASUREMENT_CFG_KEY]
         sample_substrate_cfg= configs[cnst.SAMPLESUBSTRATE_CFG_KEY]
         quant_cfg           = configs[cnst.QUANTIFICATION_CFG_KEY]
-        clustering_cfg      = configs[cnst.CLUSTERING_CFG_KEY]
+        clustering_cfg      = configs.get(cnst.CLUSTERING_CFG_KEY)
         powder_meas_cfg     = configs.get(cnst.POWDER_MEASUREMENT_CFG_KEY, None)  # Optional
         exp_stds_cfg     = configs.get(cnst.EXP_STD_MEASUREMENT_CFG_KEY, None)  # Optional
     except KeyError as e:
         logging.warning(f"Missing configuration '{e.args[0]}' in {spectral_info_f_path}. Skipping sample '{sample_ID}'.")
         return
+
+    if clustering_cfg is None:
+        clustering_cfg = ClusteringConfig()
     
     # Load experimental standard dictionary if the sample is a known powder precursor mix
     if powder_meas_cfg and powder_meas_cfg.is_known_powder_mixture_meas:
         if not exp_stds_cfg:
             exp_stds_cfg = ExpStandardsConfig()
-        comp_analyzer = EMXSp_Composition_Analyzer(microscope_cfg,
-                                                   sample_cfg,
-                                                   measurement_cfg,
-                                                   sample_substrate_cfg,
-                                                   quant_cfg,
-                                                   clustering_cfg,
-                                                   powder_meas_cfg = powder_meas_cfg,
-                                                   exp_stds_cfg = exp_stds_cfg,
-                                                   standards_dict = standards_dict)
+        comp_analyzer = EMXSp_Composition_Analyzer(
+            microscope_cfg=microscope_cfg,
+            sample_cfg=sample_cfg,
+            measurement_cfg=measurement_cfg,
+            sample_substrate_cfg=sample_substrate_cfg,
+            quant_cfg=quant_cfg,
+            initial_clustering_cfg=clustering_cfg,
+            powder_meas_cfg=powder_meas_cfg,
+            exp_stds_cfg=exp_stds_cfg,
+            standards_dict=standards_dict,
+        )
         stds_dict = comp_analyzer.XSp_std_dict
     else:
         stds_dict = None

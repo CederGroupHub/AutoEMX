@@ -55,6 +55,7 @@ from autoemx.utils import (
 import autoemx.utils.constants as cnst
 import autoemx.config.defaults as dflt
 from autoemx.config import config_classes_dict
+from autoemx.config.schemas import ClusteringConfig
 from autoemx.core.composition_analysis import EMXSp_Composition_Analyzer
 
 # Configure logging
@@ -163,16 +164,19 @@ def batch_quantify_and_analyze(
             measurement_cfg     = configs[cnst.MEASUREMENT_CFG_KEY]
             sample_substrate_cfg= configs[cnst.SAMPLESUBSTRATE_CFG_KEY]
             quant_cfg           = configs[cnst.QUANTIFICATION_CFG_KEY]
-            clustering_cfg      = configs[cnst.CLUSTERING_CFG_KEY]
+            clustering_cfg      = configs.get(cnst.CLUSTERING_CFG_KEY)
             plot_cfg            = configs[cnst.PLOT_CFG_KEY]
             powder_meas_cfg     = configs.get(cnst.POWDER_MEASUREMENT_CFG_KEY, None)  # Optional
             bulk_meas_cfg     = configs.get(cnst.BULK_MEASUREMENT_CFG_KEY, None)  # Optional
         except KeyError as e:
             logging.warning(f"Missing configuration '{e.args[0]}' in {spectral_info_f_path}. Skipping sample '{sample_ID}'.")
             continue
+
+        if clustering_cfg is None:
+            clustering_cfg = ClusteringConfig()
         
         if min_bckgrnd_cnts is not None:
-            quant_cfg.min_bckgrnd_cnts = min_bckgrnd_cnts
+            clustering_cfg.min_bckgrnd_cnts = min_bckgrnd_cnts
         if quantification_method is not None:
             quant_cfg.method = quantification_method
         if use_project_specific_std_dict is not None:
@@ -229,7 +233,7 @@ def batch_quantify_and_analyze(
             measurement_cfg=measurement_cfg,
             sample_substrate_cfg=sample_substrate_cfg,
             quant_cfg=quant_cfg,
-            clustering_cfg=clustering_cfg,
+            initial_clustering_cfg=clustering_cfg,
             powder_meas_cfg=powder_meas_cfg,
             bulk_meas_cfg=bulk_meas_cfg,
             plot_cfg=plot_cfg,

@@ -74,8 +74,49 @@ from pymatgen.core import Element, Composition
 from typing import Any, Sequence, List, Optional, Tuple, Dict, Union
 
 import autoemx.utils.constants as cnst
-from autoemx.config.schemas import SampleLedger, SpectrumEntry
+from autoemx.config.schemas import (
+    AcquisitionDetails,
+    Coordinate2D,
+    FitResult,
+    QuantificationConfig,
+    QuantificationDiagnostics,
+    QuantificationResult,
+    SampleLedger,
+    SpectrumEntry,
+    SpotCoordinates,
+)
 from autoemx.utils.legacy.legacy_backfill import load_ledger_configs_from_legacy_json
+from autoemx.utils.legacy.legacy_ledger_loader import (
+    build_legacy_import_quantification_config as build_legacy_import_quantification_config_from_data_csv,
+    convert_machine_to_pixel_coordinates,
+    load_legacy_acquisition_details_by_spectrum_id,
+    load_legacy_quantification_results_by_spectrum_id,
+)
+
+
+def _build_legacy_import_quantification_config(
+    quant_options_payload: Dict[str, Any],
+    ledger_configs: Any,
+    sample_dir: Path,
+) -> QuantificationConfig:
+    """Build the initial quantification config used for Data.csv legacy migration."""
+    return build_legacy_import_quantification_config_from_data_csv(
+        sample_result_dir=str(sample_dir),
+        ledger_configs=ledger_configs,
+    )
+
+
+def _coerce_optional_finite_float(value: Any) -> Optional[float]:
+    """Return a finite float or None when the input is missing/non-finite."""
+    if value is None:
+        return None
+    try:
+        numeric_value = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not np.isfinite(numeric_value):
+        return None
+    return numeric_value
 
 
 #%% Compositions and formulas
@@ -407,7 +448,7 @@ def load_configurations_from_json(json_path, config_classes_dict):
             - SampleSubstrateConfig: Specifies the substrate composition and geometry supporting the sample.
             - MeasurementConfig: Controls measurement type, beam parameters, and acquisition settings.
             - FittingConfig: Parameters for spectral fitting and background handling.
-            - QuantConfig: Options for quantification and filtering of X-ray spectra.
+            - QuantificationOptionsConfig: Runtime options for quantification and fitting.
             - PowderMeasurementConfig: Settings for analyzing powder samples and particle selection.
             - BulkMeasurementConfig: Settings for analyzing bulk samples.
             - ExpStandardsConfig: Settings for experimental standard measurements
@@ -477,6 +518,7 @@ def extract_spectral_data(data_csv_path):
         The loaded DataFrame from the CSV file.
     """
     df = pd.read_csv(data_csv_path)
+    microscope_id: Optional[str] = None
 
     # --- Extract spectral data from CSV (legacy path) ---
     spectral_keys = cnst.LIST_SPECTRAL_DATA_KEYS
@@ -498,6 +540,20 @@ def extract_spectral_data(data_csv_path):
     # --- Extract spectral coordinates from CSV ---
     available_cols = [col for col in cnst.LIST_SPECTRUM_COORDINATES_KEYS if col in df.columns]
     sp_coords = df[available_cols].to_dict(orient='records')
+
+    def _convert_machine_to_pixel(
+        machine_x: Any,
+        machine_y: Any,
+        frame_id: Optional[str],
+    ) -> Tuple[Optional[float], Optional[float]]:
+        """Convert normalized machine coordinates using em_driver.frame_rel_to_pixel_coords."""
+        return convert_machine_to_pixel_coordinates(
+            machine_x,
+            machine_y,
+            sample_result_dir=str(sample_dir),
+            frame_id=frame_id,
+            microscope_id=microscope_id,
+        )
 
     def _write_fallback_pointer_file(
         pointer_path: Path,
@@ -534,15 +590,9 @@ def extract_spectral_data(data_csv_path):
                 f.write("%d,%.10f\n" % (i, float(count)))
 
     # --- Shared migration path for all Data.csv readers ---
-    # Create config.json from legacy config filename if needed.
     sample_dir = Path(data_csv_path).parent
     config_path_new = sample_dir / f"{cnst.CONFIG_FILENAME}.json"
     config_path_legacy = sample_dir / f"{cnst.ACQUISITION_INFO_FILENAME}.json"
-    if (not config_path_new.exists()) and config_path_legacy.exists():
-        try:
-            config_path_new.write_text(config_path_legacy.read_text(encoding="utf-8"), encoding="utf-8")
-        except Exception:
-            pass
 
     # Create ledger.json from Data.csv + config if missing.
     ledger_path = sample_dir / f"{cnst.LEDGER_FILENAME}{cnst.LEDGER_FILEEXT}"
@@ -558,28 +608,48 @@ def extract_spectral_data(data_csv_path):
                 cfg_payload = json.loads(cfg_path.read_text(encoding="utf-8")) if cfg_path.exists() else {}
 
                 microscope_cfg = cfg_payload.get(cnst.MICROSCOPE_CFG_KEY, {})
-                quant_cfg = cfg_payload.get(cnst.QUANTIFICATION_CFG_KEY, {})
+                microscope_id = microscope_cfg.get("ID") if isinstance(microscope_cfg, dict) else None
+                quant_options_payload = cfg_payload.get(cnst.QUANTIFICATION_CFG_KEY, {})
 
                 n_channels = len(spectra_vals[0])
-                spectrum_lims = quant_cfg.get("spectrum_lims", [0, n_channels])
+                spectrum_lims = quant_options_payload.get("spectrum_lims", [0, n_channels])
                 sp_start = int(spectrum_lims[0]) if isinstance(spectrum_lims, (list, tuple)) and len(spectrum_lims) >= 1 else 0
                 energy_zero = float(microscope_cfg.get("energy_zero", 0.0))
                 bin_width = float(microscope_cfg.get("bin_width", 1.0))
                 energy_vals = [energy_zero + bin_width * i for i in range(sp_start, sp_start + n_channels)]
                 ext = ".msa"
+                el_atfr_cols = [c for c in df.columns if c.endswith(cnst.AT_FR_DF_KEY)]
+                el_wfr_cols = [c for c in df.columns if c.endswith(cnst.W_FR_DF_KEY)]
 
                 entries: List[SpectrumEntry] = []
                 for i, spectrum in enumerate(spectra_vals):
                     coords = sp_coords[i] if i < len(sp_coords) else {}
+                    row = df.iloc[i]
                     bg_vals = backgrounds[i] if i < len(backgrounds) else None
-                    rt = real_times[i] if i < len(real_times) else None
-                    lt = live_times[i] if i < len(live_times) else None
+                    rt = _coerce_optional_finite_float(real_times[i] if i < len(real_times) else None)
+                    lt = _coerce_optional_finite_float(live_times[i] if i < len(live_times) else None)
+
+                    frame_id = str(coords.get(cnst.FRAME_ID_DF_KEY, "")).strip() or None
+                    x_px_val = _coerce_optional_finite_float(coords.get(cnst.SP_X_PIXEL_COORD_DF_KEY))
+                    y_px_val = _coerce_optional_finite_float(coords.get(cnst.SP_Y_PIXEL_COORD_DF_KEY))
+                    if x_px_val is None or y_px_val is None:
+                        conv_x, conv_y = _convert_machine_to_pixel(
+                            coords.get(cnst.SP_X_COORD_DF_KEY),
+                            coords.get(cnst.SP_Y_COORD_DF_KEY),
+                            frame_id,
+                        )
+                        if x_px_val is None:
+                            x_px_val = conv_x
+                        if y_px_val is None:
+                            y_px_val = conv_y
 
                     metadata = {
                         cnst.SP_X_COORD_DF_KEY: str(coords.get(cnst.SP_X_COORD_DF_KEY, "")),
                         cnst.SP_Y_COORD_DF_KEY: str(coords.get(cnst.SP_Y_COORD_DF_KEY, "")),
+                        cnst.SP_X_PIXEL_COORD_DF_KEY: x_px_val,
+                        cnst.SP_Y_PIXEL_COORD_DF_KEY: y_px_val,
                         cnst.PAR_ID_DF_KEY: str(coords.get(cnst.PAR_ID_DF_KEY, "")),
-                        cnst.FRAME_ID_DF_KEY: str(coords.get(cnst.FRAME_ID_DF_KEY, "")),
+                        cnst.FRAME_ID_DF_KEY: frame_id or "",
                     }
                     spectrum_id = str(coords.get(cnst.SP_ID_DF_KEY, i))
                     spectrum_relpath = os.path.join(
@@ -613,24 +683,137 @@ def extract_spectral_data(data_csv_path):
                             real_time=None,
                         )
 
+                    particle_id = None
+                    raw_particle_id = metadata.get(cnst.PAR_ID_DF_KEY)
+                    try:
+                        if raw_particle_id not in (None, ""):
+                            particle_id = int(float(raw_particle_id))
+                    except Exception:
+                        particle_id = None
+
+                    machine_coordinates = None
+                    raw_x = metadata.get(cnst.SP_X_COORD_DF_KEY)
+                    raw_y = metadata.get(cnst.SP_Y_COORD_DF_KEY)
+                    try:
+                        if raw_x not in (None, "") and raw_y not in (None, ""):
+                            machine_coordinates = Coordinate2D(x=float(raw_x), y=float(raw_y))
+                    except Exception:
+                        machine_coordinates = None
+
+                    pixel_coordinates = None
+                    try:
+                        if metadata.get(cnst.SP_X_PIXEL_COORD_DF_KEY) is not None and metadata.get(cnst.SP_Y_PIXEL_COORD_DF_KEY) is not None:
+                            pixel_coordinates = (
+                                  int(round(float(metadata[cnst.SP_X_PIXEL_COORD_DF_KEY]))),
+                                  int(round(float(metadata[cnst.SP_Y_PIXEL_COORD_DF_KEY]))),
+                              )
+                    except Exception:
+                        pixel_coordinates = None
+
+                    quantification_results: List[QuantificationResult] = []
+                    has_quant_data = any(pd.notnull(row.get(c)) for c in (el_atfr_cols + el_wfr_cols))
+                    if has_quant_data:
+                        comp_atfr = {
+                            c.replace(cnst.AT_FR_DF_KEY, ""): float(row[c]) / 100.0
+                            for c in el_atfr_cols
+                            if pd.notnull(row.get(c))
+                        }
+                        comp_wfr = {
+                            c.replace(cnst.W_FR_DF_KEY, ""): float(row[c]) / 100.0
+                            for c in el_wfr_cols
+                            if pd.notnull(row.get(c))
+                        }
+
+                        analytical_error = None
+                        if cnst.AN_ER_DF_KEY in df.columns and pd.notnull(row.get(cnst.AN_ER_DF_KEY)):
+                            analytical_error = float(row[cnst.AN_ER_DF_KEY]) / 100.0
+
+                        quant_flag = (
+                            int(float(row[cnst.QUANT_FLAG_DF_KEY]))
+                            if cnst.QUANT_FLAG_DF_KEY in df.columns
+                            and _coerce_optional_finite_float(row.get(cnst.QUANT_FLAG_DF_KEY)) is not None
+                            else None
+                        )
+                        is_interrupted = not has_quant_data
+
+                        r_sq = _coerce_optional_finite_float(row.get(cnst.R_SQ_KEY)) if cnst.R_SQ_KEY in df.columns else None
+                        redchi_sq = _coerce_optional_finite_float(row.get(cnst.REDCHI_SQ_KEY)) if cnst.REDCHI_SQ_KEY in df.columns else None
+                        fit_result = None
+                        if r_sq is not None or redchi_sq is not None:
+                            fit_result = FitResult(r_squared=r_sq, reduced_chi_squared=redchi_sq)
+
+                        comment = None
+                        if cnst.COMMENTS_DF_KEY in df.columns and pd.notnull(row.get(cnst.COMMENTS_DF_KEY)):
+                            comment = str(row[cnst.COMMENTS_DF_KEY]).strip() or None
+
+                        quantification_results = [
+                            QuantificationResult(
+                                quantification_id=0,
+                                quant_flag=quant_flag,
+                                comment=comment,
+                                composition_atomic_fractions=comp_atfr or None,
+                                composition_weight_fractions=comp_wfr or None,
+                                analytical_error=analytical_error,
+                                fit_result=fit_result,
+                                diagnostics=QuantificationDiagnostics(
+                                    converged=False if (is_interrupted or quant_flag == -1) else True,
+                                    interrupted=is_interrupted,
+                                ),
+                            )
+                        ]
+
                     entries.append(
                         SpectrumEntry(
-                            real_time=float(rt) if rt is not None else 1.0,
+                            live_acquisition_time=lt if lt is not None else (rt if rt is not None else 1.0),
                             total_counts=int(round(float(np.sum(spectrum)))),
                             spectrum_id=spectrum_id,
+                            acquisition_details=AcquisitionDetails(
+                                frame_id=(
+                                    str(metadata.get(cnst.FRAME_ID_DF_KEY)).strip()
+                                    if metadata.get(cnst.FRAME_ID_DF_KEY) not in (None, "")
+                                    else None
+                                ),
+                                particle_id=particle_id,
+                                spot_coordinates=SpotCoordinates(
+                                    machine_coordinates=machine_coordinates,
+                                    pixel_coordinates=pixel_coordinates,
+                                ) if (machine_coordinates is not None or pixel_coordinates is not None) else None,
+                            ),
                             spectrum_relpath=spectrum_relpath,
-                            metadata=metadata,
+                            quantification_results=quantification_results,
                         )
                     )
 
                 ledger_configs = load_ledger_configs_from_legacy_json(str(sample_dir))
                 if ledger_configs is not None:
+                    legacy_acquisition_details_by_id = load_legacy_acquisition_details_by_spectrum_id(
+                        str(data_csv),
+                        sample_result_dir=str(sample_dir),
+                        microscope_id=ledger_configs.microscope_cfg.ID,
+                    )
+                    legacy_quant_results_by_id = load_legacy_quantification_results_by_spectrum_id(str(data_csv))
+                    for entry_idx, entry in enumerate(entries):
+                        spectrum_id = str(entry.spectrum_id) if entry.spectrum_id not in (None, "") else str(entry_idx)
+                        legacy_acquisition_details = legacy_acquisition_details_by_id.get(spectrum_id)
+                        if legacy_acquisition_details is not None:
+                            entry.acquisition_details = legacy_acquisition_details
+                        legacy_quantification_results = legacy_quant_results_by_id.get(spectrum_id)
+                        if legacy_quantification_results is not None:
+                            entry.quantification_results = [
+                                result.model_copy(deep=True) for result in legacy_quantification_results
+                            ]
+                    legacy_quant_config = _build_legacy_import_quantification_config(
+                        quant_options_payload=quant_options_payload,
+                        ledger_configs=ledger_configs,
+                        sample_dir=sample_dir,
+                    )
                     ledger = SampleLedger(
-                        sample_id=f"{sample_dir.name}_ledger",
+                        sample_id=ledger_configs.sample_cfg.ID,
                         sample_path=str(sample_dir.resolve()),
                         configs=ledger_configs,
                         spectra=entries,
-                        quantification_configs=[],
+                        quantification_configs=[legacy_quant_config],
+                        active_quant=0,
                     )
                     ledger.to_json_file(ledger_path)
         except Exception:
@@ -689,19 +872,66 @@ def extract_spectral_data(data_csv_path):
                         except Exception:
                             pass
 
-                if pd.isna(spectral_data[cnst.REAL_TIME_DF_KEY][row_idx]) and entry.real_time is not None:
-                    spectral_data[cnst.REAL_TIME_DF_KEY][row_idx] = entry.real_time
+                if pd.isna(spectral_data[cnst.LIVE_TIME_DF_KEY][row_idx]) and entry.live_acquisition_time is not None:
+                    spectral_data[cnst.LIVE_TIME_DF_KEY][row_idx] = entry.live_acquisition_time
+                if pd.isna(spectral_data[cnst.REAL_TIME_DF_KEY][row_idx]) and entry.live_acquisition_time is not None:
+                    spectral_data[cnst.REAL_TIME_DF_KEY][row_idx] = entry.live_acquisition_time
 
-                metadata = entry.metadata or {}
+                metadata = {}
+                acquisition_details = entry.acquisition_details
+                if acquisition_details is not None:
+                    if acquisition_details.frame_id:
+                        metadata[cnst.FRAME_ID_DF_KEY] = acquisition_details.frame_id
+                    if acquisition_details.particle_id is not None:
+                        metadata[cnst.PAR_ID_DF_KEY] = str(acquisition_details.particle_id)
+                    if (
+                        acquisition_details.spot_coordinates is not None
+                        and acquisition_details.spot_coordinates.machine_coordinates is not None
+                    ):
+                        machine_coords = acquisition_details.spot_coordinates.machine_coordinates
+                        metadata[cnst.SP_X_COORD_DF_KEY] = machine_coords.x
+                        metadata[cnst.SP_Y_COORD_DF_KEY] = machine_coords.y
+                    if (
+                        acquisition_details.spot_coordinates is not None
+                        and acquisition_details.spot_coordinates.pixel_coordinates is not None
+                    ):
+                        pixel_coords = acquisition_details.spot_coordinates.pixel_coordinates
+                        metadata[cnst.SP_X_PIXEL_COORD_DF_KEY] = pixel_coords[0]
+                        metadata[cnst.SP_Y_PIXEL_COORD_DF_KEY] = pixel_coords[1]
+
+                if (
+                    cnst.SP_X_PIXEL_COORD_DF_KEY not in metadata
+                    or cnst.SP_Y_PIXEL_COORD_DF_KEY not in metadata
+                ):
+                    conv_x, conv_y = _convert_machine_to_pixel(
+                        metadata.get(cnst.SP_X_COORD_DF_KEY),
+                        metadata.get(cnst.SP_Y_COORD_DF_KEY),
+                        metadata.get(cnst.FRAME_ID_DF_KEY),
+                    )
+                    if conv_x is not None and conv_y is not None:
+                        metadata[cnst.SP_X_PIXEL_COORD_DF_KEY] = conv_x
+                        metadata[cnst.SP_Y_PIXEL_COORD_DF_KEY] = conv_y
                 # Ensure a row dict exists
                 if row_idx >= len(sp_coords):
                     sp_coords.append({})
 
-                for coord_key in [cnst.SP_X_COORD_DF_KEY, cnst.SP_Y_COORD_DF_KEY, cnst.PAR_ID_DF_KEY, cnst.FRAME_ID_DF_KEY]:
+                for coord_key in [
+                    cnst.SP_X_COORD_DF_KEY,
+                    cnst.SP_Y_COORD_DF_KEY,
+                    cnst.SP_X_PIXEL_COORD_DF_KEY,
+                    cnst.SP_Y_PIXEL_COORD_DF_KEY,
+                    cnst.PAR_ID_DF_KEY,
+                    cnst.FRAME_ID_DF_KEY,
+                ]:
                     if coord_key not in sp_coords[row_idx] or pd.isna(sp_coords[row_idx].get(coord_key)):
                         if coord_key in metadata and metadata[coord_key] != "":
                             value = metadata[coord_key]
-                            if coord_key in [cnst.SP_X_COORD_DF_KEY, cnst.SP_Y_COORD_DF_KEY]:
+                            if coord_key in [
+                                cnst.SP_X_COORD_DF_KEY,
+                                cnst.SP_Y_COORD_DF_KEY,
+                                cnst.SP_X_PIXEL_COORD_DF_KEY,
+                                cnst.SP_Y_PIXEL_COORD_DF_KEY,
+                            ]:
                                 try:
                                     value = float(value)
                                 except Exception:

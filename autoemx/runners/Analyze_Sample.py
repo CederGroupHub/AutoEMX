@@ -45,7 +45,8 @@ from autoemx.utils import (
     extract_spectral_data,
 )
 import autoemx.utils.constants as cnst
-from autoemx.config import config_classes_dict
+from autoemx.config import config_classes_dict, load_sample_ledger
+from autoemx.config.schemas import ClusteringConfig
 from autoemx.core.composition_analysis import EMXSp_Composition_Analyzer
 
 # Configure logging
@@ -118,11 +119,45 @@ def analyze_sample(
     logging.info(f"Sample '{sample_ID}'")
     
     sample_dir = get_sample_dir(results_path, sample_ID)
+    ledger_path = os.path.join(sample_dir, f"{cnst.LEDGER_FILENAME}{cnst.LEDGER_FILEEXT}")
     config_path_new = os.path.join(sample_dir, f"{cnst.CONFIG_FILENAME}.json")
     config_path_legacy = os.path.join(sample_dir, f"{cnst.ACQUISITION_INFO_FILENAME}.json")
-    spectral_info_f_path = config_path_new if os.path.exists(config_path_new) else config_path_legacy
+    spectral_info_f_path = ledger_path if os.path.exists(ledger_path) else (
+        config_path_new if os.path.exists(config_path_new) else config_path_legacy
+    )
     try:
-        configs, metadata = load_configurations_from_json(spectral_info_f_path, config_classes_dict)
+        if os.path.exists(ledger_path):
+            ledger = load_sample_ledger(ledger_path)
+            configs = {
+                cnst.MICROSCOPE_CFG_KEY: ledger.configs.microscope_cfg,
+                cnst.SAMPLE_CFG_KEY: ledger.configs.sample_cfg,
+                cnst.MEASUREMENT_CFG_KEY: ledger.configs.measurement_cfg,
+                cnst.SAMPLESUBSTRATE_CFG_KEY: ledger.configs.sample_substrate_cfg,
+                cnst.CLUSTERING_CFG_KEY: ledger.configs.clustering_cfg,
+                cnst.PLOT_CFG_KEY: ledger.configs.plot_cfg,
+            }
+            if ledger.quantification_configs:
+                active_quant_id = ledger.active_quant
+                active_quant_config = next(
+                    (
+                        quant_config
+                        for quant_config in ledger.quantification_configs
+                        if quant_config.quantification_id == active_quant_id
+                    ),
+                    ledger.quantification_configs[-1],
+                )
+                configs[cnst.QUANTIFICATION_CFG_KEY] = config_classes_dict[cnst.QUANTIFICATION_CFG_KEY](
+                    **active_quant_config.options
+                )
+            else:
+                configs[cnst.QUANTIFICATION_CFG_KEY] = config_classes_dict[cnst.QUANTIFICATION_CFG_KEY]()
+            if ledger.configs.powder_meas_cfg is not None:
+                configs[cnst.POWDER_MEASUREMENT_CFG_KEY] = ledger.configs.powder_meas_cfg
+            if ledger.configs.bulk_meas_cfg is not None:
+                configs[cnst.BULK_MEASUREMENT_CFG_KEY] = ledger.configs.bulk_meas_cfg
+            metadata = {}
+        else:
+            configs, metadata = load_configurations_from_json(spectral_info_f_path, config_classes_dict)
     except FileNotFoundError:
         logging.error(f"Could not find {spectral_info_f_path}. Skipping sample '{sample_ID}'.")
         return
@@ -139,16 +174,20 @@ def analyze_sample(
         measurement_cfg     = configs[cnst.MEASUREMENT_CFG_KEY]
         sample_substrate_cfg= configs[cnst.SAMPLESUBSTRATE_CFG_KEY]
         quant_cfg           = configs[cnst.QUANTIFICATION_CFG_KEY]
-        clustering_cfg      = configs[cnst.CLUSTERING_CFG_KEY]
+        clustering_cfg      = configs.get(cnst.CLUSTERING_CFG_KEY)
         plot_cfg            = configs[cnst.PLOT_CFG_KEY]
         powder_meas_cfg     = configs.get(cnst.POWDER_MEASUREMENT_CFG_KEY, None)  # Optional
         bulk_meas_cfg     = configs.get(cnst.BULK_MEASUREMENT_CFG_KEY, None)  # Optional
     except KeyError as e:
         logging.error(f"Missing configuration '{e.args[0]}' in {spectral_info_f_path}. Skipping sample '{sample_ID}'.")
         return
+
+    if clustering_cfg is None:
+        clustering_cfg = ClusteringConfig()
     
     # --- Modify Clustering Configuration
-    forced_key = clustering_cfg.FORCED_K_METHOD_KEY
+    forced_key = "forced"
+    allowed_k_finding_methods = ("silhouette", "calinski_harabasz", "elbow", forced_key)
     if quant_flags_accepted is not None:
         clustering_cfg.quant_flags_accepted = quant_flags_accepted
     clustering_cfg.max_analytical_error_percent = max_analytical_error_percent
@@ -166,7 +205,10 @@ def analyze_sample(
         clustering_cfg.k = k_forced
         clustering_cfg.k_finding_method = forced_key
     elif k_finding_method == forced_key:
-        raise ValueError(f"'k_finding_method' must be one of {clustering_cfg.ALLOWED_K_FINDING_METHODS}, but not {forced_key}, if 'k_forced' is set to None")
+        raise ValueError(
+            f"'k_finding_method' must be one of {allowed_k_finding_methods}, "
+            f"but not {forced_key}, if 'k_forced' is set to None"
+        )
     elif k_finding_method is not None:
         # If k_forced is None, and a k_finding_method is defined, it forces the recomputation of k, despite of the values loaded from from clustering_cfg
         clustering_cfg.k = k_forced
@@ -204,7 +246,7 @@ def analyze_sample(
         measurement_cfg=measurement_cfg,
         sample_substrate_cfg=sample_substrate_cfg,
         quant_cfg=quant_cfg,
-        clustering_cfg=clustering_cfg,
+        initial_clustering_cfg=clustering_cfg,
         powder_meas_cfg=powder_meas_cfg,
         bulk_meas_cfg=bulk_meas_cfg,
         plot_cfg=plot_cfg,
@@ -221,7 +263,10 @@ def analyze_sample(
 
     # Perform analysis and print results
     try:
-        analysis_successful, _, _ = comp_analyzer.analyse_data(max_analytical_error_percent, k = clustering_cfg.k)
+        analysis_successful, _, _ = comp_analyzer.analyse_data(
+            max_analytical_error_percent,
+            k=comp_analyzer.clustering_cfg.k,
+        )
     except Exception as e:
         logging.exception(f'Error during clustering analysis for {sample_ID}: {e}')
         return

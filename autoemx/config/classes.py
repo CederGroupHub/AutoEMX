@@ -9,7 +9,7 @@ Created on Mon Jul 28 10:33:35 2025
 
 This module provides configuration dataclasses for all stages of an automated X-ray spectroscopy workflow,
 including microscope setup, sample and substrate definition, measurement and acquisition settings,
-spectrum fitting, quantification and filtering, powder measurement, clustering, and plotting.
+spectrum fitting, quantification and filtering, powder measurement, and plotting.
 
 Configurations:
 
@@ -17,10 +17,9 @@ Configurations:
 - SampleConfig: Defines the sample’s identity, elements, and spatial properties.
 - SampleSubstrateConfig: Specifies the substrate composition and geometry supporting the sample.
 - MeasurementConfig: Controls measurement type, beam parameters, and acquisition settings.
-- QuantConfig: Options for spectral fitting and quantification.
+- QuantificationOptionsConfig: Runtime options for spectral fitting and quantification.
 - PowderMeasurementConfig: Settings for analyzing powder samples and particle selection.
 - BulkMeasurementConfig: Settings for analyzing non-powder samples.
-- ClusteringConfig: Configures clustering algorithms and filtering of X-ray spectra.
 - PlotConfig: Options for saving, displaying, and customizing plots.
 
 Each dataclass includes attribute documentation and input validation.
@@ -288,7 +287,7 @@ class MeasurementConfig(BaseModel):
         return self
 
 
-class QuantConfig(BaseModel):
+class QuantificationOptionsConfig(BaseModel):
     """
     Configuration for X-ray spectrum fitting and quantification.
 
@@ -298,7 +297,6 @@ class QuantConfig(BaseModel):
         fit_tolerance (float): lmfit tolerance for fit convergence
         use_instrument_background (bool): Whether to use the instrument background in the fit (Default: False).
             If False, AutoEMX computes the background while fitting.
-        min_bckgrnd_cnts (Optional[int]): Minimum background counts required for spectrum not to be filtered out. Can be None.
         use_project_specific_std_dict (bool): If True, tries to load the dictionary of reference standards from the project folder.
             If not found, uses the default file "EDS_Stds_{beamenergy}keV.json" at XSp_calibs/Microscopes/your_microscope.
     """
@@ -306,15 +304,24 @@ class QuantConfig(BaseModel):
     spectrum_lims: Tuple[float, float] = dflt.spectrum_lims
     fit_tolerance: float = 1e-4
     use_instrument_background: bool = dflt.use_instrument_background
-    min_bckgrnd_cnts: Optional[int] = 5  # Can be None
     use_project_specific_std_dict: bool = False
 
     ALLOWED_METHODS: ClassVar[List[str]] = ['PB']
 
     model_config = ConfigDict(extra="forbid")
 
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_legacy_fields(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            cleaned = dict(data)
+            cleaned.pop("interrupt_fits_bad_spectra", None)
+            cleaned.pop("min_bckgrnd_cnts", None)
+            return cleaned
+        return data
+
     @model_validator(mode="after")
-    def _validate(self) -> "QuantConfig":
+    def _validate(self) -> "QuantificationOptionsConfig":
         if self.method not in self.ALLOWED_METHODS:
             raise ValueError(
                 f"Quantification method must be one of {self.ALLOWED_METHODS}, got '{self.method}'."
@@ -530,79 +537,6 @@ class ExpStandardsConfig(BaseModel):
         return self
 
 
-class ClusteringConfig(BaseModel):
-    """
-    Configuration for clustering of compositions and their filtering.
-
-    Attributes:
-        method (str): Clustering algorithm to use. Allowed: 'kmeans' (implemented), 'dbscan' (not implemented).
-        features (List[Any]): Feature set to use for clustering.
-        k (Optional[int]): If provided, defines a fixed number of clusters.
-        k_finding_method (str): Method to determine the number of clusters. Set to "forced" if a value of 'k' is specified manually.
-            Allowed methods are "silhouette", "calinski_harabasz", "elbow".
-        max_k (int): Maximum allowed number of clusters.
-        ref_formulae (List[str]): List of possible phases present in the sample, as chemical formula strings.
-        do_matrix_decomposition (bool) : Whether to compute matrix decomposition for intermixed phases. Slow if many candidate phases are provided. Default: True
-        max_analytical_error_percent (float): Maximum analytical error acceptable for composition to be considered in phase determination, expressed as w%. Can be None.
-        quant_flags_accepted (List[int]): List of quantification flags considered acceptable, others are filtered out prior clustering.
-            Quantification flags indicate whether the quantification or the fit of each spectrum is likely to be affected by large errors:
-               - 0: Quantification is ok, although it may be affected by large analytical error
-               - \-1: As above, but quantification did not converge within 30 steps
-               - 1: Error during EDS acquisition. No fit executed
-               - 2: Total number of counts is lower than 95% of target counts, likely due to wrong segmentation. No fit executed
-               - 3: Spectrum has too low signal in its low-energy portion, leading to poor quantification in this region. No fit executed
-               - 4: Poor fit. Fit interrupted if interrupt_fits_bad_spectra=True
-               - 5: Too high analytical error (>50%) indicating a missing element or other major sources of error. Fit interrupted if interrupt_fits_bad_spectra=True
-               - 6: Excessive X-ray absorption. Fit interrupted if interrupt_fits_bad_spectra=True
-               - 7: Excessive signal contamination from substrate
-               - 8: Too few background counts below reference peak, likely leading to large quantification errors
-               - 9: Unknown fitting error
-    """
-
-    DEFAULT_K_FINDING_METHOD: ClassVar[str] = 'silhouette'
-    FORCED_K_METHOD_KEY: ClassVar[str] = 'forced'
-    ALLOWED_METHODS: ClassVar[Tuple[str, ...]] = ("kmeans", "dbscan")
-    ALLOWED_FEATURE_SETS: ClassVar[tuple] = (cnst.W_FR_CL_FEAT, cnst.AT_FR_CL_FEAT)
-    ALLOWED_K_FINDING_METHODS: ClassVar[Tuple[str, ...]] = ("silhouette", "calinski_harabasz", "elbow", "forced")
-
-    method: str = 'kmeans'
-    features: List[Any] = Field(default_factory=lambda: cnst.AT_FR_CL_FEAT)
-    k: Optional[int] = None
-    k_finding_method: str = 'silhouette'
-    max_k: int = 6
-    ref_formulae: List[str] = Field(default_factory=list)
-    do_matrix_decomposition: bool = True
-    max_analytical_error_percent: float = 5  # w%, Can be None
-    quant_flags_accepted: List[int] = Field(default_factory=lambda: [0, -1])
-
-    model_config = ConfigDict(extra="forbid")
-
-    @model_validator(mode="after")
-    def _validate(self) -> "ClusteringConfig":
-        if self.method not in self.ALLOWED_METHODS:
-            raise ValueError(f"Clustering method must be one of {self.ALLOWED_METHODS}, got '{self.method}'.")
-        if self.method == "dbscan":
-            raise NotImplementedError("DBSCAN clustering is not implemented yet.")
-        if not any(self.features == allowed for allowed in self.ALLOWED_FEATURE_SETS):
-            raise ValueError(
-                f"Invalid value for features: {self.features}. "
-                f"Expected one of: {self.ALLOWED_FEATURE_SETS}."
-            )
-        if self.k_finding_method not in self.ALLOWED_K_FINDING_METHODS:
-            raise ValueError(
-                f"k_finding_method must be one of {self.ALLOWED_K_FINDING_METHODS}, "
-                f"got '{self.k_finding_method}'."
-            )
-        elif isinstance(self.k, int):
-            self.k_finding_method = self.FORCED_K_METHOD_KEY
-        elif self.k_finding_method == self.FORCED_K_METHOD_KEY:
-            raise ValueError(
-                f"'k_finding_method' should not be set to {self.FORCED_K_METHOD_KEY} if "
-                f"'k' is left unspecified. Setting 'k_finding_method = {self.DEFAULT_K_FINDING_METHOD}'."
-            )
-        return self
-
-
 class PlotConfig(BaseModel):
     """
     Configuration for plotting.
@@ -632,8 +566,7 @@ config_classes_dict = {
     cnst.MICROSCOPE_CFG_KEY: MicroscopeConfig,
     cnst.MEASUREMENT_CFG_KEY: MeasurementConfig,
     cnst.SAMPLESUBSTRATE_CFG_KEY: SampleSubstrateConfig,
-    cnst.QUANTIFICATION_CFG_KEY: QuantConfig,
-    cnst.CLUSTERING_CFG_KEY: ClusteringConfig,
+    cnst.QUANTIFICATION_CFG_KEY: QuantificationOptionsConfig,
     cnst.PLOT_CFG_KEY: PlotConfig,
     cnst.POWDER_MEASUREMENT_CFG_KEY: PowderMeasurementConfig,
     cnst.BULK_MEASUREMENT_CFG_KEY: BulkMeasurementConfig,

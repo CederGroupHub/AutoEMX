@@ -23,7 +23,7 @@ Example Usage
             measurement_cfg=measurement_cfg,
             sample_substrate_cfg=sample_substrate_cfg,
             quant_cfg=quant_cfg,
-            clustering_cfg=clustering_cfg,
+            initial_clustering_cfg=initial_clustering_cfg,
             powder_meas_cfg=powder_meas_cfg,
             plot_cfg=plot_cfg,
             is_acquisition=True,
@@ -98,8 +98,8 @@ from autoemx.config import (
     SampleConfig,
     MeasurementConfig,
     SampleSubstrateConfig,
-    QuantConfig,
-    ClusteringConfig,
+    QuantificationOptionsConfig,
+    ClusteringConfig as RuntimeClusteringConfig,
     PowderMeasurementConfig,
     BulkMeasurementConfig,
     ExpStandardsConfig,
@@ -107,9 +107,11 @@ from autoemx.config import (
 )
 from autoemx.config.schemas import (
     AcquisitionDetails,
+    ClusteringConfig as LedgerClusteringConfig,
     Coordinate2D,
     LedgerConfigs,
     QuantificationConfig,
+    QuantificationDiagnostics,
     QuantificationResult,
     SampleLedger,
     SpotCoordinates,
@@ -117,6 +119,11 @@ from autoemx.config.schemas import (
 )
 from .clustering import ClusteringModule
 from autoemx.utils.legacy.legacy_backfill import backfill_spectra_from_data_csv, load_ledger_configs_from_legacy_json
+from autoemx.utils.legacy.legacy_ledger_loader import (
+    build_legacy_import_quantification_config,
+    load_legacy_acquisition_details_by_spectrum_id,
+    load_legacy_quantification_results_by_spectrum_id,
+)
 from .plotting import PlottingModule
 from .reference_matching import ReferenceMatchingModule
 from autoemx.utils.legacy.spectrum_pointer_writer import load_vendor_msa_template_lines, write_spectrum_pointer_file
@@ -143,10 +150,10 @@ class EMXSp_Composition_Analyzer:
         Configuration for the measurement/acquisition.
     sample_substrate_cfg : SampleSubstrateConfig
         Configuration for the sample substrate.
-    quant_cfg : QuantConfig
+    quant_cfg : QuantificationOptionsConfig
         Configuration for spectrum fitting and quantification.
-    clustering_cfg : ClusteringConfig
-        Configuration for clustering of spectra/compositions.
+    initial_clustering_cfg : autoemx.config.schemas.ClusteringConfig
+        Initial clustering settings used when no active quantification config is yet available in the ledger.
     powder_meas_cfg : PowderMeasurementConfig
         Configuration for powder measurement.
     bulk_meas_cfg : BulkMeasurementConfig
@@ -177,14 +184,27 @@ class EMXSp_Composition_Analyzer:
     TO COMPLETE
     """
     #TODO
+    @staticmethod
+    def _coerce_optional_finite_float(value: Any) -> Optional[float]:
+        """Return a finite float or None when the input is missing/non-finite."""
+        if value is None:
+            return None
+        try:
+            numeric_value = float(value)
+        except (TypeError, ValueError):
+            return None
+        if not np.isfinite(numeric_value):
+            return None
+        return numeric_value
+
     def __init__(
         self,
         microscope_cfg: MicroscopeConfig,
         sample_cfg: SampleConfig,
         measurement_cfg: MeasurementConfig,
         sample_substrate_cfg: SampleSubstrateConfig,
-        quant_cfg: Optional[QuantConfig] = QuantConfig(),
-        clustering_cfg: Optional[ClusteringConfig] = ClusteringConfig(),
+        quant_cfg: Optional[QuantificationOptionsConfig] = QuantificationOptionsConfig(),
+        initial_clustering_cfg: Optional[Any] = None,
         powder_meas_cfg: Optional[PowderMeasurementConfig] = PowderMeasurementConfig(),
         bulk_meas_cfg: Optional[BulkMeasurementConfig] = BulkMeasurementConfig(),
         exp_stds_cfg: Optional[ExpStandardsConfig] = ExpStandardsConfig(),
@@ -285,9 +305,28 @@ class EMXSp_Composition_Analyzer:
         # --- Fitting and Quantification
         self.quant_cfg = quant_cfg
         self.standards_dict = standards_dict
+
+        if initial_clustering_cfg is None:
+            self.clustering_cfg = LedgerClusteringConfig(features=cnst.AT_FR_CL_FEAT)
+        elif hasattr(initial_clustering_cfg, "model_dump"):
+            clustering_payload = initial_clustering_cfg.model_dump(mode="json")
+            clustering_payload.pop("clustering_id", None)
+            self.clustering_cfg = LedgerClusteringConfig.model_validate(clustering_payload)
+        elif isinstance(initial_clustering_cfg, dict):
+            clustering_payload = dict(initial_clustering_cfg)
+            clustering_payload.pop("clustering_id", None)
+            self.clustering_cfg = LedgerClusteringConfig.model_validate(clustering_payload)
+        else:
+            raise TypeError(
+                "initial_clustering_cfg must be None, a mapping, or a model with model_dump()"
+            )
+
         if is_XSp_measurement:
             # Set EDS detector channels to include in the quantification
-            self.sp_start, self.sp_end = quant_cfg.spectrum_lims
+            self.sp_start, self.sp_end = (
+                int(round(quant_cfg.spectrum_lims[0])),
+                int(round(quant_cfg.spectrum_lims[1])),
+            )
             # Compute values of energies corresponding to detector channels
             if energy_zero and bin_width:
                 self.energy_vals = np.array([energy_zero + bin_width * i for i in range(self.sp_start, self.sp_end)])
@@ -296,14 +335,13 @@ class EMXSp_Composition_Analyzer:
             # Set a threshold value below which counts are considered to be too low
             # Used to filter "bad" spectra out from clustering analysis. All spectra having less counts than this threshold are filtered out
             # Used also to avoid fitting spectra with excessive absorption, which inevitably lead to large quantification errors
-            if not quant_cfg.min_bckgrnd_cnts:
-                min_bckgrnd_cnts = measurement_cfg.target_acquisition_counts/(2*10**4) # empirical value
-                self.quant_cfg.min_bckgrnd_cnts = min_bckgrnd_cnts
+            if self.clustering_cfg.min_bckgrnd_cnts is None:
+                min_bckgrnd_cnts = measurement_cfg.target_acquisition_counts / (2 * 10**4)  # empirical value
+                self.clustering_cfg.min_bckgrnd_cnts = int(round(min_bckgrnd_cnts))
 
         # --- Clustering
-        self.clustering_cfg = clustering_cfg
         if is_XSp_measurement:
-            self.ref_formulae = list(dict.fromkeys(clustering_cfg.ref_formulae)) # Remove duplicates
+            self.ref_formulae = list(dict.fromkeys(self.clustering_cfg.ref_formulae)) # Remove duplicates
             self._calc_reference_phases_df() # Calculate dataframe with reference compositions, and any possible analyitical error deriving from undetectable elements
         
         
@@ -342,7 +380,7 @@ class EMXSp_Composition_Analyzer:
             self.spectra_quant = []
             self.spectra_quant_records = []
             self.current_quant_config: Optional[QuantificationConfig] = None
-            self.current_quantification_id: Optional[str] = None
+            self.current_quantification_id: Optional[int] = None
             
         
         # --- Save configurations
@@ -463,11 +501,12 @@ class EMXSp_Composition_Analyzer:
         spectra_dir = self._get_spectra_dir()
         os.makedirs(spectra_dir, exist_ok=True)
         ledger = SampleLedger(
-            sample_id=f"{self.sample_cfg.ID}_ledger",
+            sample_id=self.sample_cfg.ID,
             sample_path=os.path.abspath(self.sample_result_dir),
             configs=self._build_ledger_configs(),
             spectra=[],
             quantification_configs=[],
+            active_quant=None,
         )
         ledger.to_json_file(ledger_path)
 
@@ -946,6 +985,10 @@ class EMXSp_Composition_Analyzer:
                 quantification_id=self.current_quantification_id,
                 quant_flag=quant_flag,
                 comment=comment,
+                diagnostics=QuantificationDiagnostics(
+                    converged=False,
+                    interrupted=True,
+                ),
             )
             return None, quant_record, quant_flag, comment
         
@@ -999,7 +1042,6 @@ class EMXSp_Composition_Analyzer:
                 quant_result=quant_result,
                 quant_flag=quant_flag,
                 comment=comment,
-                metadata={"spectrum_index": spectrum_index} if spectrum_index is not None else None,
             )
         
         if verbose and quant_result:
@@ -1234,7 +1276,7 @@ class EMXSp_Composition_Analyzer:
         x_pixel = self._parse_optional_float(pixel_x)
         y_pixel = self._parse_optional_float(pixel_y)
         if x_pixel is not None and y_pixel is not None:
-            pixel_coords = Coordinate2D(x=x_pixel, y=y_pixel)
+            pixel_coords = (int(round(x_pixel)), int(round(y_pixel)))
 
         if machine_coords is None and pixel_coords is None:
             return None
@@ -1245,43 +1287,12 @@ class EMXSp_Composition_Analyzer:
         )
 
 
-    def _load_legacy_acquisition_details_by_spectrum_id(self) -> Dict[str, AcquisitionDetails]:
-        """Load acquisition details keyed by spectrum_id from legacy Data.csv when available."""
-        details_by_id: Dict[str, AcquisitionDetails] = {}
-        data_csv_path = os.path.join(self.sample_result_dir, cnst.DATA_FILENAME + cnst.DATA_FILEEXT)
-        if not os.path.exists(data_csv_path):
-            return details_by_id
-
-        try:
-            data_df = pd.read_csv(data_csv_path)
-        except Exception:
-            return details_by_id
-
-        for row_idx, row in data_df.iterrows():
-            spectrum_id_val = row.get(cnst.SP_ID_DF_KEY, row_idx)
-            spectrum_id = str(int(spectrum_id_val)) if isinstance(spectrum_id_val, (int, float, np.integer)) and not pd.isna(spectrum_id_val) else str(spectrum_id_val)
-            if not spectrum_id:
-                spectrum_id = str(row_idx)
-
-            details_by_id[spectrum_id] = AcquisitionDetails(
-                frame_id=str(row.get(cnst.FRAME_ID_DF_KEY)).strip() if row.get(cnst.FRAME_ID_DF_KEY) is not None and not pd.isna(row.get(cnst.FRAME_ID_DF_KEY)) else None,
-                particle_id=self._parse_optional_int(row.get(cnst.PAR_ID_DF_KEY)),
-                spot_coordinates=self._build_spot_coordinates(
-                    row.get(cnst.SP_X_COORD_DF_KEY),
-                    row.get(cnst.SP_Y_COORD_DF_KEY),
-                    row.get(cnst.SP_X_PIXEL_COORD_DF_KEY),
-                    row.get(cnst.SP_Y_PIXEL_COORD_DF_KEY),
-                ),
-            )
-
-        return details_by_id
-
-
     def _build_spectrum_entry_from_pointer_file(
         self,
         pointer_file: Path,
         existing_results: Optional[List[QuantificationResult]] = None,
         acquisition_details_by_id: Optional[Dict[str, AcquisitionDetails]] = None,
+        quantification_results_by_id: Optional[Dict[str, List[QuantificationResult]]] = None,
     ) -> SpectrumEntry:
         """Build a SpectrumEntry by inspecting one file under sample_path/spectra."""
         sample_root = Path(self.sample_result_dir).resolve()
@@ -1297,13 +1308,13 @@ class EMXSp_Composition_Analyzer:
             counts = SampleLedger._load_counts_from_pointer_file(pointer_abs)
             total_counts = int(round(float(np.sum(counts))))
         except Exception:
-            total_counts = None
+            total_counts = 0
 
-        acquisition_details = None
+        acquisition_details = AcquisitionDetails(frame_id=None, particle_id=None, spot_coordinates=None)
         if acquisition_details_by_id is not None:
-            acquisition_details = acquisition_details_by_id.get(spectrum_id)
+            acquisition_details = acquisition_details_by_id.get(spectrum_id, acquisition_details)
 
-        realtime_from_header = self._load_realtime_from_pointer_file(pointer_abs)
+        realtime_from_header = self._coerce_optional_finite_float(self._load_realtime_from_pointer_file(pointer_abs))
         background_relpath = None
         candidate_background = Path(
             self.sample_result_dir,
@@ -1312,14 +1323,18 @@ class EMXSp_Composition_Analyzer:
         if candidate_background.exists():
             background_relpath = str(candidate_background.resolve().relative_to(sample_root))
 
+        entry_results = list(existing_results or [])
+        if not entry_results and quantification_results_by_id is not None:
+            entry_results = list(quantification_results_by_id.get(spectrum_id, []))
+
         return SpectrumEntry(
-            real_time=realtime_from_header if realtime_from_header is not None else 1.0,
+            live_acquisition_time=realtime_from_header if realtime_from_header is not None else 1.0,
             total_counts=total_counts,
             spectrum_id=spectrum_id,
             spectrum_relpath=pointer_rel,
             instrument_background_relpath=background_relpath,
             acquisition_details=acquisition_details,
-            quantification_results=list(existing_results or []),
+            quantification_results=entry_results,
         )
 
 
@@ -1337,24 +1352,38 @@ class EMXSp_Composition_Analyzer:
 
         ledger = self._load_existing_ledger()
         ledger_changed = False
-        legacy_acq_details = self._load_legacy_acquisition_details_by_spectrum_id()
+        data_csv_path = os.path.join(self.sample_result_dir, cnst.DATA_FILENAME + cnst.DATA_FILEEXT)
+        legacy_acq_details = load_legacy_acquisition_details_by_spectrum_id(
+            data_csv_path,
+            sample_result_dir=self.sample_result_dir,
+            microscope_id=self.microscope_cfg.ID,
+        )
+        legacy_quant_results = load_legacy_quantification_results_by_spectrum_id(data_csv_path)
 
         if ledger is None:
             if pointer_files:
                 legacy_configs = load_ledger_configs_from_legacy_json(self.sample_result_dir)
+                ledger_configs = legacy_configs if legacy_configs is not None else self._build_ledger_configs()
                 spectra_entries = [
                     self._build_spectrum_entry_from_pointer_file(
                         pointer_file,
                         acquisition_details_by_id=legacy_acq_details,
+                        quantification_results_by_id=legacy_quant_results,
                     )
                     for pointer_file in pointer_files
                 ]
                 ledger = SampleLedger(
-                    sample_id=f"{self.sample_cfg.ID}_ledger",
+                    sample_id=self.sample_cfg.ID,
                     sample_path=os.path.abspath(self.sample_result_dir),
-                    configs=legacy_configs if legacy_configs is not None else self._build_ledger_configs(),
+                    configs=ledger_configs,
                     spectra=spectra_entries,
-                    quantification_configs=[],
+                    quantification_configs=[
+                        build_legacy_import_quantification_config(
+                            sample_result_dir=self.sample_result_dir,
+                            ledger_configs=ledger_configs,
+                        )
+                    ],
+                    active_quant=0,
                 )
                 ledger_changed = True
             else:
@@ -1375,6 +1404,7 @@ class EMXSp_Composition_Analyzer:
                 self._build_spectrum_entry_from_pointer_file(
                     pointer_file,
                     acquisition_details_by_id=legacy_acq_details,
+                    quantification_results_by_id=legacy_quant_results,
                 )
             )
             existing_relpaths.add(pointer_rel)
@@ -1384,10 +1414,73 @@ class EMXSp_Composition_Analyzer:
             ledger.sample_path = os.path.abspath(self.sample_result_dir)
             ledger_changed = True
 
+        if self._refresh_legacy_import_payloads(
+            ledger,
+            data_csv_path=data_csv_path,
+            legacy_quant_results=legacy_quant_results,
+        ):
+            ledger_changed = True
+
         if ledger_changed:
             ledger.to_json_file(ledger_path)
 
         return ledger
+
+
+    def _refresh_legacy_import_payloads(
+        self,
+        ledger: SampleLedger,
+        *,
+        data_csv_path: str,
+        legacy_quant_results: Dict[str, List[QuantificationResult]],
+    ) -> bool:
+        """Refresh legacy-import config and quant results from Data.csv when they are stale."""
+        if not data_csv_path or not os.path.exists(data_csv_path):
+            return False
+
+        changed = False
+        legacy_configs = load_ledger_configs_from_legacy_json(self.sample_result_dir)
+        config_source = legacy_configs if legacy_configs is not None else ledger.configs
+        legacy_quant_config = build_legacy_import_quantification_config(
+            sample_result_dir=self.sample_result_dir,
+            ledger_configs=config_source,
+        )
+        existing_config_idx = next(
+            (i for i, config in enumerate(ledger.quantification_configs) if config.quantification_id == 0),
+            None,
+        )
+        if existing_config_idx is None:
+            ledger.quantification_configs.insert(0, legacy_quant_config)
+            changed = True
+        else:
+            existing_config = ledger.quantification_configs[existing_config_idx]
+            if existing_config.model_dump(mode="json") != legacy_quant_config.model_dump(mode="json"):
+                ledger.quantification_configs[existing_config_idx] = legacy_quant_config
+                changed = True
+
+        if ledger.active_quant is None and ledger.quantification_configs:
+            ledger.active_quant = 0
+            changed = True
+
+        for index, spectrum in enumerate(ledger.spectra):
+            spectrum_id = str(spectrum.spectrum_id) if spectrum.spectrum_id not in (None, "") else str(index)
+            replacement_results = legacy_quant_results.get(spectrum_id)
+            if replacement_results is None:
+                continue
+
+            retained_results = [
+                result for result in spectrum.quantification_results if result.quantification_id != 0
+            ]
+            merged_results = [
+                result.model_copy(deep=True) for result in replacement_results
+            ] + retained_results
+            if [result.model_dump(mode="json") for result in spectrum.quantification_results] != [
+                result.model_dump(mode="json") for result in merged_results
+            ]:
+                spectrum.quantification_results = merged_results
+                changed = True
+
+        return changed
 
 
     def _sync_in_memory_spectra_from_ledger(self) -> None:
@@ -1423,7 +1516,11 @@ class EMXSp_Composition_Analyzer:
                 background_vector = self._load_background_vector_from_file(background_abs)
             background_vals.append(background_vector)
 
-            realtime = float(spectrum.real_time) if spectrum.real_time is not None else 1.0
+            realtime = (
+                float(spectrum.live_acquisition_time)
+                if spectrum.live_acquisition_time is not None
+                else 1.0
+            )
             real_times.append(realtime)
             live_times.append(realtime)
 
@@ -1443,8 +1540,8 @@ class EMXSp_Composition_Analyzer:
                         x_val = str(machine_coords.x)
                         y_val = str(machine_coords.y)
                     if pixel_coords is not None:
-                        x_pixel_val = str(pixel_coords.x)
-                        y_pixel_val = str(pixel_coords.y)
+                        x_pixel_val = str(pixel_coords[0])
+                        y_pixel_val = str(pixel_coords[1])
                 par_id = str(acquisition_details.particle_id or "")
                 frame_id = str(acquisition_details.frame_id or "")
 
@@ -1478,13 +1575,18 @@ class EMXSp_Composition_Analyzer:
         coords = self.sp_coords[index] if index < len(self.sp_coords) else {}
         spectrum_id = str(coords.get(cnst.SP_ID_DF_KEY, index))
         spectrum_vals = list(self.spectral_data[cnst.SPECTRUM_DF_KEY][index])
-        real_time = self.spectral_data[cnst.REAL_TIME_DF_KEY][index] if index < len(self.spectral_data[cnst.REAL_TIME_DF_KEY]) else None
-        live_time = self.spectral_data[cnst.LIVE_TIME_DF_KEY][index] if index < len(self.spectral_data[cnst.LIVE_TIME_DF_KEY]) else None
+        real_time = self._coerce_optional_finite_float(
+            self.spectral_data[cnst.REAL_TIME_DF_KEY][index] if index < len(self.spectral_data[cnst.REAL_TIME_DF_KEY]) else None
+        )
+        live_time = self._coerce_optional_finite_float(
+            self.spectral_data[cnst.LIVE_TIME_DF_KEY][index] if index < len(self.spectral_data[cnst.LIVE_TIME_DF_KEY]) else None
+        )
+        live_acquisition_time = live_time if live_time is not None else real_time
         spectrum_relpath = self._resolve_or_create_spectrum_pointer(
             spectrum_id=spectrum_id,
             spectrum_vals=spectrum_vals,
-            live_time=float(live_time) if live_time is not None else None,
-            real_time=float(real_time) if real_time is not None else None,
+            live_time=live_time,
+            real_time=real_time,
         )
         background_relpath = None
         background = None
@@ -1504,23 +1606,13 @@ class EMXSp_Composition_Analyzer:
             spot_coordinates=self._build_spot_coordinates(raw_x, raw_y, raw_x_pixel, raw_y_pixel),
         )
 
-        metadata = {
-            cnst.SP_X_COORD_DF_KEY: str(raw_x),
-            cnst.SP_Y_COORD_DF_KEY: str(raw_y),
-            cnst.SP_X_PIXEL_COORD_DF_KEY: str(raw_x_pixel),
-            cnst.SP_Y_PIXEL_COORD_DF_KEY: str(raw_y_pixel),
-            cnst.PAR_ID_DF_KEY: str(coords.get(cnst.PAR_ID_DF_KEY, '')),
-            cnst.FRAME_ID_DF_KEY: str(coords.get(cnst.FRAME_ID_DF_KEY, '')),
-        }
-
         return SpectrumEntry(
-            real_time=float(real_time) if real_time is not None else 1.0,
+            live_acquisition_time=live_acquisition_time if live_acquisition_time is not None else 1.0,
             total_counts=int(round(float(np.sum(spectrum_vals)))),
             spectrum_id=spectrum_id,
             spectrum_relpath=spectrum_relpath,
             instrument_background_relpath=background_relpath,
             acquisition_details=acquisition_details,
-            metadata=metadata,
             quantification_results=list(existing_results or []),
         )
 
@@ -1532,8 +1624,9 @@ class EMXSp_Composition_Analyzer:
             sample_cfg=self.sample_cfg,
             measurement_cfg=self.measurement_cfg,
             sample_substrate_cfg=self.sample_substrate_cfg,
-            quant_cfg=self.quant_cfg,
-            clustering_cfg=self.clustering_cfg,
+            clustering_cfg=RuntimeClusteringConfig.model_validate(
+                self._runtime_clustering_cfg_payload(self.clustering_cfg)
+            ),
             plot_cfg=self.plot_cfg,
             powder_meas_cfg=self.powder_meas_cfg,
             bulk_meas_cfg=self.bulk_meas_cfg,
@@ -1552,11 +1645,13 @@ class EMXSp_Composition_Analyzer:
             spectra.append(self._build_spectrum_entry(index, existing_results=existing_results))
 
         existing_configs = []
+        active_quant = None
         if existing_ledger is not None:
             existing_configs = list(existing_ledger.quantification_configs)
+            active_quant = existing_ledger.active_quant
 
         return SampleLedger(
-            sample_id=f"{self.sample_cfg.ID}_ledger",
+            sample_id=self.sample_cfg.ID,
             sample_path=os.path.abspath(self.sample_result_dir),
             configs=(
                 existing_ledger.configs
@@ -1565,6 +1660,7 @@ class EMXSp_Composition_Analyzer:
             ),
             spectra=spectra,
             quantification_configs=existing_configs,
+            active_quant=active_quant,
         )
 
 
@@ -1604,50 +1700,362 @@ class EMXSp_Composition_Analyzer:
 
 
     def _ensure_current_quantification_run(self, force_new: bool = False) -> None:
-        """Reuse an existing quantification id for matching options, or create a new one.
+        """Resolve the active quantification run for this launch.
 
         Parameters
         ----------
         force_new : bool
-            If True, always create a new quantification id even when options match an
-            existing run.
+            If True, always create a new quantification config id.
         """
-        if force_new:
-            quant_timestamp = datetime.now().strftime("%Y%m%dT%H%M%S%f")
-            quantification_id = f"quant_{quant_timestamp}"
-            self.current_quant_config = QuantificationConfig(
-                quantification_id=quantification_id,
-                label=f"Quantification {quant_timestamp}",
-                options=self.quant_cfg.model_dump(),
-            )
-            self.current_quantification_id = quantification_id
+        existing_ledger = self._load_or_create_ledger()
+        active_quant_config = self._get_active_quantification_config(existing_ledger)
+        if active_quant_config is not None:
+            self._apply_active_clustering_config(active_quant_config)
+
+        current_sample_elements = list(self.all_els_sample)
+        current_substrate_elements = list(self.all_els_substrate)
+        current_options = self._build_quantification_options()
+        current_reference_values = self._get_reference_values_by_el_line(active_quant_config=active_quant_config)
+
+        candidate_id = (
+            active_quant_config.quantification_id
+            if active_quant_config is not None
+            else self._next_quantification_id(existing_ledger)
+        )
+        candidate_config = self._build_quantification_config(
+            quantification_id=candidate_id,
+            sample_elements=current_sample_elements,
+            substrate_elements=current_substrate_elements,
+            options=current_options,
+            reference_values_by_el_line=current_reference_values,
+        )
+
+        if (
+            not force_new
+            and active_quant_config is not None
+            and self._quantification_configs_match(active_quant_config, candidate_config)
+        ):
+            self.current_quant_config = active_quant_config
+            self.current_quantification_id = active_quant_config.quantification_id
+            self._apply_active_clustering_config(self.current_quant_config)
             return
 
-        current_options = self.quant_cfg.model_dump()
-        if self.current_quant_config is not None and self.current_quant_config.options == current_options:
-            self.current_quantification_id = self.current_quant_config.quantification_id
+        if not force_new and active_quant_config is not None:
+            changes = active_quant_config.fingerprint_differences(candidate_config)
+            if changes:
+                changed_summary = self._format_quantification_config_changes(changes)
+                warnings.warn(
+                    "Quantification scientific inputs changed; creating a new quantification config. "
+                    f"Changed fields: {changed_summary}",
+                    UserWarning,
+                )
+
+        quantification_id = self._next_quantification_id(existing_ledger)
+        self.current_quant_config = self._build_quantification_config(
+            quantification_id=quantification_id,
+            sample_elements=current_sample_elements,
+            substrate_elements=current_substrate_elements,
+            options=current_options,
+            reference_values_by_el_line=current_reference_values,
+        )
+        self.current_quantification_id = quantification_id
+        self._ensure_current_clustering_run(self.current_quant_config)
+        self._apply_active_clustering_config(self.current_quant_config)
+
+
+    def _build_quantification_options(self) -> Dict[str, Any]:
+        """Build the subset of quantification options that defines result reuse."""
+        return {
+            "method": self.quant_cfg.method,
+            "spectrum_lims": [
+                float(self.quant_cfg.spectrum_lims[0]),
+                float(self.quant_cfg.spectrum_lims[1]),
+            ],
+            "fit_tolerance": float(self.quant_cfg.fit_tolerance),
+            "use_instrument_background": bool(self.quant_cfg.use_instrument_background),
+        }
+
+
+    def _get_reference_values_by_el_line(
+        self,
+        active_quant_config: Optional[QuantificationConfig] = None,
+    ) -> Dict[str, Any]:
+        """Return method-dependent reference values, reusing persisted config values when possible."""
+        if active_quant_config is not None and active_quant_config.reference_values_by_el_line:
+            cached_reference_values = dict(sorted(active_quant_config.reference_values_by_el_line.items()))
+            current_reference_values = self._extract_reference_values_from_standards(load_if_missing=False)
+            if current_reference_values and current_reference_values != cached_reference_values:
+                warnings.warn(
+                    "Reference values in standards differ from active quantification config; "
+                    "a new quantification config will be created.",
+                    UserWarning,
+                )
+                return current_reference_values
+            return cached_reference_values
+
+        return self._extract_reference_values_from_standards(load_if_missing=True)
+
+
+    def _extract_reference_values_from_standards(self, load_if_missing: bool) -> Dict[str, Any]:
+        """Extract per-reference-line values from standards for the configured quantification method."""
+        standards_by_line = None
+
+        if self.quant_cfg.use_project_specific_std_dict:
+            if self.XSp_std_dict is not None and not load_if_missing:
+                standards_by_line = self.XSp_std_dict
+            else:
+                std_dict_all_modes, _ = self._load_xsp_standards()
+                standards_by_line = std_dict_all_modes.get(self.measurement_cfg.mode, {})
+        else:
+            standards_by_line = self.XSp_std_dict
+            if standards_by_line is None and self.standards_dict is not None:
+                if self.measurement_cfg.mode in self.standards_dict:
+                    standards_by_line = self.standards_dict[self.measurement_cfg.mode]
+                else:
+                    standards_by_line = self.standards_dict
+            if standards_by_line is None and load_if_missing:
+                std_dict_all_modes, _ = self._load_xsp_standards()
+                standards_by_line = std_dict_all_modes.get(self.measurement_cfg.mode, {})
+
+        if standards_by_line is None:
+            return {}
+
+        relevant_elements = set(self.detectable_els_sample) | set(self.detectable_els_substrate)
+        reference_values_by_el_line: Dict[str, Any] = {}
+        if self.quant_cfg.method == "PB":
+            for el_line, std_values in standards_by_line.items():
+                element = el_line.split("_", maxsplit=1)[0]
+                if element not in relevant_elements:
+                    continue
+                mean_std = next(
+                    (std for std in std_values if std.get(cnst.STD_ID_KEY) == cnst.STD_MEAN_ID_KEY),
+                    None,
+                )
+                if mean_std is None or cnst.COR_PB_DF_KEY not in mean_std:
+                    continue
+                reference_values_by_el_line[el_line] = float(mean_std[cnst.COR_PB_DF_KEY])
+
+        return dict(sorted(reference_values_by_el_line.items()))
+
+
+    @staticmethod
+    def _quantification_configs_match(left: QuantificationConfig, right: QuantificationConfig) -> bool:
+        """Compare quantification configs by deterministic scientific-input fingerprint."""
+        return left.fingerprint() == right.fingerprint()
+
+    @staticmethod
+    def _clustering_configs_match(left: LedgerClusteringConfig, right: LedgerClusteringConfig) -> bool:
+        """Compare clustering configs by deterministic scientific-input fingerprint."""
+        return left.fingerprint() == right.fingerprint()
+
+    @staticmethod
+    def _format_quantification_config_changes(
+        changes: Dict[str, Dict[str, Any]],
+        max_items: int = 8,
+        max_value_length: int = 80,
+    ) -> str:
+        """Return a concise deterministic summary of config changes with old->new values."""
+        if not changes:
+            return "none"
+
+        sorted_items = sorted(changes.items(), key=lambda item: item[0])
+        formatted_entries: List[str] = []
+        for path, change in sorted_items[:max_items]:
+            old_val = EMXSp_Composition_Analyzer._short_repr(change.get("old"), max_value_length)
+            new_val = EMXSp_Composition_Analyzer._short_repr(change.get("new"), max_value_length)
+            formatted_entries.append(f"{path}: {old_val} -> {new_val}")
+
+        remaining = len(sorted_items) - len(formatted_entries)
+        if remaining > 0:
+            formatted_entries.append(f"... and {remaining} more")
+
+        return "; ".join(formatted_entries)
+
+    @staticmethod
+    def _short_repr(value: Any, max_length: int) -> str:
+        """Return a stable shortened representation suitable for warning messages."""
+        text = repr(value)
+        if len(text) <= max_length:
+            return text
+        return text[: max_length - 3] + "..."
+
+
+    @staticmethod
+    def _runtime_clustering_cfg_payload(clustering_cfg: LedgerClusteringConfig) -> Dict[str, Any]:
+        """Convert a ledger clustering config to the runtime config payload shape."""
+        payload = clustering_cfg.model_dump(mode="json")
+        payload.pop("clustering_id", None)
+        return payload
+
+
+    def _apply_active_clustering_config(self, quant_config: QuantificationConfig) -> None:
+        """Load runtime clustering options from the active clustering config of a quantification config."""
+        active_clustering_config = quant_config.get_active_clustering_config()
+        if active_clustering_config is None:
+            raise ValueError(
+                "Active quantification config does not contain an active clustering config"
+            )
+
+        self.clustering_cfg = active_clustering_config.model_copy(deep=True)
+        self.ref_formulae = list(dict.fromkeys(self.clustering_cfg.ref_formulae))
+        self._calc_reference_phases_df()
+
+
+    def _build_clustering_config_descriptor(self, clustering_id: int) -> LedgerClusteringConfig:
+        """Build a persisted clustering config descriptor for the current analysis settings."""
+        return LedgerClusteringConfig(
+            clustering_id=clustering_id,
+            method=self.clustering_cfg.method,
+            features=self.clustering_cfg.features,
+            k=self.clustering_cfg.k,
+            k_finding_method=self.clustering_cfg.k_finding_method,
+            max_k=self.clustering_cfg.max_k,
+            ref_formulae=list(self.clustering_cfg.ref_formulae),
+            do_matrix_decomposition=self.clustering_cfg.do_matrix_decomposition,
+            max_analytical_error_percent=self.clustering_cfg.max_analytical_error_percent,
+            min_bckgrnd_cnts=self.clustering_cfg.min_bckgrnd_cnts,
+            quant_flags_accepted=list(self.clustering_cfg.quant_flags_accepted),
+        )
+
+
+    def _ensure_current_clustering_run(self, quant_config: QuantificationConfig) -> None:
+        """Ensure active quantification config tracks clustering run history and active config."""
+        candidate_clustering_config = self._build_clustering_config_descriptor(
+            clustering_id=self._next_clustering_config_id(quant_config)
+        )
+        active_clustering_config = quant_config.get_active_clustering_config()
+
+        if (
+            active_clustering_config is not None
+            and self._clustering_configs_match(active_clustering_config, candidate_clustering_config)
+        ):
+            return
+
+        if active_clustering_config is not None:
+            changes = active_clustering_config.fingerprint_differences(candidate_clustering_config)
+            if changes:
+                changed_summary = self._format_quantification_config_changes(changes)
+                warnings.warn(
+                    "Clustering scientific inputs changed; appending a new clustering config to the active "
+                    "quantification config. "
+                    f"Changed fields: {changed_summary}",
+                    UserWarning,
+                )
+
+        quant_config.clustering_configs.append(candidate_clustering_config)
+        quant_config.active_clustering_cfg_index = len(quant_config.clustering_configs) - 1
+
+
+    @staticmethod
+    def _next_clustering_config_id(quant_config: QuantificationConfig) -> int:
+        """Return the next clustering config id local to the provided quantification config."""
+        if not quant_config.clustering_configs:
+            return 0
+        return max(cfg.clustering_id for cfg in quant_config.clustering_configs) + 1
+
+
+    @staticmethod
+    def _get_active_quantification_config(existing_ledger: Optional[SampleLedger]) -> Optional[QuantificationConfig]:
+        """Return the active quantification config from the ledger when available."""
+        if existing_ledger is None or not existing_ledger.quantification_configs:
+            return None
+
+        if existing_ledger.active_quant is not None:
+            for quant_config in existing_ledger.quantification_configs:
+                if quant_config.quantification_id == existing_ledger.active_quant:
+                    return quant_config
+
+        return existing_ledger.quantification_configs[-1]
+
+
+    @staticmethod
+    def _next_quantification_id(existing_ledger: Optional[SampleLedger]) -> int:
+        """Return the next ledger-local integer quantification identifier."""
+        if existing_ledger is None or not existing_ledger.quantification_configs:
+            return 1
+        return max(config.quantification_id for config in existing_ledger.quantification_configs) + 1
+
+
+    def _build_quantification_config(
+        self,
+        quantification_id: int,
+        sample_elements: List[str],
+        substrate_elements: List[str],
+        options: Dict[str, Any],
+        reference_values_by_el_line: Dict[str, Any],
+    ) -> QuantificationConfig:
+        """Build the persisted descriptor for the current quantification run."""
+        label = f"Quantification {quantification_id}"
+        if isinstance(self.output_filename_suffix, str) and self.output_filename_suffix:
+            label += self.output_filename_suffix
+        reference_lines_by_element = QuantificationConfig.derive_reference_lines_by_element(
+            reference_values_by_el_line=reference_values_by_el_line,
+            preferred_lines=XSp_Quantifier.xray_quant_ref_lines,
+        )
+        return QuantificationConfig(
+            quantification_id=quantification_id,
+            label=label,
+            sample_elements=sample_elements,
+            substrate_elements=substrate_elements,
+            options=options,
+            reference_values_by_el_line=reference_values_by_el_line,
+            reference_lines_by_element=reference_lines_by_element,
+            clustering_configs=[],
+            active_clustering_cfg_index=None,
+        )
+
+
+    def _build_legacy_import_quantification_config(self) -> QuantificationConfig:
+        """Build the baseline quantification config stored when migrating legacy Data.csv data."""
+        reference_values_by_el_line = self._extract_reference_values_from_standards(load_if_missing=True)
+        reference_lines_by_element = QuantificationConfig.derive_reference_lines_by_element(
+            reference_values_by_el_line=reference_values_by_el_line,
+            preferred_lines=XSp_Quantifier.xray_quant_ref_lines,
+        )
+        return QuantificationConfig(
+            quantification_id=0,
+            label="Legacy import",
+            sample_elements=list(self.all_els_sample),
+            substrate_elements=list(self.all_els_substrate),
+            options=self._build_quantification_options(),
+            reference_values_by_el_line=reference_values_by_el_line,
+            reference_lines_by_element=reference_lines_by_element,
+            clustering_configs=[self._build_clustering_config_descriptor(clustering_id=0)],
+            active_clustering_cfg_index=0,
+        )
+
+
+    def _upsert_current_quantification_config_on_ledger(self, ledger: SampleLedger) -> None:
+        """Insert or replace the current quantification config inside the provided ledger."""
+        if self.current_quant_config is None:
+            return
+
+        existing_index = next(
+            (
+                i
+                for i, config in enumerate(ledger.quantification_configs)
+                if config.quantification_id == self.current_quant_config.quantification_id
+            ),
+            None,
+        )
+
+        if existing_index is None:
+            ledger.append_quantification_config(self.current_quant_config)
+        else:
+            ledger.quantification_configs[existing_index] = self.current_quant_config
+
+
+    def _persist_current_quantification_config(self) -> None:
+        """Persist the currently selected quantification config as the ledger active run."""
+        if self.current_quant_config is None or self.current_quantification_id is None:
             return
 
         existing_ledger = self._load_or_create_ledger()
-        if existing_ledger is not None:
-            # Pick the last (newest/highest-index) matching config
-            last_match = None
-            for quant_config in existing_ledger.quantification_configs:
-                if quant_config.options == current_options:
-                    last_match = quant_config
-            if last_match is not None:
-                self.current_quant_config = last_match
-                self.current_quantification_id = last_match.quantification_id
-                return
+        ledger = self._build_ledger_from_current_state(existing_ledger)
+        self._upsert_current_quantification_config_on_ledger(ledger)
 
-        quant_timestamp = datetime.now().strftime("%Y%m%dT%H%M%S%f")
-        quantification_id = f"quant_{quant_timestamp}"
-        self.current_quant_config = QuantificationConfig(
-            quantification_id=quantification_id,
-            label=f"Quantification {quant_timestamp}",
-            options=current_options,
-        )
-        self.current_quantification_id = quantification_id
+        ledger.active_quant = self.current_quantification_id
+        ledger.to_json_file(self._get_ledger_path())
 
 
     def _sync_existing_quantification_from_ledger(self) -> None:
@@ -1693,11 +2101,9 @@ class EMXSp_Composition_Analyzer:
         if self.current_quant_config is None:
             raise ValueError("Current quantification config is not initialized")
 
-        if not any(
-            config.quantification_id == self.current_quant_config.quantification_id
-            for config in ledger.quantification_configs
-        ):
-            ledger.append_quantification_config(self.current_quant_config)
+        self._upsert_current_quantification_config_on_ledger(ledger)
+
+        ledger.active_quant = self.current_quantification_id
 
         existing_ids = {
             existing.quantification_id
@@ -1771,9 +2177,12 @@ class EMXSp_Composition_Analyzer:
             # Fit completed with no apparent issue; check for low background counts, etc.
             _, quant_flag, comment = self._flag_spectrum_for_clustering(min_bckgrnd_ref_lines, quantifier)
     
-        # If fit was good but did not converge, append convergence comment and flag
+        # If fit was good but did not converge, annotate comment safely and set flag
         if bad_quant_flag == -1 and quant_flag == 0:
-            comment += " - Quantification did not converge."
+            if comment:
+                comment += " - Quantification did not converge."
+            else:
+                comment = "Quantification did not converge."
             quant_flag = -1  # Signal non-convergence
         
         return quant_flag, comment
@@ -1847,12 +2256,13 @@ class EMXSp_Composition_Analyzer:
             spectrum_smooth = np.convolve(spectrum_data_to_consider, np.ones(filter_len)/filter_len, mode='same')
             # Get the n lowest values in the smoothed spectrum
             min_vals = np.sort(spectrum_smooth)[:n_vals_considered]
-            if all(min_vals < self.quant_cfg.min_bckgrnd_cnts):
+            min_background_threshold = self.clustering_cfg.min_bckgrnd_cnts
+            if min_background_threshold is not None and all(min_vals < min_background_threshold):
                 is_spectrum_valid = False
                 comment = "Background counts too low"
                 quant_flag = 3
                 if self.verbose:
-                    print(f"Quantification skipped due to at least {n_vals_considered} spectrum points with E < {en_threshold} keV having a count lower than {self.quant_cfg.min_bckgrnd_cnts}")
+                    print(f"Quantification skipped due to at least {n_vals_considered} spectrum points with E < {en_threshold} keV having a count lower than {min_background_threshold}")
                     print("This generally indicates an excessive absorption of X-rays before they reach the detector, which compromises accurate measurements of PB ratios.")
     
         return is_spectrum_valid, quant_flag, comment
@@ -1919,14 +2329,18 @@ class EMXSp_Composition_Analyzer:
     
         # Check that background intensity is high enough
         if is_spectrum_valid:
-            comment = f"{min_bckgrnd_ref_lines:.1f} min. ref. bckgrnd counts"
-            # Spectrum is not valid if any of the reference peaks has average counts lower than self.quant_cfg.min_bckgrnd_cnts
-            if min_bckgrnd_ref_lines < self.quant_cfg.min_bckgrnd_cnts:
+            comment = ""
+            min_background_threshold = self.clustering_cfg.min_bckgrnd_cnts
+            # Spectrum is not valid if any reference peak has average counts lower than the configured threshold.
+            if min_background_threshold is not None and min_bckgrnd_ref_lines < min_background_threshold:
                 is_spectrum_valid = False
-                comment += ', too low'
+                comment = (
+                    f"Reference background counts too low "
+                    f"({min_bckgrnd_ref_lines:.1f} < {min_background_threshold})"
+                )
                 quant_flag = 8
                 if self.verbose:
-                    print(f"Counts below a reference peak are on average < {self.quant_cfg.min_bckgrnd_cnts}")
+                    print(f"Counts below a reference peak are on average < {min_background_threshold}")
                     print("This is likely to lead to large quantification errors.")
             else:
                 quant_flag = 0  # Quantification is ok
@@ -1993,10 +2407,9 @@ class EMXSp_Composition_Analyzer:
                     cnst.FRAME_ID_DF_KEY : frame_ID,
                     cnst.SP_X_COORD_DF_KEY: f'{x:.3f}',
                     cnst.SP_Y_COORD_DF_KEY: f'{y:.3f}',
+                    cnst.SP_X_PIXEL_COORD_DF_KEY: f'{xy_center[0]:.2f}',
+                    cnst.SP_Y_PIXEL_COORD_DF_KEY: f'{xy_center[1]:.2f}',
                 }
-                if xy_center is not None:
-                    value_map[cnst.SP_X_PIXEL_COORD_DF_KEY] = f'{xy_center[0]:.2f}'
-                    value_map[cnst.SP_Y_PIXEL_COORD_DF_KEY] = f'{xy_center[1]:.2f}'
                 # Add particle ID only if not None
                 if self.particle_cntr is not None:
                     value_map[cnst.PAR_ID_DF_KEY] = self.particle_cntr
@@ -2114,6 +2527,7 @@ class EMXSp_Composition_Analyzer:
             # Always bootstrap/sync ledger before quantification cycles.
             self._load_or_create_ledger()
             self._ensure_current_quantification_run(force_new=force_requantification)
+            self._persist_current_quantification_config()
             self._ensure_quant_tracking_length(tot_spectra_collected)
             if force_requantification:
                 indices_to_process = list(range(tot_spectra_collected))
@@ -2711,6 +3125,34 @@ class EMXSp_Composition_Analyzer:
         return labels, num_labels
 
 
+    def _persist_resolved_k_on_active_clustering_config(self, resolved_k: Optional[int]) -> None:
+        """Persist resolved k for the active clustering config of the active quantification run."""
+        if resolved_k is None:
+            return
+
+        resolved_k_int = int(resolved_k)
+        self.clustering_cfg.k = resolved_k_int
+
+        if self.current_quant_config is not None:
+            active_clustering_config = self.current_quant_config.get_active_clustering_config()
+            if active_clustering_config is not None and active_clustering_config.k != resolved_k_int:
+                active_clustering_config.k = resolved_k_int
+                self._persist_current_quantification_config()
+            return
+
+        ledger = self._load_or_create_ledger()
+        active_quant_config = self._get_active_quantification_config(ledger)
+        if active_quant_config is None:
+            return
+
+        active_clustering_config = active_quant_config.get_active_clustering_config()
+        if active_clustering_config is None or active_clustering_config.k == resolved_k_int:
+            return
+
+        active_clustering_config.k = resolved_k_int
+        ledger.to_json_file(self._get_ledger_path())
+
+
     def _compute_cluster_statistics(self, compositions_df, compositions_df_other_fr, centroids, labels):
         """
         Compute statistics for each cluster, including WCSS, standard deviations, and centroids
@@ -2843,6 +3285,7 @@ class EMXSp_Composition_Analyzer:
             k = self.clustering_cfg.k
         if self.clustering_cfg.method == 'kmeans':
             k = self._find_optimal_k(compositions_df, k, compute_k_only_once)
+            self._persist_resolved_k_on_active_clustering_config(k)
             kmeans, labels, sil_score = self._run_kmeans_clustering(k, compositions_df)
             centroids = kmeans.cluster_centers_
             wcss = kmeans.inertia_
@@ -4511,8 +4954,7 @@ class EMXSp_Composition_Analyzer:
         Notes
         -----
         - The cluster DataFrame is saved as '<cnst.CLUSTERS_FILENAME>.csv' in the analysis directory.
-        - General clustering info is saved as '<cnst.CLUSTERING_INFO_FILENAME>.json'.
-        - Both are also stored as attributes for later use.
+        - General clustering info is stored as an attribute for later use and persisted in the ledger.
     
         Raises
         ------
@@ -4589,12 +5031,17 @@ class EMXSp_Composition_Analyzer:
     
         # Save general clustering info and store for printing
         now = datetime.now()
+
+        def _serialize_config(config_obj: Any) -> Dict[str, Any]:
+            if hasattr(config_obj, "model_dump"):
+                return config_obj.model_dump(mode="json")
+            return asdict(config_obj)
     
         # Gather configuration dataclasses as dictionaries
         cfg_dataclasses = {
-            cnst.QUANTIFICATION_CFG_KEY: asdict(self.quant_cfg),
-            cnst.CLUSTERING_CFG_KEY: asdict(self.clustering_cfg),
-            cnst.PLOT_CFG_KEY: asdict(self.plot_cfg),
+            cnst.QUANTIFICATION_CFG_KEY: _serialize_config(self.quant_cfg),
+            cnst.CLUSTERING_CFG_KEY: _serialize_config(self.clustering_cfg),
+            cnst.PLOT_CFG_KEY: _serialize_config(self.plot_cfg),
         }
     
         clustering_info = {
@@ -4606,13 +5053,6 @@ class EMXSp_Composition_Analyzer:
             cnst.SIL_SCORE_KEY: sil_score,
             **cfg_dataclasses,
         }
-        clustering_json_path = os.path.join(self.analysis_dir, cnst.CLUSTERING_INFO_FILENAME + '.json')
-        try:
-            with open(clustering_json_path, 'w', encoding='utf-8') as file:
-                json.dump(clustering_info, file, indent=2, ensure_ascii=False)
-        except Exception as e:
-            raise OSError(f"Could not write clustering info to '{clustering_json_path}': {e}")
-    
         self.clustering_info = clustering_info
         
         
@@ -4879,25 +5319,19 @@ class EMXSp_Composition_Analyzer:
                             spot_coordinates=self._build_spot_coordinates(raw_x, raw_y, raw_x_pixel, raw_y_pixel),
                         )
 
-                        metadata = {
-                            cnst.SP_X_COORD_DF_KEY: str(raw_x),
-                            cnst.SP_Y_COORD_DF_KEY: str(raw_y),
-                            cnst.SP_X_PIXEL_COORD_DF_KEY: str(raw_x_pixel),
-                            cnst.SP_Y_PIXEL_COORD_DF_KEY: str(raw_y_pixel),
-                            cnst.PAR_ID_DF_KEY: str(entry.get(cnst.PAR_ID_DF_KEY, '')),
-                            cnst.FRAME_ID_DF_KEY: str(entry.get(cnst.FRAME_ID_DF_KEY, '')),
-                        }
                         existing_results = []
                         if existing_ledger is not None and i < len(existing_ledger.spectra):
                             existing_results = list(existing_ledger.spectra[i].quantification_results)
                         spectrum_id = str(entry.get(cnst.SP_ID_DF_KEY, ''))
                         spectrum_vals = list(entry[cnst.SPECTRUM_DF_KEY])
                         spectrum_id_resolved = spectrum_id if spectrum_id else str(i)
+                        live_time = self._coerce_optional_finite_float(entry.get(cnst.LIVE_TIME_DF_KEY))
+                        real_time = self._coerce_optional_finite_float(entry.get(cnst.REAL_TIME_DF_KEY))
                         spectrum_relpath = self._resolve_or_create_spectrum_pointer(
                             spectrum_id=spectrum_id_resolved,
                             spectrum_vals=spectrum_vals,
-                            live_time=float(entry[cnst.LIVE_TIME_DF_KEY]) if entry.get(cnst.LIVE_TIME_DF_KEY) is not None else None,
-                            real_time=float(entry[cnst.REAL_TIME_DF_KEY]) if entry.get(cnst.REAL_TIME_DF_KEY) is not None else None,
+                            live_time=live_time,
+                            real_time=real_time,
                         )
                         background_relpath = None
                         background_vals = list(entry[cnst.BACKGROUND_DF_KEY]) if entry.get(cnst.BACKGROUND_DF_KEY) is not None else None
@@ -4908,13 +5342,12 @@ class EMXSp_Composition_Analyzer:
                             )
                         spectra.append(
                             SpectrumEntry(
-                                real_time=float(entry[cnst.REAL_TIME_DF_KEY]) if entry.get(cnst.REAL_TIME_DF_KEY) is not None else 1.0,
+                                live_acquisition_time=live_time if live_time is not None else (real_time if real_time is not None else 1.0),
                                 total_counts=int(round(float(np.sum(spectrum_vals)))),
                                 spectrum_id=spectrum_id_resolved,
                                 spectrum_relpath=spectrum_relpath,
                                 instrument_background_relpath=background_relpath,
                                 acquisition_details=acquisition_details,
-                                metadata=metadata,
                                 quantification_results=existing_results,
                             )
                         )
@@ -4924,7 +5357,7 @@ class EMXSp_Composition_Analyzer:
                         existing_configs = list(existing_ledger.quantification_configs)
 
                     ledger = SampleLedger(
-                        sample_id=f"{self.sample_cfg.ID}_ledger",
+                        sample_id=self.sample_cfg.ID,
                         sample_path=os.path.abspath(self.sample_result_dir),
                         configs=(
                             existing_ledger.configs
@@ -4933,14 +5366,16 @@ class EMXSp_Composition_Analyzer:
                         ),
                         spectra=spectra,
                         quantification_configs=existing_configs,
+                        active_quant=(
+                            existing_ledger.active_quant
+                            if existing_ledger is not None
+                            else (existing_configs[-1].quantification_id if existing_configs else None)
+                        ),
                     )
 
                     if quantify:
-                        if not any(
-                            cfg.quantification_id == self.current_quant_config.quantification_id
-                            for cfg in ledger.quantification_configs
-                        ):
-                            ledger.append_quantification_config(self.current_quant_config)
+                        self._upsert_current_quantification_config_on_ledger(ledger)
+                        ledger.active_quant = self.current_quant_config.quantification_id
 
                         for i, quant_record in enumerate(getattr(self, 'spectra_quant_records', [])):
                             if quant_record is None or i >= len(ledger.spectra):
@@ -4987,30 +5422,35 @@ class EMXSp_Composition_Analyzer:
         """
     
         now = datetime.now()
+
+        def _serialize_config(config_obj: Any) -> Dict[str, Any]:
+            if hasattr(config_obj, "model_dump"):
+                return config_obj.model_dump(mode="json")
+            return asdict(config_obj)
     
         # Gather configuration dataclasses as dictionaries
         cfg_dataclasses = {
-            cnst.SAMPLE_CFG_KEY: asdict(self.sample_cfg),
-            cnst.MICROSCOPE_CFG_KEY: asdict(self.microscope_cfg),
-            cnst.MEASUREMENT_CFG_KEY: asdict(self.measurement_cfg),
-            cnst.SAMPLESUBSTRATE_CFG_KEY: asdict(self.sample_substrate_cfg),
+            cnst.SAMPLE_CFG_KEY: _serialize_config(self.sample_cfg),
+            cnst.MICROSCOPE_CFG_KEY: _serialize_config(self.microscope_cfg),
+            cnst.MEASUREMENT_CFG_KEY: _serialize_config(self.measurement_cfg),
+            cnst.SAMPLESUBSTRATE_CFG_KEY: _serialize_config(self.sample_substrate_cfg),
         }
         
         if is_XSp_measurement:
-            cfg_dataclasses[cnst.QUANTIFICATION_CFG_KEY] = asdict(self.quant_cfg)
+            cfg_dataclasses[cnst.QUANTIFICATION_CFG_KEY] = _serialize_config(self.quant_cfg)
     
         # Include dataclass corresponding to sample type
         if self.sample_cfg.is_powder_sample:
-            cfg_dataclasses[cnst.POWDER_MEASUREMENT_CFG_KEY] = asdict(self.powder_meas_cfg)
+            cfg_dataclasses[cnst.POWDER_MEASUREMENT_CFG_KEY] = _serialize_config(self.powder_meas_cfg)
         elif self.sample_cfg.is_grid_acquisition:
-            cfg_dataclasses[cnst.BULK_MEASUREMENT_CFG_KEY] = asdict(self.bulk_meas_cfg)
+            cfg_dataclasses[cnst.BULK_MEASUREMENT_CFG_KEY] = _serialize_config(self.bulk_meas_cfg)
         
         # Include dataclasses corresponding to measurement type
         if self.exp_stds_cfg.is_exp_std_measurement:
-            cfg_dataclasses[cnst.EXP_STD_MEASUREMENT_CFG_KEY] = asdict(self.exp_stds_cfg)
+            cfg_dataclasses[cnst.EXP_STD_MEASUREMENT_CFG_KEY] = _serialize_config(self.exp_stds_cfg)
         elif is_XSp_measurement:
-            cfg_dataclasses[cnst.CLUSTERING_CFG_KEY] = asdict(self.clustering_cfg)
-            cfg_dataclasses[cnst.PLOT_CFG_KEY] = asdict(self.plot_cfg)
+            cfg_dataclasses[cnst.CLUSTERING_CFG_KEY] = self._runtime_clustering_cfg_payload(self.clustering_cfg)
+            cfg_dataclasses[cnst.PLOT_CFG_KEY] = _serialize_config(self.plot_cfg)
 
 
     
@@ -5026,17 +5466,26 @@ class EMXSp_Composition_Analyzer:
         except Exception as e:
             raise OSError(f"Could not create output directory '{self.sample_result_dir}': {e}")
     
-        # Save data to JSON files in a human-readable format
-        output_paths = [
-            os.path.join(self.sample_result_dir, f"{cnst.ACQUISITION_INFO_FILENAME}.json"),  # legacy
-            os.path.join(self.sample_result_dir, f"{cnst.CONFIG_FILENAME}.json"),  # new
-        ]
-        for output_path in output_paths:
-            try:
-                with open(output_path, 'w', encoding='utf-8') as file:
-                    json.dump(spectrum_collection_info, file, indent=2, ensure_ascii=False)
-            except Exception as e:
-                raise OSError(f"Could not write spectrum collection info to '{output_path}': {e}")
+        try:
+            existing_ledger = self._load_existing_ledger()
+            ledger = self._build_ledger_from_current_state(existing_ledger=existing_ledger)
+            ledger.configs = LedgerConfigs.model_validate({
+                cnst.MICROSCOPE_CFG_KEY: spectrum_collection_info[cnst.MICROSCOPE_CFG_KEY],
+                cnst.SAMPLE_CFG_KEY: spectrum_collection_info[cnst.SAMPLE_CFG_KEY],
+                cnst.MEASUREMENT_CFG_KEY: spectrum_collection_info[cnst.MEASUREMENT_CFG_KEY],
+                cnst.SAMPLESUBSTRATE_CFG_KEY: spectrum_collection_info[cnst.SAMPLESUBSTRATE_CFG_KEY],
+                cnst.CLUSTERING_CFG_KEY: spectrum_collection_info.get(
+                    cnst.CLUSTERING_CFG_KEY,
+                    self._runtime_clustering_cfg_payload(self.clustering_cfg),
+                ),
+                cnst.PLOT_CFG_KEY: spectrum_collection_info.get(cnst.PLOT_CFG_KEY, self.plot_cfg.model_dump(mode="json")),
+                cnst.POWDER_MEASUREMENT_CFG_KEY: spectrum_collection_info.get(cnst.POWDER_MEASUREMENT_CFG_KEY),
+                cnst.BULK_MEASUREMENT_CFG_KEY: spectrum_collection_info.get(cnst.BULK_MEASUREMENT_CFG_KEY),
+                cnst.EXP_STD_MEASUREMENT_CFG_KEY: spectrum_collection_info.get(cnst.EXP_STD_MEASUREMENT_CFG_KEY),
+            })
+            ledger.to_json_file(self._get_ledger_path())
+        except Exception as e:
+            raise OSError(f"Could not persist configurations to ledger '{self._get_ledger_path()}': {e}")
             
     #%% Print Results
     # =============================================================================            
@@ -5084,7 +5533,7 @@ class EMXSp_Composition_Analyzer:
         if self.n_sp_too_low_counts > 0:
             print(
                 f"  • {self.n_sp_too_low_counts} spectra were discarded due to insufficient total counts, "
-                f"background counts below the threshold ({self.quant_cfg.min_bckgrnd_cnts}), "
+                f"background counts below the threshold ({self.clustering_cfg.min_bckgrnd_cnts}), "
                 "or errors during spectrum collection/fitting."
             )
     

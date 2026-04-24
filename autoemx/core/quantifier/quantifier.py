@@ -1127,14 +1127,6 @@ class XSp_Quantifier:
         return min_background_by_line
 
 
-    def _get_reference_lines_by_element(self) -> Dict[str, str]:
-        """Map each quantified element to the fitted line selected for quantification."""
-        return {
-            el_line.split('_', 1)[0]: el_line
-            for el_line in self.ref_lines_for_quant
-        }
-
-
     def _get_r_squared(self) -> float:
         """Compute R-squared from the current fit."""
         return float(1 - self.fit_result.residual.var() / np.var(self.spectrum_vals))
@@ -1170,19 +1162,22 @@ class XSp_Quantifier:
             r_squared=self._get_r_squared(),
             reduced_chi_squared=float(self.fit_result.redchi),
             fitted_peaks=fitted_peaks,
-            reference_lines_by_element=self._get_reference_lines_by_element(),
         )
 
 
     def export_quantification_result(
         self,
-        quantification_id: str,
+        quantification_id: int,
         quant_result: Optional[Dict[str, Any]],
         quant_flag: Optional[int] = None,
         comment: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
     ) -> QuantificationResult:
         """Build a persisted quantification result for the current fitted spectrum."""
+        min_background_by_line = self._get_min_bckgrnd_cnts_by_ref_quant_line()
+        min_background_ref_lines = None
+        if min_background_by_line:
+            min_background_ref_lines = float(min(min_background_by_line.values()))
+
         return QuantificationResult(
             quantification_id=quantification_id,
             quant_flag=quant_flag,
@@ -1200,10 +1195,10 @@ class XSp_Quantifier:
             diagnostics=QuantificationDiagnostics(
                 iterations_run=self.iterations_run,
                 converged=self.quant_converged,
-                min_background_ref_lines=self._get_min_bckgrnd_cnts_by_ref_quant_line(),
+                interrupted=False,
+                min_background_ref_lines=min_background_ref_lines,
                 missing_reference_peaks=list(self.missing_reference_peaks),
             ),
-            metadata=metadata,
         )
     
     

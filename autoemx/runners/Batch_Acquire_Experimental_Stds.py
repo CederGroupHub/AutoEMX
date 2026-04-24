@@ -43,7 +43,7 @@ from autoemx.config import (
     SampleConfig,
     MeasurementConfig,
     SampleSubstrateConfig,
-    QuantConfig,
+    QuantificationOptionsConfig,
     ClusteringConfig,
     PowderMeasurementConfig,
     BulkMeasurementConfig,
@@ -139,14 +139,14 @@ def batch_acquire_experimental_stds(
         Default is `15.0` (MeasurementConfig.beam_energy_keV).
     spectrum_lims : tuple of float, optional
         Lower and upper energy limits for spectrum fitting in eV.  
-        Default is `(14, 1100)` (QuantConfig.spectrum_lims).
+        Default is `(14, 1100)` (QuantificationOptionsConfig.spectrum_lims).
     use_instrument_background : bool, optional
         Whether to use instrument background files during fitting.  
         If False, background is computed during fitting.  
-        Default is `False` (QuantConfig.use_instrument_background).
+        Default is `False` (QuantificationOptionsConfig.use_instrument_background).
     min_bckgrnd_cnts : float, optional
         Minimum background counts required for a spectrum not to be filtered out.  
-        Default is `5` (QuantConfig.min_bckgrnd_cnts).
+        Default is `5` (ClusteringConfig.min_bckgrnd_cnts).
     fit_during_collection : bool, optional
         If True, fit spectra during acquisition; otherwise fit later.  
         Default is `True`.
@@ -223,11 +223,12 @@ def batch_acquire_experimental_stds(
     calibs.load_microscope_calibrations(microscope_ID, measurement_mode)
 
 
-    quant_cfg = QuantConfig(
+    quant_cfg = QuantificationOptionsConfig(
         spectrum_lims=spectrum_lims,
         use_instrument_background=use_instrument_background,
-        min_bckgrnd_cnts=min_bckgrnd_cnts
     )
+
+    clustering_cfg = ClusteringConfig(min_bckgrnd_cnts=min_bckgrnd_cnts)
 
     if powder_meas_cfg_kwargs:
         powder_meas_cfg = PowderMeasurementConfig(**powder_meas_cfg_kwargs)
@@ -327,7 +328,7 @@ def batch_acquire_experimental_stds(
             measurement_cfg=measurement_cfg,
             sample_substrate_cfg=sample_substrate_cfg,
             quant_cfg=quant_cfg,
-            clustering_cfg=ClusteringConfig(),
+            initial_clustering_cfg=clustering_cfg,
             powder_meas_cfg=powder_meas_cfg,
             bulk_meas_cfg=bulk_meas_cfg,
             exp_stds_cfg=exp_stds_cfg,

@@ -45,7 +45,7 @@ from autoemx.config import (
     SampleConfig,
     MeasurementConfig,
     SampleSubstrateConfig,
-    QuantConfig,
+    QuantificationOptionsConfig,
     ClusteringConfig,
     PowderMeasurementConfig,
     BulkMeasurementConfig,
@@ -130,7 +130,7 @@ def batch_acquire_and_analyze(
         Default is `'point'` (MeasurementConfig.mode).
     quantification_method : str, optional
         Quantification method. Currently only `'PB'` (Phi-Rho-Z) is implemented.
-        Default is `'PB'` (QuantConfig.method).
+        Default is `'PB'` (QuantificationOptionsConfig.method).
     sample_type : str, optional
         Sample type. Allowed: `'powder'` (implemented), `'bulk'`, `'film'` (not implemented).
         Default is `'powder'` (SampleConfig.type).
@@ -156,23 +156,23 @@ def batch_acquire_and_analyze(
         Default is `15.0` (MeasurementConfig.beam_energy_keV).
     spectrum_lims : tuple of float, optional
         Lower and upper energy limits for spectrum fitting in eV.
-        Default is `(14, 1100)` (QuantConfig.spectrum_lims).
+        Default is `(14, 1100)` (QuantificationOptionsConfig.spectrum_lims).
     use_instrument_background : bool, optional
         Whether to use instrument background files during fitting.
         If False, background is computed during fitting.
-        Default is `False` (QuantConfig.use_instrument_background).
+        Default is `False` (QuantificationOptionsConfig.use_instrument_background).
     use_project_specific_std_dict : bool, optional
         If True, loads standards from project folder (i.e. results_dir) during quantification.
         Default: False
     interrupt_fits_bad_spectra : bool, optional
         If True, fitting stops early for poor-quality spectra.
-        Default is `True` (QuantConfig.interrupt_fits_bad_spectra).
+        Default is `True`.
     max_analytical_error_percent : float, optional
         Maximum allowed analytical error (%) for compositions to be included in clustering.
         Default is `5` (ClusteringConfig.max_analytical_error_percent).
     min_bckgrnd_cnts : float, optional
         Minimum background counts required for a spectrum not to be filtered out.
-        Default is `5` (QuantConfig.min_bckgrnd_cnts).
+        Default is `5` (ClusteringConfig.min_bckgrnd_cnts).
     quant_flags_accepted : list of int, optional
         List of acceptable quantification flags; others are filtered out before clustering.
         Default is `[0, -1]` (ClusteringConfig.quant_flags_accepted).
@@ -272,12 +272,10 @@ def batch_acquire_and_analyze(
         max_n_spectra=max_n_spectra
     )
 
-    quant_cfg = QuantConfig(
+    quant_cfg = QuantificationOptionsConfig(
         method = quantification_method,
         spectrum_lims=spectrum_lims,
         use_instrument_background=use_instrument_background,
-        interrupt_fits_bad_spectra=interrupt_fits_bad_spectra,
-        min_bckgrnd_cnts=min_bckgrnd_cnts,
         use_project_specific_std_dict = use_project_specific_std_dict
     )
 
@@ -364,6 +362,7 @@ def batch_acquire_and_analyze(
             max_k=max_n_clusters,
             ref_formulae=ref_formulae,
             max_analytical_error_percent=max_analytical_error_percent,
+            min_bckgrnd_cnts=min_bckgrnd_cnts,
             quant_flags_accepted=quant_flags_accepted
         )
 
@@ -374,7 +373,7 @@ def batch_acquire_and_analyze(
             measurement_cfg=measurement_cfg,
             sample_substrate_cfg=sample_substrate_cfg,
             quant_cfg=quant_cfg,
-            clustering_cfg=clustering_cfg,
+            initial_clustering_cfg=clustering_cfg,
             powder_meas_cfg=powder_meas_cfg,
             bulk_meas_cfg=bulk_meas_cfg,
             plot_cfg=PlotConfig(),

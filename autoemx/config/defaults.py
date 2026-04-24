@@ -22,14 +22,14 @@ detector_type : str
     Detector type to employ when navigating SEM and collecting images.
 quantification_method : str
     Quantification method. Currently only `'PB'` (Phi-Rho-Z) is implemented.
-    Default is `'PB'` (QuantConfig.method).
+    Default is `'PB'` (QuantificationOptionsConfig.method).
 spectrum_lims : tuple of float
     Lower and upper energy limits for spectrum fitting in eV.
-    Default is `(14, 1100)` (QuantConfig.spectrum_lims).
+    Default is `(14, 1100)` (QuantificationOptionsConfig.spectrum_lims).
 use_instrument_background : bool
     Whether to use instrument background files during fitting.
     If False, background is computed during fitting.
-    Default is `False` (QuantConfig.use_instrument_background).
+    Default is `False` (QuantificationOptionsConfig.use_instrument_background).
 RAW_SPECTRUM_EXT : str
     File extension used when writing per-spectrum raw data pointer files.
     Default is `'.msa'` (EMSA/MAS format).

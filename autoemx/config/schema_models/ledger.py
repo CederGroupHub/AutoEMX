@@ -1,0 +1,254 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import json
+from pathlib import Path
+from typing import Any, Dict, List, Literal, Optional
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from autoemx.config.classes import (
+    BulkMeasurementConfig,
+    ExpStandardsConfig,
+    MeasurementConfig,
+    MicroscopeConfig,
+    PlotConfig,
+    PowderMeasurementConfig,
+    SampleConfig,
+    SampleSubstrateConfig,
+)
+from .acquisition import SpectrumEntry
+from .quantification import ClusteringConfig, QuantificationConfig, QuantificationResult
+
+
+class LedgerConfigs(BaseModel):
+    """Typed config bundle persisted in the ledger."""
+
+    microscope_cfg: MicroscopeConfig
+    sample_cfg: SampleConfig
+    measurement_cfg: MeasurementConfig
+    sample_substrate_cfg: SampleSubstrateConfig
+    clustering_cfg: ClusteringConfig
+    plot_cfg: PlotConfig
+    powder_meas_cfg: Optional[PowderMeasurementConfig] = None
+    bulk_meas_cfg: Optional[BulkMeasurementConfig] = None
+    exp_stds_cfg: Optional[ExpStandardsConfig] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="before")
+    @classmethod
+    def drop_legacy_quant_cfg(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            cleaned = dict(data)
+            cleaned.pop("quant_cfg", None)
+            return cleaned
+        return data
+
+
+class SampleLedger(BaseModel):
+    """Single-sample ledger with per-spectrum pointers and configuration bundle."""
+
+    sample_id: str
+    sample_path: str
+    configs: LedgerConfigs
+    spectra: List[SpectrumEntry]
+    active_quant: Optional[int] = None
+    quantification_configs: List[QuantificationConfig] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("sample_path")
+    @classmethod
+    def validate_sample_path(cls, v: str) -> str:
+        path = Path(v).expanduser()
+        if not path.is_absolute():
+            raise ValueError("sample_path must be an absolute path")
+        return str(path)
+
+    @field_validator("active_quant", mode="before")
+    @classmethod
+    def validate_active_quant_input(cls, v: Optional[Any]) -> Optional[Any]:
+        if isinstance(v, bool):
+            raise ValueError("active_quant must be a non-negative integer or None")
+        return v
+
+    @field_validator("active_quant")
+    @classmethod
+    def validate_active_quant(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None and v < 0:
+            raise ValueError("active_quant must be a non-negative integer or None")
+        return v
+
+    @model_validator(mode="after")
+    def validate_ledger_integrity(self) -> "SampleLedger":
+        config_ids = [cfg.quantification_id for cfg in self.quantification_configs]
+        if len(config_ids) != len(set(config_ids)):
+            raise ValueError("quantification_id values must be unique within a ledger")
+
+        if config_ids:
+            if self.active_quant is None:
+                self.active_quant = config_ids[-1]
+            if self.active_quant not in set(config_ids):
+                raise ValueError("active_quant must reference an existing quantification_id")
+        elif self.active_quant is not None:
+            raise ValueError("active_quant must be None when no quantification configs are available")
+
+        config_id_set = set(config_ids)
+        for spectrum_index, spectrum in enumerate(self.spectra):
+            if spectrum.spectrum_relpath is not None:
+                resolved = (Path(self.sample_path) / spectrum.spectrum_relpath).resolve()
+                sample_root = Path(self.sample_path).resolve()
+                try:
+                    resolved.relative_to(sample_root)
+                except ValueError as exc:
+                    raise ValueError(
+                        f"Spectrum at index {spectrum_index} has spectrum_relpath outside sample_path"
+                    ) from exc
+
+            if spectrum.instrument_background_relpath is not None:
+                resolved = (Path(self.sample_path) / spectrum.instrument_background_relpath).resolve()
+                sample_root = Path(self.sample_path).resolve()
+                try:
+                    resolved.relative_to(sample_root)
+                except ValueError as exc:
+                    raise ValueError(
+                        f"Spectrum at index {spectrum_index} has instrument_background_relpath outside sample_path"
+                    ) from exc
+
+            result_ids = set()
+            for result in spectrum.quantification_results:
+                if result.quantification_id not in config_id_set:
+                    raise ValueError(
+                        f"Spectrum at index {spectrum_index} contains a quantification result "
+                        f"with unknown quantification_id '{result.quantification_id}'"
+                    )
+
+                if result.quantification_id in result_ids:
+                    raise ValueError(
+                        f"Spectrum at index {spectrum_index} contains duplicate "
+                        f"quantification_id '{result.quantification_id}'"
+                    )
+                result_ids.add(result.quantification_id)
+
+        return self
+
+    @staticmethod
+    def _load_counts_from_pointer_file(file_path: Path) -> List[float]:
+        """Load counts from an external spectrum pointer file."""
+        suffix = file_path.suffix.lower()
+
+        if suffix in {".msa", ".msg"}:
+            counts: List[float] = []
+            in_data_section = False
+            with file_path.open("r", encoding="utf-8") as f:
+                for raw_line in f:
+                    line = raw_line.strip()
+                    if not line:
+                        continue
+                    if line.startswith("#SPECTRUM"):
+                        in_data_section = True
+                        continue
+                    if line.startswith("#"):
+                        continue
+                    if not in_data_section:
+                        continue
+
+                    token = line.rstrip(",")
+                    if "," in token:
+                        token = token.split(",", maxsplit=1)[-1].strip()
+                    try:
+                        counts.append(float(token))
+                    except ValueError:
+                        continue
+
+            if not counts:
+                raise ValueError(f"No spectrum counts found in pointer file '{file_path}'")
+            return counts
+
+        if suffix == ".json":
+            with file_path.open("r", encoding="utf-8") as f:
+                payload = json.load(f)
+            values = payload.get("spectrum_vals")
+            if not isinstance(values, list) or not values:
+                raise ValueError(f"JSON pointer file '{file_path}' does not contain non-empty 'spectrum_vals'")
+            return [float(v) for v in values]
+
+        raise ValueError(f"Unsupported spectrum pointer extension '{suffix}' for file '{file_path}'")
+
+    def append_quantification_config(self, quant_config: QuantificationConfig) -> None:
+        """Append a quantification config, enforcing unique config identifiers."""
+        if any(existing.quantification_id == quant_config.quantification_id for existing in self.quantification_configs):
+            raise ValueError(
+                f"quantification_id '{quant_config.quantification_id}' already exists in this ledger"
+            )
+        self.quantification_configs.append(quant_config)
+        self.active_quant = quant_config.quantification_id
+
+    def append_quantification_result(self, spectrum_index: int, result: QuantificationResult) -> None:
+        """Append a quantification result to the requested spectrum entry."""
+        if spectrum_index < 0 or spectrum_index >= len(self.spectra):
+            raise IndexError(f"spectrum_index {spectrum_index} is out of range")
+        if result.quantification_id not in {cfg.quantification_id for cfg in self.quantification_configs}:
+            raise ValueError(
+                f"Quantification result references unknown quantification_id '{result.quantification_id}'"
+            )
+        if any(
+            existing.quantification_id == result.quantification_id
+            for existing in self.spectra[spectrum_index].quantification_results
+        ):
+            raise ValueError(
+                f"Spectrum at index {spectrum_index} already contains quantification_id "
+                f"'{result.quantification_id}'"
+            )
+        self.spectra[spectrum_index].quantification_results.append(result)
+
+    @classmethod
+    def from_json_file(cls, file_path: str | Path) -> "SampleLedger":
+        """Load and validate a ledger from JSON in one call."""
+        path = Path(file_path)
+        with path.open("r", encoding="utf-8") as f:
+            payload = json.load(f)
+        return cls.model_validate(payload)
+
+    def to_dict(
+        self,
+        config_key_style: Literal["cfg", "config"] = "cfg",
+        *,
+        include_configs: bool = True,
+    ) -> Dict[str, Any]:
+        """Serialize ledger to a dict and choose config key suffix style."""
+        payload = self.model_dump(mode="json")
+        if not include_configs:
+            payload.pop("configs", None)
+            return payload
+
+        if config_key_style == "cfg":
+            return payload
+        if config_key_style != "config":
+            raise ValueError("config_key_style must be either 'cfg' or 'config'")
+
+        cfg_block = payload.get("configs", {})
+        renamed_cfg_block: Dict[str, Any] = {}
+        for key, value in cfg_block.items():
+            if key.endswith("_cfg"):
+                renamed_cfg_block[key[: -len("_cfg")] + "_config"] = value
+            else:
+                renamed_cfg_block[key] = value
+        payload["configs"] = renamed_cfg_block
+        return payload
+
+    def to_json_file(
+        self,
+        file_path: str | Path,
+        *,
+        config_key_style: Literal["cfg", "config"] = "cfg",
+        include_configs: bool = True,
+        indent: int = 2,
+    ) -> None:
+        """Write ledger to JSON in one call."""
+        path = Path(file_path)
+        payload = self.to_dict(config_key_style=config_key_style, include_configs=include_configs)
+        with path.open("w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=indent, allow_nan=False)
+            f.write("\n")
