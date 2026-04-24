@@ -115,7 +115,7 @@ The repository is organized as follows:
 ```text
 AutoEMX/
 ├── autoemx/                 # Main package source code
-│   ├── _custom_plotting.py     # Customizable clustering plot function
+│   ├── custom_plot_template.py # Template copied to sample_folder/custom_plot.py when custom plots are enabled
 │   ├── config/                 # Configuration files, including default values to employ during measurements.
 │   ├── core/                   # Core objects and source code
 │   ├── data/                   # Libraries of X-ray data

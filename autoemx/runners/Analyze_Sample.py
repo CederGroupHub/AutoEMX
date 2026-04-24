@@ -35,6 +35,7 @@ Created on Tue Jul 29 13:18:16 2025
 import os
 import time
 import logging
+from importlib import resources
 from typing import Optional, List
 
 from autoemx.utils import (
@@ -57,6 +58,32 @@ logging.basicConfig(
 )
 
 __all__ = ["analyze_sample"]
+
+
+def _ensure_custom_plot_file(sample_dir: str, plot_cfg) -> None:
+    """Create a sample-local custom plot template and store its path in plot config."""
+    if not plot_cfg.use_custom_plots:
+        return
+
+    custom_plot_file = plot_cfg.custom_plot_file
+    if not custom_plot_file:
+        custom_plot_file = os.path.join(sample_dir, cnst.CUSTOM_PLOT_FILENAME)
+    elif not os.path.isabs(custom_plot_file):
+        custom_plot_file = os.path.join(sample_dir, custom_plot_file)
+
+    custom_plot_dir = os.path.dirname(custom_plot_file)
+    if custom_plot_dir:
+        os.makedirs(custom_plot_dir, exist_ok=True)
+
+    if not os.path.exists(custom_plot_file):
+        template_contents = resources.files("autoemx").joinpath(
+            cnst.CUSTOM_PLOT_TEMPLATE_FILENAME
+        ).read_text(encoding="utf-8")
+        with open(custom_plot_file, "w", encoding="utf-8") as f_custom:
+            f_custom.write(template_contents)
+        logging.info("Created custom plot template: %s", custom_plot_file)
+
+    plot_cfg.custom_plot_file = custom_plot_file
 
 def analyze_sample(
     sample_ID: str,
@@ -133,7 +160,6 @@ def analyze_sample(
                 cnst.SAMPLE_CFG_KEY: ledger.configs.sample_cfg,
                 cnst.MEASUREMENT_CFG_KEY: ledger.configs.measurement_cfg,
                 cnst.SAMPLESUBSTRATE_CFG_KEY: ledger.configs.sample_substrate_cfg,
-                cnst.CLUSTERING_CFG_KEY: ledger.configs.clustering_cfg,
                 cnst.PLOT_CFG_KEY: ledger.configs.plot_cfg,
             }
             if ledger.quantification_configs:
@@ -149,6 +175,9 @@ def analyze_sample(
                 configs[cnst.QUANTIFICATION_CFG_KEY] = config_classes_dict[cnst.QUANTIFICATION_CFG_KEY](
                     **active_quant_config.options
                 )
+                active_clustering_config = active_quant_config.get_active_clustering_config()
+                if active_clustering_config is not None:
+                    configs[cnst.CLUSTERING_CFG_KEY] = active_clustering_config
             else:
                 configs[cnst.QUANTIFICATION_CFG_KEY] = config_classes_dict[cnst.QUANTIFICATION_CFG_KEY]()
             if ledger.configs.powder_meas_cfg is not None:
@@ -226,6 +255,7 @@ def analyze_sample(
     plot_cfg.use_custom_plots = plot_custom_plots
     if els_excluded_clust_plot is not None:
         plot_cfg.els_excluded_clust_plot = els_excluded_clust_plot
+    _ensure_custom_plot_file(sample_dir, plot_cfg)
 
     # Load 'Data.csv' into a DataFrame
     data_path = os.path.join(sample_dir, f'{cnst.DATA_FILENAME}.csv')

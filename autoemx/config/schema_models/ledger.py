@@ -18,7 +18,7 @@ from autoemx.config.classes import (
     SampleSubstrateConfig,
 )
 from .acquisition import SpectrumEntry
-from .quantification import ClusteringConfig, QuantificationConfig, QuantificationResult
+from .quantification import QuantificationConfig, QuantificationResult
 
 
 class LedgerConfigs(BaseModel):
@@ -28,7 +28,6 @@ class LedgerConfigs(BaseModel):
     sample_cfg: SampleConfig
     measurement_cfg: MeasurementConfig
     sample_substrate_cfg: SampleSubstrateConfig
-    clustering_cfg: ClusteringConfig
     plot_cfg: PlotConfig
     powder_meas_cfg: Optional[PowderMeasurementConfig] = None
     bulk_meas_cfg: Optional[BulkMeasurementConfig] = None

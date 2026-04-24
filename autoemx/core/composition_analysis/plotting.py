@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """Plotting mixin for composition analysis outputs."""
 
+import importlib.util
 import os
 import warnings
 from typing import List
@@ -9,6 +10,7 @@ from typing import List
 import matplotlib.cm as cm
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter, MaxNLocator
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -16,12 +18,103 @@ from sklearn.cluster import KMeans
 from yellowbrick.cluster import SilhouetteVisualizer
 
 import autoemx.calibrations as calibs
-import autoemx._custom_plotting as custom_plotting
+import autoemx._custom_plotting as builtin_custom_plotting
 import autoemx.utils.constants as cnst
 from autoemx.utils import print_single_separator, to_latex_formula
 
 
 class PlottingModule:
+    def _load_custom_plot_function(self):
+        """Load a user-defined custom plotting callable from plot config."""
+        custom_plot_file = getattr(self.plot_cfg, "custom_plot_file", None)
+        if not custom_plot_file:
+            return None
+
+        custom_plot_file = os.path.abspath(custom_plot_file)
+        if not os.path.exists(custom_plot_file):
+            warnings.warn(
+                f"Custom plot file not found: {custom_plot_file}. Falling back to default plot.",
+                UserWarning,
+            )
+            return None
+
+        module_name = f"autoemx_user_custom_plot_{abs(hash(custom_plot_file))}"
+        try:
+            spec = importlib.util.spec_from_file_location(module_name, custom_plot_file)
+            if spec is None or spec.loader is None:
+                warnings.warn(
+                    f"Could not load custom plot module from {custom_plot_file}. Falling back to default plot.",
+                    UserWarning,
+                )
+                return None
+
+            user_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(user_module)
+            return getattr(user_module, "_save_clustering_plot_custom_3D", None)
+        except Exception as exc:
+            warnings.warn(
+                f"Failed to import custom plotting module '{custom_plot_file}': {exc}. Falling back.",
+                UserWarning,
+            )
+            return None
+
+    def _run_custom_clustering_plot(
+        self,
+        elements: List[str],
+        els_comps_list: 'np.ndarray',
+        centroids: 'np.ndarray',
+        labels: 'np.ndarray',
+        els_std_dev_per_cluster: list,
+        unused_compositions_list: list,
+    ) -> bool:
+        """Run custom clustering plotting code and return True on success."""
+        custom_plot_func = self._load_custom_plot_function()
+
+        if custom_plot_func is None:
+            custom_plot_func = getattr(builtin_custom_plotting, "_save_clustering_plot_custom_3D", None)
+            if custom_plot_func is None:
+                return False
+
+        try:
+            try:
+                custom_plot_func(
+                    elements,
+                    els_comps_list,
+                    centroids,
+                    labels,
+                    els_std_dev_per_cluster,
+                    unused_compositions_list,
+                    self.clustering_cfg.features,
+                    self.ref_phases_df,
+                    self.ref_formulae,
+                    self.plot_cfg.show_plots,
+                    self.sample_cfg.ID,
+                    analysis_dir=self.analysis_dir,
+                    output_filename=cnst.CUSTOM_CLUSTERING_PLOT_FILENAME + cnst.CLUSTERING_PLOT_FILEEXT,
+                )
+            except TypeError:
+                # Backward compatibility for legacy custom plotting signatures.
+                custom_plot_func(
+                    elements,
+                    els_comps_list,
+                    centroids,
+                    labels,
+                    els_std_dev_per_cluster,
+                    unused_compositions_list,
+                    self.clustering_cfg.features,
+                    self.ref_phases_df,
+                    self.ref_formulae,
+                    self.plot_cfg.show_plots,
+                    self.sample_cfg.ID,
+                )
+            return True
+        except Exception as exc:
+            warnings.warn(
+                f"Custom plotting failed with '{exc}'. Falling back to default plot.",
+                UserWarning,
+            )
+            return False
+
     def _save_plots(
         self,
         kmeans: 'KMeans',
@@ -46,6 +139,9 @@ class PlottingModule:
             can_plot_clustering = False
             print_single_separator()
             warnings.warn("Cannot generate clustering plot with a single element.", UserWarning)
+            if len(self.detectable_els_sample) > 1:
+                print('Too many elements were excluded from the clustering plot via the use of "els_excluded_clust_plot".')
+                print(f'Consider removing one or more among the list: {self.plot_cfg.els_excluded_clust_plot}')
         elif n_els > 3:
             els_excluded_clust_plot += els_for_plot[3:]
             els_for_plot = els_for_plot[:3]
@@ -59,12 +155,19 @@ class PlottingModule:
         if can_plot_clustering:
             els_comps_list = compositions_df[els_for_plot].to_numpy().T
             if self.plot_cfg.use_custom_plots:
-                custom_plotting._save_clustering_plot_custom_3D(
-                    els_for_plot, els_comps_list, centroids, labels,
-                    els_std_dev_per_cluster, unused_compositions_list,
-                    self.clustering_cfg.features, self.ref_phases_df,
-                    self.ref_formulae, self.plot_cfg.show_plots, self.sample_cfg.ID
+                custom_successful = self._run_custom_clustering_plot(
+                    els_for_plot,
+                    els_comps_list,
+                    centroids,
+                    labels,
+                    els_std_dev_per_cluster,
+                    unused_compositions_list,
                 )
+                if not custom_successful:
+                    self._save_clustering_plot(
+                        els_for_plot, els_comps_list, centroids, labels,
+                        els_std_dev_per_cluster, unused_compositions_list
+                    )
             else:
                 self._save_clustering_plot(
                     els_for_plot, els_comps_list, centroids, labels,
@@ -96,75 +199,172 @@ class PlottingModule:
         ticks = np.arange(0, 1, 0.1)
         ticks_labels = [f"{x*100:.0f}" for x in ticks]
 
+        def _compute_zoom_limits(
+            values: 'np.ndarray',
+            margin_ratio: float = 0.08,
+            min_span: float = 0.10,
+            central_fraction: float = 0.90,
+        ) -> tuple[float, float]:
+            values = np.asarray(values, dtype=float)
+            values = values[np.isfinite(values)]
+            if values.size == 0:
+                return 0.0, 1.0
+
+            lower_q = max(0.0, (1.0 - central_fraction) / 2.0)
+            upper_q = min(1.0, 1.0 - lower_q)
+            v_min = float(np.quantile(values, lower_q))
+            v_max = float(np.quantile(values, upper_q))
+            span = max(v_max - v_min, min_span)
+            margin = span * margin_ratio
+            low = max(0.0, v_min - margin)
+            high = min(1.0, v_max + margin)
+
+            if high <= low:
+                center = 0.5 * (v_min + v_max)
+                half = max(min_span * 0.5, 0.02)
+                low = max(0.0, center - half)
+                high = min(1.0, center + half)
+
+            return low, high
+
+        def _choose_best_3d_azimuth(points_xyz: 'np.ndarray') -> float:
+            if points_xyz.size == 0:
+                return 35.0
+            centered = points_xyz - np.mean(points_xyz, axis=0, keepdims=True)
+            best_azimuth = 35.0
+            best_area = -1.0
+            for azimuth in np.arange(0.0, 360.0, 15.0):
+                theta = np.deg2rad(azimuth)
+                cos_t, sin_t = np.cos(theta), np.sin(theta)
+                x_rot = centered[:, 0] * cos_t - centered[:, 1] * sin_t
+                y_rot = centered[:, 0] * sin_t + centered[:, 1] * cos_t
+                area = (np.max(x_rot) - np.min(x_rot)) * (np.max(y_rot) - np.min(y_rot))
+                if area > best_area:
+                    best_area = area
+                    best_azimuth = float(azimuth)
+            return best_azimuth
+
+        def _plot_clustering_scene(ax, title_suffix: str = "") -> None:
+            ax.scatter(*els_comps_list, c=labels, cmap='viridis', marker='o')
+            ax.scatter(*centroids.T, c='red', marker='x', s=100, label='Centroids')
+
+            first_ellipse = True
+            for centroid, stdevs in zip(centroids, els_std_dev_per_cluster):
+                if ~np.any(np.isnan(stdevs)):
+                    if len(elements) == 3:
+                        x_c, y_c, z_c = centroid
+                        rx, ry, rz = stdevs
+                        u = np.linspace(0, 2 * np.pi, 100)
+                        v = np.linspace(0, np.pi, 100)
+                        x = x_c + rx * np.outer(np.cos(u), np.sin(v))
+                        y = y_c + ry * np.outer(np.sin(u), np.sin(v))
+                        z = z_c + rz * np.outer(np.ones_like(u), np.cos(v))
+                        ax.plot_surface(x, y, z, color='red', alpha=0.1, edgecolor='none')
+                        if first_ellipse:
+                            first_ellipse = False
+                            ax.plot([], [], [], color='red', alpha=0.1, label='Stddev')
+                    else:
+                        x_c, y_c = centroid
+                        rx, ry = stdevs
+                        ellipse = patches.Ellipse((x_c, y_c), rx, ry, edgecolor='red', facecolor='red', linestyle='--', alpha=0.2)
+                        if first_ellipse:
+                            ellipse.set_label('Stddev')
+                            first_ellipse = False
+                        ax.add_patch(ellipse)
+
+            if unused_compositions_list and self.plot_cfg.show_unused_comps_clust:
+                ax.scatter(*np.array(unused_compositions_list).T, c='grey', marker='^', label='Discarded comps.')
+
+            if self.ref_formulae is not None:
+                first_ref = True
+                ref_phases_df = self.ref_phases_df[elements]
+                for index, row in ref_phases_df.iterrows():
+                    label = 'Candidate phases' if first_ref else None
+                    ax.scatter(*row.values, c='blue', marker='*', s=100, label=label)
+                    ref_label = to_latex_formula(self.ref_formulae[index])
+                    ax.text(*row.values, ref_label, color='black', fontsize=fontsize, ha='left', va='bottom')
+                    first_ref = False
+
+            for i, centroid in enumerate(centroids):
+                ax.text(*centroid, str(i), color='black', fontsize=fontsize, ha='right', va='bottom')
+
+            ax.set_xlabel(elements[0] + axis_label_add, labelpad=labelpad)
+            ax.set_ylabel(elements[1] + axis_label_add, labelpad=labelpad)
+            ax.set_xlim(0, 1)
+            ax.set_ylim(0, 1)
+            ax.set_xticks(ticks)
+            ax.set_xticklabels(ticks_labels)
+            ax.set_yticks(ticks)
+            ax.set_yticklabels(ticks_labels)
+            if len(elements) == 3:
+                ax.set_zlabel(elements[2] + axis_label_add, labelpad=labelpad * 0.95)
+                ax.set_zlim(0, 1)
+                ax.set_zticks(ticks)
+                ax.set_zticklabels(ticks_labels)
+            ax.set_title(f'{self.clustering_cfg.method} clustering {self.sample_cfg.ID}{title_suffix}')
+
+            if getattr(self.plot_cfg, 'show_legend_clustering', None):
+                ax.legend(fontsize=fontsize)
+
         fig = plt.figure(figsize=(6, 6))
+        full_view_elev = 24.0
+        full_view_azim = None
         if len(elements) == 3:
             ax = fig.add_subplot(111, projection='3d')
-            ax.set_zlabel(elements[2] + axis_label_add, labelpad=labelpad * 0.95)
-            ax.set_zlim(0, 1)
-            ax.set_zticks(ticks)
-            ax.set_zticklabels(ticks_labels)
+            base_points = np.asarray(els_comps_list, dtype=float).T
+            base_azimuth = _choose_best_3d_azimuth(base_points if base_points.size > 0 else np.empty((0, 3)))
+            # Keep 3D axes on the far side for a clearer foreground view of clusters.
+            full_view_azim = (base_azimuth + 180.0) % 360.0
+            ax.view_init(elev=full_view_elev, azim=full_view_azim)
         else:
             ax = fig.add_subplot(111)
-
-        ax.scatter(*els_comps_list, c=labels, cmap='viridis', marker='o')
-        ax.scatter(*centroids.T, c='red', marker='x', s=100, label='Centroids')
-
-        first_ellipse = True
-        for centroid, stdevs in zip(centroids, els_std_dev_per_cluster):
-            if ~np.any(np.isnan(stdevs)):
-                if len(elements) == 3:
-                    x_c, y_c, z_c = centroid
-                    rx, ry, rz = stdevs
-                    u = np.linspace(0, 2 * np.pi, 100)
-                    v = np.linspace(0, np.pi, 100)
-                    x = x_c + rx * np.outer(np.cos(u), np.sin(v))
-                    y = y_c + ry * np.outer(np.sin(u), np.sin(v))
-                    z = z_c + rz * np.outer(np.ones_like(u), np.cos(v))
-                    ax.plot_surface(x, y, z, color='red', alpha=0.1, edgecolor='none')
-                    if first_ellipse:
-                        first_ellipse = False
-                        ax.plot([], [], [], color='red', alpha=0.1, label='Stddev')
-                else:
-                    x_c, y_c = centroid
-                    rx, ry = stdevs
-                    ellipse = patches.Ellipse((x_c, y_c), rx, ry, edgecolor='red', facecolor='red', linestyle='--', alpha=0.2)
-                    if first_ellipse:
-                        ellipse.set_label('Stddev')
-                        first_ellipse = False
-                    ax.add_patch(ellipse)
-
-        if unused_compositions_list and self.plot_cfg.show_unused_comps_clust:
-            ax.scatter(*np.array(unused_compositions_list).T, c='grey', marker='^', label='Discarded comps.')
-
-        if self.ref_formulae is not None:
-            first_ref = True
-            ref_phases_df = self.ref_phases_df[elements]
-            for index, row in ref_phases_df.iterrows():
-                label = 'Candidate phases' if first_ref else None
-                ax.scatter(*row.values, c='blue', marker='*', s=100, label=label)
-                ref_label = to_latex_formula(self.ref_formulae[index])
-                ax.text(*row.values, ref_label, color='black', fontsize=fontsize, ha='left', va='bottom')
-                first_ref = False
-
-        for i, centroid in enumerate(centroids):
-            ax.text(*centroid, str(i), color='black', fontsize=fontsize, ha='right', va='bottom')
-
-        ax.set_xlabel(elements[0] + axis_label_add, labelpad=labelpad)
-        ax.set_ylabel(elements[1] + axis_label_add, labelpad=labelpad)
-        ax.set_xlim(0, 1)
-        ax.set_ylim(0, 1)
-        ax.set_xticks(ticks)
-        ax.set_xticklabels(ticks_labels)
-        ax.set_yticks(ticks)
-        ax.set_yticklabels(ticks_labels)
-        ax.set_title(f'{self.clustering_cfg.method} clustering {self.sample_cfg.ID}')
-
-        if getattr(self.plot_cfg, 'show_legend_clustering', None):
-            ax.legend(fontsize=fontsize)
-
+        _plot_clustering_scene(ax)
         if self.plot_cfg.show_plots:
             plt.show()
         fig.savefig(os.path.join(self.analysis_dir, cnst.CLUSTERING_PLOT_FILENAME + cnst.CLUSTERING_PLOT_FILEEXT))
+
+        fig_zoomed = plt.figure(figsize=(6, 6))
+        if len(elements) == 3:
+            ax_zoomed = fig_zoomed.add_subplot(111, projection='3d')
+        else:
+            ax_zoomed = fig_zoomed.add_subplot(111)
+        _plot_clustering_scene(ax_zoomed, title_suffix=' (zoomed)')
+
+        # Zoom includes most of total sample points, including discarded compositions.
+        zoom_points = [np.asarray(els_comps_list, dtype=float).T]
+        if unused_compositions_list:
+            zoom_points.append(np.asarray(unused_compositions_list, dtype=float))
+        zoom_points.append(np.asarray(centroids, dtype=float))
+        all_points = np.vstack([pts for pts in zoom_points if pts.size > 0]) if zoom_points else np.empty((0, len(elements)))
+
+        x_low, x_high = _compute_zoom_limits(all_points[:, 0] if all_points.size > 0 else np.array([]))
+        y_low, y_high = _compute_zoom_limits(all_points[:, 1] if all_points.size > 0 else np.array([]))
+        ax_zoomed.set_xlim(x_low, x_high)
+        ax_zoomed.set_ylim(y_low, y_high)
+
+        int_percent_formatter = FuncFormatter(lambda value, _: f"{int(round(value * 100.0))}")
+        ax_zoomed.xaxis.set_major_locator(MaxNLocator(nbins=6))
+        ax_zoomed.yaxis.set_major_locator(MaxNLocator(nbins=6))
+        ax_zoomed.xaxis.set_major_formatter(int_percent_formatter)
+        ax_zoomed.yaxis.set_major_formatter(int_percent_formatter)
+
+        if len(elements) == 3:
+            z_low, z_high = _compute_zoom_limits(all_points[:, 2] if all_points.size > 0 else np.array([]))
+            ax_zoomed.set_zlim(z_low, z_high)
+            ax_zoomed.zaxis.set_major_locator(MaxNLocator(nbins=6))
+            ax_zoomed.zaxis.set_major_formatter(int_percent_formatter)
+            # Keep identical orientation to the full plot for direct visual comparison.
+            if full_view_azim is not None:
+                ax_zoomed.view_init(elev=full_view_elev, azim=full_view_azim)
+
+        if self.plot_cfg.show_plots:
+            plt.show()
+        fig_zoomed.savefig(
+            os.path.join(
+                self.analysis_dir,
+                cnst.CLUSTERING_PLOT_FILENAME + '_zoomed' + cnst.CLUSTERING_PLOT_FILEEXT,
+            )
+        )
 
     def _save_violin_plot_powder_mixture(
         self,

@@ -36,6 +36,7 @@ from .clustering import ClusteringModule
 from .plotting import PlottingModule
 from .reference_matching import ReferenceMatchingModule
 from .standards import StandardsModule
+from .analyser import EMXSp_Composition_Analyzer
 
 __all__ = [
     'EMXSp_Composition_Analyzer',
@@ -44,10 +45,3 @@ __all__ = [
     'ReferenceMatchingModule',
     'StandardsModule',
 ]
-
-
-def __getattr__(name):
-    if name == 'EMXSp_Composition_Analyzer':
-        from .analyser import EMXSp_Composition_Analyzer
-        return EMXSp_Composition_Analyzer
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -44,10 +44,12 @@ def _save_clustering_plot_custom_3D(elements, els_comps_list, centroids, labels,
                                     ref_phases_df,
                                     ref_formulae,
                                     show_plots,
-                                    sample_ID
+                                    sample_ID,
+                                    analysis_dir=None,
+                                    output_filename=None,
                                     ):
     
-    plot_file_title = f'{sample_ID}_3Dclustering.pdf'
+    plot_file_title = output_filename or f'{sample_ID}_3Dclustering.pdf'
     
     # Plot options
     plt.rcParams['font.family'] = 'Arial'
@@ -242,7 +244,8 @@ def _save_clustering_plot_custom_3D(elements, els_comps_list, centroids, labels,
     
     # plt.tight_layout()
     
-    plt.savefig(os.path.join(custom_dir, plot_file_title), dpi=300, bbox_inches='tight', pad_inches=0.5)
+    output_dir = analysis_dir if analysis_dir else custom_dir
+    plt.savefig(os.path.join(output_dir, plot_file_title), dpi=300, bbox_inches='tight', pad_inches=0.5)
     
         
     # # Extract legend handles and labels

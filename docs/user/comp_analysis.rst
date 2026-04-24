@@ -368,7 +368,10 @@ Plotting options
   clustering plot. By default, elements are used in the order defined in
   ``els``.
 - ``plot_custom_plots`` : If ``True``, use the custom plot function defined
-  in ``autoemx/_custom_plotting.py``. Useful for customize plots for publication.
+  in a sample-local ``custom_plot.py`` file. If missing, AutoEMXSp automatically
+  copies a template into the sample folder on first run and stores its path in
+  ``PlotConfig.custom_plot_file``. This is useful to create publication-ready
+  plots while keeping plotting code fully user-editable.
 - ``show_unused_compositions_cluster_plot`` : If ``True``, display discarded
   compositions as black triangles in the clustering plot. Consider that compositions
   discarded due to their analytical error may still be very close to the true
@@ -385,6 +388,8 @@ Running the script creates an ``Analysis`` folder with the following files:
   configurations used.
 - ``Clustering_plot.png`` : 3D clustering plot (also displayed interactively
   when the script runs).
+- ``Clustering_plot_custom.png`` : Custom clustering plot produced by
+  ``custom_plot.py`` when ``plot_custom_plots=True``.
   
 .. figure:: /_static/Example_3D_clustering_plot.png
    :alt: Example 3D clustering

@@ -156,7 +156,6 @@ def load_ledger_configs_from_legacy_json(sample_result_dir: str) -> Optional[obj
         cnst.MEASUREMENT_CFG_KEY: "measurement_cfg",
         cnst.SAMPLESUBSTRATE_CFG_KEY: "sample_substrate_cfg",
         cnst.QUANTIFICATION_CFG_KEY: "quant_cfg",
-        cnst.CLUSTERING_CFG_KEY: "clustering_cfg",
         cnst.PLOT_CFG_KEY: "plot_cfg",
         cnst.POWDER_MEASUREMENT_CFG_KEY: "powder_meas_cfg",
         cnst.BULK_MEASUREMENT_CFG_KEY: "bulk_meas_cfg",

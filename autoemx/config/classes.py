@@ -31,8 +31,8 @@ from typing import Any, ClassVar, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from pymatgen.core.periodic_table import Element
-from pymatgen.core import Composition
+from pymatgen.core.periodic_table import Element # type: ignore
+from pymatgen.core import Composition # type: ignore
 
 import autoemx.utils.constants as cnst
 import autoemx.config.defaults as dflt
@@ -548,6 +548,7 @@ class PlotConfig(BaseModel):
         save_plots (bool): Whether to save plots to disk.
         show_plots (bool): Whether to display plots interactively.
         use_custom_plots (bool): Whether to use custom plotting routines.
+        custom_plot_file (Optional[str]): Path to a user-editable custom plotting file.
     """
 
     show_unused_comps_clust: bool = True
@@ -556,6 +557,7 @@ class PlotConfig(BaseModel):
     save_plots: bool = True
     show_plots: bool = False
     use_custom_plots: bool = False
+    custom_plot_file: Optional[str] = None
 
     model_config = ConfigDict(extra="forbid")
 

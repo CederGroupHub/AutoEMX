@@ -99,7 +99,6 @@ from autoemx.config import (
     MeasurementConfig,
     SampleSubstrateConfig,
     QuantificationOptionsConfig,
-    ClusteringConfig as RuntimeClusteringConfig,
     PowderMeasurementConfig,
     BulkMeasurementConfig,
     ExpStandardsConfig,
@@ -514,29 +513,72 @@ class EMXSp_Composition_Analyzer:
     # =============================================================================
     def _make_analysis_dir(self) -> None:
         """
-        Create a unique directory for saving analysis results using `make_unique_dir`.
-    
-        The directory name is based on `cnst.ANALYSIS_DIR` and `self.output_filename_suffix`.
-        If a directory with the target name exists, a counter is appended to ensure uniqueness.
+        Create a deterministic directory for saving analysis results.
+
+        The directory name is based on the active quantification and clustering config ids:
+        ``analysis_Quant{quantification_id}_Clust{clustering_id}``.
+        If the directory already exists (same active config pair), its content is replaced.
+        A different active config pair results in a different directory name.
     
         The resulting directory path is stored in `self.analysis_dir`.
     
         Raises
         ------
-        FileExistsError
-            If unable to create a unique analysis directory due to file system errors.
+        RuntimeError
+            If active quantification/clustering ids cannot be resolved.
+        OSError
+            If directory creation or cleanup fails.
         """
-        # Compose timestamped directory name under analysis/ subfolder
-        timestamp = datetime.now().strftime(cnst.ANALYSIS_TIMESTAMP_FORMAT)
-        base_name = timestamp + self.output_filename_suffix
         analysis_parent = os.path.join(self.sample_result_dir, cnst.ANALYSIS_SUBDIR)
         try:
-            analysis_dir = make_unique_path(analysis_parent, base_name)
-            os.makedirs(analysis_dir)
+            os.makedirs(analysis_parent, exist_ok=True)
         except Exception as e:
-            raise FileExistsError(f"Could not create analysis directory in '{analysis_parent}' with base name '{base_name}'.") from e
+            raise OSError(f"Could not ensure analysis parent directory '{analysis_parent}': {e}") from e
+
+        quantification_id, clustering_id = self._resolve_active_analysis_config_ids()
+        base_name = f"analysis_Quant{quantification_id}_Clust{clustering_id}"
+        analysis_dir = os.path.join(analysis_parent, base_name)
+
+        if os.path.isdir(analysis_dir):
+            self._clear_directory_contents(analysis_dir)
+        else:
+            try:
+                os.makedirs(analysis_dir, exist_ok=False)
+            except Exception as e:
+                raise OSError(f"Could not create analysis directory '{analysis_dir}': {e}") from e
 
         self.analysis_dir = analysis_dir
+
+
+    def _resolve_active_analysis_config_ids(self) -> Tuple[int, int]:
+        """Resolve active quantification and clustering config ids for analysis folder naming."""
+        quant_config = self.current_quant_config
+
+        if quant_config is None:
+            ledger = self._load_or_create_ledger()
+            quant_config = self._get_active_quantification_config(ledger)
+
+        if quant_config is None:
+            raise RuntimeError("No active quantification config is available to name analysis directory")
+
+        active_clustering_config = quant_config.get_active_clustering_config()
+        if active_clustering_config is None:
+            raise RuntimeError("No active clustering config is available to name analysis directory")
+
+        return int(quant_config.quantification_id), int(active_clustering_config.clustering_id)
+
+
+    @staticmethod
+    def _clear_directory_contents(dir_path: str) -> None:
+        """Remove all files/subdirectories from a directory while keeping the directory itself."""
+        try:
+            for entry in os.scandir(dir_path):
+                if entry.is_dir(follow_symlinks=False):
+                    shutil.rmtree(entry.path)
+                else:
+                    os.remove(entry.path)
+        except Exception as e:
+            raise OSError(f"Could not clear existing analysis directory '{dir_path}': {e}") from e
     
     
     def _initialise_std_dict(self) -> None:
@@ -1624,9 +1666,6 @@ class EMXSp_Composition_Analyzer:
             sample_cfg=self.sample_cfg,
             measurement_cfg=self.measurement_cfg,
             sample_substrate_cfg=self.sample_substrate_cfg,
-            clustering_cfg=RuntimeClusteringConfig.model_validate(
-                self._runtime_clustering_cfg_payload(self.clustering_cfg)
-            ),
             plot_cfg=self.plot_cfg,
             powder_meas_cfg=self.powder_meas_cfg,
             bulk_meas_cfg=self.bulk_meas_cfg,

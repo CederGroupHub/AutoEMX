@@ -149,6 +149,44 @@ def _load_legacy_quant_cfg(sample_result_dir: str) -> Optional[Any]:
     return None
 
 
+def _load_legacy_clustering_cfg(sample_result_dir: str) -> Optional[ClusteringConfig]:
+    """Load the raw legacy clustering config from legacy JSON files."""
+    candidate_files = [
+        Path(sample_result_dir) / f"{cnst.CONFIG_FILENAME}.json",
+        Path(sample_result_dir) / f"{cnst.ACQUISITION_INFO_FILENAME}.json",
+    ]
+    for config_path in candidate_files:
+        if not config_path.exists():
+            continue
+        try:
+            payload = json.loads(config_path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        raw_clustering_cfg = payload.get(cnst.CLUSTERING_CFG_KEY)
+        if raw_clustering_cfg is None:
+            continue
+        try:
+            normalized_payload = dict(raw_clustering_cfg)
+
+            # Legacy configs used `k`; map it to the new `k_forced` field.
+            if "k_forced" not in normalized_payload and "k" in normalized_payload:
+                normalized_payload["k_forced"] = normalized_payload.get("k")
+            normalized_payload.pop("k", None)
+
+            # Keep only fields declared in the schema to avoid extra-field validation errors.
+            allowed_fields = set(ClusteringConfig.model_fields.keys())
+            normalized_payload = {
+                key: value
+                for key, value in normalized_payload.items()
+                if key in allowed_fields
+            }
+
+            return ClusteringConfig.model_validate(normalized_payload)
+        except Exception:
+            continue
+    return None
+
+
 def _load_em_driver(microscope_id: Optional[str]):
     """Import the microscope driver module from microscope ID when available."""
     if microscope_id is None:
@@ -443,6 +481,8 @@ def build_legacy_import_quantification_config(
     if quant_cfg is None:
         quant_cfg = _load_legacy_quant_cfg(sample_result_dir)
 
+    legacy_clustering_cfg = _load_legacy_clustering_cfg(sample_result_dir) or ClusteringConfig()
+
     method = str(getattr(quant_cfg, "method", "PB") or "PB").strip() or "PB"
     fit_tolerance = float(getattr(quant_cfg, "fit_tolerance", 1e-4) or 1e-4)
     use_instrument_background = bool(getattr(quant_cfg, "use_instrument_background", False))
@@ -504,20 +544,20 @@ def build_legacy_import_quantification_config(
         clustering_configs=[
             ClusteringConfig(
                 clustering_id=0,
-                method=str(getattr(ledger_configs.clustering_cfg, "method", "kmeans")),
-                features=str(getattr(ledger_configs.clustering_cfg, "features", "")),
+                method=str(getattr(legacy_clustering_cfg, "method", "kmeans")),
+                features=str(getattr(legacy_clustering_cfg, "features", "")),
                 k_forced=getattr(
-                    ledger_configs.clustering_cfg,
+                    legacy_clustering_cfg,
                     "k_forced",
-                    getattr(ledger_configs.clustering_cfg, "k", None),
+                    getattr(legacy_clustering_cfg, "k", None),
                 ),
-                k_finding_method=str(getattr(ledger_configs.clustering_cfg, "k_finding_method", "silhouette")),
-                max_k=int(getattr(ledger_configs.clustering_cfg, "max_k", 6)),
-                ref_formulae=list(getattr(ledger_configs.clustering_cfg, "ref_formulae", []) or []),
-                do_matrix_decomposition=bool(getattr(ledger_configs.clustering_cfg, "do_matrix_decomposition", True)),
-                max_analytical_error_percent=getattr(ledger_configs.clustering_cfg, "max_analytical_error_percent", 5.0),
-                min_bckgrnd_cnts=getattr(ledger_configs.clustering_cfg, "min_bckgrnd_cnts", 5),
-                quant_flags_accepted=list(getattr(ledger_configs.clustering_cfg, "quant_flags_accepted", [0, -1]) or []),
+                k_finding_method=str(getattr(legacy_clustering_cfg, "k_finding_method", "silhouette")),
+                max_k=int(getattr(legacy_clustering_cfg, "max_k", 6)),
+                ref_formulae=list(getattr(legacy_clustering_cfg, "ref_formulae", []) or []),
+                do_matrix_decomposition=bool(getattr(legacy_clustering_cfg, "do_matrix_decomposition", True)),
+                max_analytical_error_percent=getattr(legacy_clustering_cfg, "max_analytical_error_percent", 5.0),
+                min_bckgrnd_cnts=getattr(legacy_clustering_cfg, "min_bckgrnd_cnts", 5),
+                quant_flags_accepted=list(getattr(legacy_clustering_cfg, "quant_flags_accepted", [0, -1]) or []),
             )
         ],
         active_clustering_cfg_index=0,
