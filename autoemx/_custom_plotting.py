@@ -19,6 +19,8 @@ def _save_clustering_plot_custom_3D(elements, els_comps_list, centroids, labels,
                                     sample_ID,
                                     analysis_dir=None,
                                     output_filename=None,
+                                    ideal_elev=None,
+                                    ideal_azim=None,
                                     ):
 
     plot_file_title = output_filename or cnst.CUSTOM_CLUSTERING_PLOT_FILENAME + cnst.CLUSTERING_PLOT_FILEEXT
@@ -114,7 +116,9 @@ def _save_clustering_plot_custom_3D(elements, els_comps_list, centroids, labels,
         ax.set_zlim(0, 1)
         ax.set_zticks(ticks)
         ax.set_zticklabels(ticks_labels)
-        ax.view_init(elev=24, azim=35)
+        elev = 24 if ideal_elev is None else ideal_elev
+        azim = 35 if ideal_azim is None else ideal_azim
+        ax.view_init(elev=elev, azim=azim)
 
     ax.set_title(f'Custom clustering {sample_ID}')
     ax.legend(fontsize=fontsize)

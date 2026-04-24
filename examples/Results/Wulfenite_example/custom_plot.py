@@ -26,6 +26,8 @@ def _save_clustering_plot_custom_3D(
     sample_ID,
     analysis_dir=None,
     output_filename=None,
+    ideal_elev=None,
+    ideal_azim=None,
 ):
     """Render and save a user-customized clustering plot.
 
@@ -40,7 +42,9 @@ def _save_clustering_plot_custom_3D(
         ax.scatter(*centroids.T, c="crimson", marker="x", s=90, label="Centroids")
         ax.set_zlabel(f"{elements[2]} {axis_units}")
         ax.set_zlim(0, 1)
-        ax.view_init(elev=24, azim=40)
+        elev = 24 if ideal_elev is None else ideal_elev
+        azim = 40 if ideal_azim is None else ideal_azim
+        ax.view_init(elev=elev, azim=azim)
     else:
         ax = fig.add_subplot(111)
         ax.scatter(*els_comps_list, c=labels, cmap="viridis", s=36, marker="o", alpha=0.95)

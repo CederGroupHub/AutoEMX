@@ -5,7 +5,7 @@
 import importlib.util
 import os
 import warnings
-from typing import List
+from typing import Any, List
 
 import matplotlib.cm as cm
 import matplotlib.patches as patches
@@ -15,7 +15,6 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from sklearn.cluster import KMeans
-from yellowbrick.cluster import SilhouetteVisualizer
 
 import autoemx.calibrations as calibs
 import autoemx._custom_plotting as builtin_custom_plotting
@@ -24,6 +23,37 @@ from autoemx.utils import print_single_separator, to_latex_formula
 
 
 class PlottingModule:
+    # Attributes are injected by the analyzer class during composition analysis.
+    plot_cfg: Any
+    clustering_cfg: Any
+    ref_phases_df: Any
+    ref_formulae: Any
+    sample_cfg: Any
+    analysis_dir: str
+    detectable_els_sample: List[str]
+    all_els_sample: List[str]
+    verbose: bool
+
+    @staticmethod
+    def _find_ideal_3d_azimuth(points_xyz: 'np.ndarray') -> float:
+        """Return azimuth that maximizes XY footprint after Z-axis rotation."""
+        points_xyz = np.asarray(points_xyz, dtype=float)
+        if points_xyz.size == 0:
+            return 35.0
+        centered = points_xyz - np.mean(points_xyz, axis=0, keepdims=True)
+        best_azimuth = 35.0
+        best_area = -1.0
+        for azimuth in np.arange(0.0, 360.0, 15.0):
+            theta = np.deg2rad(azimuth)
+            cos_t, sin_t = np.cos(theta), np.sin(theta)
+            x_rot = centered[:, 0] * cos_t - centered[:, 1] * sin_t
+            y_rot = centered[:, 0] * sin_t + centered[:, 1] * cos_t
+            area = (np.max(x_rot) - np.min(x_rot)) * (np.max(y_rot) - np.min(y_rot))
+            if area > best_area:
+                best_area = area
+                best_azimuth = float(azimuth)
+        return best_azimuth
+
     def _load_custom_plot_function(self):
         """Load a user-defined custom plotting callable from plot config."""
         custom_plot_file = getattr(self.plot_cfg, "custom_plot_file", None)
@@ -75,6 +105,16 @@ class PlottingModule:
             if custom_plot_func is None:
                 return False
 
+        ideal_elev = None
+        ideal_azim = None
+        if len(elements) == 3:
+            base_points = np.asarray(els_comps_list, dtype=float).T
+            base_azimuth = PlottingModule._find_ideal_3d_azimuth(
+                base_points if base_points.size > 0 else np.empty((0, 3))
+            )
+            ideal_elev = 24.0
+            ideal_azim = (base_azimuth + 180.0) % 360.0
+
         try:
             try:
                 custom_plot_func(
@@ -91,6 +131,8 @@ class PlottingModule:
                     self.sample_cfg.ID,
                     analysis_dir=self.analysis_dir,
                     output_filename=cnst.CUSTOM_CLUSTERING_PLOT_FILENAME + cnst.CLUSTERING_PLOT_FILEEXT,
+                    ideal_elev=ideal_elev,
+                    ideal_azim=ideal_azim,
                 )
             except TypeError:
                 # Backward compatibility for legacy custom plotting signatures.
@@ -175,7 +217,8 @@ class PlottingModule:
                 )
         elif self.verbose:
             print('Clusters were not plotted because only one detectable element was present in the sample.')
-            print(f"Elements {calibs.undetectable_els} cannot be detected at the employed instrument.")
+            undetectable = getattr(calibs, 'undetectable_els', [])
+            print(f"Elements {undetectable} cannot be detected at the employed instrument.")
 
     def _save_clustering_plot(
         self,
@@ -227,24 +270,7 @@ class PlottingModule:
 
             return low, high
 
-        def _choose_best_3d_azimuth(points_xyz: 'np.ndarray') -> float:
-            if points_xyz.size == 0:
-                return 35.0
-            centered = points_xyz - np.mean(points_xyz, axis=0, keepdims=True)
-            best_azimuth = 35.0
-            best_area = -1.0
-            for azimuth in np.arange(0.0, 360.0, 15.0):
-                theta = np.deg2rad(azimuth)
-                cos_t, sin_t = np.cos(theta), np.sin(theta)
-                x_rot = centered[:, 0] * cos_t - centered[:, 1] * sin_t
-                y_rot = centered[:, 0] * sin_t + centered[:, 1] * cos_t
-                area = (np.max(x_rot) - np.min(x_rot)) * (np.max(y_rot) - np.min(y_rot))
-                if area > best_area:
-                    best_area = area
-                    best_azimuth = float(azimuth)
-            return best_azimuth
-
-        def _plot_clustering_scene(ax, title_suffix: str = "") -> None:
+        def _plot_clustering_scene(ax: Any, title_suffix: str = "") -> None:
             ax.scatter(*els_comps_list, c=labels, cmap='viridis', marker='o')
             ax.scatter(*centroids.T, c='red', marker='x', s=100, label='Centroids')
 
@@ -310,14 +336,14 @@ class PlottingModule:
         full_view_elev = 24.0
         full_view_azim = None
         if len(elements) == 3:
-            ax = fig.add_subplot(111, projection='3d')
+            ax: Any = fig.add_subplot(111, projection='3d')
             base_points = np.asarray(els_comps_list, dtype=float).T
-            base_azimuth = _choose_best_3d_azimuth(base_points if base_points.size > 0 else np.empty((0, 3)))
+            base_azimuth = PlottingModule._find_ideal_3d_azimuth(base_points if base_points.size > 0 else np.empty((0, 3)))
             # Keep 3D axes on the far side for a clearer foreground view of clusters.
             full_view_azim = (base_azimuth + 180.0) % 360.0
             ax.view_init(elev=full_view_elev, azim=full_view_azim)
         else:
-            ax = fig.add_subplot(111)
+            ax: Any = fig.add_subplot(111)
         _plot_clustering_scene(ax)
         if self.plot_cfg.show_plots:
             plt.show()
@@ -325,9 +351,9 @@ class PlottingModule:
 
         fig_zoomed = plt.figure(figsize=(6, 6))
         if len(elements) == 3:
-            ax_zoomed = fig_zoomed.add_subplot(111, projection='3d')
+            ax_zoomed: Any = fig_zoomed.add_subplot(111, projection='3d')
         else:
-            ax_zoomed = fig_zoomed.add_subplot(111)
+            ax_zoomed: Any = fig_zoomed.add_subplot(111)
         _plot_clustering_scene(ax_zoomed, title_suffix=' (zoomed)')
 
         # Zoom includes most of total sample points, including discarded compositions.
@@ -368,7 +394,7 @@ class PlottingModule:
 
     def _save_violin_plot_powder_mixture(
         self,
-        W_mol_frs: List[float],
+        W_mol_frs: 'np.ndarray',
         ref_names: List[str],
         cluster_ID: int
     ) -> None:
@@ -383,7 +409,7 @@ class PlottingModule:
         purple_cmap = cm.get_cmap('Purples')
         yellow_cmap = cm.get_cmap('autumn')
 
-        y_vals = W_mol_frs[:, 0]
+        y_vals = np.asarray(W_mol_frs, dtype=float)[:, 0]
         fig, ax_left = plt.subplots(figsize=(4, 4))
         mean = np.mean(y_vals)
         std = np.std(y_vals)
@@ -431,8 +457,21 @@ class PlottingModule:
         results_dir: str,
         show_plot: bool
     ) -> None:
+        try:
+            yellowbrick_cluster = importlib.import_module('yellowbrick.cluster')
+            silhouette_visualizer_cls = getattr(yellowbrick_cluster, 'SilhouetteVisualizer', None)
+        except Exception:
+            silhouette_visualizer_cls = None
+
+        if silhouette_visualizer_cls is None:
+            warnings.warn(
+                "yellowbrick is not available; skipping silhouette plot generation.",
+                UserWarning,
+            )
+            return
+
         plt.figure(figsize=(10, 8))
-        sil_visualizer = SilhouetteVisualizer(model, colors='yellowbrick')
+        sil_visualizer = silhouette_visualizer_cls(model, colors='yellowbrick')
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             sil_visualizer.fit(compositions_df)
