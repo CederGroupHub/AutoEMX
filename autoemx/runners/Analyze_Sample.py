@@ -35,7 +35,6 @@ Created on Tue Jul 29 13:18:16 2025
 import os
 import time
 import logging
-from importlib import resources
 from typing import Optional, List
 
 from autoemx.utils import (
@@ -46,6 +45,10 @@ from autoemx.utils import (
     extract_spectral_data,
 )
 import autoemx.utils.constants as cnst
+from autoemx.utils.plotting_helpers import (
+    ensure_custom_plot_file,
+    refresh_custom_plot_template_file,
+)
 from autoemx.config import config_classes_dict, load_sample_ledger
 from autoemx.config.schemas import ClusteringConfig
 from autoemx.core.composition_analysis import EMXSp_Composition_Analyzer
@@ -57,7 +60,26 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-__all__ = ["analyze_sample"]
+__all__ = ["analyze_sample", "refresh_custom_plot_template"]
+
+
+def refresh_custom_plot_template(
+    sample_ID: str,
+    results_path: Optional[str] = None,
+    overwrite: bool = True,
+) -> str:
+    """(Re)create sample-local custom_plot.py from the packaged template."""
+    custom_plot_file, was_written = refresh_custom_plot_template_file(
+        sample_ID=sample_ID,
+        results_path=results_path,
+        overwrite=overwrite,
+    )
+    if was_written:
+        logging.info("Custom plot template written to: %s", custom_plot_file)
+    else:
+        logging.info("Custom plot template already exists and was not overwritten: %s", custom_plot_file)
+
+    return custom_plot_file
 
 
 def _ensure_custom_plot_file(sample_dir: str, plot_cfg) -> None:
@@ -65,22 +87,11 @@ def _ensure_custom_plot_file(sample_dir: str, plot_cfg) -> None:
     if not plot_cfg.use_custom_plots:
         return
 
-    custom_plot_file = plot_cfg.custom_plot_file
-    if not custom_plot_file:
-        custom_plot_file = os.path.join(sample_dir, cnst.CUSTOM_PLOT_FILENAME)
-    elif not os.path.isabs(custom_plot_file):
-        custom_plot_file = os.path.join(sample_dir, custom_plot_file)
-
-    custom_plot_dir = os.path.dirname(custom_plot_file)
-    if custom_plot_dir:
-        os.makedirs(custom_plot_dir, exist_ok=True)
-
-    if not os.path.exists(custom_plot_file):
-        template_contents = resources.files("autoemx").joinpath(
-            cnst.CUSTOM_PLOT_TEMPLATE_FILENAME
-        ).read_text(encoding="utf-8")
-        with open(custom_plot_file, "w", encoding="utf-8") as f_custom:
-            f_custom.write(template_contents)
+    custom_plot_file, was_written = ensure_custom_plot_file(
+        sample_dir=sample_dir,
+        custom_plot_file=plot_cfg.custom_plot_file,
+    )
+    if was_written:
         logging.info("Created custom plot template: %s", custom_plot_file)
 
     plot_cfg.custom_plot_file = custom_plot_file

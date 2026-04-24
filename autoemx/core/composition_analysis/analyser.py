@@ -517,7 +517,8 @@ class EMXSp_Composition_Analyzer:
 
         The directory name is based on the active quantification and clustering config ids:
         ``analysis_Quant{quantification_id}_Clust{clustering_id}``.
-        If the directory already exists (same active config pair), its content is replaced.
+        If the directory already exists (same active config pair), it is reused as-is.
+        Existing files are preserved unless overwritten by newly generated outputs.
         A different active config pair results in a different directory name.
     
         The resulting directory path is stored in `self.analysis_dir`.
@@ -527,7 +528,7 @@ class EMXSp_Composition_Analyzer:
         RuntimeError
             If active quantification/clustering ids cannot be resolved.
         OSError
-            If directory creation or cleanup fails.
+            If directory creation fails.
         """
         analysis_parent = os.path.join(self.sample_result_dir, cnst.ANALYSIS_SUBDIR)
         try:
@@ -539,13 +540,10 @@ class EMXSp_Composition_Analyzer:
         base_name = f"analysis_Quant{quantification_id}_Clust{clustering_id}"
         analysis_dir = os.path.join(analysis_parent, base_name)
 
-        if os.path.isdir(analysis_dir):
-            self._clear_directory_contents(analysis_dir)
-        else:
-            try:
-                os.makedirs(analysis_dir, exist_ok=False)
-            except Exception as e:
-                raise OSError(f"Could not create analysis directory '{analysis_dir}': {e}") from e
+        try:
+            os.makedirs(analysis_dir, exist_ok=True)
+        except Exception as e:
+            raise OSError(f"Could not create analysis directory '{analysis_dir}': {e}") from e
 
         self.analysis_dir = analysis_dir
 
@@ -6339,6 +6337,8 @@ EMXSp_Composition_Analyzer._assign_reference_phases = ReferenceMatchingModule._a
 EMXSp_Composition_Analyzer._get_ref_confidences = ReferenceMatchingModule._get_ref_confidences
 
 EMXSp_Composition_Analyzer._save_plots = PlottingModule._save_plots
+EMXSp_Composition_Analyzer._load_custom_plot_function = PlottingModule._load_custom_plot_function
+EMXSp_Composition_Analyzer._run_custom_clustering_plot = PlottingModule._run_custom_clustering_plot
 EMXSp_Composition_Analyzer._save_clustering_plot = PlottingModule._save_clustering_plot
 EMXSp_Composition_Analyzer._save_violin_plot_powder_mixture = PlottingModule._save_violin_plot_powder_mixture
 EMXSp_Composition_Analyzer._save_silhouette_plot = PlottingModule._save_silhouette_plot

@@ -6,7 +6,7 @@ Package initializer for autoemx.runners
 Imports and re-exports all public runner functions.
 """
 
-from .Analyze_Sample import analyze_sample
+from .Analyze_Sample import analyze_sample, refresh_custom_plot_template
 from .Batch_Acquire_and_Analyze import batch_acquire_and_analyze
 from .Batch_Acquire_Experimental_Stds import batch_acquire_experimental_stds
 from .Batch_Fit_Spectra import batch_fit_spectra
@@ -17,6 +17,7 @@ from .Fit_and_Quantify_Spectrum import fit_and_quantify_spectrum
 
 __all__ = [
     "analyze_sample",
+    "refresh_custom_plot_template",
     "batch_acquire_and_analyze",
     "batch_acquire_experimental_stds",
     "batch_fit_spectra",

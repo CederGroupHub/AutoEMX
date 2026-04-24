@@ -372,6 +372,8 @@ Plotting options
   copies a template into the sample folder on first run and stores its path in
   ``PlotConfig.custom_plot_file``. This is useful to create publication-ready
   plots while keeping plotting code fully user-editable.
+  To recreate ``custom_plot.py`` from the packaged default template, run
+  ``autoemx/scripts/Refresh_Custom_Plot_Template.py``.
 - ``show_unused_compositions_cluster_plot`` : If ``True``, display discarded
   compositions as black triangles in the clustering plot. Consider that compositions
   discarded due to their analytical error may still be very close to the true

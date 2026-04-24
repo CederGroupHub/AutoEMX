@@ -62,7 +62,8 @@
       "show_legend_clustering": true,
       "save_plots": true,
       "show_plots": false,
-      "use_custom_plots": false
+      "use_custom_plots": false,
+      "custom_plot_file": null
     },
     "powder_meas_cfg": {
       "is_manual_particle_selection": false,
