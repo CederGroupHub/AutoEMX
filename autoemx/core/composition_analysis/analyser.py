@@ -5666,10 +5666,6 @@ class EMXSp_Composition_Analyzer:
                 cnst.SAMPLE_CFG_KEY: spectrum_collection_info[cnst.SAMPLE_CFG_KEY],
                 cnst.MEASUREMENT_CFG_KEY: spectrum_collection_info[cnst.MEASUREMENT_CFG_KEY],
                 cnst.SAMPLESUBSTRATE_CFG_KEY: spectrum_collection_info[cnst.SAMPLESUBSTRATE_CFG_KEY],
-                cnst.CLUSTERING_CFG_KEY: spectrum_collection_info.get(
-                    cnst.CLUSTERING_CFG_KEY,
-                    self._runtime_clustering_cfg_payload(self.clustering_cfg),
-                ),
                 cnst.PLOT_CFG_KEY: spectrum_collection_info.get(cnst.PLOT_CFG_KEY, self.plot_cfg.model_dump(mode="json")),
                 cnst.POWDER_MEASUREMENT_CFG_KEY: spectrum_collection_info.get(cnst.POWDER_MEASUREMENT_CFG_KEY),
                 cnst.BULK_MEASUREMENT_CFG_KEY: spectrum_collection_info.get(cnst.BULK_MEASUREMENT_CFG_KEY),
