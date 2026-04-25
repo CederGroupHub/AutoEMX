@@ -82,6 +82,7 @@ def batch_quantify_and_analyze(
     max_analytical_error: float = 5,
     run_analysis: bool = True,
     num_CPU_cores: Optional[int] = None,
+    force_requantification: bool = False,
     interrupt_fits_bad_spectra: bool = False,
     use_project_specific_std_dict: Optional[bool] = None,
     is_known_precursor_mixture: Optional[bool] = None,
@@ -111,6 +112,9 @@ def batch_quantify_and_analyze(
         Whether to run clustering/statistical analysis after quantification.
     num_CPU_cores : bool | None, optional
         Number of CPU cores to use during fitting and quantification. If None, half of the available cores are used.
+    force_requantification : bool, optional
+        If True, re-quantifies all spectra regardless of whether an existing
+        quantification run with matching settings is already available.
     interrupt_fits_bad_spectra : bool, optional
         Controls early-exit behaviour during iterative spectral fitting.
 
@@ -314,6 +318,7 @@ def batch_quantify_and_analyze(
         
         try:
             comp_analyzer.run_quantification(
+                force_requantification=force_requantification,
                 interrupt_fits_bad_spectra=interrupt_fits_bad_spectra,
                 num_CPU_cores=num_CPU_cores,
             )
