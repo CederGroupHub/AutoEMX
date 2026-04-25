@@ -439,6 +439,9 @@ def _export_msa_if_requested(phenom_spectrum, msa_file_export_path: Optional[str
         return
 
     base_dir = os.path.dirname(msa_file_export_path)
+    if base_dir:
+        os.makedirs(base_dir, exist_ok=True)
+
     if os.path.exists(base_dir):
         ppi.Spectroscopy.WriteMsaFile(phenom_spectrum, msa_file_export_path)
     else:

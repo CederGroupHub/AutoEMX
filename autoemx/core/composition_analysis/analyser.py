@@ -510,11 +510,11 @@ class EMXSp_Composition_Analyzer:
         The ledger is created with an empty spectra list; entries are populated from
         the written .msa pointer files when quantification is later launched.
         """
+        spectra_dir = self._get_spectra_dir()
+        os.makedirs(spectra_dir, exist_ok=True)
         ledger_path = self._get_ledger_path()
         if os.path.exists(ledger_path):
             return
-        spectra_dir = self._get_spectra_dir()
-        os.makedirs(spectra_dir, exist_ok=True)
         ledger = SampleLedger(
             sample_id=self.sample_cfg.ID,
             sample_path=os.path.abspath(self.sample_result_dir),
@@ -892,6 +892,9 @@ class EMXSp_Composition_Analyzer:
         background_elements = None
         if self.quant_cfg.use_instrument_background:
             background_elements = list(getattr(self, "detectable_els_sample", []) or [])
+
+        if msa_file_path:
+            os.makedirs(os.path.dirname(msa_file_path), exist_ok=True)
 
         spectrum_data, background_data = self.EM_controller.acquire_XS_spot_spectrum(
             x, y,
@@ -2560,6 +2563,7 @@ class EMXSp_Composition_Analyzer:
                 current_spectrum_id = str(n_tot_sp_collected)
                 spectrum_relpath = self._build_spectrum_relpath(current_spectrum_id)
                 manufacturer_msa_path = os.path.join(self.sample_result_dir, spectrum_relpath)
+                os.makedirs(os.path.dirname(manufacturer_msa_path), exist_ok=True)
 
                 n_tot_sp_collected += 1
                 collection_time, total_counts = self._acquire_spectrum(
@@ -2599,11 +2603,11 @@ class EMXSp_Composition_Analyzer:
                         continue
                     
                     im_annotations.append({
-                        self.EM_controller.an_text_key: (
+                        cnst.ANNOTATION_TEXT_KEY: (
                             str(n_tot_sp_collected - 1 - latest_spot_id + i),
                             (xy_center[0] - 30, xy_center[1] - 15)
                         ),
-                        self.EM_controller.an_circle_key: (10, xy_center, -1)
+                        cnst.ANNOTATION_CIRCLE_KEY: (10, xy_center, -1)
                     })
                 # Save image with annotations
                 self.EM_controller.save_frame_image(filename, im_annotations = im_annotations)
