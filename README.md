@@ -144,19 +144,19 @@ This repository includes a collection of scripts that streamline the use of **Au
 Each script is tailored for a specific task in spectral acquisition, calibration, quantification, or analysis.
 
 ### 🔬 Acquisition, Quantification & Analysis
-- **Run_Acquisition_Quant_Analysis.py** — Acquire X-ray spectra and optionally perform quantification and composition analysis.  
-- **Run_Quantification_Analysis.py** — Quantify acquired spectra (single or multiple samples) and perform machine-learning analysis.  
-- **Run_Analysis.py** — Launch customized machine-learning analysis on previously quantified data. 
-- **Fit_Quant_Single_AutoEMX_Spectrum.py** — Fit and optionally quantify a single spectrum measured with AutoEMX. Prints fitting parameters and plots fitted spectrum for detailed inspection of model performance.  
-- **Fit_Quant_Single_MSA_Spectrum.py** — Fit and optionally quantify a single spectrum exported by proprietary software. 
+- **run_acquisition_quant_analysis.py** — Acquire X-ray spectra and optionally perform quantification and composition analysis.  
+- **run_quantification_analysis.py** — Quantify acquired spectra (single or multiple samples) and perform machine-learning analysis.  
+- **run_analysis.py** — Launch customized machine-learning analysis on previously quantified data. 
+- **fit_quant_single_autoemx_spectrum.py** — Fit and optionally quantify a single spectrum measured with AutoEMX. Prints fitting parameters and plots fitted spectrum for detailed inspection of model performance.  
+- **fit_quant_single_msa_spectrum.py** — Fit and optionally quantify a single spectrum exported by proprietary software. 
 
 ### 📊 Particle Size Distribution Measurements
-- **Collect_Particle_Statistics.py** - Analyse sample, collecting particle size statistics and distribution.
-- **Process_Particle_Stats_Files.py** - Process acquired aprticle size data and recompute.
+- **collect_particle_statistics.py** - Analyse sample, collecting particle size statistics and distribution.
+- **process_particle_stats_files.py** - Process acquired aprticle size data and recompute.
 
 ### 🛠️ Miscellaneous
-- **Run_Experimental_Standard_Collection.py** — Acquire and fit experimental standards.  
-- **Run_SDD_Calibration.py** — Perform calibration of the SDD detector.
+- **run_experimental_standard_collection.py** — Acquire and fit experimental standards.  
+- **run_sdd_calibration.py** — Perform calibration of the SDD detector.
 
 ### ⚗️ Characterize Extent of Intermixing in Known Powder Mixtures  
 *(see [Chem. Mater. 2025, 37, 6807−6822](https://pubs.acs.org/doi/10.1021/acs.chemmater.5c01573) for example)*  
@@ -224,7 +224,7 @@ git lfs checkout
 
 Alternatively, download manually from the github repo Download button.
 
-After downloading, run the Run_Analysis.py or Run_Quantification.py scripts within the folder.
+After downloading, run the run_analysis.py or run_quantification_analysis.py scripts within the folder.
 
 ---
 

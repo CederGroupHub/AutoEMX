@@ -134,7 +134,7 @@ class ClusteringConfig(BaseModel):
         ref_formulae (List[str]): List of possible phases present in the sample, as chemical formula strings.
         do_matrix_decomposition (bool) : Whether to compute matrix decomposition for intermixed phases. Slow if many candidate phases are provided. Default: True
         max_analytical_error_percent (Optional[float]): Maximum analytical error acceptable for composition to be considered in phase determination, expressed as w%. Can be None.
-        min_bckgrnd_cnts (Optional[int]): Minimum background counts required under reference lines for quantification to be accepted.
+        min_bckgrnd_cnts (Optional[float]): Minimum background counts required under reference lines for quantification to be accepted.
             Set to None to disable this threshold-based filter.
         quant_flags_accepted (List[int]): List of quantification flags considered acceptable, others are filtered out prior clustering.
             Quantification flags indicate whether the quantification or the fit of each spectrum is likely to be affected by large errors:
@@ -161,7 +161,7 @@ class ClusteringConfig(BaseModel):
     ref_formulae: List[str] = Field(default_factory=list)
     do_matrix_decomposition: bool = True
     max_analytical_error_percent: Optional[float] = 5.0
-    min_bckgrnd_cnts: Optional[int] = 5
+    min_bckgrnd_cnts: Optional[float] = 5.0
     quant_flags_accepted: List[int] = Field(default_factory=lambda: [0, -1])
 
     model_config = ConfigDict(extra="forbid")
@@ -221,7 +221,7 @@ class ClusteringConfig(BaseModel):
 
     @field_validator("min_bckgrnd_cnts")
     @classmethod
-    def validate_min_bckgrnd_cnts(cls, value: Optional[int]) -> Optional[int]:
+    def validate_min_bckgrnd_cnts(cls, value: Optional[float]) -> Optional[float]:
         if value is not None and value < 0:
             raise ValueError("min_bckgrnd_cnts must be non-negative or None")
         return value
@@ -352,8 +352,20 @@ class QuantificationConfig(BaseModel):
         if not isinstance(spectrum_lims, (list, tuple)) or len(spectrum_lims) != 2:
             raise ValueError("options['spectrum_lims'] must contain exactly two values")
 
+        low_raw = float(spectrum_lims[0])
+        high_raw = float(spectrum_lims[1])
+        if not np.isfinite(low_raw) or not np.isfinite(high_raw):
+            raise ValueError("options['spectrum_lims'] values must be finite")
+        if not low_raw.is_integer() or not high_raw.is_integer():
+            raise ValueError("options['spectrum_lims'] values must be integer channel indices")
+
+        low = int(low_raw)
+        high = int(high_raw)
+        if low >= high:
+            raise ValueError("options['spectrum_lims'] must satisfy low < high")
+
         normalized = dict(value)
-        normalized["spectrum_lims"] = [float(spectrum_lims[0]), float(spectrum_lims[1])]
+        normalized["spectrum_lims"] = [low, high]
         normalized["fit_tolerance"] = float(normalized["fit_tolerance"])
         normalized["use_instrument_background"] = bool(normalized["use_instrument_background"])
         if "use_project_specific_std_dict" in normalized:

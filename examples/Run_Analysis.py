@@ -21,14 +21,14 @@ Created on Tue Jul 29 13:18:16 2025
 
 import os
 
-from autoemx.runners import analyze_sample
+from autoemx.runners import analyze_sample # type: ignore
 
 
 # =============================================================================
 # Sample Definition
 # =============================================================================
-sample_ID = 'Wulfenite_example'
-# sample_ID = 'K-412_NISTstd_example'
+# sample_ID = 'Wulfenite_example'
+sample_ID = 'K-412_NISTstd_example'
 # sample_ID = 'known_powder_mixture_example'
 
 results_path = os.path.join(os.path.dirname(__file__), 'Results')

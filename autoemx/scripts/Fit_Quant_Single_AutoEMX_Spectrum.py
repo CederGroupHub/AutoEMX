@@ -23,7 +23,7 @@ Created on Tue Jul 29 13:18:16 2025
 # sample_ID = 'Wulfenite_example'
 sample_ID = 'K-412_NISTstd_example'
 
-spectrum_ID = 1  # Value reported in 'Spectrum #' column in Data.csv
+spectrum_ID = 1  # Value reported in 'Spectrum #' metadata for the sample ledger
 
 results_path = None # Looks in default Results folder if left unspecified
 
@@ -52,9 +52,9 @@ els_substrate = None # ['C', 'O', 'Al']
 # =============================================================================
 # Run
 # =============================================================================
-from autoemx.runners.Fit_and_Quantify_Spectrum_fromDatacsv import fit_and_quantify_spectrum_fromDatacsv
+from autoemx.runners.fit_and_quantify_spectrum_from_datacsv import fit_and_quantify_spectrum_from_ledger
 
-quantifier = fit_and_quantify_spectrum_fromDatacsv(
+quantifier = fit_and_quantify_spectrum_from_ledger(
     sample_ID=sample_ID,
     spectrum_ID=spectrum_ID,
     is_standard = is_standard,

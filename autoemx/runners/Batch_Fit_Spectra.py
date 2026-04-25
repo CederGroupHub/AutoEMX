@@ -35,7 +35,7 @@ from typing import List, Optional
 import autoemx.utils.constants as cnst
 import autoemx.config.defaults as dflt
 from autoemx.utils import get_sample_dir, print_double_separator
-from autoemx.runners.Fit_and_Quantify_Spectrum_fromDatacsv import fit_and_quantify_spectrum_fromDatacsv
+from autoemx.runners.fit_and_quantify_spectrum_from_datacsv import fit_and_quantify_spectrum_fromDatacsv
 
 # Configure logging (same style as fit_and_quantify_spectrum)
 logging.basicConfig(

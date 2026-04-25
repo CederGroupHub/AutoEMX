@@ -15,7 +15,7 @@ import os
 
 from autoemx.utils import load_msa
 from autoemx.config import defaults
-from autoemx.runners.Fit_and_Quantify_Spectrum import fit_and_quantify_spectrum
+from autoemx.runners.fit_and_quantify_spectrum import fit_and_quantify_spectrum
 
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 

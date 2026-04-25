@@ -41,7 +41,8 @@ import autoemx.config.defaults as dflt
 from autoemx.config import config_classes_dict, ExpStandardsConfig
 from autoemx.config.schemas import ClusteringConfig
 from autoemx.core.composition_analysis import EMXSp_Composition_Analyzer
-from autoemx.runners.Fit_and_Quantify_Spectrum import fit_and_quantify_spectrum
+from .fit_and_quantify_spectrum import fit_and_quantify_spectrum
+from autoemx.config import load_sample_ledger
 
 # Configure logging
 logging.basicConfig(
@@ -50,9 +51,12 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-__all__ = ["fit_and_quantify_spectrum_fromDatacsv"]
+__all__ = [
+    "fit_and_quantify_spectrum_from_ledger",
+    "fit_and_quantify_spectrum_fromDatacsv",
+]
 
-def fit_and_quantify_spectrum_fromDatacsv(
+def fit_and_quantify_spectrum_from_ledger(
     sample_ID: str,
     spectrum_ID: int,
     els_sample: Optional[List[str]] = None,
@@ -136,9 +140,12 @@ def fit_and_quantify_spectrum_fromDatacsv(
         logging.warning("Failed to get sample directory for %s: %s", sample_ID, e)
         return
 
+    ledger_path = os.path.join(sample_dir, f"{cnst.LEDGER_FILENAME}{cnst.LEDGER_FILEEXT}")
     config_path_new = os.path.join(sample_dir, f"{cnst.CONFIG_FILENAME}.json")
     config_path_legacy = os.path.join(sample_dir, f"{cnst.ACQUISITION_INFO_FILENAME}.json")
-    spectral_info_f_path = config_path_new if os.path.exists(config_path_new) else config_path_legacy
+    spectral_info_f_path = ledger_path if os.path.exists(ledger_path) else (
+        config_path_new if os.path.exists(config_path_new) else config_path_legacy
+    )
     data_filename = cnst.STDS_MEAS_FILENAME if is_standard else cnst.DATA_FILENAME
     data_path = os.path.join(sample_dir, f"{data_filename}.csv")
     
@@ -146,7 +153,40 @@ def fit_and_quantify_spectrum_fromDatacsv(
     logging.info(f"Sample '{sample_ID}', spectrum {spectrum_ID}")
     
     try:
-        configs, metadata = load_configurations_from_json(spectral_info_f_path, config_classes_dict)
+        if os.path.exists(ledger_path):
+            ledger = load_sample_ledger(ledger_path)
+            configs = {
+                cnst.MICROSCOPE_CFG_KEY: ledger.configs.microscope_cfg,
+                cnst.SAMPLE_CFG_KEY: ledger.configs.sample_cfg,
+                cnst.MEASUREMENT_CFG_KEY: ledger.configs.measurement_cfg,
+                cnst.SAMPLESUBSTRATE_CFG_KEY: ledger.configs.sample_substrate_cfg,
+                cnst.PLOT_CFG_KEY: ledger.configs.plot_cfg,
+            }
+            if ledger.quantification_configs:
+                active_quant_id = ledger.active_quant
+                active_quant_config = next(
+                    (
+                        quant_config
+                        for quant_config in ledger.quantification_configs
+                        if quant_config.quantification_id == active_quant_id
+                    ),
+                    ledger.quantification_configs[-1],
+                )
+                configs[cnst.QUANTIFICATION_CFG_KEY] = config_classes_dict[cnst.QUANTIFICATION_CFG_KEY](
+                    **active_quant_config.options
+                )
+                active_clustering_config = active_quant_config.get_active_clustering_config()
+                if active_clustering_config is not None:
+                    configs[cnst.CLUSTERING_CFG_KEY] = active_clustering_config
+            else:
+                configs[cnst.QUANTIFICATION_CFG_KEY] = config_classes_dict[cnst.QUANTIFICATION_CFG_KEY]()
+            if ledger.configs.powder_meas_cfg is not None:
+                configs[cnst.POWDER_MEASUREMENT_CFG_KEY] = ledger.configs.powder_meas_cfg
+            if ledger.configs.bulk_meas_cfg is not None:
+                configs[cnst.BULK_MEASUREMENT_CFG_KEY] = ledger.configs.bulk_meas_cfg
+            metadata = {}
+        else:
+            configs, metadata = load_configurations_from_json(spectral_info_f_path, config_classes_dict)
     except FileNotFoundError:
         logging.warning(f"Could not find {spectral_info_f_path}. Skipping sample '{sample_ID}'.")
         return
@@ -171,45 +211,68 @@ def fit_and_quantify_spectrum_fromDatacsv(
     if clustering_cfg is None:
         clustering_cfg = ClusteringConfig()
     
-    # Load experimental standard dictionary if the sample is a known powder precursor mix
-    if powder_meas_cfg and powder_meas_cfg.is_known_powder_mixture_meas:
-        if not exp_stds_cfg:
-            exp_stds_cfg = ExpStandardsConfig()
-        comp_analyzer = EMXSp_Composition_Analyzer(
-            microscope_cfg=microscope_cfg,
-            sample_cfg=sample_cfg,
-            measurement_cfg=measurement_cfg,
-            sample_substrate_cfg=sample_substrate_cfg,
-            quant_cfg=quant_cfg,
-            initial_clustering_cfg=clustering_cfg,
-            powder_meas_cfg=powder_meas_cfg,
-            exp_stds_cfg=exp_stds_cfg,
-            standards_dict=standards_dict,
-        )
-        stds_dict = comp_analyzer.XSp_std_dict
-    else:
-        stds_dict = None
-    
-    # Load 'Data.csv' into a DataFrame
+    # Initialise analyzer so first-run legacy datasets are migrated to ledger,
+    # then hydrate spectral arrays from ledger-managed sources.
+    if powder_meas_cfg and powder_meas_cfg.is_known_powder_mixture_meas and not exp_stds_cfg:
+        exp_stds_cfg = ExpStandardsConfig()
+
+    comp_analyzer = EMXSp_Composition_Analyzer(
+        microscope_cfg=microscope_cfg,
+        sample_cfg=sample_cfg,
+        measurement_cfg=measurement_cfg,
+        sample_substrate_cfg=sample_substrate_cfg,
+        quant_cfg=quant_cfg,
+        initial_clustering_cfg=clustering_cfg,
+        powder_meas_cfg=powder_meas_cfg,
+        exp_stds_cfg=exp_stds_cfg,
+        standards_dict=standards_dict,
+        is_acquisition=False,
+        verbose=True,
+        results_dir=sample_dir,
+    )
+
+    # For legacy projects with Data.csv only, ensure migration path is available.
+    if not os.path.exists(ledger_path):
+        if not os.path.exists(data_path):
+            logging.warning(f"Could not find {data_path}. Skipping sample '{sample_ID}'.")
+            return
+        try:
+            extract_spectral_data(data_path)
+        except Exception as e:
+            logging.warning(f"Could not load spectral data for '{sample_ID}': {e}")
+            return
+
     try:
-        _, spectral_data, _, original_df = extract_spectral_data(data_path)
+        comp_analyzer._sync_in_memory_spectra_from_ledger()
     except Exception as e:
-        logging.warning(f"Could not load spectral data for '{sample_ID}': {e}")
+        logging.warning(f"Could not sync spectral data from ledger for '{sample_ID}': {e}")
         return
 
-    # Extract the row corresponding to spectrum_ID
-    if cnst.SP_ID_DF_KEY not in original_df.columns:
-        logging.error(f"Column '{cnst.SP_ID_DF_KEY}' not in Data.csv for sample '{sample_ID}'.")
+    spectral_data = comp_analyzer.spectral_data
+    sp_coords = comp_analyzer.sp_coords
+    stds_dict = comp_analyzer.XSp_std_dict
+
+    # Resolve requested spectrum by Spectrum # (stored in sp_coords).
+    sp_idx = None
+    for i, sp_meta in enumerate(sp_coords):
+        sp_id_val = sp_meta.get(cnst.SP_ID_DF_KEY)
+        if sp_id_val is None:
+            continue
+        try:
+            if int(float(sp_id_val)) == int(spectrum_ID):
+                sp_idx = i
+                break
+        except (TypeError, ValueError):
+            if str(sp_id_val) == str(spectrum_ID):
+                sp_idx = i
+                break
+
+    if sp_idx is None:
+        logging.warning(
+            f"Spectrum ID {spectrum_ID} not found in ledger-backed data for sample '{sample_ID}'."
+        )
         return
 
-    df_match = original_df[original_df[cnst.SP_ID_DF_KEY] == spectrum_ID]
-    if df_match.empty:
-        logging.warning(f"Spectrum ID {spectrum_ID} not found in Data.csv for sample '{sample_ID}'.")
-        return
-    
-    sp_idx = df_match.index[0]
-
-    # Extract spectrum data from spectral_data (not from df_row)
     try:
         spectrum = spectral_data[cnst.SPECTRUM_DF_KEY][sp_idx]
     except Exception as e:
@@ -235,8 +298,8 @@ def fit_and_quantify_spectrum_fromDatacsv(
             )
 
     # Collection time
-    if 'Live_time' in spectral_data and len(spectral_data['Live_time']) > sp_idx:
-        sp_collection_time = spectral_data['Live_time'][sp_idx]
+    if cnst.LIVE_TIME_DF_KEY in spectral_data and len(spectral_data[cnst.LIVE_TIME_DF_KEY]) > sp_idx:
+        sp_collection_time = spectral_data[cnst.LIVE_TIME_DF_KEY][sp_idx]
     else:
         sp_collection_time = None
 
@@ -266,6 +329,17 @@ def fit_and_quantify_spectrum_fromDatacsv(
     # Spectral limits
     if spectrum_lims is None:
         spectrum_lims = quant_cfg.spectrum_lims
+    
+    # Ensure spectrum_lims are integers for array slicing
+    if spectrum_lims is not None:
+        try:
+            spectrum_lims = (int(spectrum_lims[0]), int(spectrum_lims[1]))
+        except (TypeError, ValueError, IndexError):
+            logging.error(f"Invalid spectrum_lims: {spectrum_lims}")
+            return
+    else:
+        logging.error("spectrum_lims could not be determined")
+        return
             
     quantifier = fit_and_quantify_spectrum(
         spectrum_vals = spectrum,
@@ -297,5 +371,16 @@ def fit_and_quantify_spectrum_fromDatacsv(
         quant_verbose = quant_verbose,
         fitting_verbose = fitting_verbose
     )
-        
+
     return quantifier
+
+
+def fit_and_quantify_spectrum_fromDatacsv(*args, **kwargs):
+    """Deprecated alias for backward compatibility; use fit_and_quantify_spectrum_from_ledger."""
+    warnings.warn(
+        "fit_and_quantify_spectrum_fromDatacsv is deprecated; "
+        "use fit_and_quantify_spectrum_from_ledger instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return fit_and_quantify_spectrum_from_ledger(*args, **kwargs)

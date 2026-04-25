@@ -5347,8 +5347,8 @@
         "fit_tolerance": 0.001,
         "use_instrument_background": false,
         "spectrum_lims": [
-          14.0,
-          1100.0
+          14,
+          1100
         ]
       },
       "reference_values_by_el_line": {
@@ -5374,7 +5374,7 @@
           "method": "kmeans",
           "features": "at_fr",
           "k_forced": null,
-          "k_resolved": 1,
+          "k_resolved": null,
           "k_finding_method": "silhouette",
           "max_k": 6,
           "ref_formulae": [
@@ -5382,7 +5382,7 @@
           ],
           "do_matrix_decomposition": true,
           "max_analytical_error_percent": 5.0,
-          "min_bckgrnd_cnts": 5,
+          "min_bckgrnd_cnts": 5.0,
           "quant_flags_accepted": [
             0,
             -1

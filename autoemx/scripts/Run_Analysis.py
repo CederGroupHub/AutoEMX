@@ -68,7 +68,7 @@ output_filename_suffix = ''
 # =============================================================================
 # Run
 # =============================================================================
-from autoemx.runners.Analyze_Sample import analyze_sample
+from autoemx.runners.analyze_sample import analyze_sample
 
 comp_analyzer = analyze_sample(
     sample_ID=sample_ID,

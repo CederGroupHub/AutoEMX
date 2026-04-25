@@ -5,7 +5,7 @@ EMXSp_Composition_Analyzer
 
 Main class for automated compositional analysis of electron microscopy X-ray spectroscopy (EMXSp) data.
 
-Can be run from Run_Acquisition_Quant_Analysis.py
+Can be run from run_acquisition_quant_analysis.py
 
 Features:
 - Structured configuration for microscope, sample, measurement, and analysis parameters.
@@ -209,7 +209,7 @@ class EMXSp_Composition_Analyzer:
         exp_stds_cfg: Optional[ExpStandardsConfig] = ExpStandardsConfig(),
         plot_cfg: Optional[PlotConfig] = PlotConfig(),
         is_acquisition: bool = False,
-        standards_dict: dict = None,
+        standards_dict: Optional[dict] = None,
         development_mode: bool = False,
         output_filename_suffix: str = '',
         verbose: bool = True,
@@ -375,8 +375,9 @@ class EMXSp_Composition_Analyzer:
             # Initialise lists containing spectral data and comments that will be saved with the quantification data
             self.spectral_data = {key : [] for key in cnst.LIST_SPECTRAL_DATA_KEYS}
             
-            # List containing the quantification results of each of the collected spectra (composition and analytical error)
-            self.spectra_quant = []
+            # List containing the quantification result records for each collected spectrum.
+            # spectra_quant_records[i] is a QuantificationResult (or None when not yet quantified).
+            # All composition/error/fit data needed for analysis is read directly from these records.
             self.spectra_quant_records = []
             self.current_quant_config: Optional[QuantificationConfig] = None
             self.current_quantification_id: Optional[int] = None
@@ -540,6 +541,117 @@ class EMXSp_Composition_Analyzer:
             raise OSError(f"Could not create analysis directory '{analysis_dir}': {e}") from e
 
         self.analysis_dir = analysis_dir
+
+
+    def _save_analysis_config_summary(self) -> None:
+        """Write a human-readable plain-text summary of the quantification and
+        clustering configurations used to produce this analysis folder.
+
+        The file is written to ``self.analysis_dir/Analysis_config_summary.txt``.
+        It is always overwritten so it reflects the configs that generated the
+        current files in the folder.
+        """
+        lines: list[str] = []
+
+        # Quantification section
+        q  = self.quant_cfg             # QuantificationOptionsConfig
+        qc = self.current_quant_config  # QuantificationConfig from ledger (may be None)
+        if qc is None and self.sample_result_dir is not None:
+            try:
+                _ledger = self._load_or_create_ledger()
+                qc = self._get_active_quantification_config(_ledger)
+            except Exception:
+                pass
+
+        # Prefer options from the active QuantificationConfig stored in ledger,
+        # because those are the exact scientific inputs used for this analysis.
+        active_options = qc.options if (qc is not None and isinstance(qc.options, dict)) else {}
+        method_used = str(active_options.get("method", q.method))
+        fit_tolerance_used = float(active_options.get("fit_tolerance", q.fit_tolerance))
+        use_instr_background_used = bool(
+            active_options.get("use_instrument_background", q.use_instrument_background)
+        )
+        use_proj_std_dict_used = bool(
+            active_options.get("use_project_specific_std_dict", q.use_project_specific_std_dict)
+        )
+        spectrum_lims_used = active_options.get("spectrum_lims", q.spectrum_lims)
+        if isinstance(spectrum_lims_used, (list, tuple)) and len(spectrum_lims_used) == 2:
+            sp_low = int(float(spectrum_lims_used[0]))
+            sp_high = int(float(spectrum_lims_used[1]))
+        else:
+            sp_low = int(float(q.spectrum_lims[0]))
+            sp_high = int(float(q.spectrum_lims[1]))
+
+        lines.append("=" * 60)
+        lines.append("QUANTIFICATION CONFIG")
+        lines.append("=" * 60)
+        if qc is not None:
+            lines.append(f"  Quantification ID    : {qc.quantification_id}")
+            if qc.label:
+                lines.append(f"  Label                : {qc.label}")
+            if qc.sample_elements:
+                lines.append(f"  Sample elements      : {', '.join(qc.sample_elements)}")
+            if qc.substrate_elements:
+                lines.append(f"  Substrate elements   : {', '.join(qc.substrate_elements)}")
+        lines.append(f"  Method               : {method_used}")
+        lines.append(f"  Spectrum limits      : {sp_low} - {sp_high} channels")
+        lines.append(f"  Fit tolerance        : {fit_tolerance_used:.2e}")
+        lines.append(f"  Instrument background: {'yes' if use_instr_background_used else 'no'}")
+        lines.append(f"  Project std dict     : {'yes' if use_proj_std_dict_used else 'no'}")
+        if qc is not None and qc.reference_lines_by_element:
+            sample_elements = set(qc.sample_elements or [])
+            reference_lines_by_element = {
+                el: line
+                for el, line in qc.reference_lines_by_element.items()
+                if el in sample_elements
+            }
+            ref_lines_str = ', '.join(
+                f'{el} -> {ln}' for el, ln in sorted(reference_lines_by_element.items())
+            )
+            if ref_lines_str:
+                lines.append(f"  Reference lines      : {ref_lines_str}")
+
+        # Clustering section
+        cc = self.clustering_cfg
+
+        lines.append("")
+        lines.append("=" * 60)
+        lines.append("CLUSTERING CONFIG")
+        lines.append("=" * 60)
+        if hasattr(cc, "clustering_id"):
+            lines.append(f"  Clustering ID        : {cc.clustering_id}")
+        lines.append(f"  Method               : {cc.method}")
+        lines.append(f"  Features             : {cc.features}")
+        if cc.k_forced is not None:
+            lines.append(f"  k (forced)           : {cc.k_forced}")
+        else:
+            lines.append(f"  k finding method     : {cc.k_finding_method}")
+            lines.append(f"  Max k                : {cc.max_k}")
+        if getattr(cc, "k_resolved", None) is not None:
+            lines.append(f"  k (resolved)         : {cc.k_resolved}")
+        lines.append(f"  Max analytical error : {cc.max_analytical_error_percent} w%")
+        lines.append(
+            f"  Min background counts: {cc.min_bckgrnd_cnts if cc.min_bckgrnd_cnts is not None else 'disabled'}"
+        )
+        lines.append(f"  Accepted quant flags : {cc.quant_flags_accepted}")
+        lines.append(f"  Matrix decomposition : {'yes' if cc.do_matrix_decomposition else 'no'}")
+        if cc.ref_formulae:
+            lines.append("  Reference formulae   :")
+            for formula in cc.ref_formulae:
+                lines.append(f"    - {formula}")
+        else:
+            lines.append("  Reference formulae   : (none)")
+        lines.append("")
+
+        summary_path = os.path.join(
+            self.analysis_dir,
+            cnst.ANALYSIS_CONFIG_SUMMARY_FILENAME + ".txt",
+        )
+        try:
+            with open(summary_path, "w", encoding="utf-8") as fh:
+                fh.write("\n".join(lines))
+        except OSError as e:
+            logging.warning(f"Could not write analysis config summary: {e}")
 
 
     def _resolve_active_analysis_config_ids(self) -> Tuple[int, int]:
@@ -1025,7 +1137,7 @@ class EMXSp_Composition_Analyzer:
                 ),
             )
             return None, quant_record, quant_flag, comment
-        
+
         # Initialize class to quantify spectrum
         quantifier = XSp_Quantifier(
             spectrum_vals=spectrum,
@@ -1697,37 +1809,11 @@ class EMXSp_Composition_Analyzer:
 
     def _ensure_quant_tracking_length(self, total_spectra: int) -> None:
         """Ensure in-memory quantification tracking lists are indexable for all spectra."""
-        if len(self.spectra_quant) < total_spectra:
-            self.spectra_quant.extend([None] * (total_spectra - len(self.spectra_quant)))
         if len(self.spectra_quant_records) < total_spectra:
             self.spectra_quant_records.extend([None] * (total_spectra - len(self.spectra_quant_records)))
         for key in (cnst.COMMENTS_DF_KEY, cnst.QUANT_FLAG_DF_KEY):
             if len(self.spectral_data[key]) < total_spectra:
                 self.spectral_data[key].extend([None] * (total_spectra - len(self.spectral_data[key])))
-
-
-    def _legacy_quant_dict_from_record(self, record: Optional[QuantificationResult]) -> Optional[Dict[str, Any]]:
-        """Convert a stored quantification record back to the legacy quant dict shape used elsewhere."""
-        if record is None:
-            return None
-        if (
-            record.composition_atomic_fractions is None
-            or record.composition_weight_fractions is None
-            or record.analytical_error is None
-        ):
-            return None
-
-        quant_result = {
-            cnst.COMP_AT_FR_KEY: dict(record.composition_atomic_fractions),
-            cnst.COMP_W_FR_KEY: dict(record.composition_weight_fractions),
-            cnst.AN_ER_KEY: float(record.analytical_error),
-        }
-        if record.fit_result is not None:
-            if record.fit_result.r_squared is not None:
-                quant_result[cnst.R_SQ_KEY] = float(record.fit_result.r_squared)
-            if record.fit_result.reduced_chi_squared is not None:
-                quant_result[cnst.REDCHI_SQ_KEY] = float(record.fit_result.reduced_chi_squared)
-        return quant_result
 
 
     def _ensure_current_quantification_run(self, force_new: bool = False) -> None:
@@ -2113,7 +2199,6 @@ class EMXSp_Composition_Analyzer:
                 continue
 
             self.spectra_quant_records[index] = matching
-            self.spectra_quant[index] = self._legacy_quant_dict_from_record(matching)
             self.spectral_data[cnst.COMMENTS_DF_KEY][index] = matching.comment
             self.spectral_data[cnst.QUANT_FLAG_DF_KEY][index] = matching.quant_flag
 
@@ -2476,7 +2561,6 @@ class EMXSp_Composition_Analyzer:
                 if i==0 and self.sample_cfg.is_particle_acquisition:
                     if total_counts < 0.95 * self.measurement_cfg.target_acquisition_counts:
                         if quantify:
-                            self.spectra_quant.append(None)
                             self.spectra_quant_records.append(None)
                         if self.verbose:
                                 print('Current particle is unlikely to be part of the sample.\nSkipping to the next particle.')
@@ -2590,7 +2674,7 @@ class EMXSp_Composition_Analyzer:
                     )
                 ]
         else:
-            quant_sp_cntr = len(self.spectra_quant)
+            quant_sp_cntr = len(self.spectra_quant_records)
             indices_to_process = list(range(quant_sp_cntr, tot_spectra_collected))
 
         n_spectra_to_quant = len(indices_to_process)
@@ -2634,7 +2718,6 @@ class EMXSp_Composition_Analyzer:
                     and getattr(self.spectra_quant_records[i].diagnostics, 'interrupted', False)
                 )
                 _, result, quant_record, quant_flag, comment = _process_one(i)
-                self.spectra_quant[i] = result
                 self.spectra_quant_records[i] = quant_record
                 self.spectral_data[cnst.COMMENTS_DF_KEY][i] = comment
                 self.spectral_data[cnst.QUANT_FLAG_DF_KEY][i] = quant_flag
@@ -2679,8 +2762,6 @@ class EMXSp_Composition_Analyzer:
             quant_flags_in_order = list(quant_flags_in_order)
             comments_in_order = list(comments_in_order)
         
-            # Append to global spectra_quant
-            self.spectra_quant.extend(results_in_order)
             self.spectra_quant_records.extend(quant_records_in_order)
             self.spectral_data[cnst.COMMENTS_DF_KEY].extend(comments_in_order)
             self.spectral_data[cnst.QUANT_FLAG_DF_KEY].extend(quant_flags_in_order)
@@ -3296,9 +3377,22 @@ class EMXSp_Composition_Analyzer:
         min_conf : float or None
             Minimum confidence among assigned candidate phases.
         """
-        # Ensure ledger exists/is synced before analysis workflows.
+        # Ensure in-memory state is fully synced from the ledger before analysis.
+        # This is essential when analyse_data is called without a preceding
+        # run_quantification (i.e. analysis-only path): we need both the spectral
+        # arrays and the typed QuantificationResult records populated in memory.
         if self.sample_result_dir is not None:
-            self._load_or_create_ledger()
+            self._sync_in_memory_spectra_from_ledger()
+            existing_ledger = self._load_or_create_ledger()
+            # Resolve current_quantification_id from the ledger when not already set
+            # (analysis-only callers skip run_quantification so it is never assigned).
+            if self.current_quantification_id is None and existing_ledger is not None:
+                if existing_ledger.active_quant is not None:
+                    self.current_quantification_id = existing_ledger.active_quant
+            tot = len(self.spectral_data[cnst.SPECTRUM_DF_KEY])
+            if tot > 0:
+                self._ensure_quant_tracking_length(tot)
+                self._sync_existing_quantification_from_ledger()
 
         # 1. Select compositions to use for clustering
         if max_analytical_error_percent is not None:
@@ -3325,6 +3419,8 @@ class EMXSp_Composition_Analyzer:
         # 2. Make analysis directory to save results
         self._make_analysis_dir()
     
+        self._save_analysis_config_summary()
+
         # 3. Prepare DataFrames for clustering
         compositions_df, compositions_df_other_fr = self._prepare_composition_dataframes(compositions_list_at, compositions_list_w)
 
@@ -3413,14 +3509,15 @@ class EMXSp_Composition_Analyzer:
         compositions_list_w = []
         unused_compositions_list = []
         df_indices = []
-        n_datapts = len(self.spectra_quant)
+        n_datapts = len(self.spectra_quant_records)
     
         for i in range(n_datapts):
-            if self.spectra_quant[i] is not None:
+            record = self.spectra_quant_records[i]
+            if record is not None and record.composition_atomic_fractions is not None:
                 is_comp_ok = True
-                spectrum_quant_result_at = self.spectra_quant[i][cnst.COMP_AT_FR_KEY]
-                spectrum_quant_result_w = self.spectra_quant[i][cnst.COMP_W_FR_KEY]
-                analytical_error = self.spectra_quant[i][cnst.AN_ER_KEY]
+                spectrum_quant_result_at = dict(record.composition_atomic_fractions)
+                spectrum_quant_result_w = dict(record.composition_weight_fractions)
+                analytical_error = float(record.analytical_error)
                 quant_flag = self.spectral_data[cnst.QUANT_FLAG_DF_KEY][i]
 
                 # Check if composition was flagged as bad during quantification
@@ -5166,15 +5263,13 @@ class EMXSp_Composition_Analyzer:
             If the output directory cannot be created or files cannot be written.
         """
     
-        # Get list with quantification data
-        quant_result_list = self.spectra_quant
         is_standards_measurements = self.exp_stds_cfg.is_exp_std_measurement
     
         # Determine the number of spectra to process
         if include_spectral_data:
             n_spectra = len(self.spectral_data[cnst.SPECTRUM_DF_KEY])
         else:
-            n_spectra = len(quant_result_list)
+            n_spectra = len(self.spectra_quant_records)
     
         if n_spectra == 0:
             return None
@@ -5182,23 +5277,42 @@ class EMXSp_Composition_Analyzer:
         data_list = []
         ledger_entries = []  # list of per-spectrum dicts for ledger.json
         for i in range(n_spectra):
-            # Check if spectrum has been quantified
-            if i < len(quant_result_list) and quant_result_list[i] is not None:
-                quant_dict = quant_result_list[i]
-                
+            # Retrieve the typed QuantificationResult for this spectrum (None when not quantified)
+            record = self.spectra_quant_records[i] if i < len(self.spectra_quant_records) else None
+            has_result = record is not None and record.composition_atomic_fractions is not None
+
+            if has_result:
                 if is_standards_measurements:
                     exp_std_comp_d = self.exp_stds_cfg.w_frs
                     std_els = list(exp_std_comp_d.keys())
                     std_w_frs = list(exp_std_comp_d.values())
-                    std_at_frs = weight_to_atomic_fr(std_w_frs,std_els,verbose= False)
-                    atomic_comp = {el + cnst.AT_FR_DF_KEY: round(fr *100, 2) for el, fr in zip(std_els, std_at_frs)}
-                    weight_comp = {el + cnst.W_FR_DF_KEY: round(fr *100, 2) for el, fr in exp_std_comp_d.items()}
-                    meas_data = {**atomic_comp, **weight_comp, **quant_dict}
+                    std_at_frs = weight_to_atomic_fr(std_w_frs, std_els, verbose=False)
+                    atomic_comp = {el + cnst.AT_FR_DF_KEY: round(fr * 100, 2) for el, fr in zip(std_els, std_at_frs)}
+                    weight_comp = {el + cnst.W_FR_DF_KEY: round(fr * 100, 2) for el, fr in exp_std_comp_d.items()}
+                    meas_data = {
+                        **atomic_comp,
+                        **weight_comp,
+                        cnst.COMP_AT_FR_KEY: dict(record.composition_atomic_fractions),
+                        cnst.COMP_W_FR_KEY: dict(record.composition_weight_fractions),
+                        cnst.AN_ER_KEY: float(record.analytical_error),
+                    }
+                    if record.fit_result is not None:
+                        if record.fit_result.r_squared is not None:
+                            meas_data[cnst.R_SQ_KEY] = float(record.fit_result.r_squared)
+                        if record.fit_result.reduced_chi_squared is not None:
+                            meas_data[cnst.REDCHI_SQ_KEY] = float(record.fit_result.reduced_chi_squared)
                 else:
                     # Unpack spectral quantification results and convert from elemental fraction to % for readability
-                    atomic_comp = {el + cnst.AT_FR_DF_KEY: round(fr *100, 2) for el, fr in quant_dict[cnst.COMP_AT_FR_KEY].items()}
-                    weight_comp = {el + cnst.W_FR_DF_KEY: round(fr *100, 2) for el, fr in quant_dict[cnst.COMP_W_FR_KEY].items()}
-                    analytical_er = {cnst.AN_ER_DF_KEY: round(quant_dict[cnst.AN_ER_KEY] *100, 2)}
+                    atomic_comp = {el + cnst.AT_FR_DF_KEY: round(fr * 100, 2) for el, fr in record.composition_atomic_fractions.items()}
+                    weight_comp = {el + cnst.W_FR_DF_KEY: round(fr * 100, 2) for el, fr in record.composition_weight_fractions.items()}
+                    analytical_er = {cnst.AN_ER_DF_KEY: round(float(record.analytical_error) * 100, 2)}
+
+                    # Fit quality metrics (present only when a full fit was performed)
+                    r_squared = None
+                    redchi_sq = None
+                    if record.fit_result is not None:
+                        r_squared = record.fit_result.r_squared
+                        redchi_sq = record.fit_result.reduced_chi_squared
         
                     # Extract cluster label if assigned
                     try:
@@ -5215,9 +5329,9 @@ class EMXSp_Composition_Analyzer:
                         **atomic_comp,
                         **analytical_er,
                         **weight_comp,
-                        cnst.R_SQ_KEY: quant_dict[cnst.R_SQ_KEY],
-                        cnst.REDCHI_SQ_KEY: quant_dict[cnst.REDCHI_SQ_KEY]
-                    } 
+                        cnst.R_SQ_KEY: r_squared,
+                        cnst.REDCHI_SQ_KEY: redchi_sq,
+                    }
                     
                 # Compose row of data to be saved
                 data_row = {
@@ -5225,7 +5339,7 @@ class EMXSp_Composition_Analyzer:
                     **meas_data
                 }
             else:
-                # Counts in this spectrum were too low
+                # Counts in this spectrum were too low or quantification was interrupted
                 data_row = self.sp_coords[i]
             
             # Add comment and quantification flag columns, if available

@@ -5,7 +5,7 @@ Tutorial: Fit and quantify individual spectra acquired with `AutoEMX`
 =======================================================================
 
 This tutorial shows how to fit--and optionall quantify-- a single EDS spectrum,
-using the ``Fit_Quant_Single_AutoEMX_Spectrum.py`` script.
+using the ``fit_quant_single_autoemx_spectrum.py`` script.
 
 This allows to select an individual spectrum from the acquired data and
 visualize the fitted spectrum for inspection of model fitting performance.
@@ -21,7 +21,7 @@ of parameters to use in your standard EDS quantification operations.
 Step 1 - Open script to edit
 -------------------------------
 
-Open ``autoemx/scripts/Fit_Quant_Single_AutoEMX_Spectrum.py``.
+Open ``autoemx/scripts/fit_quant_single_autoemx_spectrum.py``.
 
 
 Step 2 - Define Spectrum to Fit

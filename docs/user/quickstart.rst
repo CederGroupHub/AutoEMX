@@ -28,7 +28,7 @@ parameters for running:
 EDS compositional analysis for phase identification
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Run the ``Run_Acquisition_Quant_Analysis.py`` script (:ref:`Tutorial <comp_analysis_tutorial>`):
+Run the ``run_acquisition_quant_analysis.py`` script (:ref:`Tutorial <comp_analysis_tutorial>`):
 
 With one click, `AutoEMX` handles the full workflow from EDS spectral acquisition and quantification, to
 rule-based filtering of the quantified compositions and unsupervised machine-learning analysis to identify
@@ -45,8 +45,8 @@ See full workflow at:
 Fit and quantify a single EDS spectrum
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Run the ``Fit_Quant_Single_AutoEMX_Spectrum.py`` (:ref:`Tutorial <fit_autoemx_spectrum_tutorial>`)
-or the ``Fit_Quant_Single_MSA_Spectrum.py`` script (:ref:`Tutorial <fit_msa_spectrum_tutorial>`):
+Run the ``fit_quant_single_autoemx_spectrum.py`` (:ref:`Tutorial <fit_autoemx_spectrum_tutorial>`)
+or the ``fit_quant_single_msa_spectrum.py`` script (:ref:`Tutorial <fit_msa_spectrum_tutorial>`):
 
 Fit--and optionall quantify-- a single EDS spectrum acquired using ``AutoEMX`` or exported by commercial
 EDS software (.msa, .emsa, .txt spectra files).
@@ -58,7 +58,7 @@ They also show the fitted spectrum for visual evaluation of goodness of fit.
 Measure particle size distribution via SEM
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Run the ``Collect_Particle_Statistics.py`` script (:ref:`Tutorial <particle_size_tutorial>`).
+Run the ``collect_particle_statistics.py`` script (:ref:`Tutorial <particle_size_tutorial>`).
 
 Have `AutoEMX` collect multiple images, detect particles, and quantify their size distribution.
 

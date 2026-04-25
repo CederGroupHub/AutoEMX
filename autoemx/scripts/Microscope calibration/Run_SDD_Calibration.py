@@ -37,8 +37,8 @@ import os
 from datetime import datetime
 import pandas as pd
 
-from autoemx.runners.Batch_Acquire_Experimental_Stds import batch_acquire_experimental_stds
-from autoemx.runners.Batch_Fit_Spectra import batch_fit_spectra
+from autoemx.runners.batch_acquire_experimental_stds import batch_acquire_experimental_stds
+from autoemx.runners.batch_fit_spectra import batch_fit_spectra
 from autoemx.data.Xray_lines import get_el_xray_lines
 import autoemx.calibrations as calibs
 import autoemx.utils.constants as cnst

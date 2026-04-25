@@ -115,7 +115,7 @@ bulk_meas_cfg_kwargs = dict(
 # =============================================================================
 # Run
 # =============================================================================
-from autoemx.runners.Batch_Acquire_and_Analyze import batch_acquire_and_analyze
+from autoemx.runners.batch_acquire_and_analyze import batch_acquire_and_analyze
 
 comp_analyzer = batch_acquire_and_analyze(
     samples=samples,

@@ -13,6 +13,7 @@ import cv2
 import numpy as np
 import pandas as pd
 
+import autoemx.config.defaults as dflt
 import autoemx.utils.constants as cnst
 from autoemx.config.schemas import (
     AcquisitionDetails,
@@ -504,10 +505,11 @@ def build_legacy_import_quantification_config(
     fit_tolerance = float(getattr(quant_cfg, "fit_tolerance", 1e-4) or 1e-4)
     use_instrument_background = bool(getattr(quant_cfg, "use_instrument_background", False))
 
-    spectrum_lims_raw = getattr(quant_cfg, "spectrum_lims", [0.0, 0.0])
+    _default_lims = list(dflt.spectrum_lims)
+    spectrum_lims_raw = getattr(quant_cfg, "spectrum_lims", _default_lims)
     if not isinstance(spectrum_lims_raw, (list, tuple)) or len(spectrum_lims_raw) != 2:
-        spectrum_lims_raw = [0.0, 0.0]
-    spectrum_lims = [float(spectrum_lims_raw[0]), float(spectrum_lims_raw[1])]
+        spectrum_lims_raw = _default_lims
+    spectrum_lims = [int(float(spectrum_lims_raw[0])), int(float(spectrum_lims_raw[1]))]
 
     options = {
         "method": method,

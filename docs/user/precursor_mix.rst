@@ -94,7 +94,7 @@ Step 2 - Run Acquisition & Analysis
 Follow the instructions from the :ref:`Compositional Characterization Tutorial <comp_analysis_tutorial>`.
 
 The only differences are that, when preparing the acquisition script (i.e.,
-``Run_Acquisition_Quant_Analysis.py``), you should:
+``run_acquisition_quant_analysis.py``), you should:
 
 - As a list of candidate phases, provide **only** the two compositions that are
   intermixed, (as values for the ``cnd`` key in ``samples``).
@@ -105,7 +105,7 @@ The only differences are that, when preparing the acquisition script (i.e.,
   option tells `AutoEMX` to use reference P/B values obtained from the known
   powder compositions, instead of the `Mean` of reference values measured also
   from other chemistries. Note that you can always turn off this option later
-  when quantifying the spectra in ``Run_Quantification_Analysis.py``, setting
+  when quantifying the spectra in ``run_quantification_analysis.py``, setting
   ``is_known_precursor_mixture = False`` and passing this option to
   ``batch_quantify_and_analyze()``. In this case, `AutoEMX` will use
   the P/B reference values commonly employed during regular compositional

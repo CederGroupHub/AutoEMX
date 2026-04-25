@@ -12,8 +12,8 @@ Import this module in your own code and call the
 to perform analysis programmatically.
 
 Workflow:
-    - Loads sample configuration from `Spectra_collection_info.json`
-    - Loads acquired spectral data from `Data.csv`
+    - Loads sample configuration and spectral data from ``ledger.json`` (primary source)
+    - Falls back to ``Data.csv`` only when no ledger exists (one-time migration)
     - Performs clustering/statistical analysis
     - Prints summary results
 
@@ -52,6 +52,8 @@ from autoemx.utils.plotting_helpers import (
 from autoemx.config import config_classes_dict, load_sample_ledger
 from autoemx.config.schemas import ClusteringConfig
 from autoemx.core.composition_analysis import EMXSp_Composition_Analyzer
+from autoemx.utils.legacy.legacy_backfill import load_ledger_configs_from_legacy_json
+from autoemx.utils.legacy.legacy_ledger_loader import build_legacy_import_quantification_config
 
 # Configure logging
 logging.basicConfig(
@@ -224,6 +226,26 @@ def analyze_sample(
 
     if clustering_cfg is None:
         clustering_cfg = ClusteringConfig()
+
+    # On first-run legacy migration (no ledger yet), use the same robust legacy
+    # clustering reconstruction that ledger creation uses. This ensures
+    # ref_formulae are available in the very first analysis run.
+    if not os.path.exists(ledger_path):
+        legacy_ledger_cfgs = load_ledger_configs_from_legacy_json(sample_dir)
+        if legacy_ledger_cfgs is not None:
+            try:
+                legacy_quant_cfg = build_legacy_import_quantification_config(
+                    sample_result_dir=sample_dir,
+                    ledger_configs=legacy_ledger_cfgs,
+                )
+                legacy_clustering_cfg = legacy_quant_cfg.get_active_clustering_config()
+                if legacy_clustering_cfg is not None:
+                    clustering_cfg = legacy_clustering_cfg
+            except Exception as e:
+                logging.warning(
+                    "Could not load legacy clustering settings for first-run analysis: %s",
+                    e,
+                )
     
     # --- Modify Clustering Configuration
     forced_key = "forced"
@@ -268,17 +290,25 @@ def analyze_sample(
         plot_cfg.els_excluded_clust_plot = els_excluded_clust_plot
     _ensure_custom_plot_file(sample_dir, plot_cfg)
 
-    # Load 'Data.csv' into a DataFrame
-    data_path = os.path.join(sample_dir, f'{cnst.DATA_FILENAME}.csv')
-    try:
-        spectra_quant, spectral_data, sp_coords, _ = extract_spectral_data(data_path)
-    except Exception as e:
-        logging.error(f"Could not load spectral data for '{sample_ID}': {e}")
-        return
-    
-    if spectra_quant is None:
-        logging.error(f"No quantification data found in {data_path}")
-        return
+    # Spectral data source priority — mirrors Batch_Quantify_and_Analyze:
+    #   1. ledger.json  → analyse_data calls _load_or_create_ledger which syncs
+    #                     spectra_quant_records automatically.
+    #   2. Data.csv     → legacy one-time migration path when no ledger exists yet;
+    #                     the first run_quantification call will create ledger.json.
+    has_ledger   = os.path.exists(ledger_path)
+    data_path    = os.path.join(sample_dir, f'{cnst.DATA_FILENAME}.csv')
+    has_data_csv = os.path.exists(data_path)
+
+    if not has_ledger:
+        if not has_data_csv:
+            logging.error(f"No Data.csv or ledger.json found for '{sample_ID}'.")
+            return
+        # No ledger yet — load CSV so run_quantification can migrate it on first call.
+        try:
+            extract_spectral_data(data_path)
+        except Exception as e:
+            logging.error(f"Could not load spectral data for '{sample_ID}': {e}")
+            return
     
     # --- Run Composition Analysis or Spectral Acquisition
     comp_analyzer = EMXSp_Composition_Analyzer(
@@ -298,9 +328,11 @@ def analyze_sample(
         results_dir=sample_dir
     )
 
-    comp_analyzer.spectra_quant = spectra_quant
-    comp_analyzer.sp_coords = sp_coords
-    comp_analyzer.spectral_data = spectral_data
+    # analyse_data calls _sync_in_memory_spectra_from_ledger / _load_or_create_ledger
+    # and always hydrates spectra + quantification records from ledger-managed sources.
+
+    source_label = "Data.csv (first-run migration)" if (not has_ledger and has_data_csv) else "ledger.json"
+    logging.info(f"Running analysis for '{sample_ID}' (source: {source_label}).") 
 
     # Perform analysis and print results
     try:

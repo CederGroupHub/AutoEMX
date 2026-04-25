@@ -1,3 +1,5 @@
+from typing import Tuple
+
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -51,7 +53,7 @@ detector_type: str = 'BSD'
 
 quantification_method: str = 'PB'
 
-spectrum_lims: (float, float) = (14, 1100)
+spectrum_lims: Tuple[int, int] = (14, 1100)
 
 use_instrument_background: bool = False
 

@@ -13,14 +13,21 @@ options as arguments. This enables integration into larger workflows or pipeline
 
 Workflow
 --------
-- Loads sample configurations from `Spectra_collection_info.json`
-- Loads acquired spectral data from `Data.csv`
-- Performs quantification and optionally clustering/statistical analysis and saves results
+- Loads sample configurations and spectral data from ``ledger.json`` (primary source).
+- Falls back to ``Data.csv`` only when no ledger exists; the first quantification run
+  then migrates the CSV data into a ``ledger.json`` for all subsequent runs.
+- Performs quantification and optionally clustering/statistical analysis and saves results.
 
 Notes
 -----
-- Only the `sample_ID` is required if acquisition output is saved in the default directory;
-  otherwise, specify `results_path`.
+- Only the ``sample_ID`` is required if acquisition output is saved in the default directory;
+  otherwise, specify ``results_path``.
+- When a ``ledger.json`` is present it is always used as the authoritative source of
+  spectral data and quantification results; ``Data.csv`` is only read as a one-time
+  migration path when no ledger has been created yet.
+- ``spectra_quant`` (the in-memory composition buffer consumed by ``analyse_data``) is
+  always populated by ``run_quantification`` from ledger records — the runner never
+  needs to pre-build it.
 - Designed to continue processing even if some samples are missing or have errors.
 
 Typical usage:
@@ -52,8 +59,8 @@ from autoemx.utils import (
 )
 import autoemx.utils.constants as cnst
 import autoemx.config.defaults as dflt
-from autoemx.config import config_classes_dict
-from autoemx.config.schemas import ClusteringConfig
+from autoemx.config import config_classes_dict, load_sample_ledger
+from autoemx.config.schemas import ClusteringConfig # type: ignore
 from autoemx.core.composition_analysis import EMXSp_Composition_Analyzer
 
 # Configure logging
@@ -79,7 +86,7 @@ def batch_quantify_and_analyze(
     use_project_specific_std_dict: Optional[bool] = None,
     is_known_precursor_mixture: Optional[bool] = None,
     standards_dict: Optional[dict] = None,
-) -> None:
+) -> List[EMXSp_Composition_Analyzer]:
     """
     Batch quantification and analysis for a list of samples.
 
@@ -151,14 +158,52 @@ def batch_quantify_and_analyze(
             logging.warning("Failed to get sample directory for %s: %s", sample_ID, e)
             continue
         
-        spectral_info_f_path = os.path.join(sample_dir, f"{cnst.ACQUISITION_INFO_FILENAME}.json")
+        ledger_path = os.path.join(sample_dir, f"{cnst.LEDGER_FILENAME}{cnst.LEDGER_FILEEXT}")
+        config_path_new = os.path.join(sample_dir, f"{cnst.CONFIG_FILENAME}.json")
+        config_path_legacy = os.path.join(sample_dir, f"{cnst.ACQUISITION_INFO_FILENAME}.json")
+        spectral_info_f_path = ledger_path if os.path.exists(ledger_path) else (
+            config_path_new if os.path.exists(config_path_new) else config_path_legacy
+        )
         data_path = os.path.join(sample_dir, f"{cnst.DATA_FILENAME}{cnst.DATA_FILEEXT}")
         
         print_double_separator()
         logging.info(f"Sample '{sample_ID}'")
         
         try:
-            configs, metadata = load_configurations_from_json(spectral_info_f_path, config_classes_dict)
+            if os.path.exists(ledger_path):
+                ledger = load_sample_ledger(ledger_path)
+                configs = {
+                    cnst.MICROSCOPE_CFG_KEY: ledger.configs.microscope_cfg,
+                    cnst.SAMPLE_CFG_KEY: ledger.configs.sample_cfg,
+                    cnst.MEASUREMENT_CFG_KEY: ledger.configs.measurement_cfg,
+                    cnst.SAMPLESUBSTRATE_CFG_KEY: ledger.configs.sample_substrate_cfg,
+                    cnst.PLOT_CFG_KEY: ledger.configs.plot_cfg,
+                }
+                if ledger.quantification_configs:
+                    active_quant_id = ledger.active_quant
+                    active_quant_config = next(
+                        (
+                            quant_config
+                            for quant_config in ledger.quantification_configs
+                            if quant_config.quantification_id == active_quant_id
+                        ),
+                        ledger.quantification_configs[-1],
+                    )
+                    configs[cnst.QUANTIFICATION_CFG_KEY] = config_classes_dict[cnst.QUANTIFICATION_CFG_KEY](
+                        **active_quant_config.options
+                    )
+                    active_clustering_config = active_quant_config.get_active_clustering_config()
+                    if active_clustering_config is not None:
+                        configs[cnst.CLUSTERING_CFG_KEY] = active_clustering_config
+                else:
+                    configs[cnst.QUANTIFICATION_CFG_KEY] = config_classes_dict[cnst.QUANTIFICATION_CFG_KEY]()
+                if ledger.configs.powder_meas_cfg is not None:
+                    configs[cnst.POWDER_MEASUREMENT_CFG_KEY] = ledger.configs.powder_meas_cfg
+                if ledger.configs.bulk_meas_cfg is not None:
+                    configs[cnst.BULK_MEASUREMENT_CFG_KEY] = ledger.configs.bulk_meas_cfg
+                metadata = {}
+            else:
+                configs, metadata = load_configurations_from_json(spectral_info_f_path, config_classes_dict)
         except FileNotFoundError:
             logging.warning(f"Could not find {spectral_info_f_path}. Skipping sample '{sample_ID}'.")
             continue
@@ -193,25 +238,44 @@ def batch_quantify_and_analyze(
         if use_project_specific_std_dict is not None:
             quant_cfg.use_project_specific_std_dict = use_project_specific_std_dict
             
-        # Load 'Data.csv' into a DataFrame
-        try:
-            spectra_quant, spectral_data, sp_coords, _ = extract_spectral_data(data_path)
-        except Exception as e:
-            logging.warning(f"Could not load spectral data for '{sample_ID}': {e}")
-            continue
+        # Spectral data source priority:
+        #   1. ledger.json  → run_quantification hydrates spectra and existing results
+        #                     automatically via _sync_in_memory_spectra_from_ledger() and
+        #                     _sync_existing_quantification_from_ledger().  The runner
+        #                     must not override that with stale CSV data.
+        #   2. Data.csv     → legacy one-time migration path, used only when no ledger
+        #                     exists.  run_quantification will create ledger.json from
+        #                     this data on its first run.
+        has_ledger   = os.path.exists(ledger_path)
+        has_data_csv = os.path.exists(data_path)
+        sp_coords    = []
+        spectral_data = {key: [] for key in cnst.LIST_SPECTRAL_DATA_QUANT_KEYS}
 
-        if use_instrument_background:
-            if getattr(spectral_data, 'get', None) and spectral_data.get(cnst.BACKGROUND_DF_KEY, []) == []:
-                warnings.warn(
-                    "Background column not found in input data. "
-                    "Spectral background will be computed instead."
+        if not has_ledger:
+            if has_data_csv:
+                # No ledger yet — load from Data.csv so run_quantification can
+                # create a ledger from it on this first run.
+                try:
+                    _, spectral_data, sp_coords, _ = extract_spectral_data(data_path)
+                except Exception as e:
+                    logging.warning(f"Could not load spectral data for '{sample_ID}': {e}")
+                    continue
+
+                if use_instrument_background:
+                    if spectral_data.get(cnst.BACKGROUND_DF_KEY, []) == []:
+                        warnings.warn(
+                            "Background column not found in input data. "
+                            "Spectral background will be computed instead."
+                        )
+            else:
+                logging.warning(
+                    f"No Data.csv or ledger.json found for '{sample_ID}'. Skipping."
                 )
-                
+                continue
+
         # Change is_known_precursor_mixture if provided
         if is_known_precursor_mixture is not None and powder_meas_cfg is not None:
             powder_meas_cfg.is_known_precursor_mixture = is_known_precursor_mixture
-
-        logging.info(f"Quantifying all {len(sp_coords)} spectra.")
 
         # --- Run Composition Analysis or Spectral Acquisition
         comp_analyzer = EMXSp_Composition_Analyzer(
@@ -232,9 +296,21 @@ def batch_quantify_and_analyze(
             results_dir=sample_dir
         )
 
-        comp_analyzer.sp_coords = sp_coords
-        for key in cnst.LIST_SPECTRAL_DATA_QUANT_KEYS:
-            comp_analyzer.spectral_data[key] = spectral_data[key]
+        if not has_ledger and has_data_csv:
+            # Seed in-memory arrays from the legacy CSV so run_quantification
+            # has the spectral data before it creates the ledger for the first time.
+            # Note: spectra_quant (the composition buffer used by analyse_data) is
+            # always built by run_quantification from ledger records — the runner
+            # never pre-populates it.
+            comp_analyzer.sp_coords = sp_coords # type: ignore
+            for key in cnst.LIST_SPECTRAL_DATA_QUANT_KEYS:
+                comp_analyzer.spectral_data[key] = spectral_data[key]
+        # When ledger exists, run_quantification populates spectral_data via
+        # _sync_in_memory_spectra_from_ledger() and spectra_quant via
+        # _sync_existing_quantification_from_ledger() — no manual injection needed.
+
+        source_label = "Data.csv (first-run migration)" if (not has_ledger and has_data_csv) else "ledger.json"
+        logging.info(f"Quantifying spectra for '{sample_ID}' (source: {source_label}).")
         
         try:
             comp_analyzer.run_quantification(

@@ -114,7 +114,7 @@ exp_stds_meas_cfg_kwargs = dict(
 # =============================================================================
 # Run
 # =============================================================================
-from autoemx.runners.Batch_Acquire_Experimental_Stds import batch_acquire_experimental_stds
+from autoemx.runners.batch_acquire_experimental_stds import batch_acquire_experimental_stds
 
 exp_std_maker = batch_acquire_experimental_stds(
     stds=std_list,
