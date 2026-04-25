@@ -39,7 +39,7 @@ from autoemx.utils import (
 import autoemx.utils.constants as cnst
 import autoemx.config.defaults as dflt
 from autoemx.config import config_classes_dict, ExpStandardsConfig
-from autoemx.config.schemas import ClusteringConfig
+from autoemx.config.ledger_schemas import ClusteringConfig
 from autoemx.core.composition_analysis import EMXSp_Composition_Analyzer
 from .fit_and_quantify_spectrum import fit_and_quantify_spectrum
 from autoemx.config import load_sample_ledger

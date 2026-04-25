@@ -19,7 +19,7 @@ Purpose
 IMPORTANT
 ---------
 If replacing with another API:
-    - Change name of this module so that it corresponds with the employed MicroscopeConfig.ID (autoemx.tools.config_classes.py)
+    - Change name of this module so that it corresponds with the employed MicroscopeConfig.ID (autoemx/config/runtime_configs.py)
     - Maintain function signatures and returned value formats for compatibility.
     - Units in parameters/returns must be consistent across implementations.
     - Error handling should remain explicit and informative (raise `EMError`).
@@ -209,7 +209,7 @@ def set_electron_detector_mode(detector_name: str) -> None:
 
     Notes
     -----
-    * Accepted values of detector names are set at `autoemx/tools/config_classes.py`
+    * Accepted values of detector names are set at `autoemx/config/runtime_configs.py`
       within `MicroscopeConfig.detector_type`. Ensure `ALLOWED_DETECTOR_TYPES`
       is updated when new modes are added.
     * Current version passes the value "BSD", but PyPhenom requires "All".
@@ -290,7 +290,7 @@ def set_beam_current(current: float) -> None:
     Notes
     -----
     Beam current is passed via:
-        `autoemx/tools/config_classes.py`, within `MeasurementConfig.beam_current`,  
+        `autoemx/config/runtime_configs.py`, within `MeasurementConfig.beam_current`,  
         or predefined in:
         `XSp_calibs/Microscopes/YOUR_MICROSCOPE/Detector_channel_params_calibs/DATE_detector_channel_params_calibs.json`  
         using key `tools.constants.BEAM_CURRENT_KEY`.

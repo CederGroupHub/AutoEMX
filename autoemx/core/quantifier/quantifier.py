@@ -100,7 +100,7 @@ from autoemx.core.fitter import (
     Background_Model,
     Peaks_Model
 )
-from autoemx.config.schemas import (
+from autoemx.config.ledger_schemas import (
     FitResult as QuantFitResult,
     FittedPeakResult,
     QuantificationDiagnostics,

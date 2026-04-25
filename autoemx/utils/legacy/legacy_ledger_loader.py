@@ -15,7 +15,7 @@ import pandas as pd
 
 import autoemx.config.defaults as dflt
 import autoemx.utils.constants as cnst
-from autoemx.config.schemas import (
+from autoemx.config.ledger_schemas import (
     AcquisitionDetails,
     ClusteringConfig,
     Coordinate2D,
@@ -141,7 +141,7 @@ def strip_min_background_comment_phrase(comment: Optional[str]) -> Optional[str]
 
 def _load_legacy_quant_cfg(sample_result_dir: str) -> Optional[Any]:
     """Load the raw legacy quantification config when LedgerConfigs has already dropped it."""
-    from autoemx.config.classes import QuantificationOptionsConfig
+    from autoemx.config.runtime_configs import QuantificationOptionsConfig
 
     candidate_files = [
         Path(sample_result_dir) / f"{cnst.CONFIG_FILENAME}.json",

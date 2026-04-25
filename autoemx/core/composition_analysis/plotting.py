@@ -17,7 +17,7 @@ import seaborn as sns
 from sklearn.cluster import KMeans
 
 import autoemx.calibrations as calibs
-import autoemx._custom_plotting as builtin_custom_plotting
+from autoemx.core.composition_analysis import custom_plotting_builtin as builtin_custom_plotting
 import autoemx.utils.constants as cnst
 from autoemx.utils import print_single_separator, to_latex_formula
 

@@ -11,8 +11,8 @@ from .helper import get_sample_dir
 
 def load_custom_plot_template() -> str:
     """Load the packaged custom plot template contents."""
-    return resources.files("autoemx").joinpath(
-        cnst.CUSTOM_PLOT_TEMPLATE_FILENAME
+    return resources.files("autoemx.core.composition_analysis").joinpath(
+        "custom_plotting_builtin.py"
     ).read_text(encoding="utf-8")
 
 

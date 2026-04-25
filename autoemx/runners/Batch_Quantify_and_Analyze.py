@@ -60,7 +60,7 @@ from autoemx.utils import (
 import autoemx.utils.constants as cnst
 import autoemx.config.defaults as dflt
 from autoemx.config import config_classes_dict, load_sample_ledger
-from autoemx.config.schemas import ClusteringConfig # type: ignore
+from autoemx.config.ledger_schemas import ClusteringConfig # type: ignore
 from autoemx.core.composition_analysis import EMXSp_Composition_Analyzer
 
 # Configure logging

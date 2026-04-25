@@ -107,8 +107,8 @@ def load_ledger_configs_from_legacy_json(sample_result_dir: str) -> Optional[obj
     Imports are deferred to avoid circular dependencies.
     """
     import autoemx.utils.constants as cnst
-    from autoemx.config.classes import config_classes_dict
-    from autoemx.config.schemas import LedgerConfigs
+    from autoemx.config.runtime_configs import config_classes_dict
+    from autoemx.config.ledger_schemas import LedgerConfigs
 
     candidate_files = [
         os.path.join(sample_result_dir, f"{cnst.CONFIG_FILENAME}.json"),

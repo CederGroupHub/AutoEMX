@@ -26,9 +26,9 @@ Key output includes:
 
 
 Step 1 – Open script to edit
----------------------------
+----------------------------
 
-Open ``autoemx/scripts/run_acquisition_quant_analysis.py``.
+Open ``autoemx/scripts/run_acquisition.py``.
 
 In this tutorial, we'll walk you through all the necessary parameters to configure
 the measurement. For further details, see the :ref:`API <runners_acquire_spectra>` for the
@@ -144,7 +144,7 @@ convergence and may stop acquisition early.
 
 
 Step 5 – Define other parameters
--------------------------------
+--------------------------------
 
 The following parameters do not affect acquisition and can be modified later,
 but require re-quantification:
@@ -168,7 +168,7 @@ The following parameters require only re-analysis of compositions:
   for filtering compositions during clustering. Compositions exceeding this
   threshold will be discarded.
 - ``quant_flags_accepted``: Specifies which quantification flags are considered
-  valid during clustering. See :class:`Quantification Flag Descriptions <autoemx.config.classes.ClusteringConfig>` 
+  valid during clustering. See :class:`Quantification Flag Descriptions <autoemx.config.ledger_schemas.ClusteringConfig>` 
   for details on each flag.
 - ``max_n_clusters``: Defines the maximum number of clusters that can be
   identified in the sample. This value should be large enough to capture all
@@ -190,8 +190,8 @@ Depending on ``sample_type``, define the following configurations:
   ``sample_type = 'powder_continuous'``, ``'bulk'``, or ``'bulk_rough'``. Set 
   dimensions to define a grid of EDS acquisition spots. 
 
-See the :class:`Powder Measurement Configurations <autoemx.config.classes.PowderMeasurementConfig>`
-for :class:`Bulk Measurement Configurations <autoemx.config.classes.BulkMeasurementConfig>` details.
+See the :class:`Powder Measurement Configurations <autoemx.config.runtime_configs.PowderMeasurementConfig>`
+for :class:`Bulk Measurement Configurations <autoemx.config.runtime_configs.BulkMeasurementConfig>` details.
 
 
 Step 7 – Launch spectra acquisition
@@ -289,9 +289,10 @@ script, and have been previously decribed. Additional parameters are:
 - ``num_CPU_cores``: Number of CPU cores used for parallel fitting and quantification. If set to ``None``, `AutoEMX` will automatically select half of the available cores.
 - ``quantify_only_unquantified_spectra``: If ``True``, quantifies only the previously unquantified spectra, for example after modifying ``min_bckgrnd_cnts``. If ``False``, all spectra are quantified regardless.
 - ``interrupt_fits_bad_spectra``: If ``True``, saves time by interrupting the quantification of spectra likely leading to large quantification errors, including:
- - Spectra that cannot be properly fitted, usually occurring due to missing elements and unassigned peaks
- - Excessive absorption detected in the low-energy portion of the spectrum
- - Excessive analytical error > 50w%, usually occurring due to missing elements and unassigned peaks
+
+  - Spectra that cannot be properly fitted, usually occurring due to missing elements and unassigned peaks
+  - Excessive absorption detected in the low-energy portion of the spectrum
+  - Excessive analytical error > 50w%, usually occurring due to missing elements and unassigned peaks
 
 Output
 ^^^^^^
@@ -303,7 +304,7 @@ The quantification step updates the ``Data.csv`` file with the following columns
 - ``An er w%``: Analytical total error (mass fraction). See the paper for details.
 - ``r_squared``: R² metric indicating the goodness of fit.
 - ``redchi_sq``: Reduced chi-squared value used to assess fit quality.
-- ``Quant_flag``: Flags indicating whether the quantification is reliable and, if not, the reason. See :class:`Quantification Flag Descriptions <autoemx.config.classes.ClusteringConfig>`.
+- ``Quant_flag``: Flags indicating whether the quantification is reliable and, if not, the reason. See :class:`Quantification Flag Descriptions <autoemx.config.ledger_schemas.ClusteringConfig>`.
 - ``Comments``: For reliable spectra, reports the lowest counts fitted below a reference peak. For unreliable spectra, typically explains the reason for unreliability.
 
 
@@ -343,7 +344,7 @@ options are available:
     it will be re-evaluated automatically.
 
 - ``k_finding_method`` : Method used to determine the number of clusters.
-  See the available methods at :class:`Clustering Config <autoemx.config.classes.ClusteringConfig>`.
+  See the available methods at :class:`Clustering Config <autoemx.config.ledger_schemas.ClusteringConfig>`.
   Only applied if ``k_forced`` is ``None``. Note that if ``k`` was forced
   during acquisition, setting ``k_finding_method`` to anything other than
   ``None`` will force ``k`` to be re-evaluated.

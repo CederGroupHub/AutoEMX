@@ -50,7 +50,7 @@ from autoemx.utils.plotting_helpers import (
     refresh_custom_plot_template_file,
 )
 from autoemx.config import config_classes_dict, load_sample_ledger
-from autoemx.config.schemas import ClusteringConfig
+from autoemx.config.ledger_schemas import ClusteringConfig
 from autoemx.core.composition_analysis import EMXSp_Composition_Analyzer
 from autoemx.utils.legacy.legacy_backfill import load_ledger_configs_from_legacy_json
 from autoemx.utils.legacy.legacy_ledger_loader import build_legacy_import_quantification_config

@@ -490,7 +490,7 @@ class ExpStandardsConfig(BaseModel):
             Quantification flags indicate whether the quantification or the fit of each spectrum is likely to be
             affected by large errors:
                 - 0  : Quantification is ok, although it may be affected by large analytical error.
-                - \-1  : As above, but quantification did not converge within 30 steps.
+                - -1  : As above, but quantification did not converge within 30 steps.
                 - 1  : Error during EDS acquisition. No fit executed.
                 - 2  : Total counts < 95% of target counts, likely due to wrong segmentation. No fit executed.
                 - 3  : Too little low-energy signal, causing poor quantification in that region. No fit executed.

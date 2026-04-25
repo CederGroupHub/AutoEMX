@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from autoemx.config.classes import (
+from autoemx.config.runtime_configs import (
     BulkMeasurementConfig,
     ExpStandardsConfig,
     MeasurementConfig,

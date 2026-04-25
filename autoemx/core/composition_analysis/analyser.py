@@ -85,7 +85,7 @@ from autoemx.core.em_runtime.sample_finder import EM_Sample_Finder
 import autoemx.calibrations as calibs
 import autoemx.utils.constants as cnst
 import autoemx.config.defaults as dflt
-import autoemx._custom_plotting as custom_plotting
+from autoemx.core.composition_analysis import custom_plotting_builtin as custom_plotting
 from autoemx.utils import (
     print_single_separator,
     print_double_separator,
@@ -104,7 +104,7 @@ from autoemx.config import (
     ExpStandardsConfig,
     PlotConfig,
 )
-from autoemx.config.schemas import (
+from autoemx.config.ledger_schemas import (
     AcquisitionDetails,
     ClusteringConfig as LedgerClusteringConfig,
     Coordinate2D,
@@ -151,7 +151,7 @@ class EMXSp_Composition_Analyzer:
         Configuration for the sample substrate.
     quant_cfg : QuantificationOptionsConfig
         Configuration for spectrum fitting and quantification.
-    initial_clustering_cfg : autoemx.config.schemas.ClusteringConfig
+    initial_clustering_cfg : autoemx.config.ledger_schemas.ClusteringConfig
         Initial clustering settings used when no active quantification config is yet available in the ledger.
     powder_meas_cfg : PowderMeasurementConfig
         Configuration for powder measurement.

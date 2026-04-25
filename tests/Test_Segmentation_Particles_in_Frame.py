@@ -33,7 +33,7 @@ import tifffile
 
 from autoemx.core.em_runtime.particle_finder import EM_Particle_Finder
 from autoemx.core.em_runtime.controller import EM_Controller
-from autoemx.config.classes import (
+from autoemx.config.runtime_configs import (
     PowderMeasurementConfig,
     MicroscopeConfig,
     MeasurementConfig,

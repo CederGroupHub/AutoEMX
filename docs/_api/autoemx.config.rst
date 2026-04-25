@@ -12,5 +12,5 @@ Submodules
 .. toctree::
    :maxdepth: 4
 
-   autoemx.config.classes
+   autoemx.config.runtime_configs
    autoemx.config.defaults

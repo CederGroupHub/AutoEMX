@@ -31,8 +31,8 @@ from typing import Any, Dict, List, Optional
 import autoemx.calibrations as calibs
 import autoemx.config.defaults as dflt
 import autoemx.utils.constants as cnst
-from autoemx.config.schemas import ClusteringConfig  # type: ignore
-from autoemx.config.classes import (
+from autoemx.config.ledger_schemas import ClusteringConfig  # type: ignore
+from autoemx.config.runtime_configs import (
     BulkMeasurementConfig,
     MeasurementConfig,
     MicroscopeConfig,
@@ -68,6 +68,25 @@ def _discover_spectra_files(spectra_dir: str) -> List[Path]:
         p for p in source.iterdir()
         if p.is_file() and p.suffix.lower() in _SUPPORTED_EXTENSIONS
     )
+
+
+def _clear_destination_spectra_files(spectra_dest_dir: str) -> int:
+    """Remove canonical imported spectra files from destination and return count."""
+    dest = Path(spectra_dest_dir)
+    if not dest.is_dir():
+        return 0
+
+    removed = 0
+    for p in dest.iterdir():
+        if not p.is_file():
+            continue
+        if p.suffix.lower() not in _SUPPORTED_EXTENSIONS:
+            continue
+        if not p.name.startswith(cnst.SPECTRUM_FILENAME_PREFIX):
+            continue
+        p.unlink()
+        removed += 1
+    return removed
 
 
 def quantify_external_spectra(
@@ -176,7 +195,9 @@ def quantify_external_spectra(
     results_path : str, optional
         Root directory for sample sub-folders.  Defaults to ``<cwd>/Results``.
     overwrite_existing : bool
-        Re-ingest a sample even when ``ledger.json`` already exists.
+        Re-copy external spectra files into ``sample_id/spectra`` even when
+        ``ledger.json`` already exists. The existing ledger is never deleted;
+        quantification history is preserved.
     standards_dict : dict, optional
         Custom dictionary of reference PB values; ``None`` loads the defaults.
     verbose : bool
@@ -284,6 +305,13 @@ def quantify_external_spectra(
                     continue
 
                 os.makedirs(spectra_dest_dir, exist_ok=True)
+                if overwrite_existing:
+                    removed = _clear_destination_spectra_files(spectra_dest_dir)
+                    if removed > 0:
+                        logging.info(
+                            "Removed %d existing spectrum file(s) from destination before copy.",
+                            removed,
+                        )
                 for idx, src in enumerate(source_files):
                     dest_name = f"{cnst.SPECTRUM_FILENAME_PREFIX}{idx}{src.suffix.lower()}"
                     shutil.copy2(src, dest_resolved / dest_name)
@@ -291,10 +319,6 @@ def quantify_external_spectra(
                     "Copied %d spectrum file(s) from '%s'.",
                     len(source_files), spectra_dir,
                 )
-
-        # Remove stale ledger so _load_or_create_ledger rebuilds from current configs.
-        if os.path.exists(ledger_path):
-            os.remove(ledger_path)
 
         os.makedirs(spectra_dest_dir, exist_ok=True)
 
@@ -356,7 +380,7 @@ def quantify_external_spectra(
             traceback.print_exc()
             continue
 
-        logging.info("Ledger created for sample '%s'.", sample_id)
+        logging.info("Ledger ready for sample '%s'.", sample_id)
         ingested_ids.append(sample_id)
 
     if not ingested_ids:

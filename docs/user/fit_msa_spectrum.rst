@@ -9,7 +9,7 @@ using the ``fit_quant_single_msa_spectrum.py`` script.
 
 This allows to load an individual spectrum from an exported file (typically
 ``.msa``, ``.emsa``, ``.txt``), fit and quantify it and visualize the fitted spectrum
- for inspection of model fitting performance.
+for inspection of model fitting performance.
 
 This script also prints the full fitting and quantification process steps, prints
 the employed fit parameters and their final values. 

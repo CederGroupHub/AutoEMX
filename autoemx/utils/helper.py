@@ -74,7 +74,7 @@ from pymatgen.core import Element, Composition
 from typing import Any, Sequence, List, Optional, Tuple, Dict, Union
 
 import autoemx.utils.constants as cnst
-from autoemx.config.schemas import (
+from autoemx.config.ledger_schemas import (
     AcquisitionDetails,
     Coordinate2D,
     FitResult,
@@ -443,7 +443,7 @@ def load_configurations_from_json(json_path, config_classes_dict):
     config_classes_dict : dict
         Mapping from JSON keys to dataclass types, e.g.:
             {'sample_cfg': SampleConfig, ...}
-        See configurations in tools/config_classes.py:
+        See configurations in autoemx/config/runtime_configs.py:
             - MicroscopeConfig: Settings for microscope hardware, calibration, and imaging parameters.
             - SampleConfig: Defines the sample’s identity, elements, and spatial properties.
             - SampleSubstrateConfig: Specifies the substrate composition and geometry supporting the sample.
