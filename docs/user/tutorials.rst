@@ -9,5 +9,6 @@ Tutorials
    comp_analysis
    fit_autoemx_spectrum
    fit_msa_spectrum
+   quantify_external_spectra
    particle_size
    precursor_mix

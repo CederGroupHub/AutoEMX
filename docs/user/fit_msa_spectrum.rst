@@ -21,6 +21,11 @@ of parameters to use in your standard EDS quantification operations.
 **Note**: This script has so far been tested with spectra output with `Thermofisher 
 Phenom` SEM-EDS and by `Oxford Aztec` software.
 
+.. note::
+
+   For importing and quantifying many externally exported spectra in one run,
+   see :ref:`quantify_external_spectra_tutorial`.
+
 
 Step 1 - Open script to edit
 -------------------------------
