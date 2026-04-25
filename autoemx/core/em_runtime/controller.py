@@ -281,6 +281,7 @@ class EM_Controller:
         
         # Save initial image
         initial_image = self.get_current_image()
+        self.update_pixel_size_from_frame_width()
         draw_scalebar(initial_image, self.pixel_size_um)
         cv2.imwrite(
             os.path.join(self.results_dir, cnst.INITIAL_SEM_IM_FILENAME + '.png'), 
@@ -400,6 +401,21 @@ class EM_Controller:
         """
         self.microscope_ctrl.set_frame_width(frame_width)
         self.pixel_size_um = frame_width / self.im_width * 1e3
+
+
+    def update_pixel_size_from_frame_width(self) -> float:
+        """
+        Update pixel size from the microscope's current frame width.
+
+        Returns
+        -------
+        float
+            Updated pixel size in micrometers.
+        """
+        frame_width_mm = self.EM_driver.get_frame_width()
+        pixel_size_um = float(frame_width_mm) / self.im_width * 1e3
+        self.pixel_size_um = pixel_size_um
+        return pixel_size_um
     
     
     def get_current_image(self):
@@ -498,8 +514,7 @@ class EM_Controller:
         success = self.frame_navigator.go_to_next_frame(self.microscope_ctrl)
         # Update pixel size if frame width changed
         try:
-            frame_width_mm = self.EM_driver.get_frame_width()
-            self.pixel_size_um = frame_width_mm / self.im_width * 1e3
+            self.update_pixel_size_from_frame_width()
         except:
             pass
         return success

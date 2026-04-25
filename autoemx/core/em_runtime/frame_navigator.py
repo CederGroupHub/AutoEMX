@@ -121,6 +121,7 @@ class FrameNavigator:
                     min_fw, 
                     max_fw
                 )
+            self.EM_controller.set_frame_width(self.grid_search_fw_mm)
             
             # Calculate frame centers for particle search
             im_h_to_w_ratio = self.im_height / self.im_width
