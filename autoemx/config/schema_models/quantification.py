@@ -12,7 +12,28 @@ from .fitting import FitResult
 
 
 class QuantificationDiagnostics(BaseModel):
-    """Execution diagnostics captured during iterative quantification."""
+    """
+    Execution diagnostics captured during iterative quantification.
+
+    Attributes
+    ----------
+    iterations_run : int, optional
+        Number of quantification iterations performed.
+    converged : bool, optional
+        True if the iterative fit converged within the allowed iterations.
+    interrupted : bool, optional
+        True when no composition result was produced, either because the spectrum
+        failed a pre-fit validity check (insufficient counts, background too low,
+        etc.) or because the iterative fit was aborted early after detecting signs
+        of an unreliable result (poor fit quality, excessive analytical error, or
+        excessive X-ray absorption) while ``interrupt_fits_bad_spectra=True``.
+        Spectra with ``interrupted=True`` are automatically re-quantified on the
+        next run when ``interrupt_fits_bad_spectra=False``.
+    min_background_ref_lines : float, optional
+        Minimum background counts under any reference peak used for quantification.
+    missing_reference_peaks : list of str, optional
+        Reference peaks that were absent or below the minimum acceptable PB ratio.
+    """
 
     iterations_run: Optional[int] = None
     converged: Optional[bool] = None

@@ -530,15 +530,9 @@ class EMXSp_Composition_Analyzer:
         OSError
             If directory creation fails.
         """
-        analysis_parent = os.path.join(self.sample_result_dir, cnst.ANALYSIS_SUBDIR)
-        try:
-            os.makedirs(analysis_parent, exist_ok=True)
-        except Exception as e:
-            raise OSError(f"Could not ensure analysis parent directory '{analysis_parent}': {e}") from e
-
         quantification_id, clustering_id = self._resolve_active_analysis_config_ids()
         base_name = f"analysis_Quant{quantification_id}_Clust{clustering_id}"
-        analysis_dir = os.path.join(analysis_parent, base_name)
+        analysis_dir = os.path.join(self.sample_result_dir, base_name)
 
         try:
             os.makedirs(analysis_dir, exist_ok=True)
@@ -2547,7 +2541,16 @@ class EMXSp_Composition_Analyzer:
             Overwrites the prior skipped record in the ledger. Ignored when
             force_requantification=True.
         interrupt_fits_bad_spectra : bool
-            If True, abort the fit early for spectra identified as poor quality.
+            Controls early-exit behaviour during iterative spectral fitting.
+
+            If ``True`` (default), the fit is aborted mid-iteration when poor fit quality,
+            excessive analytical error, or excessive X-ray absorption is detected.
+            The spectrum is stored with ``QuantificationDiagnostics.interrupted=True``
+            and no composition is saved.
+
+            If ``False``, early-exit is disabled.  Any spectrum from the active
+            quantification run whose record has ``interrupted=True`` is re-quantified
+            and its ledger record is overwritten with the new result.
         num_CPU_cores : Optional[int]
             Number of CPU cores for parallel fitting (non-quantify path only).
             None uses half of available cores.
@@ -2581,6 +2584,10 @@ class EMXSp_Composition_Analyzer:
                 indices_to_process = [
                     i for i in range(tot_spectra_collected)
                     if self.spectra_quant_records[i] is None
+                    or (
+                        not interrupt_fits_bad_spectra
+                        and getattr(self.spectra_quant_records[i].diagnostics, 'interrupted', False)
+                    )
                 ]
         else:
             quant_sp_cntr = len(self.spectra_quant)
@@ -2622,13 +2629,17 @@ class EMXSp_Composition_Analyzer:
         if quantify:
             for i in indices_to_process:
                 had_prior_record = self.spectra_quant_records[i] is not None
+                was_interrupted = (
+                    had_prior_record
+                    and getattr(self.spectra_quant_records[i].diagnostics, 'interrupted', False)
+                )
                 _, result, quant_record, quant_flag, comment = _process_one(i)
                 self.spectra_quant[i] = result
                 self.spectra_quant_records[i] = quant_record
                 self.spectral_data[cnst.COMMENTS_DF_KEY][i] = comment
                 self.spectral_data[cnst.QUANT_FLAG_DF_KEY][i] = quant_flag
                 if quant_record is not None:
-                    overwrite = requantify_only_unquantified_spectra and had_prior_record
+                    overwrite = (requantify_only_unquantified_spectra and had_prior_record) or was_interrupted
                     self._persist_quantification_record(i, quant_record, overwrite=overwrite)
             return
     
@@ -3360,7 +3371,7 @@ class EMXSp_Composition_Analyzer:
             # When collecting, save collected spectra, their quantification, and to which cluster they are assigned
             self._save_collected_data(labels, df_indices, backup_previous_data=True, include_spectral_data=True)
         else:
-            # During analysis of Data.csv, save the compositions, together with their assigned phases, in the Analysis folder
+            # During analysis of Data.csv, save the compositions, together with their assigned phases, in the per-config analysis directory
             self._save_collected_data(labels, df_indices, backup_previous_data=True, include_spectral_data=False)
     
         self._save_result_and_stats(
@@ -4433,7 +4444,16 @@ class EMXSp_Composition_Analyzer:
             result (never quantified or previously skipped/flagged). Overwrites prior
             skipped records. Ignored when force_requantification=True.
         interrupt_fits_bad_spectra : bool, optional
-            If True, abort the fit early for spectra identified as poor quality (default True).
+            Controls early-exit behaviour during iterative spectral fitting.
+
+            If ``True`` (default), the fit is aborted mid-iteration when poor fit quality,
+            excessive analytical error, or excessive X-ray absorption is detected.
+            The spectrum is stored with ``QuantificationDiagnostics.interrupted=True``
+            and no composition is saved.
+
+            If ``False``, early-exit is disabled.  Any spectrum from the active
+            quantification run whose record has ``interrupted=True`` is re-quantified
+            and its ledger record is overwritten with the new result.
         num_CPU_cores : Optional[int], optional
             Number of CPU cores for parallel fitting (non-quantify path only).
             None uses half of available cores.
@@ -4996,7 +5016,8 @@ class EMXSp_Composition_Analyzer:
     
         Notes
         -----
-        - The cluster DataFrame is saved as '<cnst.CLUSTERS_FILENAME>.csv' in the analysis directory.
+                - The cluster DataFrame is saved as a transposed '<cnst.CLUSTERS_FILENAME>.csv' in the analysis directory
+                    for easier manual reading.
         - General clustering info is stored as an attribute for later use and persisted in the ledger.
     
         Raises
@@ -5066,7 +5087,9 @@ class EMXSp_Composition_Analyzer:
         # Save and store DataFrame
         clusters_csv_path = os.path.join(self.analysis_dir, cnst.CLUSTERS_FILENAME + '.csv')
         try:
-            clusters_df.to_csv(clusters_csv_path, index=True, header=True)
+            clusters_csv_df = clusters_df.transpose().copy()
+            clusters_csv_df.columns = [f"Cluster_{i}" for i in range(len(clusters_df))]
+            clusters_csv_df.to_csv(clusters_csv_path, index=True, header=True, index_label="Metric")
         except Exception as e:
             raise OSError(f"Could not write clusters DataFrame to '{clusters_csv_path}': {e}")
     
@@ -5284,6 +5307,7 @@ class EMXSp_Composition_Analyzer:
         # Build CSV-only DataFrame: drop spectral arrays and spatial coordinates (kept in ledger.json)
         csv_exclude_columns = [
             cnst.SPECTRUM_DF_KEY, cnst.BACKGROUND_DF_KEY,
+            cnst.REAL_TIME_DF_KEY, cnst.LIVE_TIME_DF_KEY,
             cnst.SP_X_COORD_DF_KEY, cnst.SP_Y_COORD_DF_KEY,
             cnst.SP_X_PIXEL_COORD_DF_KEY, cnst.SP_Y_PIXEL_COORD_DF_KEY,
         ]
@@ -5291,54 +5315,51 @@ class EMXSp_Composition_Analyzer:
 
         # Save dataframe
         if data_df is not None and include_spectral_data:
-            # Data.csv must always be saved, as it's used for analysis
-            base_name = f'{cnst.DATA_FILENAME}' if not is_standards_measurements else f'{cnst.STDS_MEAS_FILENAME}'
-            legacy_base_name = f'{base_name}_legacy'
-            extension = f'{cnst.DATA_FILEEXT}'
-            data_path = os.path.join(self.sample_result_dir, base_name + extension)
+            # Keep standards measurement exports unchanged, but avoid writing Data.csv for sample quantification runs.
+            if is_standards_measurements:
+                base_name = f'{cnst.STDS_MEAS_FILENAME}'
+                legacy_base_name = f'{base_name}_legacy'
+                extension = f'{cnst.DATA_FILEEXT}'
+                data_path = os.path.join(self.sample_result_dir, base_name + extension)
 
-            # Unless it's saving a temporary file, check if Data.csv already exists and backup old version
-            if os.path.exists(data_path) and backup_previous_data:
-                # Avoid backing up acquisition files that do not contain any quantification or fitting, simply replace them
-                # Checks if current data file has Quant_flag in the headers
-                if cnst.QUANT_FLAG_DF_KEY in pd.read_csv(data_path, nrows=0).columns:
-                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                    backup_path = make_unique_path(self.sample_result_dir, f'{base_name}_old_{timestamp}', extension)
-                    try:
-                        shutil.copyfile(data_path, backup_path)
-                    except Exception as e:
-                        backup_successful = False
-                        raise OSError(f"Could not backup previous {data_path} file. This file was not overwritten."
-                                      f"Ensure you ovewrite it with a copy of {base_name}{extension} prior analysis:"
-                                      f"{e}")
+                if os.path.exists(data_path) and backup_previous_data:
+                    if cnst.QUANT_FLAG_DF_KEY in pd.read_csv(data_path, nrows=0).columns:
+                        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                        backup_path = make_unique_path(self.sample_result_dir, f'{base_name}_old_{timestamp}', extension)
+                        try:
+                            shutil.copyfile(data_path, backup_path)
+                        except Exception as e:
+                            backup_successful = False
+                            raise OSError(f"Could not backup previous {data_path} file. This file was not overwritten."
+                                          f"Ensure you ovewrite it with a copy of {base_name}{extension} prior analysis:"
+                                          f"{e}")
+                        else:
+                            backup_successful = True
                     else:
                         backup_successful = True
                 else:
                     backup_successful = True
-            else:
-                backup_successful = True
 
-            # Save new version (CSV without spectral arrays and spatial coordinates)
-            try:
-                if backup_successful:
-                    if isinstance(self.output_filename_suffix, str) and self.output_filename_suffix != '':
-                        if backup_previous_data:
-                            data_path_with_suffix = make_unique_path(self.sample_result_dir, base_name + self.output_filename_suffix, extension)
-                            legacy_path_with_suffix = make_unique_path(self.sample_result_dir, legacy_base_name + self.output_filename_suffix, extension)
+                try:
+                    if backup_successful:
+                        if isinstance(self.output_filename_suffix, str) and self.output_filename_suffix != '':
+                            if backup_previous_data:
+                                data_path_with_suffix = make_unique_path(self.sample_result_dir, base_name + self.output_filename_suffix, extension)
+                                legacy_path_with_suffix = make_unique_path(self.sample_result_dir, legacy_base_name + self.output_filename_suffix, extension)
+                            else:
+                                data_path_with_suffix = os.path.join(self.sample_result_dir, base_name + self.output_filename_suffix + extension)
+                                legacy_path_with_suffix = os.path.join(self.sample_result_dir, legacy_base_name + self.output_filename_suffix + extension)
+                            csv_df.to_csv(data_path_with_suffix, index=False, header=True)
+                            data_df.to_csv(legacy_path_with_suffix, index=False, header=True)
                         else:
-                            data_path_with_suffix = os.path.join(self.sample_result_dir, base_name + self.output_filename_suffix + extension)
-                            legacy_path_with_suffix = os.path.join(self.sample_result_dir, legacy_base_name + self.output_filename_suffix + extension)
+                            csv_df.to_csv(data_path, index=False, header=True)
+                            legacy_data_path = os.path.join(self.sample_result_dir, legacy_base_name + extension)
+                            data_df.to_csv(legacy_data_path, index=False, header=True)
+                    else:
                         csv_df.to_csv(data_path_with_suffix, index=False, header=True)
                         data_df.to_csv(legacy_path_with_suffix, index=False, header=True)
-                    else:
-                        csv_df.to_csv(data_path, index=False, header=True)
-                        legacy_data_path = os.path.join(self.sample_result_dir, legacy_base_name + extension)
-                        data_df.to_csv(legacy_data_path, index=False, header=True)
-                else:
-                    csv_df.to_csv(data_path_with_suffix, index=False, header=True)
-                    data_df.to_csv(legacy_path_with_suffix, index=False, header=True)
-            except Exception as e:
-                raise OSError(f"Could not write '{data_path}': {e}")
+                except Exception as e:
+                    raise OSError(f"Could not write '{data_path}': {e}")
 
             # Write ledger.json with per-spectrum spectral data and spatial coordinates
             if ledger_entries:
@@ -5416,7 +5437,10 @@ class EMXSp_Composition_Analyzer:
                         ),
                     )
 
-                    if quantify:
+                    has_quant_records = any(
+                        record is not None for record in getattr(self, 'spectra_quant_records', [])
+                    )
+                    if has_quant_records and getattr(self, 'current_quant_config', None) is not None:
                         self._upsert_current_quantification_config_on_ledger(ledger)
                         ledger.active_quant = self.current_quant_config.quantification_id
 
@@ -5438,8 +5462,19 @@ class EMXSp_Composition_Analyzer:
             # Save only compositions in Compositions.csv.
             # Used when cluster analysis is performed and cluster_IDs are assigned to each spectrum
             comp_path = os.path.join(self.analysis_dir, cnst.COMPOSITIONS_FILENAME + '.csv')
+            compositions_df = data_df.drop(
+                columns=[
+                    c for c in [
+                        cnst.SP_X_COORD_DF_KEY,
+                        cnst.SP_Y_COORD_DF_KEY,
+                        cnst.SP_X_PIXEL_COORD_DF_KEY,
+                        cnst.SP_Y_PIXEL_COORD_DF_KEY,
+                    ]
+                    if c in data_df.columns
+                ]
+            )
             try:
-                data_df.to_csv(comp_path, index=False, header=True)
+                compositions_df.to_csv(comp_path, index=False, header=True)
             except Exception as e:
                 raise OSError(f"Could not write compositions data to '{comp_path}': {e}")
 

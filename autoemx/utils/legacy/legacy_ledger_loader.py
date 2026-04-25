@@ -124,6 +124,20 @@ def _extract_min_background_ref_lines_from_comment(comment: Optional[str]) -> Op
     return min_background_counts
 
 
+def strip_min_background_comment_phrase(comment: Optional[str]) -> Optional[str]:
+    """Remove legacy min-background-counts text while preserving the rest of the comment."""
+    if not comment:
+        return None
+
+    cleaned_comment = _MIN_BACKGROUND_COMMENT_PATTERN.sub("", comment)
+    # Remove dangling/repeated separators introduced by removing the legacy phrase.
+    cleaned_comment = re.sub(r"\s*([,;:-])\s*(?=\1)", "", cleaned_comment)
+    cleaned_comment = re.sub(r"\s*[,;:-]\s*$", "", cleaned_comment)
+    cleaned_comment = re.sub(r"^\s*[,;:-]\s*", "", cleaned_comment)
+    cleaned_comment = re.sub(r"\s{2,}", " ", cleaned_comment).strip()
+    return cleaned_comment or None
+
+
 def _load_legacy_quant_cfg(sample_result_dir: str) -> Optional[Any]:
     """Load the raw legacy quantification config when LedgerConfigs has already dropped it."""
     from autoemx.config.classes import QuantificationOptionsConfig
@@ -445,15 +459,18 @@ def load_legacy_quantification_results_by_spectrum_id(
 
         raw_comment = row.get(cnst.COMMENTS_DF_KEY) if cnst.COMMENTS_DF_KEY in data_df.columns else None
         comment = None
+        min_background_ref_lines = None
         if raw_comment is not None and not pd.isna(raw_comment):
-            comment = str(raw_comment).strip() or None
+            raw_comment_text = str(raw_comment).strip() or None
+            min_background_ref_lines = _extract_min_background_ref_lines_from_comment(raw_comment_text)
+            comment = strip_min_background_comment_phrase(raw_comment_text)
 
         quant_flag = _parse_optional_int(row.get(cnst.QUANT_FLAG_DF_KEY)) if cnst.QUANT_FLAG_DF_KEY in data_df.columns else None
         is_interrupted = not has_quant_data
         diagnostics = QuantificationDiagnostics(
             converged=False if (is_interrupted or quant_flag == -1) else True,
             interrupted=is_interrupted,
-            min_background_ref_lines=_extract_min_background_ref_lines_from_comment(comment),
+            min_background_ref_lines=min_background_ref_lines,
         )
 
         quant_record = QuantificationResult(

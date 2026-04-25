@@ -1195,7 +1195,7 @@ class XSp_Quantifier:
             diagnostics=QuantificationDiagnostics(
                 iterations_run=self.iterations_run,
                 converged=self.quant_converged,
-                interrupted=False,
+                interrupted=(quant_result is None),
                 min_background_ref_lines=min_background_ref_lines,
                 missing_reference_peaks=list(self.missing_reference_peaks),
             ),

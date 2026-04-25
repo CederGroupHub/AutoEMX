@@ -91,6 +91,7 @@ from autoemx.utils.legacy.legacy_ledger_loader import (
     convert_machine_to_pixel_coordinates,
     load_legacy_acquisition_details_by_spectrum_id,
     load_legacy_quantification_results_by_spectrum_id,
+    strip_min_background_comment_phrase,
 )
 
 
@@ -744,7 +745,8 @@ def extract_spectral_data(data_csv_path):
 
                         comment = None
                         if cnst.COMMENTS_DF_KEY in df.columns and pd.notnull(row.get(cnst.COMMENTS_DF_KEY)):
-                            comment = str(row[cnst.COMMENTS_DF_KEY]).strip() or None
+                            raw_comment = str(row[cnst.COMMENTS_DF_KEY]).strip() or None
+                            comment = strip_min_background_comment_phrase(raw_comment)
 
                         quantification_results = [
                             QuantificationResult(

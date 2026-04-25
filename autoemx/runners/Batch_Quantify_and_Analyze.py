@@ -15,8 +15,7 @@ Workflow
 --------
 - Loads sample configurations from `Spectra_collection_info.json`
 - Loads acquired spectral data from `Data.csv`
-- Performs quantification (optionally only on unquantified spectra)
-- Optionally performs clustering/statistical analysis and saves results
+- Performs quantification and optionally clustering/statistical analysis and saves results
 
 Notes
 -----
@@ -39,7 +38,6 @@ Created on Tue Jul 29 13:18:16 2025
 """
 
 import os
-import pandas as pd
 import warnings
 import time
 import logging
@@ -69,19 +67,18 @@ __all__ = ["batch_quantify_and_analyze"]
 
 def batch_quantify_and_analyze(
     sample_IDs: List[str],
-    quantification_method: str = None,
-    results_path: str = None,
-    min_bckgrnd_cnts: float = None,
+    quantification_method: Optional[str] = None,
+    results_path: Optional[str] = None,
+    min_bckgrnd_cnts: Optional[float] = None,
     output_filename_suffix: str = "",
     use_instrument_background: bool = dflt.use_instrument_background,
     max_analytical_error: float = 5,
     run_analysis: bool = True,
-    num_CPU_cores: int = None,
-    quantify_only_unquantified_spectra: bool = False,
+    num_CPU_cores: Optional[int] = None,
     interrupt_fits_bad_spectra: bool = False,
-    use_project_specific_std_dict: bool = None,
+    use_project_specific_std_dict: Optional[bool] = None,
     is_known_precursor_mixture: Optional[bool] = None,
-    standards_dict: dict = None,
+    standards_dict: Optional[dict] = None,
 ) -> None:
     """
     Batch quantification and analysis for a list of samples.
@@ -107,10 +104,24 @@ def batch_quantify_and_analyze(
         Whether to run clustering/statistical analysis after quantification.
     num_CPU_cores : bool | None, optional
         Number of CPU cores to use during fitting and quantification. If None, half of the available cores are used.
-    quantify_only_unquantified_spectra : bool, optional
-        If True, only quantify spectra that lack analytical error.
     interrupt_fits_bad_spectra : bool, optional
-        If True, interrupt fitting if bad spectra are encountered. Speeds up computations
+        Controls early-exit behaviour during iterative spectral fitting.
+
+        If ``True`` (default), the fit is aborted as soon as any of the following
+        conditions is detected mid-iteration:
+
+        - Reduced chi-squared exceeds 20 % of total spectrum counts (poor fit, flag 4).
+        - Analytical error exceeds 50 w% (flag 5).
+        - Excessive X-ray absorption around reference peaks (flag 6).
+
+        The aborted spectrum is stored with ``QuantificationDiagnostics.interrupted=True``
+        and no composition is saved.  This speeds up batch quantification significantly
+        when many spectra are expected to be unreliable.
+
+        If ``False``, early-exit is disabled for the current run.  Any spectrum whose
+        previous record has ``interrupted=True`` (from a prior run with
+        ``interrupt_fits_bad_spectra=True``) is re-quantified, and its ledger record is
+        overwritten with the new result.
     use_project_specific_std_dict : bool, optional
         If True, loads standards from project folder (i.e. results_dir) during quantification.
         Default: None. Loads it from quant_cfg file
@@ -184,7 +195,7 @@ def batch_quantify_and_analyze(
             
         # Load 'Data.csv' into a DataFrame
         try:
-            spectra_quant, spectral_data, sp_coords, original_df = extract_spectral_data(data_path)
+            spectra_quant, spectral_data, sp_coords, _ = extract_spectral_data(data_path)
         except Exception as e:
             logging.warning(f"Could not load spectral data for '{sample_ID}': {e}")
             continue
@@ -197,34 +208,10 @@ def batch_quantify_and_analyze(
                 )
                 
         # Change is_known_precursor_mixture if provided
-        if is_known_precursor_mixture is not None:
+        if is_known_precursor_mixture is not None and powder_meas_cfg is not None:
             powder_meas_cfg.is_known_precursor_mixture = is_known_precursor_mixture
 
-        # Decide which spectra to quantify
-        quant_cfg.interrupt_fits_bad_spectra = interrupt_fits_bad_spectra
-        if quantify_only_unquantified_spectra and cnst.AN_ER_DF_KEY in original_df.columns:
-            to_quantify_mask = original_df[cnst.AN_ER_DF_KEY].isna()
-            if not to_quantify_mask.any():
-                logging.info("All spectra already quantified. Skipping.")
-                continue
-            indices_to_quantify = list(original_df.index[to_quantify_mask])
-            logging.info(f"Quantifying {len(indices_to_quantify)} unquantified spectra out of {len(original_df)}.")
-        else:
-            indices_to_quantify = list(original_df.index)
-            logging.info(f"Quantifying all {len(original_df)} spectra.")
-        if num_CPU_cores is not None:
-            quant_cfg.num_CPU_cores = num_CPU_cores
-            
-        # Subset the data for quantification
-        spectral_data_sub = {key: [spectral_data[key][i] for i in indices_to_quantify] for key in cnst.LIST_SPECTRAL_DATA_QUANT_KEYS}
-        sp_coords_sub = [sp_coords[i] for i in indices_to_quantify]
-
-        # Handle output filename for analyzer
-        if quantify_only_unquantified_spectra:
-            temp_suffix = output_filename_suffix + '_temp'
-            output_suffix = temp_suffix
-        else:
-            output_suffix = output_filename_suffix
+        logging.info(f"Quantifying all {len(sp_coords)} spectra.")
 
         # --- Run Composition Analysis or Spectral Acquisition
         comp_analyzer = EMXSp_Composition_Analyzer(
@@ -240,75 +227,26 @@ def batch_quantify_and_analyze(
             is_acquisition=False,
             development_mode=False,
             standards_dict=standards_dict,
-            output_filename_suffix=output_suffix,
+            output_filename_suffix=output_filename_suffix,
             verbose=True,
             results_dir=sample_dir
         )
 
-        comp_analyzer.sp_coords = sp_coords_sub
+        comp_analyzer.sp_coords = sp_coords
         for key in cnst.LIST_SPECTRAL_DATA_QUANT_KEYS:
-            comp_analyzer.spectral_data[key] = spectral_data_sub[key]
+            comp_analyzer.spectral_data[key] = spectral_data[key]
         
         try:
-            comp_analyzer.run_quantification()
+            comp_analyzer.run_quantification(
+                interrupt_fits_bad_spectra=interrupt_fits_bad_spectra,
+                num_CPU_cores=num_CPU_cores,
+            )
         except Exception:
             tb_str = traceback.format_exc()  # get full traceback as a string
             logging.warning(
                 f"Error during spectral quantification for '{sample_ID}'. Skipping sample.\nFull traceback:\n{tb_str}"
             )
             continue
-
-        if quantify_only_unquantified_spectra:
-            # Read the temporary file produced by the analyzer
-            temp_data_path = os.path.join(sample_dir, f"{cnst.DATA_FILENAME}{output_suffix}{cnst.DATA_FILEEXT}")
-            try:
-                temp_df = pd.read_csv(temp_data_path)
-            except Exception as e:
-                logging.error(f"Could not read temporary quantification file '{temp_data_path}' for '{sample_ID}': {e}")
-                continue
-            temp_df.index = indices_to_quantify
-
-            # Update only the quantified rows in the original DataFrame
-            # Use vectorized assignment for performance
-            try:
-                original_df.loc[indices_to_quantify, temp_df.columns] = temp_df.values
-            except Exception as e:
-                logging.error(f"Failed to update quantified rows in DataFrame for '{sample_ID}': {e}")
-                continue
-
-            # Convert quantification flag column to int if present
-            if cnst.QUANT_FLAG_DF_KEY in original_df.columns:
-                original_df[cnst.QUANT_FLAG_DF_KEY] = original_df[cnst.QUANT_FLAG_DF_KEY].astype(int)
-
-            # Save the updated Data.csv with counter logic to avoid overwriting
-            new_data_path = os.path.join(sample_dir, f'{cnst.DATA_FILENAME}{output_filename_suffix}{cnst.DATA_FILEEXT}')
-            # cntr = 1
-            # while os.path.exists(new_data_path):
-            #     cntr += 1
-            #     new_data_path = os.path.join(sample_dir, f'{cnst.DATA_FILENAME}{output_filename_suffix}_{cntr}{cnst.DATA_FILEEXT}')
-
-            try:
-                original_df.to_csv(new_data_path, index=False)
-            except Exception as e:
-                logging.error(f"Failed to save updated {cnst.DATA_FILENAME}{cnst.DATA_FILEEXT} for '{sample_ID}': {e}")
-                continue
-
-            # Remove the temporary file
-            try:
-                os.remove(temp_data_path)
-            except Exception as e:
-                logging.warning(f"Could not remove temporary file '{temp_data_path}': {e}")
-                
-            # Reload data for analysis if needed
-            if run_analysis:
-                try:
-                    spectra_quant, spectral_data, sp_coords, _ = extract_spectral_data(new_data_path)
-                    comp_analyzer.spectra_quant = spectra_quant
-                    comp_analyzer.sp_coords = sp_coords
-                    comp_analyzer.spectral_data = spectral_data
-                except Exception as e:
-                    logging.warning(f"Could not reload data for analysis for '{sample_ID}': {e}")
-                    continue
 
         # Perform analysis and print results
         if run_analysis:
@@ -326,7 +264,8 @@ def batch_quantify_and_analyze(
         total_process_time = (time.time() - sample_processing_time_start) / 60
         print_double_separator()
         logging.info(f"Sample '{sample_ID}' successfully quantified in {total_process_time:.1f} min.")
-        logging.info(f"{len(indices_to_quantify)} spectra have been quantified and saved for '{sample_ID}'.")
+        logging.info(f"{len(sp_coords)} spectra have been quantified and saved for '{sample_ID}'.")
+
         
         quant_results.append(comp_analyzer)
     
