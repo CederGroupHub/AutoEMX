@@ -45,6 +45,10 @@ EXP_STD_MEASUREMENT_CFG_KEY = 'exp_stds_cfg'
 CLUSTERING_CFG_KEY = 'clustering_cfg'
 PLOT_CFG_KEY = 'plot_cfg'
 
+# Image annotation dictionary keys
+ANNOTATION_CIRCLE_KEY = 'circle'
+ANNOTATION_TEXT_KEY = 'text'
+
 # Clustering info dictionary keys
 N_SP_ACQUIRED_KEY = 'n_spectra_collected'
 N_SP_USED_KEY = 'n_spectra_used'

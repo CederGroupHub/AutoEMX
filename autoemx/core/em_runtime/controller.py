@@ -116,9 +116,6 @@ class EM_Controller:
         If True, print progress and information to the console.
     development_mode (bool)
         Whether class is used for testing without real-time acquisition.
-        # Annotation keys for backward compatibility
-        an_circle_key = 'circle'
-        an_text_key = 'text'
     """
     
     def __init__(

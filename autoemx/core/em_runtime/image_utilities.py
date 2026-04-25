@@ -169,8 +169,8 @@ def save_frame_image(frame_image, pixel_size_um, im_width, im_height,
         color_image = frame_image.copy()
     
     # Draw annotations if provided
-    an_circle_key = 'circle'
-    an_text_key = 'text'
+    an_circle_key = cnst.ANNOTATION_CIRCLE_KEY
+    an_text_key = cnst.ANNOTATION_TEXT_KEY
     
     if im_annotations is not None:
         if isinstance(im_annotations, dict):

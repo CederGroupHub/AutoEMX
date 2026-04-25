@@ -423,7 +423,7 @@ class EM_Particle_Finder:
         
         # Save frame image annotating it with the identified particles
         filename = f"{self._sample_ID}_fr{self.EM.current_frame_label}_particles"
-        im_annotations = [{self.EM.an_circle_key : (int(rad), center.astype(int), 2)} for rad, center in zip(par_radius_pixels, par_pos_pixels)]
+        im_annotations = [{cnst.ANNOTATION_CIRCLE_KEY: (int(rad), center.astype(int), 2)} for rad, center in zip(par_radius_pixels, par_pos_pixels)]
         self.EM.save_frame_image(filename, im_annotations = im_annotations)
         
         
@@ -1560,7 +1560,7 @@ class EM_Particle_Finder:
                 ann_dict = {}
                 radius_pixel = int(np.sqrt(area / np.pi) * 1.1)  # Equivalent radius for particle (as a circle)
                 
-                ann_dict[self.EM.an_circle_key] = (radius_pixel, center.astype(int), 2)
+                ann_dict[cnst.ANNOTATION_CIRCLE_KEY] = (radius_pixel, center.astype(int), 2)
                 
                 x_pos_text = int(center[0] + radius_pixel * text_pos_scale)  # Number on the top-right of the circle
                 y_pos_text = int(center[1] - radius_pixel * text_pos_scale)
@@ -1568,7 +1568,7 @@ class EM_Particle_Finder:
                     # Move number to center
                     x_pos_text = int(center[0])
                     y_pos_text = int(center[1])
-                ann_dict[self.EM.an_text_key] = (str(first_par_n + i), (x_pos_text, y_pos_text))
+                ann_dict[cnst.ANNOTATION_TEXT_KEY] = (str(first_par_n + i), (x_pos_text, y_pos_text))
                 im_annotations.append(ann_dict)
                 
             filename = f"{self._sample_ID}_fr{self.EM.current_frame_label}"
