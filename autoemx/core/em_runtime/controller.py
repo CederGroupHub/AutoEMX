@@ -440,6 +440,8 @@ class EM_Controller:
             Target (x, y) coordinates.
         """
         self.microscope_ctrl.move_to_pos(pos)
+        if hasattr(self.frame_navigator, '_current_pos'):
+            self.frame_navigator._current_pos = pos
     
     
     def convert_pixel_pos_to_mm(self, pos_pixels):

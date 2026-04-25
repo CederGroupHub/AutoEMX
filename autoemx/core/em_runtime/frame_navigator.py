@@ -89,6 +89,9 @@ class FrameNavigator:
         self.num_frames = 0
         self.current_frame_label = ''
         self.particle_finder = None
+        # Current frame center position in stage coordinates (mm).
+        # Used by EM_Controller.convert_pixel_pos_to_mm.
+        self._current_pos = center_pos
     
     
     def initialise_sample_navigator(self, grid_search_fw_mm, exclude_sample_margin=True):
@@ -330,6 +333,10 @@ class FrameNavigator:
                 self.current_frame_label = self._frame_cntr
                 frame_width = self.EM_driver.get_frame_width()
                 self.grid_search_fw_mm = frame_width
+                # In manual mode, keep the last known stage position as frame reference.
+                # If no explicit frame move occurred yet, use configured sample center.
+                if self._current_pos is None:
+                    self._current_pos = self._center_pos
         
         else:
             # Check if all frames have been analysed
@@ -337,7 +344,9 @@ class FrameNavigator:
                 return False
             
             # Move to frame
-            microscope_ctrl.move_to_pos(self.frame_pos_mm[self._frame_cntr])
+            next_frame_pos = self.frame_pos_mm[self._frame_cntr]
+            microscope_ctrl.move_to_pos(next_frame_pos)
+            self._current_pos = next_frame_pos
             self.current_frame_label = self.frame_labels[self._frame_cntr]
             
             # Set frame width for particle acquisition
