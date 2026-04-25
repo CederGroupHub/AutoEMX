@@ -359,8 +359,23 @@ class EMXSp_Composition_Analyzer:
                 results_dir = make_unique_path(os.path.join(os.getcwd(), results_folder), sample_cfg.ID)
                 os.makedirs(results_dir)
             else:
-                # Reuse the provided directory (resume or continuation scenario).
-                os.makedirs(results_dir, exist_ok=True)
+                # When a project directory is provided, save under a per-sample folder.
+                # If the provided path already points to a sample folder (resume), reuse it.
+                normalized_results_dir = os.path.normpath(results_dir)
+                is_sample_dir = os.path.basename(normalized_results_dir) == sample_cfg.ID
+                has_sample_artifacts = (
+                    os.path.exists(os.path.join(results_dir, cnst.LEDGER_FILENAME + cnst.LEDGER_FILEEXT))
+                    or os.path.exists(os.path.join(results_dir, cnst.IMAGES_DIR))
+                    or os.path.exists(os.path.join(results_dir, cnst.SPECTRA_DIR))
+                )
+
+                if is_sample_dir or has_sample_artifacts:
+                    sample_result_dir = results_dir
+                else:
+                    sample_result_dir = os.path.join(results_dir, sample_cfg.ID)
+
+                os.makedirs(sample_result_dir, exist_ok=True)
+                results_dir = sample_result_dir
 
         self.sample_result_dir = results_dir
         self.output_filename_suffix = output_filename_suffix
