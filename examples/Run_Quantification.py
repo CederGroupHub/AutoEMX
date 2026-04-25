@@ -45,7 +45,7 @@ output_filename_suffix = ''
 # =============================================================================
 # Run
 # =============================================================================
-from autoemx.runners.Batch_Quantify_and_Analyze import batch_quantify_and_analyze
+from autoemx.runners.batch_quantify_and_analyze import batch_quantify_and_analyze
 
 comp_analyzer = batch_quantify_and_analyze(
     sample_IDs=sample_IDs,

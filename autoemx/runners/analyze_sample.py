@@ -290,7 +290,7 @@ def analyze_sample(
         plot_cfg.els_excluded_clust_plot = els_excluded_clust_plot
     _ensure_custom_plot_file(sample_dir, plot_cfg)
 
-    # Spectral data source priority — mirrors Batch_Quantify_and_Analyze:
+    # Spectral data source priority — mirrors batch_quantify_and_analyze:
     #   1. ledger.json  → analyse_data calls _load_or_create_ledger which syncs
     #                     spectra_quant_records automatically.
     #   2. Data.csv     → legacy one-time migration path when no ledger exists yet;
