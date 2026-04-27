@@ -2121,7 +2121,7 @@ class EMXSp_Composition_Analyzer:
         reference_values_by_el_line: Dict[str, Any],
     ) -> QuantificationConfig:
         """Build the persisted descriptor for the current quantification run."""
-        label = f"Quantification {quantification_id}"
+        label = f"Quant {quantification_id} {self.output_filename_suffix}"
         if isinstance(self.output_filename_suffix, str) and self.output_filename_suffix:
             label += self.output_filename_suffix
         reference_lines_by_element = QuantificationConfig.derive_reference_lines_by_element(
@@ -2621,169 +2621,162 @@ class EMXSp_Composition_Analyzer:
     
     
     def _fit_and_quantify_spectra(
-        self,
-        quantify: bool = True,
-        force_requantification: bool = False,
-        requantify_only_unquantified_spectra: bool = False,
-        interrupt_fits_bad_spectra: bool = True,
-        num_CPU_cores: Optional[int] = None,
-    ) -> None:
-        """
-        Fit and (optionally) quantify all collected spectra.
+            self,
+            quantify: bool = True,
+            force_requantification: bool = False,
+            requantify_only_unquantified_spectra: bool = False,
+            interrupt_fits_bad_spectra: bool = True,
+            num_CPU_cores: Optional[int] = None,
+        ) -> None:
+            """
+            Fit and (optionally) quantify all collected spectra.
 
-        Parameters
-        ----------
-        quantify : bool
-            If False, only fits spectra (used for experimental standards). Default True.
-        force_requantification : bool
-            Create a new quantification run and reprocess every spectrum, even when
-            an identical run already exists.
-        requantify_only_unquantified_spectra : bool
-            Reuse the latest matching run but reprocess only spectra that have no
-            composition result (never quantified, or previously skipped/flagged).
-            Overwrites the prior skipped record in the ledger. Ignored when
-            force_requantification=True.
-        interrupt_fits_bad_spectra : bool
-            Controls early-exit behaviour during iterative spectral fitting.
+            Parameters
+            ----------
+            quantify : bool
+                If False, only fits spectra (used for experimental standards). Default True.
+            force_requantification : bool
+                Create a new quantification run and reprocess every spectrum, even when
+                an identical run already exists.
+            requantify_only_unquantified_spectra : bool
+                Reuse the latest matching run but reprocess only spectra that have no
+                composition result (never quantified, or previously skipped/flagged).
+                Overwrites the prior skipped record in the ledger. Ignored when
+                force_requantification=True.
+            interrupt_fits_bad_spectra : bool
+                Controls early-exit behaviour during iterative spectral fitting.
 
-            If ``True`` (default), the fit is aborted mid-iteration when poor fit quality,
-            excessive analytical error, or excessive X-ray absorption is detected.
-            The spectrum is stored with ``QuantificationDiagnostics.interrupted=True``
-            and no composition is saved.
+                If ``True`` (default), the fit is aborted mid-iteration when poor fit quality,
+                excessive analytical error, or excessive X-ray absorption is detected.
+                The spectrum is stored with ``QuantificationDiagnostics.interrupted=True``
+                and no composition is saved.
 
-            If ``False``, early-exit is disabled.  Any spectrum from the active
-            quantification run whose record has ``interrupted=True`` is re-quantified
-            and its ledger record is overwritten with the new result.
-        num_CPU_cores : Optional[int]
-            Number of CPU cores for parallel fitting (non-quantify path only).
-            None uses half of available cores.
-        """
-        
-        self._sync_in_memory_spectra_from_ledger()
-        tot_spectra_collected = len(self.spectral_data[cnst.SPECTRUM_DF_KEY])
+                If ``False``, early-exit is disabled.  Any spectrum from the active
+                quantification run whose record has ``interrupted=True`` is re-quantified
+                and its ledger record is overwritten with the new result.
+            num_CPU_cores : Optional[int]
+                Number of CPU cores for parallel fitting.
+                None uses half of available cores.
+            """
+            
+            self._sync_in_memory_spectra_from_ledger()
+            tot_spectra_collected = len(self.spectral_data[cnst.SPECTRUM_DF_KEY])
 
-        _n_cores = min(
-            (num_CPU_cores if num_CPU_cores is not None else max(1, os.cpu_count() // 2)),
-            os.cpu_count(),
-        )
-
-        if quantify:
-            # Always bootstrap/sync ledger before quantification cycles.
-            self._load_or_create_ledger()
-            self._ensure_current_quantification_run(force_new=force_requantification)
-            self._persist_current_quantification_config()
-            self._ensure_quant_tracking_length(tot_spectra_collected)
-            if force_requantification:
-                indices_to_process = list(range(tot_spectra_collected))
-            elif requantify_only_unquantified_spectra:
-                self._sync_existing_quantification_from_ledger()
-                indices_to_process = [
-                    i for i in range(tot_spectra_collected)
-                    if self.spectra_quant_records[i] is None
-                    or self.spectra_quant_records[i].composition_atomic_fractions is None
-                ]
-            else:
-                self._sync_existing_quantification_from_ledger()
-                indices_to_process = [
-                    i for i in range(tot_spectra_collected)
-                    if self.spectra_quant_records[i] is None
-                    or (
-                        not interrupt_fits_bad_spectra
-                        and getattr(self.spectra_quant_records[i].diagnostics, 'interrupted', False)
-                    )
-                ]
-        else:
-            quant_sp_cntr = len(self.spectra_quant_records)
-            indices_to_process = list(range(quant_sp_cntr, tot_spectra_collected))
-
-        n_spectra_to_quant = len(indices_to_process)
-    
-        if self.verbose and n_spectra_to_quant > 0:
-            print_single_separator()
-            quant_str = "quantification" if quantify else "fitting"
-            print(f"Starting {quant_str} of {n_spectra_to_quant} spectra on up to {_n_cores} cores")
-    
-        # Worker returns (index, result) tuple
-        def _process_one(i):
-            spectrum = self.spectral_data[cnst.SPECTRUM_DF_KEY][i]
-            background = (
-                self.spectral_data[cnst.BACKGROUND_DF_KEY][i]
-                if self.quant_cfg.use_instrument_background
-                else None
+            _n_cores = min(
+                (num_CPU_cores if num_CPU_cores is not None else max(1, os.cpu_count() // 2)),
+                os.cpu_count(),
             )
-            sp_collection_time = self.spectral_data[cnst.LIVE_TIME_DF_KEY][i]
-            sp_id = f"{i}/{tot_spectra_collected - 1}"
-    
+
             if quantify:
-                result, quant_record, quant_flag, comment = self._fit_quantify_spectrum(
-                    spectrum,
-                    background,
-                    sp_collection_time,
-                    sp_id,
-                    spectrum_index=i,
-                    interrupt_fits_bad_spectra=interrupt_fits_bad_spectra,
-                )
+                # Always bootstrap/sync ledger before quantification cycles.
+                self._load_or_create_ledger()
+                self._ensure_current_quantification_run(force_new=force_requantification)
+                self._persist_current_quantification_config()
+                self._ensure_quant_tracking_length(tot_spectra_collected)
+                if force_requantification:
+                    indices_to_process = list(range(tot_spectra_collected))
+                elif requantify_only_unquantified_spectra:
+                    self._sync_existing_quantification_from_ledger()
+                    indices_to_process = [
+                        i for i in range(tot_spectra_collected)
+                        if self.spectra_quant_records[i] is None
+                        or self.spectra_quant_records[i].composition_atomic_fractions is None
+                    ]
+                else:
+                    self._sync_existing_quantification_from_ledger()
+                    indices_to_process = [
+                        i for i in range(tot_spectra_collected)
+                        if self.spectra_quant_records[i] is None
+                        or (
+                            not interrupt_fits_bad_spectra
+                            and getattr(self.spectra_quant_records[i].diagnostics, 'interrupted', False)
+                        )
+                    ]
             else:
-                result, quant_flag, comment = self._fit_exp_std_spectrum(spectrum, background, sp_collection_time, sp_id)
-                quant_record = None
-    
-            return i, result, quant_record, quant_flag, comment
+                quant_sp_cntr = len(self.spectra_quant_records)
+                indices_to_process = list(range(quant_sp_cntr, tot_spectra_collected))
 
-        if quantify:
-            for i in indices_to_process:
-                had_prior_record = self.spectra_quant_records[i] is not None
-                was_interrupted = (
-                    had_prior_record
-                    and getattr(self.spectra_quant_records[i].diagnostics, 'interrupted', False)
+            n_spectra_to_quant = len(indices_to_process)
+        
+            if self.verbose and n_spectra_to_quant > 0:
+                print_single_separator()
+                quant_str = "quantification" if quantify else "fitting"
+                print(f"Starting {quant_str} of {n_spectra_to_quant} spectra on up to {_n_cores} cores")
+        
+            # Worker returns (index, result, quant_record, quant_flag, comment) tuple
+            def _process_one(i):
+                spectrum = self.spectral_data[cnst.SPECTRUM_DF_KEY][i]
+                background = (
+                    self.spectral_data[cnst.BACKGROUND_DF_KEY][i]
+                    if self.quant_cfg.use_instrument_background
+                    else None
                 )
-                _, result, quant_record, quant_flag, comment = _process_one(i)
-                self.spectra_quant_records[i] = quant_record
-                self.spectral_data[cnst.COMMENTS_DF_KEY][i] = comment
-                self.spectral_data[cnst.QUANT_FLAG_DF_KEY][i] = quant_flag
-                if quant_record is not None:
-                    overwrite = (requantify_only_unquantified_spectra and had_prior_record) or was_interrupted
-                    self._persist_quantification_record(i, quant_record, overwrite=overwrite)
-            return
-    
-        n_cores = _n_cores
-    
-        # Temporarily remove the analyzer to avoid pickling errors from 'loky' backend
-        tmp_analyzer = None
-        if hasattr(self, "EM_controller") and hasattr(self.EM_controller, "analyzer"):
-            tmp_analyzer = self.EM_controller.analyzer
-            del self.EM_controller.analyzer
+                sp_collection_time = self.spectral_data[cnst.LIVE_TIME_DF_KEY][i]
+                sp_id = f"{i}/{tot_spectra_collected - 1}"
         
-        results_with_idx = []
-        try:
-            # Run in parallel
-            results_with_idx = Parallel(n_jobs=n_cores, backend='loky')(
-                delayed(_process_one)(i) for i in indices_to_process
-            )
-        except Exception as e:
-            print(f"Parallel quantification failed ({type(e).__name__}: {e}), falling back to sequential execution.")
-            # Sequential fallback, also collect results
-            results_with_idx = [_process_one(i) for i in indices_to_process]
-        finally:
-            # Restore analyzer
-            if tmp_analyzer is not None:
-                self.EM_controller.analyzer = tmp_analyzer
+                if quantify:
+                    result, quant_record, quant_flag, comment = self._fit_quantify_spectrum(
+                        spectrum,
+                        background,
+                        sp_collection_time,
+                        sp_id,
+                        spectrum_index=i,
+                        interrupt_fits_bad_spectra=interrupt_fits_bad_spectra,
+                    )
+                else:
+                    result, quant_flag, comment = self._fit_exp_std_spectrum(spectrum, background, sp_collection_time, sp_id)
+                    quant_record = None
         
-        if len(results_with_idx) > 0 :
-            # Sort results by original spectrum index to guarantee correct order
-            results_with_idx.sort(key=lambda x: x[0])
+                return i, result, quant_record, quant_flag, comment
+        
+            # Temporarily remove the analyzer to avoid pickling errors from 'loky' backend
+            tmp_analyzer = None
+            if hasattr(self, "EM_controller") and hasattr(self.EM_controller, "analyzer"):
+                tmp_analyzer = self.EM_controller.analyzer
+                del self.EM_controller.analyzer
             
-            # Unpack into separate lists
-            _, results_in_order, quant_records_in_order, quant_flags_in_order, comments_in_order = zip(*results_with_idx)
+            results_with_idx = []
+            try:
+                # Run in parallel for both quantify and non-quantify paths
+                results_with_idx = Parallel(n_jobs=_n_cores, backend='loky')(
+                    delayed(_process_one)(i) for i in indices_to_process
+                )
+            except Exception as e:
+                print(f"Parallel quantification failed ({type(e).__name__}: {e}), falling back to sequential execution.")
+                # Sequential fallback, also collect results
+                results_with_idx = [_process_one(i) for i in indices_to_process]
+            finally:
+                # Restore analyzer
+                if tmp_analyzer is not None:
+                    self.EM_controller.analyzer = tmp_analyzer
             
-            # Convert from tuples to lists
-            results_in_order = list(results_in_order)
-            quant_records_in_order = list(quant_records_in_order)
-            quant_flags_in_order = list(quant_flags_in_order)
-            comments_in_order = list(comments_in_order)
-        
-            self.spectra_quant_records.extend(quant_records_in_order)
-            self.spectral_data[cnst.COMMENTS_DF_KEY].extend(comments_in_order)
-            self.spectral_data[cnst.QUANT_FLAG_DF_KEY].extend(quant_flags_in_order)
+            if len(results_with_idx) > 0:
+                # Sort results by original spectrum index to guarantee correct order
+                results_with_idx.sort(key=lambda x: x[0])
+                
+                if quantify:
+                    # Update records and persist to ledger sequentially to avoid race conditions
+                    for idx, result, quant_record, quant_flag, comment in results_with_idx:
+                        had_prior_record = self.spectra_quant_records[idx] is not None
+                        was_interrupted = (
+                            had_prior_record
+                            and getattr(self.spectra_quant_records[idx].diagnostics, 'interrupted', False)
+                        )
+                        
+                        self.spectra_quant_records[idx] = quant_record
+                        self.spectral_data[cnst.COMMENTS_DF_KEY][idx] = comment
+                        self.spectral_data[cnst.QUANT_FLAG_DF_KEY][idx] = quant_flag
+                        
+                        if quant_record is not None:
+                            overwrite = (requantify_only_unquantified_spectra and had_prior_record) or was_interrupted
+                            self._persist_quantification_record(idx, quant_record, overwrite=overwrite)
+                else:
+                    # Original logic for non-quantify path: append to lists
+                    _, results_in_order, quant_records_in_order, quant_flags_in_order, comments_in_order = zip(*results_with_idx)
+                    
+                    self.spectra_quant_records.extend(list(quant_records_in_order))
+                    self.spectral_data[cnst.COMMENTS_DF_KEY].extend(list(comments_in_order))
+                    self.spectral_data[cnst.QUANT_FLAG_DF_KEY].extend(list(quant_flags_in_order))
 
 
     #%% Find number of clusters in kmeans

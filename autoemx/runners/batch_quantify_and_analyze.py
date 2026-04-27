@@ -313,8 +313,7 @@ def batch_quantify_and_analyze(
         # _sync_in_memory_spectra_from_ledger() and spectra_quant via
         # _sync_existing_quantification_from_ledger() — no manual injection needed.
 
-        source_label = "Data.csv (first-run migration)" if (not has_ledger and has_data_csv) else "ledger.json"
-        logging.info(f"Quantifying spectra for '{sample_ID}' (source: {source_label}).")
+        logging.info(f"Quantifying spectra for '{sample_ID}'.")
         
         try:
             comp_analyzer.run_quantification(

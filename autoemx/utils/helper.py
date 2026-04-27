@@ -474,6 +474,8 @@ def load_configurations_from_json(json_path, config_classes_dict):
     >>> config_classes = {'sample_cfg': SampleConfig, ...}
     >>> configs, metadata = load_configurations_from_json('acquisition_info.json', config_classes)
     """
+    import json
+    
     with open(json_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
@@ -481,10 +483,12 @@ def load_configurations_from_json(json_path, config_classes_dict):
     metadata = {}
     for key, cls in config_classes_dict.items():
         if key in data:
+            if isinstance(data[key], dict):
+                # Remove legacy field to avoid Pydantic extra_forbidden errors
+                data[key].pop('num_CPU_cores', None)
             configs[key] = cls(**data[key])
         else:
             configs[key] = None
-            # warnings.warn(f"Configuration key '{key}' not found in JSON file '{json_path}'.")
 
     # Any other keys in JSON are treated as metadata
     for key, value in data.items():

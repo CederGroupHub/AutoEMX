@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import json
-from pathlib import Path
+from pathlib import Path, PureWindowsPath, PurePosixPath
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -60,10 +60,14 @@ class SampleLedger(BaseModel):
     @field_validator("sample_path")
     @classmethod
     def validate_sample_path(cls, v: str) -> str:
-        path = Path(v).expanduser()
-        if not path.is_absolute():
+        # Check if it is a valid absolute path on EITHER Windows or POSIX
+        is_windows_abs = PureWindowsPath(v).is_absolute()
+        is_posix_abs = PurePosixPath(v).is_absolute()
+        
+        if not (is_windows_abs or is_posix_abs):
             raise ValueError("sample_path must be an absolute path")
-        return str(path)
+            
+        return v
 
     @field_validator("active_quant", mode="before")
     @classmethod

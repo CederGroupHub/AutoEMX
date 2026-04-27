@@ -9,7 +9,10 @@ from autoemx.config.ledger_schemas import SampleLedger
 
 def load_sample_ledger(file_path: str | Path) -> SampleLedger:
     """Load and validate a sample ledger JSON in one call."""
-    return SampleLedger.from_json_file(file_path)
+    ledger = SampleLedger.from_json_file(file_path)
+    ledger.sample_path = Path(file_path).parent
+    print(f"Loaded sample ledger for sample '{ledger.sample_id}' from {file_path}")
+    return ledger
 
 
 def save_sample_ledger(
