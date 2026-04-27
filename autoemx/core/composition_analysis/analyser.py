@@ -3406,7 +3406,12 @@ class EMXSp_Composition_Analyzer:
                 self._ensure_quant_tracking_length(tot)
                 self._sync_existing_quantification_from_ledger()
 
-        # 1. Select compositions to use for clustering
+        # 1. Make analysis directory to save results
+        self._make_analysis_dir()
+    
+        self._save_analysis_config_summary()
+
+        # 2. Select compositions to use for clustering
         if max_analytical_error_percent is not None:
             max_analytical_error = max_analytical_error_percent / 100
         else:
@@ -3420,6 +3425,8 @@ class EMXSp_Composition_Analyzer:
             print(f"Only {n_datapts_used} spectra were considered 'good', but a minimum of 5 data points are required for clustering.")
             # Print additional messages with how many spectra were discarded for which reason
             self._report_n_discarded_spectra(n_datapts, max_analytical_error)
+            # Save Composition.csv file anyways
+            self._save_collected_data(None, None, backup_previous_data=True, include_spectral_data=False)
             return False, 0, 0  # zeroes are placeholders
     
         if self.verbose:
@@ -3427,11 +3434,6 @@ class EMXSp_Composition_Analyzer:
             print('Spectra selection:')
             print(f"{n_datapts_used} data points are used, out of {n_datapts} collected spectra.")
             self._report_n_discarded_spectra(n_datapts, max_analytical_error)
-    
-        # 2. Make analysis directory to save results
-        self._make_analysis_dir()
-    
-        self._save_analysis_config_summary()
 
         # 3. Prepare DataFrames for clustering
         compositions_df, compositions_df_other_fr = self._prepare_composition_dataframes(compositions_list_at, compositions_list_w)
