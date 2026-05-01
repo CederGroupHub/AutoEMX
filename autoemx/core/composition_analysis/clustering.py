@@ -16,6 +16,9 @@ from yellowbrick.cluster import KElbowVisualizer
 import autoemx.utils.constants as cnst
 from autoemx.utils import print_single_separator
 
+from autoemx._logging import get_logger
+logger = get_logger(__name__)
+
 
 class ClusteringModule:
     def _find_optimal_k(self, compositions_df, k, compute_k_only_once = False):
@@ -47,7 +50,7 @@ class ClusteringModule:
                 )
         elif self.verbose:
             print_single_separator()
-            print(f"Number of clusters was forced to be {k}")
+            logger.info(f"ℹ️ Number of clusters was forced to be {k}")
         return k
     
     
@@ -103,7 +106,7 @@ class ClusteringModule:
     
         if verbose:
             print_single_separator()
-            print("Computing number of clusters k...")
+            logger.info("📊 Computing number of clusters k...")
     
         k_found = []
         k = None
@@ -156,11 +159,11 @@ class ClusteringModule:
                 k = None
     
         if verbose:
-            print(f"Most frequent k: {first_k} (count = {first_count}, frequency = {first_count / total:.2%})")
+            logger.info(f"📊 Most frequent k: {first_k} (count = {first_count}, frequency = {first_count / total:.2%})")
             if second_k is not None and second_k != 0:
-                print(f"Second most frequent k: {second_k} (count = {second_count}, frequency = {second_count / total:.2%})")
+                logger.info(f"📊 Second most frequent k: {second_k} (count = {second_count}, frequency = {second_count / total:.2%})")
             if len(np.where(counts == first_count)[0]) > 1:
-                print(f"Tie detected among: {np.where(counts == first_count)[0].tolist()} (choosing {k})")
+                logger.info(f"ℹ️ Tie detected among: {np.where(counts == first_count)[0].tolist()} (choosing {k})")
     
         return int(k)
     
@@ -303,7 +306,7 @@ class ClusteringModule:
     
         if verbose:
             print_single_separator()
-            print('Checking if more than 1 cluster is present...')
+            logger.info('📊 Checking if more than 1 cluster is present...')
     
         # Fit k-means for k=1
         kmeans_1 = KMeans(n_clusters=1, random_state=0, n_init='auto')
@@ -326,11 +329,11 @@ class ClusteringModule:
         ratio_inertias = inertia_1 / best_inertia_2 if best_inertia_2 else float('inf')
     
         if verbose:
-            print(f"RMS distance for k=1: {rms_distance_1*100:.1f}%")
-            print(f"Inertia for k=1: {inertia_1:.3f}")
-            print(f"Inertia for k=2: {best_inertia_2:.3f}")
-            print(f"Ratio of inertia for k=1 over k=2: {ratio_inertias:.2f}")
-            print(f"Silhouette Score for k=2: {best_silhouette_score_2:.2f}")
+            logger.info(f"📊 RMS distance for k=1: {rms_distance_1*100:.1f}%%")
+            logger.info(f"📊 Inertia for k=1: {inertia_1:.3f}")
+            logger.info(f"📊 Inertia for k=2: {best_inertia_2:.3f}")
+            logger.info(f"📊 Ratio of inertia for k=1 over k=2: {ratio_inertias:.2f}")
+            logger.info(f"📊 Silhouette Score for k=2: {best_silhouette_score_2:.2f}")
     
         # Empirical decision logic
         if rms_distance_1 < 0.03:
@@ -351,9 +354,9 @@ class ClusteringModule:
     
         if verbose:
             if is_single_cluster:
-                print(reason_str + ": The data effectively forms a single cluster.")
+                logger.info("ℹ️ " + reason_str + ": The data effectively forms a single cluster.")
             else:
-                print(reason_str + ": The data forms multiple clusters.") 
+                logger.info("ℹ️ " + reason_str + ": The data forms multiple clusters.") 
     
         return is_single_cluster
     #%% Clustering operations

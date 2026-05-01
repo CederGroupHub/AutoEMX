@@ -44,6 +44,9 @@ import warnings
 from typing import Optional, Tuple, List
 from autoemx.utils import EMError
 
+from autoemx._logging import get_logger
+logger = get_logger(__name__)
+
 # =============================================================================
 # Stage Physical Limits (example values — adapt to your microscope)
 # =============================================================================
@@ -87,20 +90,47 @@ im_height: int = 1200
 # =============================================================================
 # Microscope Connection
 # =============================================================================
-# Connect to the electron microscope API and define image acquisition parameters.
-try:
-    import PyPhenom as ppi
-    phenom = ppi.Phenom()
-    acqScanParams = ppi.ScanParams()
-    acqScanParams.size = ppi.Size(im_width, im_height)
-    acqScanParams.detector = ppi.DetectorMode.All  # Preferably use backscattered detector
-    acqScanParams.nFrames = 1  # Limit frames to 1 to speed acquisition
-    acqScanParams.hdr = False
-    acqScanParams.scale = 1.0
-    is_at_EM: bool = True  # Flag indicates successful connection to microscope
-except Exception as e:
-    is_at_EM: bool = False  # Flag indicates unsuccessful connection
-    warnings.warn(f'Microscope driver not available: {e}.')
+# Delay API import/connection until microscope operations are actually requested.
+ppi = None
+phenom = None
+acqScanParams = None
+is_at_EM: bool = False
+
+
+def connect_to_microscope(warn_if_unavailable: bool = True) -> bool:
+    """Connect to the microscope API on demand.
+
+    Returns
+    -------
+    bool
+        True when connected, False when unavailable.
+    """
+    global ppi, phenom, acqScanParams, is_at_EM
+
+    if is_at_EM and phenom is not None and ppi is not None and acqScanParams is not None:
+        return True
+
+    try:
+        import PyPhenom as ppi_module
+
+        ppi = ppi_module
+        phenom = ppi.Phenom()
+        acqScanParams = ppi.ScanParams()
+        acqScanParams.size = ppi.Size(im_width, im_height)
+        acqScanParams.detector = ppi.DetectorMode.All  # Preferably use backscattered detector
+        acqScanParams.nFrames = 1  # Limit frames to 1 to speed acquisition
+        acqScanParams.hdr = False
+        acqScanParams.scale = 1.0
+        is_at_EM = True
+        return True
+    except Exception as e:
+        ppi = None
+        phenom = None
+        acqScanParams = None
+        is_at_EM = False
+        if warn_if_unavailable:
+            warnings.warn(f'Microscope driver not available: {e}.')
+        return False
 
 # =============================================================================
 # Coordinate Conversion Functions
@@ -257,7 +287,7 @@ def to_SEM(timeout: int = 120) -> None:
             break
         except Exception:
             wait_time = 5
-            print(f"Phenom busy. Retrying in {wait_time}s...")
+            logger.warning(f"⚠️ Phenom busy. Retrying in {wait_time}s...")
             time.sleep(wait_time)
     time.sleep(1)  # Workaround for API timing
 
@@ -629,7 +659,7 @@ def to_nav() -> bool:
     try:
         phenom.MoveToNavCam()
     except Exception as e:
-        print("Error: Failed to switch to navigation mode:", e)
+        logger.error("❌ Error: Failed to switch to navigation mode: %s", e)
         return False
     return True
 

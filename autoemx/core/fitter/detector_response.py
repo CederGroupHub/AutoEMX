@@ -27,6 +27,9 @@ import autoemx.utils.constants as cnst
 import autoemx.calibrations as calibs
 from autoemx.data.Xray_absorption_coeffs import xray_mass_absorption_coeff
 
+from autoemx._logging import get_logger
+logger = get_logger(__name__)
+
 parent_dir = str(Path(__file__).resolve().parent.parent.parent)
 
 
@@ -149,7 +152,7 @@ class DetectorResponseFunction:
                         # If it's STILL missing, we actually do the heavy lifting
                         if conv_matrices is None:
                             if True: # verbose:
-                                print(f"Calculating convolution matrices for key {conv_mat_key}...")
+                                logger.info(f"🔬 Calculating convolution matrices for key {conv_mat_key}...")
                                 
                             full_en_vector = [det_ch_offset + j * det_ch_width for j in range(calibs.detector_ch_n)]
                             det_res_conv_matrix = cls._calc_det_res_conv_matrix(full_en_vector, verbose)
@@ -179,7 +182,7 @@ class DetectorResponseFunction:
                     else:
                         # Wait patiently
                         if verbose:
-                            print("Waiting for another core to finish computing matrices...")
+                            logger.info("ℹ️ Waiting for another core to finish computing matrices...")
                         time.sleep(3)
                         
                         # Peek at the file to see if the other core finished our key
@@ -193,7 +196,7 @@ class DetectorResponseFunction:
         else:
             if verbose:
                 print_single_separator()
-                print("Detector response convolution matrices loaded")
+                logger.info("✅ Detector response convolution matrices loaded")
                 
         det_res_conv_matrix, icc_conv_matrix = conv_matrices
     
@@ -366,7 +369,7 @@ class DetectorResponseFunction:
     
         if verbose:
             start_time = time.time()
-            print("Calculating convolution matrix for detector resolution")
+            logger.info("🔬 Calculating convolution matrix for detector resolution")
     
         deltaE = energy_vals[5] - energy_vals[4]
         n_intervals = cls.energy_vals_padding
@@ -401,7 +404,7 @@ class DetectorResponseFunction:
         
         if verbose:
             process_time = time.time() - start_time
-            print(f"Calculation executed in {process_time:.1f} s")
+            logger.info(f"✅ Calculation executed in {process_time:.1f} s")
     
         return det_res_conv_matrix
     
@@ -632,7 +635,7 @@ class DetectorResponseFunction:
         
         if verbose:
             start_time = time.time()
-            print("Calculating convolution matrix for incomplete charge collection", file=sys.stderr, flush=True)
+            logger.info("🔬 Calculating convolution matrix for incomplete charge collection")
     
         deltaE = energy_vals[5] - energy_vals[4]
         n_intervals = cls.energy_vals_padding
@@ -646,7 +649,7 @@ class DetectorResponseFunction:
         len_row = len(energy_vals_extended)
         for i, en in enumerate(energy_vals_extended):
             if verbose:
-                print(f'{i}\tEnergy: {en * 1000:.1f} eV')
+                logger.debug(f'  {i}\tEnergy: {en * 1000:.1f} eV')
             icc_n_vals = np.zeros([len_row])
             if en > 0:
                 icc_spec = DetectorResponseFunction.get_icc_spectrum(
@@ -662,6 +665,6 @@ class DetectorResponseFunction:
         
         if verbose:
             process_time = time.time() - start_time
-            print(f"Calculation executed in {process_time:.1f} s")
+            logger.info(f"✅ Calculation executed in {process_time:.1f} s")
     
         return icc_conv_matrix

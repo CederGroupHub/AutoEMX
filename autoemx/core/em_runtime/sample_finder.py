@@ -25,6 +25,9 @@ from autoemx.core.em_runtime.image_utilities import normalise_img
 import autoemx.utils.constants as cnst
 from autoemx import microscope_drivers as EM_driver
 
+from autoemx._logging import get_logger
+logger = get_logger(__name__)
+
 
 class EM_Sample_Finder:
     """
@@ -139,14 +142,14 @@ class EM_Sample_Finder:
         """
         if self.verbose:
             print_single_separator()
-            print('Detecting position of C tape...')
+            logger.info('🔬 Detecting position of C tape...')
         
         # Collect NavCam image
         if navcam_im is None:
             navcam_im = self.EM_driver.get_navigation_camera_image()
         
         if navcam_im is None or not hasattr(navcam_im, "shape"):
-            print("No valid navigation camera image provided or acquired. C-tape detection skipped")
+            logger.warning("⚠️ No valid navigation camera image provided or acquired. C-tape detection skipped")
             return None
         
         # Get size of image in pixels
@@ -241,14 +244,14 @@ class EM_Sample_Finder:
             sample_hw_mm = r * navcam_pixel_size * 0.9
             Ctape_coords = (center_pos_eff, sample_hw_mm)
             if self.verbose:
-                print('C tape detected.')
+                logger.info('✅ C tape detected.')
         else:
             x, y = stub_hw, stub_hw
             r = int(self._sample_half_width_mm / navcam_pixel_size)
             Ctape_coords = None
             if self.verbose:
-                print(
-                    f'The C tape could not be automatically detected. '
+                logger.warning(
+                    f'⚠️ The C tape could not be automatically detected. '
                     f'Using {tuple(float(v) for v in self._center_pos)} instead.'
                 )
         

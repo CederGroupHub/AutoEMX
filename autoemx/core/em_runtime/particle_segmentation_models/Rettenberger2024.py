@@ -16,6 +16,9 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from autoemx._logging import get_logger
+logger = get_logger(__name__)
+
 def segment_particles(frame_image: np.ndarray,
                       powder_meas_config : 'PowderMeasurementConfig' = None,
                       save_image: bool = False,
@@ -202,7 +205,7 @@ def segment_particles(frame_image: np.ndarray,
     index_map = np.zeros(m_comb.shape, dtype=np.uint8)
     if labels_comb.size > 0:
         if labels_comb.size > 255:
-            print(f"[WARN] segment_particles: {labels_comb.size} particles detected; "
+            logger.warning(f"⚠️ segment_particles: {labels_comb.size} particles detected; "
                   f"capping index map at 255 (extra particles set to 255).")
 
         for idx, lbl in enumerate(labels_comb[:255], start=1):

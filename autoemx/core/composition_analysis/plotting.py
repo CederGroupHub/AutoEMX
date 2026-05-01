@@ -21,6 +21,9 @@ from autoemx.core.composition_analysis import custom_plotting_builtin as builtin
 import autoemx.utils.constants as cnst
 from autoemx.utils import print_single_separator, to_latex_formula
 
+from autoemx._logging import get_logger
+logger = get_logger(__name__)
+
 
 class PlottingModule:
     # Attributes are injected by the analyzer class during composition analysis.
@@ -182,8 +185,8 @@ class PlottingModule:
             print_single_separator()
             warnings.warn("Cannot generate clustering plot with a single element.", UserWarning)
             if len(self.detectable_els_sample) > 1:
-                print('Too many elements were excluded from the clustering plot via the use of "els_excluded_clust_plot".')
-                print(f'Consider removing one or more among the list: {self.plot_cfg.els_excluded_clust_plot}')
+                logger.warning('⚠️ Too many elements were excluded from the clustering plot via the use of "els_excluded_clust_plot".')
+                logger.info(f'ℹ️ Consider removing one or more among the list: {self.plot_cfg.els_excluded_clust_plot}')
         elif n_els > 3:
             els_excluded_clust_plot += els_for_plot[3:]
             els_for_plot = els_for_plot[:3]
@@ -216,9 +219,9 @@ class PlottingModule:
                     els_std_dev_per_cluster, unused_compositions_list
                 )
         elif self.verbose:
-            print('Clusters were not plotted because only one detectable element was present in the sample.')
+            logger.warning('⚠️ Clusters were not plotted because only one detectable element was present in the sample.')
             undetectable = getattr(calibs, 'undetectable_els', [])
-            print(f"Elements {undetectable} cannot be detected at the employed instrument.")
+            logger.warning(f"⚠️ Elements {undetectable} cannot be detected at the employed instrument.")
 
     def _save_clustering_plot(
         self,
@@ -366,10 +369,28 @@ class PlottingModule:
         if unused_compositions_list:
             zoom_points.append(np.asarray(unused_compositions_list, dtype=float))
         zoom_points.append(np.asarray(centroids, dtype=float))
+        # Add reference phases within 10% of any outlier to zoom extent
+        if self.ref_formulae is not None and unused_compositions_list:
+            ref_phases_df_zoom = self.ref_phases_df[elements]
+            unused_arr = np.asarray(unused_compositions_list, dtype=float)
+            threshold = 20  # 20% distance
+            for _, row in ref_phases_df_zoom.iterrows():
+                ref_point = np.array(row.values, dtype=float)
+                dists = np.linalg.norm(unused_arr - ref_point, axis=1)
+                if np.any(dists < threshold):
+                    zoom_points.append(ref_point.reshape(1, -1))
         all_points = np.vstack([pts for pts in zoom_points if pts.size > 0]) if zoom_points else np.empty((0, len(elements)))
+
+        # Compute zoom limits and expand by 20% of the span for better visibility
+        def expand_limits(low, high, margin_ratio=0.20):
+            span = high - low
+            margin = span * margin_ratio
+            return max(0.0, low - margin), min(1.0, high + margin)
 
         x_low, x_high = _compute_zoom_limits(all_points[:, 0] if all_points.size > 0 else np.array([]))
         y_low, y_high = _compute_zoom_limits(all_points[:, 1] if all_points.size > 0 else np.array([]))
+        x_low, x_high = expand_limits(x_low, x_high)
+        y_low, y_high = expand_limits(y_low, y_high)
         ax_zoomed.set_xlim(x_low, x_high)
         ax_zoomed.set_ylim(y_low, y_high)
 
@@ -381,6 +402,7 @@ class PlottingModule:
 
         if len(elements) == 3:
             z_low, z_high = _compute_zoom_limits(all_points[:, 2] if all_points.size > 0 else np.array([]))
+            z_low, z_high = expand_limits(z_low, z_high)
             ax_zoomed.set_zlim(z_low, z_high)
             ax_zoomed.zaxis.set_major_locator(MaxNLocator(nbins=6))
             ax_zoomed.zaxis.set_major_formatter(int_percent_formatter)
@@ -434,6 +456,23 @@ class PlottingModule:
         for spine in ax_left.spines.values():
             spine.set_color('black')
             spine.set_linewidth(0.5)
+            # --- Highlight reference phases near outliers (within 10% distance) ---
+            if self.ref_formulae is not None and unused_compositions_list:
+                ref_phases_df_zoom = self.ref_phases_df[elements]
+                unused_arr = np.asarray(unused_compositions_list, dtype=float)
+                threshold = 0.10  # 10% distance
+                for index, row in ref_phases_df_zoom.iterrows():
+                    ref_point = np.array(row.values, dtype=float)
+                    # Compute distances to all unused points
+                    dists = np.linalg.norm(unused_arr - ref_point, axis=1)
+                    if np.any(dists < threshold):
+                        # Plot this reference phase in the zoomed plot
+                        ax_zoomed.scatter(*ref_point, c='cyan', marker='*', s=180, label='Nearby ref phase' if index == 0 else None, edgecolor='black', zorder=10)
+                        ref_label = to_latex_formula(self.ref_formulae[index])
+                        if len(elements) == 3:
+                            ax_zoomed.text(*ref_point, ref_label, color='black', fontsize=fontsize, ha='left', va='bottom')
+                        else:
+                            ax_zoomed.text(*ref_point, ref_label, color='black', fontsize=fontsize, ha='left', va='bottom')
         plt.grid(False)
 
         plt.xlim(-0.5, 0.5)

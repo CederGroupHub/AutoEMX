@@ -85,6 +85,9 @@ import autoemx.utils.constants as cnst
 from autoemx import microscope_drivers as EM_driver
 import autoemx.core.em_runtime.particle_segmentation_models as par_seg_models
 
+from autoemx._logging import get_logger
+logger = get_logger(__name__)
+
 #%% Electron Microscope Particle Finder class    
 class EM_Particle_Finder:
     """
@@ -306,7 +309,7 @@ class EM_Particle_Finder:
             prompt.run()
     
             if prompt.execution_stopped:  # Check if execution was stopped after the loop
-                print("Execution stopped by the user.")
+                logger.warning("⚠️ Execution stopped by the user.")
                 return False
     
             if prompt.ok_pressed:
@@ -434,7 +437,7 @@ class EM_Particle_Finder:
                 par_string = 'particle was'
             else:
                 par_string = 'particles were'
-            print(f"{num_par} {par_string} found in current frame")
+            logger.info(f"✅ {num_par} {par_string} found in current frame")
         if num_par == 0:
             return False
         
@@ -654,11 +657,11 @@ class EM_Particle_Finder:
     
         is_par_large_enough = area >= min_area_pixels
         if not is_par_large_enough and self.is_manual_particle_selection:
-            print(f"Selected particle is too small ({area*self.EM.pixel_size_um**2:.2f} um^2), select another one")
+            logger.warning(f"⚠️ Selected particle is too small ({area*self.EM.pixel_size_um**2:.2f} um^2), select another one")
     
         is_par_small_enough = area <= max_area_pixels
         if not is_par_small_enough and self.is_manual_particle_selection:
-            print(f"Selected particle is too large ({area*self.EM.pixel_size_um**2:.2f} um^2), select another one")
+            logger.warning(f"⚠️ Selected particle is too large ({area*self.EM.pixel_size_um**2:.2f} um^2), select another one")
     
         is_par_area_ok = is_par_large_enough and is_par_small_enough
     
@@ -1275,10 +1278,10 @@ class EM_Particle_Finder:
             previous_n_par = len(self.analyzed_pars)
             par_were_found = self._move_and_get_particles_stats_in_frame()
             if par_were_found is None:
-                print(f"Could not find {n_par_target} particles. Completed statistics using {len(self.analyzed_pars)} particles.")
+                logger.warning(f"⚠️ Could not find {n_par_target} particles. Completed statistics using {len(self.analyzed_pars)} particles.")
                 break
             elif par_were_found is False:
-                if self.verbose: print("No particle was found in this frame")
+                if self.verbose: logger.warning("⚠️ No particle was found in this frame")
                 par_not_found_cntr +=1
             elif par_were_found:
                 if self.verbose:
@@ -1286,11 +1289,11 @@ class EM_Particle_Finder:
                     n_par_found_frame = tot_n_par_found - previous_n_par
                     plural_frame = n_par_found_frame != 1
                     plural_total = tot_n_par_found != 1
-                    print(
+                    logger.info(
                         f"{n_par_found_frame} particle{'s' if plural_frame else ''} "
                         f"{'were' if plural_frame else 'was'} found in this frame."
                     )
-                    print(
+                    logger.info(
                         f"A total of {tot_n_par_found} particle{'s' if plural_total else ''} "
                         f"{'have' if plural_total else 'has'} now been analyzed."
                         f"{n_par_target - tot_n_par_found} more to go."
@@ -1301,7 +1304,7 @@ class EM_Particle_Finder:
         n_par_analysed = len(self.analyzed_pars)
         
         if n_par_analysed == 0:
-            print('Could not find any particle. Please check your sample, or change the constrast/brightness values.')
+            logger.error('❌ Could not find any particle. Please check your sample, or change the constrast/brightness values.')
             return None
             
         par_size_distr_df = self.save_particle_statistics()
@@ -1347,7 +1350,7 @@ class EM_Particle_Finder:
     
         # ---- Warn if smallest particles have same size (pixel limit indication) ----
         if n_par_analysed > 1 and np.isclose(areas_um.min(), np.partition(areas_um, 1)[1]):
-            print(
+            logger.warning(
                 '⚠ The 2 smallest particles have identical area.\n'
                 '   This may indicate they are only 1–2 pixels in size.\n'
                 '   Frame width is set based on maximum acceptable particle size.\n'
@@ -1397,8 +1400,8 @@ class EM_Particle_Finder:
         # ---- Optional verbose output ----
         if self.verbose:
             print_double_separator()
-            print("Computed statistics:\n")
-            print(stats_df.T.to_string(header=False))
+            logger.info("📊 Computed statistics:")
+            logger.info(stats_df.T.to_string(header=False))
     
         # ---- Generate and save particle size histogram ----
         self._save_particle_size_histogram(

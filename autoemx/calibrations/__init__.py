@@ -25,6 +25,9 @@ from datetime import datetime
 import autoemx.utils.constants as cnst
 from autoemx.utils import print_single_separator
 
+from autoemx._logging import get_logger
+logger = get_logger(__name__)
+
 microscope_calibrations_loaded = False
 def load_microscope_calibrations(
     microscope_ID: str,
@@ -194,7 +197,7 @@ def get_latest_detector_channel_params(verbose: bool = True) -> None:
         
     if verbose:
         print_single_separator()
-        print(f"Using detector calibration file '{calib_file}'")
+        logger.info(f"ℹ️ Using detector calibration file '{calib_file}'")
         
 
 def update_detector_channel_params(meas_mode, new_offset, new_scale, verbose: bool = True):
@@ -247,7 +250,7 @@ def update_detector_channel_params(meas_mode, new_offset, new_scale, verbose: bo
 
     if verbose:
         print_single_separator()
-        print(f"Calibration saved to: {output_file_path}")
+        logger.info(f"✅ Calibration saved to: {output_file_path}")
 
         
 
@@ -292,12 +295,12 @@ def load_standards(meas_type: str, beam_energy: int, std_f_dir : str = None) -> 
     if std_f_dir is not None:
         standards_dir = os.path.join(std_f_dir, std_dict_filename)
         if not os.path.exists(std_f_dir): # Check if path exists
-            print(f"Warning: The provided path for reference standards {std_f_dir} does not exist.")
-            print(f"Using standard reference file at {microscope_calib_dir}")
+            logger.warning(f"⚠️ Warning: The provided path for reference standards {std_f_dir} does not exist.")
+            logger.info(f"ℹ️ Using standard reference file at {microscope_calib_dir}")
             std_f_dir = microscope_calib_dir
         elif not os.path.exists(standards_dir): # Check if reference file exists
-            print(f"Warning: The reference standards file {standards_dir} does not exist.")
-            print(f"Using standard reference file at {microscope_calib_dir}")
+            logger.warning(f"⚠️ Warning: The reference standards file {standards_dir} does not exist.")
+            logger.info(f"ℹ️ Using standard reference file at {microscope_calib_dir}")
             std_f_dir = microscope_calib_dir
     else:
         std_f_dir = microscope_calib_dir

@@ -18,6 +18,9 @@ from typing import Optional, List, Tuple
 
 from autoemx.utils import EMError, Prompt_User
 
+from autoemx._logging import get_logger
+logger = get_logger(__name__)
+
 
 class SpectrumAcquisition:
     """
@@ -118,7 +121,7 @@ class SpectrumAcquisition:
         elif self.sample_cfg.is_particle_acquisition:
             return self._get_particle_coords(frame_navigator)
         
-        print(f"Acquisition mode not implemented for sample type: {self.sample_cfg.type}")
+        logger.error(f"❌ Acquisition mode not implemented for sample type: {self.sample_cfg.type}")
         return False, None, None
     
     
@@ -133,7 +136,7 @@ class SpectrumAcquisition:
         prompt.run()
         
         if prompt.execution_stopped:
-            print("Execution stopped by the user.")
+            logger.warning("⚠️ Execution stopped by the user.")
             return False, None, None
         
         if prompt.ok_pressed:
@@ -143,7 +146,7 @@ class SpectrumAcquisition:
                     raise AttributeError("im_width attribute missing or zero.")
                 pixel_size_um = frame_width_mm / self.im_width * 1e3
             except Exception as e:
-                print(f"Error determining pixel size: {e}")
+                logger.error(f"❌ Error determining pixel size: {e}")
                 return False, None, None
             
             spots_xy_list = self.EM_driver.frame_pixel_to_rel_coords(
@@ -170,7 +173,7 @@ class SpectrumAcquisition:
             if recalc_success:
                 movement_success = frame_navigator.go_to_next_frame(microscope_ctrl)
                 if not movement_success:
-                    print("Error moving to next frame")
+                    logger.error("❌ Error moving to next frame")
                     return False, None, None
             else:
                 return False, None, None
@@ -181,7 +184,7 @@ class SpectrumAcquisition:
                 raise AttributeError("im_width attribute missing or zero.")
             pixel_size_um = frame_width_mm / self.im_width * 1e3
         except Exception as e:
-            print(f"Error determining pixel size: {e}")
+            logger.error(f"❌ Error determining pixel size: {e}")
             return False, None, None
         
         spots_xy_list = self.EM_driver.frame_pixel_to_rel_coords(
@@ -199,7 +202,7 @@ class SpectrumAcquisition:
         was_particle_found = frame_navigator.particle_finder.go_to_next_particle()
         if not was_particle_found:
             if self.verbose:
-                print('No more particles could be found on the sample.')
+                logger.warning('⚠️ No more particles could be found on the sample.')
             return False, None, None
         
         particle_cntr = frame_navigator.particle_finder.tot_par_cntr
@@ -208,7 +211,7 @@ class SpectrumAcquisition:
                 particle_cntr
             )
         except Exception as e:
-            print(f"Error getting acquisition spot coordinates: {e}")
+            logger.error(f"❌ Error getting acquisition spot coordinates: {e}")
             return False, None, None
         
         return True, spots_xy_list, particle_cntr

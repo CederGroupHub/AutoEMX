@@ -105,6 +105,7 @@ from autoemx.config import (
     PlotConfig,
 )
 from autoemx.config.ledger_schemas import (
+
     AcquisitionDetails,
     ClusteringConfig as LedgerClusteringConfig,
     Coordinate2D,
@@ -127,6 +128,9 @@ from .plotting import PlottingModule
 from .reference_matching import ReferenceMatchingModule
 from autoemx.utils.legacy.spectrum_pointer_writer import load_vendor_msa_template_lines, write_spectrum_pointer_file
 from .standards import StandardsModule
+
+from autoemx._logging import get_logger
+logger = get_logger(__name__)
 
 parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -224,7 +228,7 @@ class EMXSp_Composition_Analyzer:
         self.start_process_time = time.time()
         if verbose:
             print_double_separator()
-            print(f"Starting compositional analysis of sample {sample_cfg.ID}")
+            logger.info(f"▶️ Starting compositional analysis of sample {sample_cfg.ID}")
             
             
         # --- Define use of class instance
@@ -547,7 +551,7 @@ class EMXSp_Composition_Analyzer:
             If directory creation fails.
         """
         quantification_id, clustering_id = self._resolve_active_analysis_config_ids()
-        base_name = f"analysis_Quant{quantification_id}_Clust{clustering_id}"
+        base_name = f"analysis_quant{quantification_id}_clust{clustering_id}"
         analysis_dir = os.path.join(self.sample_result_dir, base_name)
 
         try:
@@ -598,7 +602,7 @@ class EMXSp_Composition_Analyzer:
             sp_high = int(float(q.spectrum_lims[1]))
 
         lines.append("=" * 60)
-        lines.append("QUANTIFICATION CONFIG")
+        lines.append("QUANTIFICATION CONFIGURATIONS")
         lines.append("=" * 60)
         if qc is not None:
             lines.append(f"  Quantification ID    : {qc.quantification_id}")
@@ -615,14 +619,12 @@ class EMXSp_Composition_Analyzer:
         lines.append(f"  Project std dict     : {'yes' if use_proj_std_dict_used else 'no'}")
         if qc is not None and qc.reference_lines_by_element:
             sample_elements = set(qc.sample_elements or [])
-            reference_lines_by_element = {
-                el: line
-                for el, line in qc.reference_lines_by_element.items()
+            reference_lines_by_element = [
+                el_line
+                for el, el_line in qc.reference_lines_by_element.items()
                 if el in sample_elements
-            }
-            ref_lines_str = ', '.join(
-                f'{el} -> {ln}' for el, ln in sorted(reference_lines_by_element.items())
-            )
+            ]
+            ref_lines_str = ', '.join(reference_lines_by_element)
             if ref_lines_str:
                 lines.append(f"  Reference lines      : {ref_lines_str}")
 
@@ -631,7 +633,7 @@ class EMXSp_Composition_Analyzer:
 
         lines.append("")
         lines.append("=" * 60)
-        lines.append("CLUSTERING CONFIG")
+        lines.append("CLUSTERING CONFIGURATIONS")
         lines.append("=" * 60)
         if hasattr(cc, "clustering_id"):
             lines.append(f"  Clustering ID        : {cc.clustering_id}")
@@ -846,56 +848,38 @@ class EMXSp_Composition_Analyzer:
         x: float,
         y: float,
         spectrum_id: str,
-        msa_file_path: Optional[str] = None,
-    ) -> Tuple[float, int]:
+        msa_file_path: str,
+    ) -> int:
         """
         Acquire an X-ray spectrum at the specified stage position and store the results.
-    
+
         Parameters
         ----------
         x, y : float
-            X, Y coordinates for the spectrum acquisition.
-            Coordinate System
-            ----------------
-            The coordinates are expressed in a normalized, aspect-ratio-correct system centered at the image center:
-    
-                - The origin (0, 0) is at the image center.
-                - The x-axis is horizontal, increasing to the right, ranging from -0.5 (left) to +0.5 (right).
-                - The y-axis is vertical, increasing downward, and scaled by the aspect ratio (height/width):
-                    * Top edge:    y = -0.5 × (height / width)
-                    * Bottom edge: y = +0.5 × (height / width)
-                
-                |        (-0.5, -0.5*height/width)         (0.5, -0.5*height/width)
-                |                       +-------------------------+
-                |                       |                         |
-                |                       |                         |
-                |                       |           +(0,0)        |-----> +x
-                |                       |                         |
-                |                       |                         |
-                v  +y                   +-------------------------+
-                        (-0.5,  0.5*height/width)         (0.5, 0.5*height/width)
-    
-            This ensures the coordinate system is always centered and aspect-ratio-correct, regardless of image size.
-    
+            The x, y machine coordinates for the spectrum acquisition.
+        spectrum_id : str
+            Unique identifier for the spectrum.
+        msa_file_path : str
+            Path to save the acquired spectrum (.msa file).
+
         Returns
         -------
-        collection_time : float
-            Real acquisition time used, read from the persisted pointer file when possible.
         total_counts : int
             Total counts in the acquired spectrum, derived from persisted data.
-    
+
         Notes
         -----
-        - Results are appended to self.spectral_data using the keys defined in `cnst`.
+        All spectrum data is saved to and loaded from .msa files. No in-memory spectrum caching is used.
         """
         # Acquire at the instrument and rely on persisted pointer files as source of truth.
         background_elements = None
         if self.quant_cfg.use_instrument_background:
             background_elements = list(getattr(self, "detectable_els_sample", []) or [])
 
-        if msa_file_path:
-            os.makedirs(os.path.dirname(msa_file_path), exist_ok=True)
+        os.makedirs(os.path.dirname(msa_file_path), exist_ok=True)
 
+        # Measure real acquisition time
+        _acq_start = time.time()
         spectrum_data, background_data = self.EM_controller.acquire_XS_spot_spectrum(
             x, y,
             self.measurement_cfg.max_acquisition_time,
@@ -903,16 +887,26 @@ class EMXSp_Composition_Analyzer:
             elements=background_elements,
             msa_file_path=msa_file_path,
         )
+        _acq_end = time.time()
+        measured_real_time = _acq_end - _acq_start
 
         counts_arr = np.asarray(spectrum_data, dtype=float)
-        real_time = None
-        if msa_file_path:
-            pointer_path = Path(msa_file_path)
-            loaded_counts = SampleLedger._load_counts_from_pointer_file(pointer_path)
-            counts_arr = np.asarray(loaded_counts, dtype=float)
-            real_time = self._load_realtime_from_pointer_file(pointer_path)
-        if real_time is None:
-            real_time = 1.0
+
+        pointer_path = Path(msa_file_path)
+        if not pointer_path.exists():
+            from autoemx.utils.legacy.spectrum_pointer_writer import write_spectrum_pointer_file
+            write_spectrum_pointer_file(
+                str(pointer_path),
+                list(counts_arr),
+                getattr(self, 'energy_vals', []),
+                real_time=measured_real_time
+            )
+        loaded_counts = SampleLedger._load_counts_from_pointer_file(pointer_path)
+        counts_arr = np.asarray(loaded_counts, dtype=float)
+
+        # For user info, print the acquisition time
+        if self.verbose:
+            logger.info(f"✅ Acquisition took {measured_real_time:.2f} s")
 
         if self.quant_cfg.use_instrument_background and background_data is not None:
             self._write_manufacturer_background_vector(
@@ -926,15 +920,8 @@ class EMXSp_Composition_Analyzer:
                 "remaining spectra in this run."
             )
             self.quant_cfg.use_instrument_background = False
-    
-        # Store results in the spectral_data dictionary
-        self.spectral_data[cnst.SPECTRUM_DF_KEY].append(counts_arr)
-        # Background vectors are file-backed sidecars and hydrated before quantification.
-        self.spectral_data[cnst.BACKGROUND_DF_KEY].append(None)
-        self.spectral_data[cnst.REAL_TIME_DF_KEY].append(real_time)
-        self.spectral_data[cnst.LIVE_TIME_DF_KEY].append(real_time)
-    
-        return real_time, int(round(float(np.sum(counts_arr))))
+
+        return int(np.round(np.sum(counts_arr)))
     
     
     def _fit_exp_std_spectrum(
@@ -982,7 +969,7 @@ class EMXSp_Composition_Analyzer:
             else:
                 sp_id_str = '...'
             print_single_separator()
-            print('Fitting spectrum' + sp_id_str)
+            logger.info('🔬 Fitting spectrum' + sp_id_str)
             start_quant_time = time.time()
                             
         # Check if spectrum is worth fitting
@@ -990,38 +977,37 @@ class EMXSp_Composition_Analyzer:
         if not is_sp_valid_for_fitting:
             return None, quant_flag, comment
         
-        # Initialize class to quantify spectrum
-        quantifier = XSp_Quantifier(
-            spectrum_vals=spectrum,
-            spectrum_lims=(self.sp_start, self.sp_end),
-            microscope_ID=self.microscope_cfg.ID,
-            meas_type=self.measurement_cfg.type,
-            meas_mode=self.measurement_cfg.mode,
-            det_ch_offset=self.det_ch_offset,
-            det_ch_width=self.det_ch_width,
-            beam_e=self.measurement_cfg.beam_energy_keV,
-            emergence_angle=self.measurement_cfg.emergence_angle,
-            energy_vals=None,
-            background_vals=background,
-            els_sample=self.all_els_sample,
-            els_substrate=self.detectable_els_substrate,
-            els_w_fr=self.exp_stds_cfg.w_frs,
-            is_particle=self._apply_geom_factors,
-            sp_collection_time=sp_collection_time,
-            max_undetectable_w_fr=self.undetectable_an_er,
-            fit_tol=self.quant_cfg.fit_tolerance,
-            standards_dict=self.XSp_std_dict,
-            verbose=False,
-            fitting_verbose=False
-        )
-        
         try:
+            # Initialize class to quantify spectrum
+            quantifier = XSp_Quantifier(
+                spectrum_vals=spectrum,
+                spectrum_lims=(self.sp_start, self.sp_end),
+                microscope_ID=self.microscope_cfg.ID,
+                meas_type=self.measurement_cfg.type,
+                meas_mode=self.measurement_cfg.mode,
+                det_ch_offset=self.det_ch_offset,
+                det_ch_width=self.det_ch_width,
+                beam_e=self.measurement_cfg.beam_energy_keV,
+                emergence_angle=self.measurement_cfg.emergence_angle,
+                energy_vals=None,
+                background_vals=background,
+                els_sample=self.all_els_sample,
+                els_substrate=self.detectable_els_substrate,
+                els_w_fr=self.exp_stds_cfg.w_frs,
+                is_particle=self._apply_geom_factors,
+                sp_collection_time=sp_collection_time,
+                max_undetectable_w_fr=self.undetectable_an_er,
+                fit_tol=self.quant_cfg.fit_tolerance,
+                standards_dict=self.XSp_std_dict,
+                verbose=False,
+                fitting_verbose=False
+            )
             bad_quant_flag = quantifier.initialize_and_fit_spectrum(print_results=self.verbose)
             is_fit_valid = True
             min_bckgrnd_ref_lines = quantifier._get_min_bckgrnd_cnts_ref_quant_lines()
         except Exception as e:
             is_fit_valid = False
-            print(f"{type(e).__name__}: {e}")
+            logger.error(f"❌ {type(e).__name__}: {e}")
             traceback.print_exc()
             quant_flag, comment = self._check_fit_quant_validity(is_fit_valid, None, None, None)
             return None, quant_flag, comment
@@ -1036,7 +1022,7 @@ class EMXSp_Composition_Analyzer:
         
         if verbose:
             fit_time = time.time() - start_quant_time
-            print(f"Fitting took {fit_time:.2f} s")
+            logger.info(f"✅ Fitting took {fit_time:.2f} s")
     
         return fit_results_dict, quant_flag, comment
     
@@ -1084,7 +1070,7 @@ class EMXSp_Composition_Analyzer:
                         are_all_ref_peaks_present = False
                         # Reference peak not present
                         if self.verbose:
-                            print(f"{el_line} reference peak missing.")
+                            logger.warning(f"⚠️ {el_line} reference peak missing.")
                     
         # Create dictionary of fit results
         fit_results_dict = {**PB_ratios_d, cnst.R_SQ_KEY : r_squared, cnst.REDCHI_SQ_KEY : reduced_chi_squared}
@@ -1139,7 +1125,7 @@ class EMXSp_Composition_Analyzer:
             else:
                 sp_id_str = '...'
             print_single_separator()
-            print('Quantifying spectrum' + sp_id_str)
+            logger.info('🔬 Quantifying spectrum' + sp_id_str)
             start_quant_time = time.time()
                             
         # Check if spectrum is worth fitting
@@ -1189,7 +1175,7 @@ class EMXSp_Composition_Analyzer:
             )
             is_quant_fit_valid = True if quant_result is not None else False
         except Exception as e:
-            print(f"{type(e).__name__}: {e}")
+            logger.error(f"❌ {type(e).__name__}: {e}")
             is_quant_fit_valid = False
             quant_flag, comment = self._check_fit_quant_validity(is_quant_fit_valid, None, None, None)
             quant_record = quantifier.export_quantification_result(
@@ -1210,10 +1196,13 @@ class EMXSp_Composition_Analyzer:
         
         if verbose and quant_result:
             quantification_time = time.time() - start_quant_time
+            quant_lines = []
+            quant_lines.append(f"Spectrum #{sp_id}:")
             for el in quant_result[cnst.COMP_AT_FR_KEY].keys():
-                print(f"{el} at%: {quant_result[cnst.COMP_AT_FR_KEY][el]*100:.2f}%")
-            print(f"An. er.: {quant_result[cnst.AN_ER_KEY]*100:.2f}%")
-            print(f"Quantification took {quantification_time:.2f} s")
+                quant_lines.append(f"  {el} at%: {quant_result[cnst.COMP_AT_FR_KEY][el]*100:.2f}%")
+            quant_lines.append(f"  Analytical error: {quant_result[cnst.AN_ER_KEY]*100:.2f}%")
+            quant_lines.append(f"  Quantification took {quantification_time:.2f} s")
+            logger.info("\n".join(quant_lines))
     
         return quant_result, quant_record, quant_flag, comment
 
@@ -1669,10 +1658,15 @@ class EMXSp_Composition_Analyzer:
             pointer_abs = Path(ledger.sample_path, spectrum.spectrum_relpath)
             try:
                 counts = SampleLedger._load_counts_from_pointer_file(pointer_abs)
+                counts_arr = np.asarray(counts, dtype=float)
             except Exception:
                 continue
 
-            spectra_vals.append(np.asarray(counts, dtype=float))
+            # Only hydrate entries with valid counts (non-empty, non-NaN, positive sum)
+            if counts_arr.size == 0 or not np.isfinite(np.sum(counts_arr)) or np.sum(counts_arr) <= 0:
+                continue
+
+            spectra_vals.append(counts_arr)
 
             background_vector = None
             if self.quant_cfg.use_instrument_background and spectrum.instrument_background_relpath:
@@ -2108,7 +2102,7 @@ class EMXSp_Composition_Analyzer:
     def _next_quantification_id(existing_ledger: Optional[SampleLedger]) -> int:
         """Return the next ledger-local integer quantification identifier."""
         if existing_ledger is None or not existing_ledger.quantification_configs:
-            return 1
+            return 0
         return max(config.quantification_id for config in existing_ledger.quantification_configs) + 1
 
 
@@ -2292,17 +2286,17 @@ class EMXSp_Composition_Analyzer:
     
         if bad_quant_flag == 1:
             if self.verbose and is_quant_fit_valid:
-                print("Flagged for poor fit")
+                logger.warning("⚠️ Flagged for poor fit")
             comment = start_str_comments + "poor fit"
             quant_flag = 4
         elif bad_quant_flag == 2:
             if self.verbose and is_quant_fit_valid:
-                print("Flagged for excessively high analytical error")
+                logger.warning("⚠️ Flagged for excessively high analytical error")
             comment = start_str_comments + "excessively high analytical error"
             quant_flag = 5
         elif bad_quant_flag == 3:
             if self.verbose and is_quant_fit_valid:
-                print("Flagged for excessive X-ray absorption")
+                logger.warning("⚠️ Flagged for excessive X-ray absorption")
             comment = start_str_comments + "excessive X-ray absorption"
             quant_flag = 6
         elif not is_quant_fit_valid:
@@ -2369,14 +2363,14 @@ class EMXSp_Composition_Analyzer:
             comment = "No spectral data present"
             quant_flag = 1
             if self.verbose:
-                print("Error during spectrum collection. No quantification was done.")
+                logger.error("❌ Error during spectrum collection. No quantification was done.")
         elif np.sum(spectrum) < 0.9 * self.measurement_cfg.target_acquisition_counts:
             # Skip quantification of spectrum when counts are too low
             is_spectrum_valid = False
             comment = "Total counts too low"
             quant_flag = 2
             if self.verbose:
-                print(f"Quantification skipped due to spectrum counts lower than 90% of the target counts of {self.measurement_cfg.target_acquisition_counts}")
+                logger.info(f"⏭️ Quantification skipped due to spectrum counts lower than 90% of the target counts of {self.measurement_cfg.target_acquisition_counts}")
         else:
             # Skip quantification if too many low values, which leads to errors due to imprecise fitting
             n_vals_considered = 20  # Number of data channels that must be low for spectrum to be excluded
@@ -2397,8 +2391,8 @@ class EMXSp_Composition_Analyzer:
                 comment = "Background counts too low"
                 quant_flag = 3
                 if self.verbose:
-                    print(f"Quantification skipped due to at least {n_vals_considered} spectrum points with E < {en_threshold} keV having a count lower than {min_background_threshold}")
-                    print("This generally indicates an excessive absorption of X-rays before they reach the detector, which compromises accurate measurements of PB ratios.")
+                    logger.info(f"⏭️ Quantification skipped due to at least {n_vals_considered} spectrum points with E < {en_threshold} keV having a count lower than {min_background_threshold}")
+                    logger.warning("⚠️ This generally indicates an excessive absorption of X-rays before they reach the detector, which compromises accurate measurements of PB ratios.")
     
         return is_spectrum_valid, quant_flag, comment
     
@@ -2458,8 +2452,8 @@ class EMXSp_Composition_Analyzer:
                 comment = f"{el} {peak_int:.0f} counts > {sub_peak_int_threshold} % of total counts"
                 quant_flag = 7
                 if self.verbose:
-                    print(f"Intensity of substrate element {el} is {peak_int:.0f} cnts, larger than {sub_peak_int_threshold}% of total counts")
-                    print("This is likely to lead to large quantification errors.")
+                    logger.warning(f"⚠️ Intensity of substrate element {el} is {peak_int:.0f} cnts, larger than {sub_peak_int_threshold}% of total counts")
+                    logger.warning("⚠️ This is likely to lead to large quantification errors.")
                 break  # Stop if one element has too high intensity
     
         # Check that background intensity is high enough
@@ -2475,8 +2469,8 @@ class EMXSp_Composition_Analyzer:
                 )
                 quant_flag = 8
                 if self.verbose:
-                    print(f"Counts below a reference peak are on average < {min_background_threshold}")
-                    print("This is likely to lead to large quantification errors.")
+                    logger.warning(f"⚠️ Counts below a reference peak are on average < {min_background_threshold}")
+                    logger.warning("⚠️ This is likely to lead to large quantification errors.")
             else:
                 quant_flag = 0  # Quantification is ok
     
@@ -2488,7 +2482,7 @@ class EMXSp_Composition_Analyzer:
     def _collect_spectra(
         self,
         n_spectra_to_collect: int,
-        n_tot_sp_collected: int = 0,
+        n_tot_sp_collected: Optional[int] = None,
         quantify: bool = True
     ) -> Tuple[int, bool]:
         """
@@ -2520,7 +2514,19 @@ class EMXSp_Composition_Analyzer:
         - If `quantify` is True, quantification occurs immediately after each collection.
         """
         success = False
-    
+
+        # Auto-detect next available spectrum ID if not provided
+        if n_tot_sp_collected is None:
+            pointer_files = self._list_pointer_files_in_spectra_dir()
+            max_id = -1
+            for pf in pointer_files:
+                stem = pf.stem
+                if stem.startswith(cnst.SPECTRUM_FILENAME_PREFIX):
+                    spectrum_id = stem[len(cnst.SPECTRUM_FILENAME_PREFIX):]
+                    if spectrum_id.isdigit():
+                        max_id = max(max_id, int(spectrum_id))
+            n_tot_sp_collected = max_id + 1
+
         n_spectra_collected = 0
         n_spectra_init = n_tot_sp_collected
 
@@ -2558,7 +2564,7 @@ class EMXSp_Composition_Analyzer:
 
                 if self.verbose:
                     print_single_separator()
-                    print(f'Acquiring spectrum #{n_tot_sp_collected}...')
+                    logger.info(f'🔬 Acquiring spectrum #{n_tot_sp_collected}...')
 
                 current_spectrum_id = str(n_tot_sp_collected)
                 spectrum_relpath = self._build_spectrum_relpath(current_spectrum_id)
@@ -2566,24 +2572,47 @@ class EMXSp_Composition_Analyzer:
                 os.makedirs(os.path.dirname(manufacturer_msa_path), exist_ok=True)
 
                 n_tot_sp_collected += 1
-                collection_time, total_counts = self._acquire_spectrum(
+                total_counts = self._acquire_spectrum(
                     x,
                     y,
                     spectrum_id=current_spectrum_id,
                     msa_file_path=manufacturer_msa_path,
                 )
 
-                if self.verbose:
-                    print(f"Acquisition took {collection_time:.2f} s")
-                
+                # Immediately update ledger after each successful acquisition
+                try:
+                    from autoemx.config.ledger_schemas import SpectrumEntry, SampleLedger
+                except ImportError:
+                    pass  # Already imported at top
+                # Build SpectrumEntry for this spectrum
+                spectrum_index = n_tot_sp_collected - 1
+                spectrum_entry = self._build_spectrum_entry(spectrum_index)
+                # Load or create ledger
+                ledger_path = self._get_ledger_path()
+                try:
+                    ledger = self._load_existing_ledger()
+                except Exception:
+                    ledger = None
+                if ledger is None:
+                    ledger = SampleLedger(
+                        sample_id=self.sample_cfg.ID,
+                        sample_path=os.path.abspath(self.sample_result_dir),
+                        configs=self._build_ledger_configs(),
+                        spectra=[],
+                        quantification_configs=[],
+                        active_quant=None,
+                    )
+                ledger.spectra.append(spectrum_entry)
+                ledger.to_json_file(ledger_path)
+
                 # Contamination check: skip quantification if counts are too low (only at first measurement spot)
                 if i==0 and self.sample_cfg.is_particle_acquisition:
                     if total_counts < 0.95 * self.measurement_cfg.target_acquisition_counts:
                         if quantify:
                             self.spectra_quant_records.append(None)
                         if self.verbose:
-                                print('Current particle is unlikely to be part of the sample.\nSkipping to the next particle.')
-                                print('Increase measurement_cfg.max_acquisition_time if this behavior is undesired.')
+                            logger.warning('⚠️ Current particle is unlikely to be part of the sample.\nSkipping to the next particle.')
+                            logger.info('ℹ️ Increase measurement_cfg.max_acquisition_time if this behavior is undesired.')
                         break
             
             # Save image of particle, with ID of acquired XSp spots
@@ -2688,10 +2717,15 @@ class EMXSp_Composition_Analyzer:
                         i for i in range(tot_spectra_collected)
                         if self.spectra_quant_records[i] is None
                         or (
-                            not interrupt_fits_bad_spectra
-                            and getattr(self.spectra_quant_records[i].diagnostics, 'interrupted', False)
+                            not interrupt_fits_bad_spectra and getattr(self.spectra_quant_records[i].diagnostics, 'interrupted', False)
                         )
                     ]
+                    # Always skip spectra that have been tried (quant_record exists), regardless of interrupted, unless interrupt_fits_bad_spectra is False
+                    if interrupt_fits_bad_spectra:
+                        indices_to_process = [
+                            i for i in indices_to_process
+                            if self.spectra_quant_records[i] is None
+                        ]
             else:
                 quant_sp_cntr = len(self.spectra_quant_records)
                 indices_to_process = list(range(quant_sp_cntr, tot_spectra_collected))
@@ -2701,7 +2735,7 @@ class EMXSp_Composition_Analyzer:
             if self.verbose and n_spectra_to_quant > 0:
                 print_single_separator()
                 quant_str = "quantification" if quantify else "fitting"
-                print(f"Starting {quant_str} of {n_spectra_to_quant} spectra on up to {_n_cores} cores")
+                logger.info(f"▶️ Starting {quant_str} of {n_spectra_to_quant} spectra on up to {_n_cores} cores")
         
             # Worker returns (index, result, quant_record, quant_flag, comment) tuple
             def _process_one(i):
@@ -2734,17 +2768,71 @@ class EMXSp_Composition_Analyzer:
             if hasattr(self, "EM_controller") and hasattr(self.EM_controller, "analyzer"):
                 tmp_analyzer = self.EM_controller.analyzer
                 del self.EM_controller.analyzer
+
+            def _finalize_quant_result(idx, result, quant_record, quant_flag, comment):
+                had_prior_record = self.spectra_quant_records[idx] is not None
+                was_interrupted = (
+                    had_prior_record
+                    and getattr(self.spectra_quant_records[idx].diagnostics, 'interrupted', False)
+                )
+
+                self.spectra_quant_records[idx] = quant_record
+                self.spectral_data[cnst.COMMENTS_DF_KEY][idx] = comment
+                self.spectral_data[cnst.QUANT_FLAG_DF_KEY][idx] = quant_flag
+
+                if self.verbose:
+                    print_single_separator()
+                    lines = [f"Quantification result for spectrum #{idx}/{tot_spectra_collected - 1}:"]
+                    if result is None:
+                        if comment:
+                            lines.append(f"  {comment}")
+                    else:
+                        for el, at_fr in result[cnst.COMP_AT_FR_KEY].items():
+                            lines.append(f"  {el} at%: {at_fr * 100:.2f}%")
+                        lines.append(f"  Analytical error: {result[cnst.AN_ER_KEY] * 100:.2f}%")
+                        if quant_flag not in (None, 0) and comment:
+                            lines.append(f"  {comment}")
+                    logger.info("\n".join(lines))
+
+                if quant_record is not None:
+                    overwrite = (requantify_only_unquantified_spectra and had_prior_record) or was_interrupted
+                    self._persist_quantification_record(idx, quant_record, overwrite=overwrite)
             
             results_with_idx = []
             try:
-                # Run in parallel for both quantify and non-quantify paths
-                results_with_idx = Parallel(n_jobs=_n_cores, backend='loky')(
-                    delayed(_process_one)(i) for i in indices_to_process
-                )
+                if quantify:
+                    # Stream completed tasks back to the main process so progress is visible in real time.
+                    try:
+                        completed = Parallel(
+                            n_jobs=_n_cores,
+                            backend='loky',
+                            return_as='generator_unordered',
+                        )(
+                            delayed(_process_one)(i) for i in indices_to_process
+                        )
+                    except TypeError:
+                        # Compatibility fallback for joblib versions without return_as.
+                        completed = Parallel(n_jobs=_n_cores, backend='loky')(
+                            delayed(_process_one)(i) for i in indices_to_process
+                        )
+
+                    for idx, result, quant_record, quant_flag, comment in completed:
+                        _finalize_quant_result(idx, result, quant_record, quant_flag, comment)
+                else:
+                    # Run in parallel for fitting-only path
+                    results_with_idx = Parallel(n_jobs=_n_cores, backend='loky')(
+                        delayed(_process_one)(i) for i in indices_to_process
+                    )
             except Exception as e:
-                print(f"Parallel quantification failed ({type(e).__name__}: {e}), falling back to sequential execution.")
-                # Sequential fallback, also collect results
-                results_with_idx = [_process_one(i) for i in indices_to_process]
+                logger.warning(f"⚠️ Parallel quantification failed ({type(e).__name__}: {e}), falling back to sequential execution.")
+                if quantify:
+                    # Sequential fallback, also stream per-spectrum logging/progress.
+                    for i in indices_to_process:
+                        idx, result, quant_record, quant_flag, comment = _process_one(i)
+                        _finalize_quant_result(idx, result, quant_record, quant_flag, comment)
+                else:
+                    # Sequential fallback, also collect results
+                    results_with_idx = [_process_one(i) for i in indices_to_process]
             finally:
                 # Restore analyzer
                 if tmp_analyzer is not None:
@@ -2754,23 +2842,7 @@ class EMXSp_Composition_Analyzer:
                 # Sort results by original spectrum index to guarantee correct order
                 results_with_idx.sort(key=lambda x: x[0])
                 
-                if quantify:
-                    # Update records and persist to ledger sequentially to avoid race conditions
-                    for idx, result, quant_record, quant_flag, comment in results_with_idx:
-                        had_prior_record = self.spectra_quant_records[idx] is not None
-                        was_interrupted = (
-                            had_prior_record
-                            and getattr(self.spectra_quant_records[idx].diagnostics, 'interrupted', False)
-                        )
-                        
-                        self.spectra_quant_records[idx] = quant_record
-                        self.spectral_data[cnst.COMMENTS_DF_KEY][idx] = comment
-                        self.spectral_data[cnst.QUANT_FLAG_DF_KEY][idx] = quant_flag
-                        
-                        if quant_record is not None:
-                            overwrite = (requantify_only_unquantified_spectra and had_prior_record) or was_interrupted
-                            self._persist_quantification_record(idx, quant_record, overwrite=overwrite)
-                else:
+                if not quantify:
                     # Original logic for non-quantify path: append to lists
                     _, results_in_order, quant_records_in_order, quant_flags_in_order, comments_in_order = zip(*results_with_idx)
                     
@@ -2810,7 +2882,7 @@ class EMXSp_Composition_Analyzer:
                 )
         elif self.verbose:
             print_single_separator()
-            print(f"Number of clusters was forced to be {k}")
+            logger.info(f"ℹ️ Number of clusters was forced to be {k}")
         return k
     
     
@@ -2866,7 +2938,7 @@ class EMXSp_Composition_Analyzer:
     
         if verbose:
             print_single_separator()
-            print("Computing number of clusters k...")
+            logger.info("📊 Computing number of clusters k...")
     
         k_found = []
         k = None
@@ -2919,11 +2991,11 @@ class EMXSp_Composition_Analyzer:
                 k = None
     
         if verbose:
-            print(f"Most frequent k: {first_k} (count = {first_count}, frequency = {first_count / total:.2%})")
+            logger.info(f"📊 Most frequent k: {first_k} (count = {first_count}, frequency = {first_count / total:.2%})")
             if second_k is not None and second_k != 0:
-                print(f"Second most frequent k: {second_k} (count = {second_count}, frequency = {second_count / total:.2%})")
+                logger.info(f"📊 Second most frequent k: {second_k} (count = {second_count}, frequency = {second_count / total:.2%})")
             if len(np.where(counts == first_count)[0]) > 1:
-                print(f"Tie detected among: {np.where(counts == first_count)[0].tolist()} (choosing {k})")
+                logger.info(f"ℹ️ Tie detected among: {np.where(counts == first_count)[0].tolist()} (choosing {k})")
     
         return int(k)
     
@@ -3066,7 +3138,7 @@ class EMXSp_Composition_Analyzer:
     
         if verbose:
             print_single_separator()
-            print('Checking if more than 1 cluster is present...')
+            logger.info('📊 Checking if more than 1 cluster is present...')
     
         # Fit k-means for k=1
         kmeans_1 = KMeans(n_clusters=1, random_state=0, n_init='auto')
@@ -3089,11 +3161,11 @@ class EMXSp_Composition_Analyzer:
         ratio_inertias = inertia_1 / best_inertia_2 if best_inertia_2 else float('inf')
     
         if verbose:
-            print(f"RMS distance for k=1: {rms_distance_1*100:.1f}%")
-            print(f"Inertia for k=1: {inertia_1:.3f}")
-            print(f"Inertia for k=2: {best_inertia_2:.3f}")
-            print(f"Ratio of inertia for k=1 over k=2: {ratio_inertias:.2f}")
-            print(f"Silhouette Score for k=2: {best_silhouette_score_2:.2f}")
+            logger.info(f"📊 RMS distance for k=1: {rms_distance_1*100:.1f}%")
+            logger.info(f"📊 Inertia for k=1: {inertia_1:.3f}")
+            logger.info(f"📊 Inertia for k=2: {best_inertia_2:.3f}")
+            logger.info(f"📊 Ratio of inertia for k=1 over k=2: {ratio_inertias:.2f}")
+            logger.info(f"📊 Silhouette Score for k=2: {best_silhouette_score_2:.2f}")
     
         # Empirical decision logic
         if rms_distance_1 < 0.03:
@@ -3114,9 +3186,9 @@ class EMXSp_Composition_Analyzer:
     
         if verbose:
             if is_single_cluster:
-                print(reason_str + ": The data effectively forms a single cluster.")
+                logger.info("ℹ️ " + reason_str + ": The data effectively forms a single cluster.")
             else:
-                print(reason_str + ": The data forms multiple clusters.") 
+                logger.info("ℹ️ " + reason_str + ": The data forms multiple clusters.") 
     
         return is_single_cluster
     #%% Clustering operations
@@ -3422,7 +3494,7 @@ class EMXSp_Composition_Analyzer:
     
         if n_datapts_used < 5:
             print_single_separator()
-            print(f"Only {n_datapts_used} spectra were considered 'good', but a minimum of 5 data points are required for clustering.")
+            logger.warning(f"⚠️ Only {n_datapts_used} spectra were considered 'good', but a minimum of 5 data points are required for clustering.")
             # Print additional messages with how many spectra were discarded for which reason
             self._report_n_discarded_spectra(n_datapts, max_analytical_error)
             # Save Composition.csv file anyways
@@ -3431,8 +3503,8 @@ class EMXSp_Composition_Analyzer:
     
         if self.verbose:
             print_single_separator()
-            print('Spectra selection:')
-            print(f"{n_datapts_used} data points are used, out of {n_datapts} collected spectra.")
+            logger.info('ℹ️ Spectra selection:')
+            logger.info(f"ℹ️ {n_datapts_used} data points are used, out of {n_datapts} collected spectra.")
             self._report_n_discarded_spectra(n_datapts, max_analytical_error)
 
         # 3. Prepare DataFrames for clustering
@@ -3455,7 +3527,7 @@ class EMXSp_Composition_Analyzer:
             wcss = kmeans.inertia_
         elif self.clustering_cfg.method == 'dbscan':
             # labels, num_labels = self._get_clustering_dbscan(compositions_df)
-            print('Clustering via DBSCAN is not implemented yet')
+            logger.warning('⚠️ Clustering via DBSCAN is not implemented yet')
             return False, 0, 0  # zeroes are placeholders
     
         # 5. Compute cluster statistics
@@ -3732,8 +3804,8 @@ class EMXSp_Composition_Analyzer:
             for i, (ref_name, conf, conf_raw) in enumerate(zip(sorted_ref_names, sorted_confidences, sorted_raw_confs)):
                 if conf_raw > 0.05:
                     refs_dict[f'{cnst.CND_DF_KEY}{i+1}'] = ref_name
-                    refs_dict[f'{cnst.CS_CND_DF_KEY}{i+1}'] = np.round(conf, 2)
-                    refs_dict[f'{cnst.CS_RAW_CND_DF_KEY}{i+1}'] = np.round(conf_raw, 2)
+                    refs_dict[f'{cnst.CS_CND_DF_KEY}{i+1}'] = float(f"{conf:.2f}")
+                    refs_dict[f'{cnst.CS_RAW_CND_DF_KEY}{i+1}'] = float(f"{conf_raw:.2f}")
     
         return max_raw_conf, refs_dict
 
@@ -4265,7 +4337,7 @@ class EMXSp_Composition_Analyzer:
                 cluster_mix_dict = {}
                 for i, mixture_dict in enumerate(sorted_mixtures, start=1):
                     cluster_mix_dict[f'{cnst.MIX_DF_KEY}{i}'] = ', '.join(mixture_dict[cnst.REF_NAME_KEY])
-                    cluster_mix_dict[f'{cnst.CS_MIX_DF_KEY}{i}'] = np.round(mixture_dict[cnst.CONF_SCORE_KEY], 2)
+                    cluster_mix_dict[f'{cnst.CS_MIX_DF_KEY}{i}'] = float(f"{mixture_dict[cnst.CONF_SCORE_KEY]:.2f}")
                     cluster_mix_dict[f'{cnst.MIX_MOLAR_RATIO_DF_KEY}{i}'] = np.round(mixture_dict[cnst.MOLAR_FR_MEAN_KEY] / (1 - mixture_dict[cnst.MOLAR_FR_MEAN_KEY]), 2)
                     cluster_mix_dict[f'{cnst.MIX_FIRST_COMP_MEAN_DF_KEY}{i}'] = np.round(mixture_dict[cnst.MOLAR_FR_MEAN_KEY], 2)
                     cluster_mix_dict[f'{cnst.MIX_FIRST_COMP_STDEV_DF_KEY}{i}'] = np.round(mixture_dict[cnst.MOLAR_FR_STDEV_KEY], 2)
@@ -4337,12 +4409,12 @@ class EMXSp_Composition_Analyzer:
         
         if self.verbose:
             print_double_separator()
-            print(f"Starting collection{quant_str} of {tot_spectra_to_collect} spectra.")
+            logger.info(f"▶️ Starting collection{quant_str} of {tot_spectra_to_collect} spectra.")
         
         while tot_n_spectra < tot_spectra_to_collect:
             if self.verbose:
                 print_double_separator()
-                print(f"Collecting{quant_str} {n_spectra_to_collect} spectra...")
+                logger.info(f"🔬 Collecting{quant_str} {n_spectra_to_collect} spectra...")
     
             # Collect the next batch of spectra (and quantify if requested)
             tot_n_spectra, is_acquisition_successful = self._collect_spectra(
@@ -4357,7 +4429,7 @@ class EMXSp_Composition_Analyzer:
                 
             if self.verbose:
                 print_single_separator()
-                print(f"{tot_n_spectra}/{tot_spectra_to_collect} spectra collected and saved.")
+                logger.info(f"✅ {tot_n_spectra}/{tot_spectra_to_collect} spectra collected and saved.")
                 
             # Collect additional spectra in next iteration
             n_spectra_to_collect = min(
@@ -4381,35 +4453,35 @@ class EMXSp_Composition_Analyzer:
             # Stop if no more particles are available on the sample
             if not is_acquisition_successful:
                 if self.verbose:
-                    print("Acquisition interrupted.")
+                    logger.warning("⚠️ Acquisition interrupted.")
                     if self.sample_cfg.is_particle_acquisition:
-                        print(f'Not enough particles were found on the sample to collect all {tot_spectra_to_collect} spectra.')
+                        logger.warning(f'⚠️ Not enough particles were found on the sample to collect all {tot_spectra_to_collect} spectra.')
                     elif self.sample_cfg.is_grid_acquisition:
-                        print(f'The specified spectrum spacing did not allow to collect all {tot_spectra_to_collect} spectra.\n'
+                        logger.warning(f'⚠️ The specified spectrum spacing did not allow to collect all {tot_spectra_to_collect} spectra.\n'
                               "Change spacing in bulk_meas_cfg to collect more spectra.")
                 break
     
         print_double_separator()
-        print('Sample ID: %s' % self.sample_cfg.ID)
+        logger.info('ℹ️ Sample ID: %s', self.sample_cfg.ID)
         par_str = f' over {self.particle_cntr} particles' if self.sample_cfg.is_particle_acquisition else ''
-        print(f'{tot_n_spectra} spectra were collected{par_str}.')
+        logger.info(f'✅ {tot_n_spectra} spectra were collected{par_str}.')
         process_time = (time.time() - self.start_process_time) / 60
-        print(f'Total compositional analysis time: {process_time:.1f} min')
+        logger.info(f'✅ Total compositional analysis time: {process_time:.1f} min')
         print_single_separator()
     
         if is_spectral_quant:
             if is_analysis_successful:
                 if is_converged:
-                    print('Clustering converged to small errors. All phases identified with confidence higher than 0.8.')
+                    logger.info('✅ Clustering converged to small errors. All phases identified with confidence higher than 0.8.')
                 else:
-                    print('Phases could not be identified with confidence higher than 0.8.')
+                    logger.warning('⚠️ Phases could not be identified with confidence higher than 0.8.')
     
                 self.print_results()
     
             elif not is_acquisition_successful:
-                print('This did not allow to determine which phases are present in the sample.')
+                logger.warning('⚠️ This did not allow to determine which phases are present in the sample.')
             else:
-                print(f'Phases could not be identified with the allowed maximum of {self.max_n_spectra} collected spectra.')
+                logger.warning(f'⚠️ Phases could not be identified with the allowed maximum of {self.max_n_spectra} collected spectra.')
                 is_analysis_successful = False
                 is_converged = False
         else:
@@ -4453,7 +4525,7 @@ class EMXSp_Composition_Analyzer:
     
         if self.verbose:
             print_double_separator()
-            print(f"Analysing phases after collection of {tot_n_spectra} spectra...")
+            logger.info(f"📊 Analysing phases after collection of {tot_n_spectra} spectra...")
     
         try:
             is_analysis_successful, max_cl_rmsdist, min_conf = self.analyse_data(
@@ -4469,7 +4541,7 @@ class EMXSp_Composition_Analyzer:
         if is_analysis_successful:
             if self.verbose:
                 print_double_separator()
-                print("Clustering analysis performed")
+                logger.info("✅ Clustering analysis performed")
     
             # Check whether phase identification converged
             try:
@@ -4481,17 +4553,17 @@ class EMXSp_Composition_Analyzer:
                 if is_converged:
                     return is_analysis_successful, is_converged
                 elif self.verbose and n_spectra_to_collect > 0:
-                    print("Compositional analysis did not converge, more spectra will be collected.")
+                    logger.warning("⚠️ Compositional analysis did not converge, more spectra will be collected.")
             elif tot_n_spectra >= self.max_n_spectra:
-                print(f"Maximum allowed number of {self.max_n_spectra} was acquired.")
+                logger.info(f"ℹ️ Maximum allowed number of {self.max_n_spectra} was acquired.")
             else:
                 if self.verbose:
-                    print(f"Collecting additional spectra to reach minimum number of {self.min_n_spectra}.")
+                    logger.info(f"ℹ️ Collecting additional spectra to reach minimum number of {self.min_n_spectra}.")
     
         elif self.verbose:
-            print("Clustering analysis unsuccessful.")
+            logger.error("❌ Clustering analysis unsuccessful.")
             if n_spectra_to_collect > 0:
-                print(", more spectra will be collected.")
+                logger.info("ℹ️ More spectra will be collected.")
     
         return is_analysis_successful, is_converged
     
@@ -4626,7 +4698,7 @@ class EMXSp_Composition_Analyzer:
         
         if self.verbose:
             print_double_separator()
-            print(f"Experimental standard acquisition of {self.sample_cfg.ID}")
+            logger.info(f"🔬 Experimental standard acquisition of {self.sample_cfg.ID}")
         
         # Run collection and quantification (fitting optionally performed during collection)
         self._th_peak_energies = {} # Initialise
@@ -4704,8 +4776,8 @@ class EMXSp_Composition_Analyzer:
             print_single_separator()
             warnings.warn("Cannot generate clustering plot with a single element.", UserWarning)
             if len(self.detectable_els_sample) > 1:
-                print('Too many elements were excluded from the clustering plot via the use of "els_excluded_clust_plot".')
-                print(f'Consider removing one or more among the list: {self.plot_cfg.els_excluded_clust_plot}')
+                logger.warning('⚠️ Too many elements were excluded from the clustering plot via the use of "els_excluded_clust_plot".')
+                logger.info(f'ℹ️ Consider removing one or more among the list: {self.plot_cfg.els_excluded_clust_plot}')
         elif n_els > 3:
             # Only 3 elements can be plotted at once (for 3D)
             els_excluded_clust_plot += els_for_plot[3:]
@@ -4747,8 +4819,8 @@ class EMXSp_Composition_Analyzer:
                     els_std_dev_per_cluster, unused_compositions_list
                 )
         elif self.verbose:
-            print('Clusters were not plotted because only one detectable element was present in the sample.')
-            print(f"Elements {calibs.undetectable_els} cannot be detected at the employed instrument.")
+            logger.warning('⚠️ Clusters were not plotted because only one detectable element was present in the sample.')
+            logger.warning(f"⚠️ Elements {calibs.undetectable_els} cannot be detected at the employed instrument.")
             
             
     def _save_clustering_plot(
@@ -5312,9 +5384,9 @@ class EMXSp_Composition_Analyzer:
                     }
                     if record.fit_result is not None:
                         if record.fit_result.r_squared is not None:
-                            meas_data[cnst.R_SQ_KEY] = float(record.fit_result.r_squared)
+                            meas_data[cnst.R_SQ_KEY] = float(f"{record.fit_result.r_squared:.5f}")
                         if record.fit_result.reduced_chi_squared is not None:
-                            meas_data[cnst.REDCHI_SQ_KEY] = float(record.fit_result.reduced_chi_squared)
+                            meas_data[cnst.REDCHI_SQ_KEY] = float(f"{record.fit_result.reduced_chi_squared:.1f}")
                 else:
                     # Unpack spectral quantification results and convert from elemental fraction to % for readability
                     atomic_comp = {el + cnst.AT_FR_DF_KEY: round(fr * 100, 2) for el, fr in record.composition_atomic_fractions.items()}
@@ -5325,8 +5397,8 @@ class EMXSp_Composition_Analyzer:
                     r_squared = None
                     redchi_sq = None
                     if record.fit_result is not None:
-                        r_squared = record.fit_result.r_squared
-                        redchi_sq = record.fit_result.reduced_chi_squared
+                        r_squared = float(f"{record.fit_result.r_squared:.5f}") if record.fit_result.r_squared is not None else None
+                        redchi_sq = float(f"{record.fit_result.reduced_chi_squared:.1f}") if record.fit_result.reduced_chi_squared is not None else None
         
                     # Extract cluster label if assigned
                     try:
@@ -5728,7 +5800,7 @@ class EMXSp_Composition_Analyzer:
             return
     
         print_single_separator()
-        print("Summary of Discarded Spectra")
+        logger.info("📊 Summary of Discarded Spectra")
         print("  → For details, see the 'Comments' column in Compositions.csv.")
     
         # Discarded due to low counts, insufficient background, or acquisition/fitting errors
@@ -5748,7 +5820,7 @@ class EMXSp_Composition_Analyzer:
         # Warning if more than half of the spectra were flagged
         if self.n_sp_bad_quant / n_datapts > 0.5:
             print_single_separator()
-            print("  Warning: More than 50% of spectra were flagged during quantification!")
+            logger.warning("  ⚠️ Warning: More than 50% of spectra were flagged during quantification!")
             print(
                 "  Common causes for poor fits (quant_flag = 4) include missing elements in the fit.\n"
                 "  Ensure that all elements present in your sample have been specified in the 'elements' argument "
@@ -5794,15 +5866,15 @@ class EMXSp_Composition_Analyzer:
         """
         # Print clustering info
         print_double_separator()
-        print(f"Compositional analysis results for sample {self.sample_cfg.ID}:")
+        logger.info(f"📊 Compositional analysis results for sample {self.sample_cfg.ID}:")
         print_single_separator()
         try:
-            print('Clustering method: %s' % self.clustering_cfg.method)
-            print('Clustering features: %s' % self.clustering_cfg.features)
-            print('k finding method: %s' % self.clustering_cfg.k_finding_method)
-            print('Number of clusters: %d' % self.clustering_info[cnst.N_CLUST_KEY])
-            print('WCSS (%%): %.2f' % (self.clustering_info[cnst.WCSS_KEY] * 10000))
-            print('Silhouette score: %.2f' % self.clustering_info[cnst.SIL_SCORE_KEY])
+            logger.info('  Clustering method: %s', self.clustering_cfg.method)
+            logger.info('  Clustering features: %s', self.clustering_cfg.features)
+            logger.info('  k finding method: %s', self.clustering_cfg.k_finding_method)
+            logger.info('  Number of clusters: %d', self.clustering_info[cnst.N_CLUST_KEY])
+            logger.info('  WCSS (%%): %.2f', self.clustering_info[cnst.WCSS_KEY] * 10000)
+            logger.info('  Silhouette score: %.2f', self.clustering_info[cnst.SIL_SCORE_KEY])
         except KeyError as e:
             raise KeyError(f"Missing key in clustering_info: {e}")
         except AttributeError as e:
@@ -5810,7 +5882,6 @@ class EMXSp_Composition_Analyzer:
     
         # Print details on identified phases
         print_single_separator()
-        print('Identified phases:')
         # Print stddev in-column for ease of visualization
         try:
             clusters_df = self.clusters_df
@@ -5856,7 +5927,8 @@ class EMXSp_Composition_Analyzer:
             # Set display options for float precision
             with pd.option_context('display.float_format', '{:,.2f}'.format):
                 pd.set_option('display.max_columns', None)  # Display all columns
-                print(pd.DataFrame(df_mod_to_print))
+                phase_table = pd.DataFrame(df_mod_to_print).to_string()
+                logger.info("Identified phases:\n%s", phase_table)
         except Exception as e:
             raise RuntimeError(f"Error printing phase results: {e}")
     
@@ -6003,7 +6075,7 @@ class EMXSp_Composition_Analyzer:
                     results_df = self._save_std_results(std_ref_lines, PB_corrected)
                 else:
                     if self.verbose:
-                        print("No valid standard measurement acquired.")
+                        logger.warning("⚠️ No valid standard measurement acquired.")
             except Exception as e:
                 raise RuntimeError(f"Error while processing standard results: {e}") from e
     
@@ -6039,7 +6111,7 @@ class EMXSp_Composition_Analyzer:
         try:
             if self.verbose:
                 print_double_separator()
-                print(f"Fitting after collection of {tot_n_spectra} spectra...")
+                logger.info(f"🔬 Fitting after collection of {tot_n_spectra} spectra...")
     
             _, results_df, _ = self._fit_stds_and_save_results(backup_previous_data=False)
     
@@ -6056,22 +6128,22 @@ class EMXSp_Composition_Analyzer:
     
                 if self.verbose:
                     print_double_separator()
-                    print("Fitting performed.")
-                    print(f"{num_valid_spectra} valid spectra were collected.")
+                    logger.info("✅ Fitting performed.")
+                    logger.info(f"✅ {num_valid_spectra} valid spectra were collected.")
                     if is_converged:
-                        print(f"Target number of {self.min_n_spectra} was reached.")
+                        logger.info(f"✅ Target number of {self.min_n_spectra} was reached.")
             else:
                 if self.verbose:
                     print_double_separator()
-                    print("No valid spectrum collected.")
+                    logger.error("❌ No valid spectrum collected.")
     
             # If not converged, provide feedback
             if not is_converged and self.verbose:
                 if tot_n_spectra >= self.max_n_spectra:
-                    print(f"Maximum allowed number of {self.max_n_spectra} spectra was acquired, "
+                    logger.info(f"ℹ️ Maximum allowed number of {self.max_n_spectra} spectra was acquired, "
                           f"but target number of {self.min_n_spectra} was not reached.")
                 else:
-                    print(f"More spectra will be collected to reach target number of {self.min_n_spectra}.")
+                    logger.info(f"ℹ️ More spectra will be collected to reach target number of {self.min_n_spectra}.")
     
         except Exception as e:
             raise RuntimeError("An error occurred while evaluating the experimental standard fit.") from e
@@ -6410,7 +6482,7 @@ class EMXSp_Composition_Analyzer:
                     break
         if was_standard_already_measured and self.verbose:
             print_single_separator()
-            print(f"Previously measured values for standard '{self.sample_cfg.ID}' were found and removed.")
+            logger.info(f"ℹ️ Previously measured values for standard '{self.sample_cfg.ID}' were found and removed.")
     
         # Add new standards
         now = datetime.now()
@@ -6441,11 +6513,11 @@ class EMXSp_Composition_Analyzer:
             # Add or append standard measurement
             if el_line in std_lib:
                 if self.verbose:
-                    print(f"Added the measured standard PB value for {el_line} to the current list.")
+                    logger.info(f"✅ Added the measured standard PB value for {el_line} to the current list.")
                 std_lib[el_line].append(std_dict_new)
             else:
                 if self.verbose:
-                    print(f"Created a new list for the {el_line} line PB standard values.")
+                    logger.info(f"✅ Created a new list for the {el_line} line PB standard values.")
                 std_lib[el_line] = [std_dict_new]
     
             # Recalculate mean of standards (excluding previous mean entry)

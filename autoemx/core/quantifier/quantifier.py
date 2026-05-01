@@ -108,6 +108,9 @@ from autoemx.config.ledger_schemas import (
 )
 from .corrections import Quant_Corrections
 
+from autoemx._logging import get_logger
+logger = get_logger(__name__)
+
 #%% XSp_Quantifier class
 class XSp_Quantifier:
     """
@@ -528,17 +531,17 @@ class XSp_Quantifier:
             en_thresh = 3  # keV
         else:
             if self.verbose:
-                print("Initial background scaling factor K could not be estimated.")
-                print(f"Current beam energy of {self.beam_energy} keV too low for reliable high-energy background fitting.")
-                print("Beam energy needs to be at least 7.5 keV.")
+                logger.warning("⚠️ Initial background scaling factor K could not be estimated.")
+                logger.warning(f"⚠️ Current beam energy of {self.beam_energy} keV too low for reliable high-energy background fitting.")
+                logger.warning("⚠️ Beam energy needs to be at least 7.5 keV.")
             return None
     
         high_energy_indices = self.energy_vals > en_thresh
     
         if self.fitting_verbose:
             print_double_separator()
-            print(f"Fit of spectrum above {en_thresh} keV to get initial background scaling factor K...")
-            print("Turned off particle morphology parameters to avoid affecting value of K.")
+            logger.info(f"🔬 Fit of spectrum above {en_thresh} keV to get initial background scaling factor K...")
+            logger.info("ℹ️ Turned off particle morphology parameters to avoid affecting value of K.")
     
         if any(high_energy_indices):
             energy_vals = self.energy_vals[high_energy_indices]
@@ -576,17 +579,17 @@ class XSp_Quantifier:
                     K_val = fit_result.params['K'].value
                 if self.verbose:
                     if K_val is not None:
-                        print(f"Found K = {K_val:.2f}")
+                        logger.info(f"✅ Found K = {K_val:.2f}")
                     else:
-                        print("Failed to find initial K value")
+                        logger.warning("⚠️ Failed to find initial K value")
             except Exception as e:
                 if self.verbose:
-                    print("An error occurred during the quick background fit for K estimation:")
-                    print(f"{type(e).__name__}: {e}")
+                    logger.error("❌ An error occurred during the quick background fit for K estimation:")
+                    logger.error(f"❌ {type(e).__name__}: {e}")
                 K_val = None
         else:
             if self.verbose:
-                print("No suitable high-energy data for K estimation.")
+                logger.warning("⚠️ No suitable high-energy data for K estimation.")
     
         return K_val
     
@@ -964,9 +967,9 @@ class XSp_Quantifier:
         except Exception as e:
             is_fit_valid = False
             tb_str = traceback.format_exc()  # get full traceback as a string
-            print("Fit and quantification iteration unsuccessful due to the following error:")
-            print(f"{type(e).__name__}: {e}")
-            print(tb_str)
+            logger.error("❌ Fit and quantification iteration unsuccessful due to the following error:")
+            logger.error(f"❌ {type(e).__name__}: {e}")
+            logger.debug(tb_str)
     
         # Iteratively fit and quantify to converge to a solution
         if is_fit_valid and fit_iteratively:
@@ -1035,7 +1038,7 @@ class XSp_Quantifier:
             converged = diff_mass_fractions <= w_fr_change_convergence
     
             if self.verbose:
-                print(f"Spectrum fitted with {iter_counter} iterations")
+                logger.info(f"✅ Spectrum fitted with {iter_counter} iterations")
     
         # Assemble and print quantification results
         if is_fit_valid:
@@ -1506,17 +1509,17 @@ class XSp_Quantifier:
     
         if self.verbose:
             print_double_separator()
-            print('Quantification with ZAF correction:')
+            logger.info('🔬 Quantification with ZAF correction:')
             print_single_separator()
             print_nice_1d_row('', self.fitted_els_quant)
             print_nice_1d_row('Initial W_fr', k_ratios)
-            print(f"Initial analytical error: {(1 - sum(k_ratios)) * 100:.2f}%")
+            logger.info(f"ℹ️ Initial analytical error: {(1 - sum(k_ratios)) * 100:.2f}%%")
     
         while max_diff > converge_tol and ZAF_cntr < max_iter:
             ZAF_cntr += 1
             if self.verbose:
                 print_single_separator()
-                print(f"Step: {ZAF_cntr}")
+                logger.debug(f"  ▶️ Step: {ZAF_cntr}")
     
             # Calculate ZAF factors and sample mean Z
             ZAF_pb_factors, sample_Z = correction.get_ZAF_mult_f_pb(weight_fractions)
@@ -1525,17 +1528,17 @@ class XSp_Quantifier:
             new_weight_fractions = k_ratios * ZAF_pb_factors
             if self.verbose:
                 print_nice_1d_row('New W_fr', new_weight_fractions)
-                print('Analytical error: %.2f w%%' % (sum(new_weight_fractions) * 100 - 100))
+                logger.debug('  ℹ️ Analytical error: %.2f w%%', sum(new_weight_fractions) * 100 - 100)
     
             max_diff = max(abs(new_weight_fractions - weight_fractions))
             weight_fractions = new_weight_fractions.copy()
     
         if ZAF_cntr == max_iter:
             print_single_separator()
-            print(f'ZAF correction did not converge within {max_iter} iterations.')
+            logger.warning(f'⚠️ ZAF correction did not converge within {max_iter} iterations.')
         elif self.verbose:
             print_single_separator()
-            print(f"ZAF correction converged in {ZAF_cntr} steps.")
+            logger.info(f"✅ ZAF correction converged in {ZAF_cntr} steps.")
     
         return weight_fractions, sample_Z
 
@@ -1667,14 +1670,14 @@ class XSp_Quantifier:
         if self.fit_result.redchi > redchi_threshold_val:
             bad_quant_flag = 1
             if interrupt_fits_bad_spectra:
-                print(f"Quantification stopped at iteration #{iter_cntr} due to reduced chi-squared being "
+                logger.warning(f"⚠️ Quantification stopped at iteration #{iter_cntr} due to reduced chi-squared being "
                       f"{self.fit_result.redchi:.1f} > {redchi_threshold_val:.1f}")
     
         # 2. Check for excessive analytical error
         elif analytical_er > an_err_threshold:
             bad_quant_flag = 2
             if interrupt_fits_bad_spectra:
-                print(f"Quantification stopped at iteration #{iter_cntr} due to analytical error being "
+                logger.warning(f"⚠️ Quantification stopped at iteration #{iter_cntr} due to analytical error being "
                       f"{analytical_er*100:.1f}% > {an_err_threshold*100:.1f}%")
     
         # 3. For particles, check for excessive absorption around reference peaks
@@ -1716,7 +1719,7 @@ class XSp_Quantifier:
             if abs_increase > abs_increase_threshold:
                 bad_quant_flag = 3
                 if interrupt_fits_bad_spectra:
-                    print(f"Quantification stopped at iteration #{iter_cntr} due to absorption around reference peaks being "
+                    logger.warning(f"⚠️ Quantification stopped at iteration #{iter_cntr} due to absorption around reference peaks being "
                           f"{abs_increase*100:.1f}% > {abs_increase_threshold*100:.1f}%")
     
         return bad_quant_flag
@@ -1762,14 +1765,14 @@ class XSp_Quantifier:
         print_double_separator()
         print_double_separator()
         
-        print('Fit result:')
+        logger.info('📊 Fit result:')
         
-        print(f"Reduced Chi-square: {quant_result[cnst.REDCHI_SQ_KEY]:.2f}")
-        print(f"R-squared: {quant_result[cnst.R_SQ_KEY]:.5f}")
+        logger.info(f"  Reduced Chi-square: {quant_result[cnst.REDCHI_SQ_KEY]:.2f}")
+        logger.info(f"  R-squared: {quant_result[cnst.R_SQ_KEY]:.5f}")
         
         print('')
         
-        print('Quantification result:\n')
+        logger.info('📊 Quantification result:')
         
         # Print list of fitted elements
         print_nice_1d_row('', self.fitted_els_quant)
@@ -1786,18 +1789,18 @@ class XSp_Quantifier:
     
         # Print analytical error as a percentage (w%)
         an_err_percent = quant_result[cnst.AN_ER_KEY] * 100
-        print(f"Analytical error: {an_err_percent:.2f} w%")
+        logger.info(f"  ℹ️ Analytical error: {an_err_percent:.2f} w%%")
         
         if quant_flag is not None:
-            print(f"\nQuantification flag: {quant_flag}")
+            logger.info(f"  ℹ️ Quantification flag: {quant_flag}")
     
         # Print mean atomic numbers (Z̅) only if provided
         if Z_sample is not None:
             print('')
             if 'Statham2016' in Z_sample:
-                print(f"Z̅_Statham2016: {Z_sample['Statham2016']:.2f}")
+                logger.info(f"  ℹ️ Z̅_Statham2016: {Z_sample['Statham2016']:.2f}")
             if 'mass-averaged' in Z_sample:
-                print(f"Z̅_w (mass-averaged): {Z_sample['mass-averaged']:.2f}")
+                logger.info(f"  ℹ️ Z̅_w (mass-averaged): {Z_sample['mass-averaged']:.2f}")
             
     
     def plot_quantified_spectrum(
@@ -1882,7 +1885,7 @@ class XSp_Quantifier:
         elif annotate_peaks is None or str(annotate_peaks).lower() == 'none':
             peaks_to_plot = []
         else:
-            print(f"Warning: Unrecognized value for annotate_peaks ('{annotate_peaks}'). No peaks will be annotated.")
+            logger.warning(f"⚠️ Warning: Unrecognized value for annotate_peaks ('{annotate_peaks}'). No peaks will be annotated.")
             peaks_to_plot = []
     
         y_limit = plt.gca().get_ylim()[1]
@@ -1935,9 +1938,9 @@ class XSp_Quantifier:
         # ---- ZOOMED-IN PLOTS: create a new figure for each requested peak ----
         for peak in peaks_to_zoom:
             if peak not in self.fitted_peaks_info:
-                print(f'You have attempted to zoom on a peak, using the line {peak}.')
-                print('This line is absent from the list of fitted peaks, so the plot was not zoomed.')
-                print(f'The available peak lines are {self.fitted_xray_lines}')
+                logger.warning(f'⚠️ You have attempted to zoom on a peak, using the line {peak}.')
+                logger.warning('⚠️ This line is absent from the list of fitted peaks, so the plot was not zoomed.')
+                logger.info(f'ℹ️ The available peak lines are {self.fitted_xray_lines}')
             else:
                 self.plot_zoomed_peak(peak, plot_title=plot_title)
     
@@ -1961,7 +1964,7 @@ class XSp_Quantifier:
         None.
         """
         if zoom_peak not in self.fitted_peaks_info:
-            print(f"Peak '{zoom_peak}' not found in fitted peaks.")
+            logger.warning(f"⚠️ Peak '{zoom_peak}' not found in fitted peaks.")
             return
     
         fig_zoom, ax_zoom = plt.subplots()

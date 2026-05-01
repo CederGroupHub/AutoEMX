@@ -145,7 +145,7 @@ def patch_lmfit_fast_mode(verbose = False):
     Minimizer._fastmode_patched = True
 
     if patched_something and verbose:
-        print("✅ lmfit patched for speed: uncertainties/covariance will NOT be calculated")
+        logger.info("✅ lmfit patched for speed: uncertainties/covariance will NOT be calculated")
 
 patch_lmfit_fast_mode()
 
@@ -169,6 +169,9 @@ from autoemx.data.mean_ionization_potentials import J_df
 from .detector_response import DetectorResponseFunction
 from .peaks import Peaks_Model
 from .background import Background_Model
+
+from autoemx._logging import get_logger
+logger = get_logger(__name__)
 
 parent_dir = str(Path(__file__).resolve().parent.parent)
 
@@ -407,7 +410,7 @@ class XSp_Fitter:
             if self.els_w_fr:
                 if el in trace_els:
                     if self.verbose:
-                        print(f"No fraction was assigned to element {el}. Assuming trace element.")
+                        logger.warning(f"⚠️ No fraction was assigned to element {el}. Assuming trace element.")
                     val = (1 - sum(self.els_w_fr[el] for el in elements if el in self.els_w_fr)) / len(trace_els)
                 else:
                     val = self.els_w_fr[el]
@@ -532,25 +535,25 @@ class XSp_Fitter:
     
         if self.verbose and self.iteration_counter % 20 == 0:
             reduced_chi_square = np.sum(resid**2) / (len(self.energy_vals) - len(self.spectrum_pars))
-            print(f"Iter. #: {self.iteration_counter}. Residual sum of squares: {reduced_chi_square:.5e}")
+            logger.debug(f"  Iter. #: {self.iteration_counter}. Residual sum of squares: {reduced_chi_square:.5e}")
     
         if self.print_evolving_params:
             print_single_separator()
-            print(f"Params changed in iteration #{self.iteration_counter}")
+            logger.debug(f"  Params changed in iteration #{self.iteration_counter}")
             if self.iteration_counter == 1:
                 self.param_values = {param: params[param].value for param in params}
             else:
                 for param in params:
                     par_value = params[param].value
                     if par_value != self.param_values[param] and params[param].vary:
-                        print(f"{param}: {par_value}")
+                        logger.debug(f"{param}: {par_value}")
                         self.param_values[param] = par_value
 
                         if param == 'rhoz_par_slope':
                             bckngrd_contains_nan = np.any(np.isnan(self.background_mod.eval(params=params, x=self.energy_vals)))
-                            print("Background contains nan vals: ", bckngrd_contains_nan)
+                            logger.debug("Background contains nan vals: %s", bckngrd_contains_nan)
                             sp_contains_nan = np.any(np.isnan(self.spectrum_mod.eval(params=params, x=self.energy_vals)))
-                            print("Spectrum contains nan vals: ", sp_contains_nan)
+                            logger.debug("Spectrum contains nan vals: %s", sp_contains_nan)
                         
                         
         
@@ -598,9 +601,9 @@ class XSp_Fitter:
             print_double_separator()
             print_double_separator()
             if n_iter:
-                print(f"Iteration #{n_iter}")
+                logger.debug(f"  ▶️ Iteration #{n_iter}")
             print_single_separator()
-            print('Fitting spectrum...')
+            logger.info('🔬 Fitting spectrum...')
             start_time = time.time()
     
         if initial_par_vals:
@@ -618,7 +621,7 @@ class XSp_Fitter:
     
         if self.verbose:
             fitting_time = time.time() - start_time
-            print(f'Fit completed in {fitting_time:.1f} s with {self.iteration_counter} steps')
+            logger.info(f'✅ Fit completed in {fitting_time:.1f} s with {self.iteration_counter} steps')
     
         used_params = list(fit_result.params.keys())
         fitted_lines = ['_'.join(param.split('_')[:-1]) for param in used_params if "area" in param]
@@ -676,14 +679,14 @@ class XSp_Fitter:
         print_double_separator()
         if extended:
             if print_only_independent_params:
-                print('Parameter           Value')
+                logger.debug('Parameter           Value')
                 for name, param in self.fit_result.params.items():
-                    print(f'{name:20s} {param.value:11.10f}')
+                    logger.debug(f'{name:20s} {param.value:11.10f}')
             else:
-                print(self.fit_result.fit_report())
+                logger.debug(self.fit_result.fit_report())
         else:
             reduced_chi_square = self.fit_result.redchi
             r_squared = 1 - self.fit_result.residual.var() / np.var(self.spectrum_vals)
-            print('Fit results:')
-            print(f"Reduced Chi-square: {reduced_chi_square:.2f}")
-            print(f"R-squared: {r_squared:.5f}")
+            logger.info('📊 Fit results:')
+            logger.info(f"  Reduced Chi-square: {reduced_chi_square:.2f}")
+            logger.info(f"  R-squared: {r_squared:.5f}")

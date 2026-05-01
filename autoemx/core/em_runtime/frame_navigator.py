@@ -21,6 +21,9 @@ import autoemx.utils.constants as cnst
 from autoemx.utils import AlphabetMapper, Prompt_User, print_single_separator
 from autoemx.core.em_runtime.particle_finder import EM_Particle_Finder
 
+from autoemx._logging import get_logger
+logger = get_logger(__name__)
+
 
 class FrameNavigator:
     """
@@ -326,7 +329,7 @@ class FrameNavigator:
             prompt.run()
             
             if prompt.execution_stopped:
-                print("Execution stopped by the user.")
+                logger.warning("⚠️ Execution stopped by the user.")
                 return False
             
             if prompt.ok_pressed:
@@ -361,7 +364,7 @@ class FrameNavigator:
         
         if self.verbose:
             print_single_separator()
-            print(f"Moved to frame {self.current_frame_label} (#{self._frame_cntr + 1}/{self.num_frames}).")
+            logger.info(f"▶️ Moved to frame {self.current_frame_label} (#{self._frame_cntr + 1}/{self.num_frames}).")
         
         # Update frame counter
         self._frame_cntr += 1

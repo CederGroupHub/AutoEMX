@@ -58,6 +58,7 @@ import os
 import sys
 import re
 import json
+import logging
 import warnings
 import pandas as pd
 import ast
@@ -367,18 +368,16 @@ if __name__ == "__main__":
     
 
 def print_single_separator():
-    """Print a single-line separator (50 dashes) for visual clarity."""
-    print('-' * 50)
-    sys.stdout.flush()
+    """Log a single-line separator (50 dashes) for visual clarity."""
+    logging.getLogger("autoemx").info('-' * 50)
 # print_single_separator()
 
 
 
 
 def print_double_separator():
-    """Print a double-line separator (50 equals signs) for visual clarity."""
-    print('=' * 50)
-    sys.stdout.flush()
+    """Log a double-line separator (50 equals signs) for visual clarity."""
+    logging.getLogger("autoemx").info('=' * 50)
 # print_double_separator()
 
 

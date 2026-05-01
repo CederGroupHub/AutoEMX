@@ -58,6 +58,9 @@ from autoemx.core.em_runtime.frame_navigator import FrameNavigator
 from autoemx.core.em_runtime.spectrum_acquisition import SpectrumAcquisition
 from autoemx.core.em_runtime import image_utilities
 
+from autoemx._logging import get_logger
+logger = get_logger(__name__)
+
 
 #%% Electron Microscope Controller class    
 class EM_Controller:
@@ -177,6 +180,8 @@ class EM_Controller:
         except Exception as e:
             raise RuntimeError(f"Failed to load microscope driver: {e}")
         if not development_mode:
+            if hasattr(self.EM_driver, "connect_to_microscope"):
+                self.EM_driver.connect_to_microscope(warn_if_unavailable=True)
             if not getattr(self.EM_driver, "is_at_EM", False):
                 raise EMError("Instrument driver could not be loaded")
         
@@ -256,7 +261,7 @@ class EM_Controller:
         self.is_initialized = True
         
         if self.verbose:
-            print("EM_Controller initialization completed.")
+            logger.info("✅ EM_Controller initialization completed.")
     
     
     def initialise_sample_navigator(self, exclude_sample_margin: bool = True) -> None:

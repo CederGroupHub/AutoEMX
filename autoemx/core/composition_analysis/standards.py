@@ -18,6 +18,9 @@ import autoemx.utils.constants as cnst
 from autoemx.core.quantifier import Quant_Corrections, XSp_Quantifier
 from autoemx.utils import make_unique_path, print_double_separator, print_single_separator
 
+from autoemx._logging import get_logger
+logger = get_logger(__name__)
+
 
 class StandardsModule:
     def _compile_standards_from_references(self) -> dict:
@@ -83,7 +86,7 @@ class StandardsModule:
 
         if self.verbose:
             print_double_separator()
-            print(f"Fitting after collection of {tot_n_spectra} spectra...")
+            logger.info(f"🔬 Fitting after collection of {tot_n_spectra} spectra...")
 
         _, results_df, _ = self._fit_stds_and_save_results(backup_previous_data=False)
         if results_df is not None and not results_df.empty:

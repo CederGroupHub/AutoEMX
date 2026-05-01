@@ -47,17 +47,17 @@ DOI: [https://doi.org/10.21203/rs.3.rs-7837297/v2](https://doi.org/10.21203/rs.3
 - **Benchmarked** on 74 single-phase samples with compositions spanning **38 elements** (from nitrogen to bismuth), it achieved **<5–10% relative deviation** from expected values  
 - **Machine learning** compositional analysis detects individual phase composition in **multi-phase samples**, including minor phases
 - **Intermixed phases** can also be resolved
+- Works with **spectra from any microscope**, although recalibration is recommended for maximum compositional accuracy
 
 ### 🧪 Supported Use Cases
 - Scanning Electron Microscopy (SEM) with Energy-Dispersive Spectroscopy (EDS)  
 - Powders and rough samples, e.g. rough films, or pellets, with automated segmentation.
-- Bulk, flat samples, navigated by defining a grid of points to probe.
+- Bulk, flat samples, probed by defining a grid of points.
 - Manual navigation of any sample.
 
 ### ⚙️ Requirements
 - Cross-platform: runs on **Linux, macOS, and Windows**
-- Quick installation  
-- Requires calibration for use with different electron microscopes for maximum compositional accuracy, though EDS quantification can be tested without recalibration.
+- Quick installation via pip
 
 ---
 

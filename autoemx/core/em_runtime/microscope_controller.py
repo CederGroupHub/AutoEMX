@@ -19,6 +19,9 @@ import warnings
 
 from autoemx.utils import EMError, print_single_separator
 from autoemx import microscope_drivers as EM_driver
+
+from autoemx._logging import get_logger
+logger = get_logger(__name__)
 import numpy as np
 
 
@@ -87,7 +90,7 @@ class MicroscopeController:
         """
         if self.verbose:
             print_single_separator()
-            print("Activating SEM, and setting up...")
+            logger.info("▶️ Activating SEM, and setting up...")
         
         try:
             # Wake up SEM if necessary
@@ -125,12 +128,12 @@ class MicroscopeController:
             # Adjust focus, brightness, and contrast
             if self.verbose:
                 print_single_separator()
-                print("Adjusting contrast, brightness, and focus.")
+                logger.info("🔬 Adjusting contrast, brightness, and focus.")
             
             self.adjust_BCF()
             
             if self.verbose:
-                print("SEM initialisation completed.")
+                logger.info("✅ SEM initialisation completed.")
         
         except KeyError:
             raise
@@ -231,9 +234,9 @@ class MicroscopeController:
             
             # If WD is out of allowed bounds, clip and readjust
             if not (self._min_wd < wd < self._max_wd):
-                print(f"Working distance of {wd:.1f} mm obtained through autofocus was out of accepted limits.")
+                logger.warning(f"⚠️ Working distance of {wd:.1f} mm obtained through autofocus was out of accepted limits.")
                 wd = float(np.clip(wd, self._min_wd, self._max_wd))
-                print(f"WD was set to {wd:.1f} mm")
+                logger.info(f"✅ WD was set to {wd:.1f} mm")
                 self.EM_driver.adjust_focus(wd)
             
             return time.time()

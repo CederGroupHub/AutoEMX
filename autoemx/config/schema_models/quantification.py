@@ -61,7 +61,7 @@ class QuantificationDiagnostics(BaseModel):
         normalized_value = float(value)
         if not np.isfinite(normalized_value) or normalized_value < 0:
             raise ValueError("min_background_ref_lines must be finite and non-negative")
-        return normalized_value
+        return float(f"{normalized_value:.1f}")
 
 
 def _validate_quantification_id(value: Any) -> Any:
