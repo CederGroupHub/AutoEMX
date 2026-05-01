@@ -23,6 +23,7 @@ from datetime import datetime
 
 
 import autoemx.utils.constants as cnst
+from autoemx.config.schema_models import EDSStandardsFile
 from autoemx.utils import print_single_separator
 
 from autoemx._logging import get_logger
@@ -307,20 +308,29 @@ def load_standards(meas_type: str, beam_energy: int, std_f_dir : str = None) -> 
     
     standards_dir = os.path.join(std_f_dir, std_dict_filename)
     try:
-        with open(standards_dir, 'r') as file:
-            try:
-                standards = json.load(file)
-            except json.JSONDecodeError as e:
-                raise ValueError(
-                    f"Could not parse the standards JSON file for beam energy {beam_energy} keV.\n"
-                    f"File path: {standards_dir}\n"
-                    f"Error: {e}"
-                ) from e
+        standards_file = EDSStandardsFile.from_json_file(
+            standards_dir,
+            meas_type=meas_type,
+            beam_energy_keV=int(beam_energy),
+        )
     except FileNotFoundError as e:
         raise FileNotFoundError(
             f"Could not find the standards file for beam energy {beam_energy} keV.\n"
             f"Tried to open: {standards_dir}"
         ) from e
+    except json.JSONDecodeError as e:
+        raise ValueError(
+            f"Could not parse the standards JSON file for beam energy {beam_energy} keV.\n"
+            f"File path: {standards_dir}\n"
+            f"Error: {e}"
+        ) from e
+    except Exception as e:
+        raise ValueError(
+            f"Could not validate the standards JSON file for beam energy {beam_energy} keV.\n"
+            f"File path: {standards_dir}\n"
+            f"Error: {e}"
+        ) from e
+    standards = standards_file.to_standards_dict()
     
     return standards, standards_dir
 

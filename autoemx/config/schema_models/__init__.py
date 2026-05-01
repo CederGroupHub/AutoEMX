@@ -10,6 +10,7 @@ from .quantification import (
     QuantificationDiagnostics,
     QuantificationResult,
 )
+from .standards import EDSStandardsFile, Reference_Mean, StandardEntry, StandardLine, StandardMeanZ
 
 __all__ = [
     "AcquisitionDetails",
@@ -23,5 +24,10 @@ __all__ = [
     "QuantificationResult",
     "SampleLedger",
     "SpectrumEntry",
+    "EDSStandardsFile",
+    "Reference_Mean",
+    "StandardEntry",
+    "StandardLine",
+    "StandardMeanZ",
     "SpotCoordinates",
 ]

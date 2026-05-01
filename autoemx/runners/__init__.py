@@ -18,6 +18,7 @@ from .fit_and_quantify_spectrum_from_datacsv import (
 )
 from .fit_and_quantify_spectrum import fit_and_quantify_spectrum
 from .quantify_external_spectra import quantify_external_spectra
+from .validate_standards import run_validate_standards
 
 __all__ = [
     "analyze_sample",
@@ -31,4 +32,5 @@ __all__ = [
     "fit_and_quantify_spectrum_fromDatacsv",
     "fit_and_quantify_spectrum",
     "quantify_external_spectra",
+    "run_validate_standards",
 ]

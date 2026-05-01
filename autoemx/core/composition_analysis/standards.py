@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 """Experimental standards mixin for PB ratio workflows."""
 
-import json
 import os
 import shutil
 import warnings
@@ -15,6 +14,7 @@ from pymatgen.core.composition import Composition
 
 import autoemx.calibrations as calibs
 import autoemx.utils.constants as cnst
+from autoemx.config.schema_models import EDSStandardsFile
 from autoemx.core.quantifier import Quant_Corrections, XSp_Quantifier
 from autoemx.utils import make_unique_path, print_double_separator, print_single_separator
 
@@ -199,7 +199,15 @@ class StandardsModule:
                 if update_separate_std_dict and os.path.dirname(stds_filepath) != project_dir:
                     stds_filepath = shutil.copy(stds_filepath, project_dir)
         else:
-            standards = self.standards_dict
+            if isinstance(self.standards_dict, EDSStandardsFile):
+                standards = self.standards_dict.to_standards_dict()
+            else:
+                standards_model = EDSStandardsFile.from_payload(
+                    self.standards_dict,
+                    meas_type=self.measurement_cfg.type,
+                    beam_energy_keV=int(self.measurement_cfg.beam_energy_keV),
+                )
+                standards = standards_model.to_standards_dict()
             stds_filepath = ''
 
         if meas_mode not in standards:
@@ -261,5 +269,9 @@ class StandardsModule:
                 std_el_line_entries.append(std_dict_mean)
             std_lib[el_line] = std_el_line_entries
 
-        with open(stds_filepath, "w") as file:
-            json.dump(standards, file, indent=2)
+        standards_model = EDSStandardsFile.from_standards_dict(
+            standards,
+            meas_type=self.measurement_cfg.type,
+            beam_energy_keV=int(self.measurement_cfg.beam_energy_keV),
+        )
+        standards_model.to_json_file(stds_filepath, indent=2)

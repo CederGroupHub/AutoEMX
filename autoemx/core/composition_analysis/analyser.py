@@ -117,6 +117,7 @@ from autoemx.config.ledger_schemas import (
     SpotCoordinates,
     SpectrumEntry,
 )
+from autoemx.config.schema_models import EDSStandardsFile
 from .clustering import ClusteringModule
 from autoemx.utils.legacy.legacy_backfill import backfill_spectra_from_data_csv, load_ledger_configs_from_legacy_json
 from autoemx.utils.legacy.legacy_ledger_loader import (
@@ -167,10 +168,11 @@ class EMXSp_Composition_Analyzer:
         Configuration for plotting.
     is_acquisition : bool, optional
         If True, indicates class is being used for automated acquisition (default: False).
-    standards_dict : dict, optional
-        Dictionary of reference PB values from experimental standards. Default : None.
-        If None, dictionary of standards is loaded from the XSp_calibs/Your_Microscope_ID directory.
-        Provide standards_dict only when providing different standards from those normally used for quantification.
+    standards_dict : autoemx.config.schema_models.EDSStandardsFile | dict, optional
+        Standards payload for reference PB values from experimental standards.
+        If a dict is provided, it must conform to the standards Pydantic schema (or legacy
+        shape that can be normalized by the schema compatibility adapter).
+        If None, standards are loaded from the calibration directory for the active microscope.
     development_mode : bool, optional
         If True, enables development/debug features (default: False).
     output_filename_suffix : str, optional
@@ -213,7 +215,7 @@ class EMXSp_Composition_Analyzer:
         exp_stds_cfg: Optional[ExpStandardsConfig] = ExpStandardsConfig(),
         plot_cfg: Optional[PlotConfig] = PlotConfig(),
         is_acquisition: bool = False,
-        standards_dict: Optional[dict] = None,
+        standards_dict: Optional[Union[EDSStandardsFile, Dict[str, Any]]] = None,
         development_mode: bool = False,
         output_filename_suffix: str = '',
         verbose: bool = True,
@@ -307,7 +309,20 @@ class EMXSp_Composition_Analyzer:
         
         # --- Fitting and Quantification
         self.quant_cfg = quant_cfg
-        self.standards_dict = standards_dict
+        if standards_dict is None:
+            self.standards_dict = None
+        elif isinstance(standards_dict, EDSStandardsFile):
+            self.standards_dict = standards_dict
+        elif isinstance(standards_dict, dict):
+            self.standards_dict = EDSStandardsFile.from_payload(
+                standards_dict,
+                meas_type=self.measurement_cfg.type,
+                beam_energy_keV=int(self.measurement_cfg.beam_energy_keV),
+            )
+        else:
+            raise TypeError(
+                "standards_dict must be None, EDSStandardsFile, or a dictionary payload"
+            )
 
         if initial_clustering_cfg is None:
             self.clustering_cfg = LedgerClusteringConfig(features=cnst.AT_FR_CL_FEAT)
@@ -1119,6 +1134,7 @@ class EMXSp_Composition_Analyzer:
         -----
         - Filtering flags are appended through function _check_fit_quant_validity().
         """
+        quantification_time = None
         if verbose:
             if sp_id != '':
                 sp_id_str = " #" + sp_id
@@ -1140,7 +1156,9 @@ class EMXSp_Composition_Analyzer:
                     interrupted=True,
                 ),
             )
-            return None, quant_record, quant_flag, comment
+            if verbose:
+                quantification_time = time.time() - start_quant_time
+            return None, quant_record, quant_flag, comment, quantification_time
 
         # Initialize class to quantify spectrum
         quantifier = XSp_Quantifier(
@@ -1184,7 +1202,9 @@ class EMXSp_Composition_Analyzer:
                 quant_flag=quant_flag,
                 comment=comment,
             )
-            return None, quant_record, quant_flag, comment
+            if verbose:
+                quantification_time = time.time() - start_quant_time
+            return None, quant_record, quant_flag, comment, quantification_time
         else:
             quant_flag, comment = self._check_fit_quant_validity(is_quant_fit_valid, bad_quant_flag, quantifier, min_bckgrnd_ref_lines)
             quant_record = quantifier.export_quantification_result(
@@ -1193,18 +1213,11 @@ class EMXSp_Composition_Analyzer:
                 quant_flag=quant_flag,
                 comment=comment,
             )
-        
-        if verbose and quant_result:
+
+        if verbose:
             quantification_time = time.time() - start_quant_time
-            quant_lines = []
-            quant_lines.append(f"Spectrum #{sp_id}:")
-            for el in quant_result[cnst.COMP_AT_FR_KEY].keys():
-                quant_lines.append(f"  {el} at%: {quant_result[cnst.COMP_AT_FR_KEY][el]*100:.2f}%")
-            quant_lines.append(f"  Analytical error: {quant_result[cnst.AN_ER_KEY]*100:.2f}%")
-            quant_lines.append(f"  Quantification took {quantification_time:.2f} s")
-            logger.info("\n".join(quant_lines))
-    
-        return quant_result, quant_record, quant_flag, comment
+
+        return quant_result, quant_record, quant_flag, comment, quantification_time
 
 
     def _get_ledger_path(self) -> str:
@@ -1938,7 +1951,12 @@ class EMXSp_Composition_Analyzer:
         else:
             standards_by_line = self.XSp_std_dict
             if standards_by_line is None and self.standards_dict is not None:
-                if self.measurement_cfg.mode in self.standards_dict:
+                if isinstance(self.standards_dict, EDSStandardsFile):
+                    standards_by_line = self.standards_dict.standards_by_mode.get(
+                        self.measurement_cfg.mode,
+                        {},
+                    )
+                elif self.measurement_cfg.mode in self.standards_dict:
                     standards_by_line = self.standards_dict[self.measurement_cfg.mode]
                 else:
                     standards_by_line = self.standards_dict
@@ -1956,6 +1974,21 @@ class EMXSp_Composition_Analyzer:
                 element = el_line.split("_", maxsplit=1)[0]
                 if element not in relevant_elements:
                     continue
+
+                if hasattr(std_values, "reference_mean"):
+                    reference_mean = getattr(std_values, "reference_mean", None)
+                    if reference_mean is None:
+                        continue
+                    reference_values_by_el_line[el_line] = float(reference_mean.corrected_pb)
+                    continue
+
+                if isinstance(std_values, dict):
+                    reference_mean = std_values.get("reference_mean")
+                    if isinstance(reference_mean, dict) and cnst.COR_PB_DF_KEY in reference_mean:
+                        reference_values_by_el_line[el_line] = float(reference_mean[cnst.COR_PB_DF_KEY])
+                        continue
+                    std_values = std_values.get("entries", [])
+
                 mean_std = next(
                     (std for std in std_values if std.get(cnst.STD_ID_KEY) == cnst.STD_MEAN_ID_KEY),
                     None,
@@ -2737,7 +2770,7 @@ class EMXSp_Composition_Analyzer:
                 quant_str = "quantification" if quantify else "fitting"
                 logger.info(f"▶️ Starting {quant_str} of {n_spectra_to_quant} spectra on up to {_n_cores} cores")
         
-            # Worker returns (index, result, quant_record, quant_flag, comment) tuple
+            # Worker returns (index, result, quant_record, quant_flag, comment, quantification_time) tuple
             def _process_one(i):
                 spectrum = self.spectral_data[cnst.SPECTRUM_DF_KEY][i]
                 background = (
@@ -2749,7 +2782,7 @@ class EMXSp_Composition_Analyzer:
                 sp_id = f"{i}/{tot_spectra_collected - 1}"
         
                 if quantify:
-                    result, quant_record, quant_flag, comment = self._fit_quantify_spectrum(
+                    result, quant_record, quant_flag, comment, quantification_time = self._fit_quantify_spectrum(
                         spectrum,
                         background,
                         sp_collection_time,
@@ -2760,8 +2793,9 @@ class EMXSp_Composition_Analyzer:
                 else:
                     result, quant_flag, comment = self._fit_exp_std_spectrum(spectrum, background, sp_collection_time, sp_id)
                     quant_record = None
+                    quantification_time = None
         
-                return i, result, quant_record, quant_flag, comment
+                return i, result, quant_record, quant_flag, comment, quantification_time
         
             # Temporarily remove the analyzer to avoid pickling errors from 'loky' backend
             tmp_analyzer = None
@@ -2769,7 +2803,7 @@ class EMXSp_Composition_Analyzer:
                 tmp_analyzer = self.EM_controller.analyzer
                 del self.EM_controller.analyzer
 
-            def _finalize_quant_result(idx, result, quant_record, quant_flag, comment):
+            def _finalize_quant_result(idx, result, quant_record, quant_flag, comment, quantification_time):
                 had_prior_record = self.spectra_quant_records[idx] is not None
                 was_interrupted = (
                     had_prior_record
@@ -2782,7 +2816,8 @@ class EMXSp_Composition_Analyzer:
 
                 if self.verbose:
                     print_single_separator()
-                    lines = [f"Quantification result for spectrum #{idx}/{tot_spectra_collected - 1}:"]
+                    lines = [""]
+                    lines.append(f" Spectrum #{idx}/{tot_spectra_collected - 1}:")
                     if result is None:
                         if comment:
                             lines.append(f"  {comment}")
@@ -2792,6 +2827,9 @@ class EMXSp_Composition_Analyzer:
                         lines.append(f"  Analytical error: {result[cnst.AN_ER_KEY] * 100:.2f}%")
                         if quant_flag not in (None, 0) and comment:
                             lines.append(f"  {comment}")
+                        if quantification_time is not None:
+                            lines.append(f"  Quantification took {quantification_time:.2f} s")
+                    lines.append("")
                     logger.info("\n".join(lines))
 
                 if quant_record is not None:
@@ -2816,8 +2854,8 @@ class EMXSp_Composition_Analyzer:
                             delayed(_process_one)(i) for i in indices_to_process
                         )
 
-                    for idx, result, quant_record, quant_flag, comment in completed:
-                        _finalize_quant_result(idx, result, quant_record, quant_flag, comment)
+                    for idx, result, quant_record, quant_flag, comment, quantification_time in completed:
+                        _finalize_quant_result(idx, result, quant_record, quant_flag, comment, quantification_time)
                 else:
                     # Run in parallel for fitting-only path
                     results_with_idx = Parallel(n_jobs=_n_cores, backend='loky')(
@@ -2828,8 +2866,8 @@ class EMXSp_Composition_Analyzer:
                 if quantify:
                     # Sequential fallback, also stream per-spectrum logging/progress.
                     for i in indices_to_process:
-                        idx, result, quant_record, quant_flag, comment = _process_one(i)
-                        _finalize_quant_result(idx, result, quant_record, quant_flag, comment)
+                        idx, result, quant_record, quant_flag, comment, quantification_time = _process_one(i)
+                        _finalize_quant_result(idx, result, quant_record, quant_flag, comment, quantification_time)
                 else:
                     # Sequential fallback, also collect results
                     results_with_idx = [_process_one(i) for i in indices_to_process]
