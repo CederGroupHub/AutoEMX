@@ -304,6 +304,7 @@ class QuantificationConfig(BaseModel):
     label: Optional[str] = None
     sample_elements: List[str] = Field(default_factory=list)
     substrate_elements: List[str] = Field(default_factory=list)
+    els_w_fr: Optional[Dict[str, float]] = None
     options: Dict[str, Any] = Field(default_factory=dict)
     reference_values_by_el_line: Dict[str, Any] = Field(default_factory=dict)
     reference_lines_by_element: Dict[str, str] = Field(default_factory=dict)
@@ -337,6 +338,24 @@ class QuantificationConfig(BaseModel):
             if element not in seen:
                 normalized.append(element)
                 seen.add(element)
+        return normalized
+
+    @field_validator("els_w_fr")
+    @classmethod
+    def validate_els_w_fr(cls, value: Optional[Dict[str, float]]) -> Optional[Dict[str, float]]:
+        if value is None:
+            return None
+
+        normalized: Dict[str, float] = {}
+        for el, fraction in value.items():
+            element = str(el).strip()
+            if not element:
+                raise ValueError("els_w_fr cannot contain empty element keys")
+            numeric_fraction = float(fraction)
+            if not np.isfinite(numeric_fraction) or numeric_fraction < 0:
+                raise ValueError("els_w_fr values must be finite and non-negative")
+            normalized[element] = numeric_fraction
+
         return normalized
 
     @field_validator("options")
@@ -463,6 +482,7 @@ class QuantificationConfig(BaseModel):
         return {
             "sample_elements": sorted(self.sample_elements),
             "substrate_elements": sorted(self.substrate_elements),
+            "els_w_fr": _canonicalize_json_value(self.els_w_fr),
             "options": _canonicalize_json_value(self.options),
             "reference_values_by_el_line": _canonicalize_json_value(self.reference_values_by_el_line),
             "reference_lines_by_element": _canonicalize_json_value(self.reference_lines_by_element),

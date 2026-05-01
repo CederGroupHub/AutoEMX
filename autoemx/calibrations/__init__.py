@@ -18,7 +18,7 @@ import os
 import sys
 import importlib
 import json
-from typing import Optional
+from typing import Any, Optional
 from datetime import datetime
 
 
@@ -29,6 +29,25 @@ from autoemx.utils.legacy import is_legacy_standards_payload, standards_payload_
 
 from autoemx._logging import get_logger
 logger = get_logger(__name__)
+
+
+def ensure_standards_model(
+    payload: Any,
+    meas_type: str,
+    beam_energy: int,
+) -> EDSStandardsFile:
+    """Normalize arbitrary standards payloads into the typed schema model.
+
+    This keeps backward-compatibility conversion logic in one place for callers
+    that may still hold legacy dict payloads in memory.
+    """
+    if isinstance(payload, EDSStandardsFile):
+        return payload
+    return standards_payload_to_model(
+        payload=payload,
+        measurement_type=meas_type,
+        beam_energy_keV=int(beam_energy),
+    )
 
 microscope_calibrations_loaded = False
 def load_microscope_calibrations(
@@ -256,7 +275,11 @@ def update_detector_channel_params(meas_mode, new_offset, new_scale, verbose: bo
 
         
 
-def load_standards(meas_type: str, beam_energy: int, std_f_dir : str = None) -> dict:
+def load_standards_model(
+    meas_type: str,
+    beam_energy: int,
+    std_f_dir: Optional[str] = None,
+) -> tuple[EDSStandardsFile, str]:
     """
     Load standards data for a specified technique and beam energy.
     
@@ -275,8 +298,10 @@ def load_standards(meas_type: str, beam_energy: int, std_f_dir : str = None) -> 
 
     Returns
     -------
-    standards : dict
-        Dictionary containing the loaded EDS standards data.
+    standards_file : EDSStandardsFile
+        Typed standards model.
+    standards_dir : str
+        Path to the standards file that was loaded.
     
     Raises
     ------
@@ -349,8 +374,20 @@ def load_standards(meas_type: str, beam_energy: int, std_f_dir : str = None) -> 
             f"File path: {standards_dir}\n"
             f"Error: {e}"
         ) from e
+    return standards_file, standards_dir
+
+
+def load_standards(meas_type: str, beam_energy: int, std_f_dir : Optional[str] = None) -> dict:
+    """Backward-compatible standards loader returning legacy dict payloads.
+
+    Prefer ``load_standards_model`` for model-first callers.
+    """
+    standards_file, standards_dir = load_standards_model(
+        meas_type=meas_type,
+        beam_energy=beam_energy,
+        std_f_dir=std_f_dir,
+    )
     standards = standards_file.to_standards_dict()
-    
     return standards, standards_dir
 
 

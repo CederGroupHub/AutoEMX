@@ -4,7 +4,6 @@
 
 import os
 import shutil
-import warnings
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -16,8 +15,7 @@ import autoemx.calibrations as calibs
 import autoemx.utils.constants as cnst
 from autoemx.config.schema_models import EDSStandardsFile, Reference_Mean, StandardEntry, StandardLine
 from autoemx.core.quantifier import Quant_Corrections, XSp_Quantifier
-from autoemx.utils.legacy import standards_payload_to_model
-from autoemx.utils import make_unique_path, print_double_separator, print_single_separator
+from autoemx.utils import print_double_separator
 
 from autoemx._logging import get_logger
 logger = get_logger(__name__)
@@ -227,10 +225,9 @@ class StandardsModule:
         results_df.to_csv(results_path, index=True, header=True)
         return results_df
 
-    def _load_xsp_standards(self) -> Tuple[dict, str]:
-        """Return standards in legacy-dict shape for quantifier-facing boundaries."""
-        standards, stds_filepath = self._load_standards()
-        return standards.to_standards_dict(), stds_filepath
+    def _load_xsp_standards(self) -> Tuple[EDSStandardsFile, str]:
+        """Backward-compatible alias returning typed standards model."""
+        return self._load_standards()
 
     def _load_standards(self) -> Tuple[EDSStandardsFile, str]:
         """Load standards as structured schema model for internal processing."""
@@ -244,7 +241,7 @@ class StandardsModule:
                 std_f_dir = project_dir
 
             try:
-                standards_dict, stds_filepath = calibs.load_standards(
+                standards, stds_filepath = calibs.load_standards_model(
                     self.measurement_cfg.type,
                     self.measurement_cfg.beam_energy_keV,
                     std_f_dir=std_f_dir,
@@ -260,20 +257,12 @@ class StandardsModule:
             else:
                 if update_separate_std_dict and os.path.dirname(stds_filepath) != project_dir:
                     stds_filepath = shutil.copy(stds_filepath, project_dir)
-                standards = standards_payload_to_model(
-                    payload=standards_dict,
-                    measurement_type=self.measurement_cfg.type,
-                    beam_energy_keV=int(self.measurement_cfg.beam_energy_keV),
-                )
         else:
-            if isinstance(self.standards, EDSStandardsFile):
-                standards = self.standards
-            else:
-                standards = standards_payload_to_model(
-                    payload=self.standards,
-                    measurement_type=self.measurement_cfg.type,
-                    beam_energy_keV=int(self.measurement_cfg.beam_energy_keV),
-                )
+            standards = calibs.ensure_standards_model(
+                payload=self.standards,
+                meas_type=self.measurement_cfg.type,
+                beam_energy=self.measurement_cfg.beam_energy_keV,
+            )
             stds_filepath = ''
 
         if meas_mode not in standards.standards_by_mode:

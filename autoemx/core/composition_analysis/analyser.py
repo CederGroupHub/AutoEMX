@@ -946,7 +946,7 @@ class EMXSp_Composition_Analyzer:
         els_w_frs: Optional[Dict[str,float]] = None,
         sp_id: str = '',
         verbose: bool = True
-    ) -> Optional[Dict]:
+    ) -> QuantificationResult:
         """
         Quantify a single X-ray spectrum.
     
@@ -969,9 +969,9 @@ class EMXSp_Composition_Analyzer:
     
         Returns
         -------
-        fit_result : Dict or None
-            Dictionary returned by XSp_Quantifier, containing calculated composition in atomic fractions and
-            analytical error, or None if the spectrum is not suitable for quantification or fitting fails.
+        QuantificationResult
+            Schema result for this spectrum including quant flag/comment diagnostics and
+            fit metrics under ``fit_result``.
     
         Notes
         -----
@@ -989,7 +989,16 @@ class EMXSp_Composition_Analyzer:
         # Check if spectrum is worth fitting
         is_sp_valid_for_fitting, quant_flag, comment = self._is_spectrum_valid_for_fitting(spectrum, background)
         if not is_sp_valid_for_fitting:
-            return None, quant_flag, comment
+            quant_record = QuantificationResult(
+                quantification_id=self.current_quantification_id,
+                quant_flag=quant_flag,
+                comment=comment,
+                diagnostics=QuantificationDiagnostics(
+                    converged=False,
+                    interrupted=True,
+                ),
+            )
+            return quant_record
         
         try:
             # Initialize class to quantify spectrum
@@ -1024,9 +1033,18 @@ class EMXSp_Composition_Analyzer:
             logger.error(f"❌ {type(e).__name__}: {e}")
             traceback.print_exc()
             quant_flag, comment = self._check_fit_quant_validity(is_fit_valid, None, None, None)
-            return None, quant_flag, comment
+            quant_record = QuantificationResult(
+                quantification_id=self.current_quantification_id,
+                quant_flag=quant_flag,
+                comment=comment,
+                diagnostics=QuantificationDiagnostics(
+                    converged=False,
+                    interrupted=True,
+                ),
+            )
+            return quant_record
         
-        fit_results_dict, are_all_ref_peaks_present = self._assemble_fit_info(quantifier)
+        _, are_all_ref_peaks_present = self._assemble_fit_info(quantifier)
         
         if are_all_ref_peaks_present:
             quant_flag, comment = self._check_fit_quant_validity(is_fit_valid, bad_quant_flag, quantifier, min_bckgrnd_ref_lines)
@@ -1037,8 +1055,19 @@ class EMXSp_Composition_Analyzer:
         if verbose:
             fit_time = time.time() - start_quant_time
             logger.info(f"✅ Fitting took {fit_time:.2f} s")
-    
-        return fit_results_dict, quant_flag, comment
+
+        quant_record = QuantificationResult(
+            quantification_id=self.current_quantification_id,
+            quant_flag=quant_flag,
+            comment=comment,
+            fit_result=quantifier.export_fit_result(),
+            diagnostics=QuantificationDiagnostics(
+                interrupted=False,
+                min_background_ref_lines=min_bckgrnd_ref_lines,
+            ),
+        )
+
+        return quant_record
     
     
     def _assemble_fit_info(self, quantifier):
@@ -1102,7 +1131,7 @@ class EMXSp_Composition_Analyzer:
         spectrum_index: Optional[int] = None,
         interrupt_fits_bad_spectra: bool = True,
         verbose: bool = True
-    ) -> Optional[Dict]:
+    ) -> Tuple[Optional[Dict[str, Any]], QuantificationResult, Optional[float]]:
         """
         Quantify a single X-ray spectrum.
     
@@ -1125,9 +1154,8 @@ class EMXSp_Composition_Analyzer:
     
         Returns
         -------
-        quant_result : Dict or None
-            Dictionary returned by XSp_Quantifier, containing calculated composition in atomic fractions and
-            analytical error, or None if the spectrum is not suitable for quantification or fitting fails.
+        Tuple[Optional[Dict[str, Any]], QuantificationResult, Optional[float]]
+            Runtime quantifier payload (or None), persisted schema result, and elapsed quantification time.
     
         Notes
         -----
@@ -1157,7 +1185,7 @@ class EMXSp_Composition_Analyzer:
             )
             if verbose:
                 quantification_time = time.time() - start_quant_time
-            return None, quant_record, quant_flag, comment, quantification_time
+            return None, quant_record, quantification_time
 
         # Initialize class to quantify spectrum
         quantifier = XSp_Quantifier(
@@ -1203,7 +1231,7 @@ class EMXSp_Composition_Analyzer:
             )
             if verbose:
                 quantification_time = time.time() - start_quant_time
-            return None, quant_record, quant_flag, comment, quantification_time
+            return None, quant_record, quantification_time
         else:
             quant_flag, comment = self._check_fit_quant_validity(is_quant_fit_valid, bad_quant_flag, quantifier, min_bckgrnd_ref_lines)
             quant_record = quantifier.export_quantification_result(
@@ -1216,7 +1244,7 @@ class EMXSp_Composition_Analyzer:
         if verbose:
             quantification_time = time.time() - start_quant_time
 
-        return quant_result, quant_record, quant_flag, comment, quantification_time
+        return quant_result, quant_record, quantification_time
 
 
     def _get_ledger_path(self) -> str:
@@ -2159,6 +2187,7 @@ class EMXSp_Composition_Analyzer:
             label=label,
             sample_elements=sample_elements,
             substrate_elements=substrate_elements,
+            els_w_fr=self._get_forced_mass_fractions(),
             options=options,
             reference_values_by_el_line=reference_values_by_el_line,
             reference_lines_by_element=reference_lines_by_element,
@@ -2179,12 +2208,27 @@ class EMXSp_Composition_Analyzer:
             label="Legacy import",
             sample_elements=list(self.all_els_sample),
             substrate_elements=list(self.all_els_substrate),
+            els_w_fr=self._get_forced_mass_fractions(),
             options=self._build_quantification_options(),
             reference_values_by_el_line=reference_values_by_el_line,
             reference_lines_by_element=reference_lines_by_element,
             clustering_configs=[self._build_clustering_config_descriptor(clustering_id=0)],
             active_clustering_cfg_index=0,
         )
+
+
+    def _get_forced_mass_fractions(self) -> Optional[Dict[str, float]]:
+        """Return forced elemental mass fractions for the active run, if any."""
+        if getattr(self.exp_stds_cfg, "is_exp_std_measurement", False):
+            forced = getattr(self.exp_stds_cfg, "w_frs", None)
+            if isinstance(forced, dict) and forced:
+                return {str(el): float(fr) for el, fr in forced.items()}
+
+        forced = getattr(self.sample_cfg, "w_frs", None)
+        if isinstance(forced, dict) and forced:
+            return {str(el): float(fr) for el, fr in forced.items()}
+
+        return None
 
 
     def _upsert_current_quantification_config_on_ledger(self, ledger: SampleLedger) -> None:
@@ -2759,8 +2803,17 @@ class EMXSp_Composition_Analyzer:
                             if self.spectra_quant_records[i] is None
                         ]
             else:
-                quant_sp_cntr = len(self.spectra_quant_records)
-                indices_to_process = list(range(quant_sp_cntr, tot_spectra_collected))
+                self._load_or_create_ledger()
+                self._ensure_current_quantification_run(force_new=force_requantification)
+                self._persist_current_quantification_config()
+                self._ensure_quant_tracking_length(tot_spectra_collected)
+                if force_requantification:
+                    indices_to_process = list(range(tot_spectra_collected))
+                else:
+                    indices_to_process = [
+                        i for i in range(tot_spectra_collected)
+                        if self.spectra_quant_records[i] is None
+                    ]
 
             n_spectra_to_quant = len(indices_to_process)
         
@@ -2769,7 +2822,7 @@ class EMXSp_Composition_Analyzer:
                 quant_str = "quantification" if quantify else "fitting"
                 logger.info(f"▶️ Starting {quant_str} of {n_spectra_to_quant} spectra on up to {_n_cores} cores")
         
-            # Worker returns (index, result, quant_record, quant_flag, comment, quantification_time) tuple
+            # Worker returns (index, result, quant_record, quantification_time) tuple
             def _process_one(i):
                 spectrum = self.spectral_data[cnst.SPECTRUM_DF_KEY][i]
                 background = (
@@ -2781,7 +2834,7 @@ class EMXSp_Composition_Analyzer:
                 sp_id = f"{i}/{tot_spectra_collected - 1}"
         
                 if quantify:
-                    result, quant_record, quant_flag, comment, quantification_time = self._fit_quantify_spectrum(
+                    result, quant_record, quantification_time = self._fit_quantify_spectrum(
                         spectrum,
                         background,
                         sp_collection_time,
@@ -2790,11 +2843,16 @@ class EMXSp_Composition_Analyzer:
                         interrupt_fits_bad_spectra=interrupt_fits_bad_spectra,
                     )
                 else:
-                    result, quant_flag, comment = self._fit_exp_std_spectrum(spectrum, background, sp_collection_time, sp_id)
-                    quant_record = None
+                    quant_record = self._fit_exp_std_spectrum(
+                        spectrum,
+                        background,
+                        sp_collection_time,
+                        sp_id=sp_id,
+                    )
+                    result = None
                     quantification_time = None
         
-                return i, result, quant_record, quant_flag, comment, quantification_time
+                return i, result, quant_record, quantification_time
         
             # Temporarily remove the analyzer to avoid pickling errors from 'loky' backend
             tmp_analyzer = None
@@ -2802,7 +2860,9 @@ class EMXSp_Composition_Analyzer:
                 tmp_analyzer = self.EM_controller.analyzer
                 del self.EM_controller.analyzer
 
-            def _finalize_quant_result(idx, result, quant_record, quant_flag, comment, quantification_time):
+            def _finalize_quant_result(idx, result, quant_record, quantification_time):
+                quant_flag = quant_record.quant_flag
+                comment = quant_record.comment
                 had_prior_record = self.spectra_quant_records[idx] is not None
                 was_interrupted = (
                     had_prior_record
@@ -2821,9 +2881,12 @@ class EMXSp_Composition_Analyzer:
                         if comment:
                             lines.append(f"  {comment}")
                     else:
-                        for el, at_fr in result[cnst.COMP_AT_FR_KEY].items():
-                            lines.append(f"  {el} at%: {at_fr * 100:.2f}%")
-                        lines.append(f"  Analytical error: {result[cnst.AN_ER_KEY] * 100:.2f}%")
+                        if quantify:
+                            for el, at_fr in result[cnst.COMP_AT_FR_KEY].items():
+                                lines.append(f"  {el} at%: {at_fr * 100:.2f}%")
+                            lines.append(f"  Analytical error: {result[cnst.AN_ER_KEY] * 100:.2f}%")
+                        else:
+                            lines.append("  Fit completed")
                         if quant_flag not in (None, 0) and comment:
                             lines.append(f"  {comment}")
                         if quantification_time is not None:
@@ -2853,8 +2916,8 @@ class EMXSp_Composition_Analyzer:
                             delayed(_process_one)(i) for i in indices_to_process
                         )
 
-                    for idx, result, quant_record, quant_flag, comment, quantification_time in completed:
-                        _finalize_quant_result(idx, result, quant_record, quant_flag, comment, quantification_time)
+                    for idx, result, quant_record, quantification_time in completed:
+                        _finalize_quant_result(idx, result, quant_record, quantification_time)
                 else:
                     # Run in parallel for fitting-only path
                     results_with_idx = Parallel(n_jobs=_n_cores, backend='loky')(
@@ -2865,8 +2928,8 @@ class EMXSp_Composition_Analyzer:
                 if quantify:
                     # Sequential fallback, also stream per-spectrum logging/progress.
                     for i in indices_to_process:
-                        idx, result, quant_record, quant_flag, comment, quantification_time = _process_one(i)
-                        _finalize_quant_result(idx, result, quant_record, quant_flag, comment, quantification_time)
+                        idx, result, quant_record, quantification_time = _process_one(i)
+                        _finalize_quant_result(idx, result, quant_record, quantification_time)
                 else:
                     # Sequential fallback, also collect results
                     results_with_idx = [_process_one(i) for i in indices_to_process]
@@ -2880,12 +2943,8 @@ class EMXSp_Composition_Analyzer:
                 results_with_idx.sort(key=lambda x: x[0])
                 
                 if not quantify:
-                    # Original logic for non-quantify path: append to lists
-                    _, results_in_order, quant_records_in_order, quant_flags_in_order, comments_in_order = zip(*results_with_idx)
-                    
-                    self.spectra_quant_records.extend(list(quant_records_in_order))
-                    self.spectral_data[cnst.COMMENTS_DF_KEY].extend(list(comments_in_order))
-                    self.spectral_data[cnst.QUANT_FLAG_DF_KEY].extend(list(quant_flags_in_order))
+                    for idx, result, quant_record, quantification_time in results_with_idx:
+                        _finalize_quant_result(idx, result, quant_record, quantification_time)
 
 
     #%% Find number of clusters in kmeans
@@ -5402,7 +5461,13 @@ class EMXSp_Composition_Analyzer:
         for i in range(n_spectra):
             # Retrieve the typed QuantificationResult for this spectrum (None when not quantified)
             record = self.spectra_quant_records[i] if i < len(self.spectra_quant_records) else None
-            has_result = record is not None and record.composition_atomic_fractions is not None
+            has_composition_result = record is not None and record.composition_atomic_fractions is not None
+            has_fit_result = (
+                record is not None
+                and record.fit_result is not None
+                and bool(record.fit_result.fitted_peaks)
+            )
+            has_result = has_composition_result or (is_standards_measurements and has_fit_result)
 
             if has_result:
                 if is_standards_measurements:
@@ -5412,12 +5477,34 @@ class EMXSp_Composition_Analyzer:
                     std_at_frs = weight_to_atomic_fr(std_w_frs, std_els, verbose=False)
                     atomic_comp = {el + cnst.AT_FR_DF_KEY: round(fr * 100, 2) for el, fr in zip(std_els, std_at_frs)}
                     weight_comp = {el + cnst.W_FR_DF_KEY: round(fr * 100, 2) for el, fr in exp_std_comp_d.items()}
+
+                    fit_pb_data: Dict[str, float] = {}
+                    if record.fit_result is not None:
+                        for peak_key, peak in record.fit_result.fitted_peaks.items():
+                            if peak.pb_ratio is None:
+                                continue
+                            if peak.line in XSp_Quantifier.xray_quant_ref_lines:
+                                fit_pb_data[peak_key] = float(peak.pb_ratio)
+
                     meas_data = {
+                        **fit_pb_data,
                         **atomic_comp,
                         **weight_comp,
-                        cnst.COMP_AT_FR_KEY: dict(record.composition_atomic_fractions),
-                        cnst.COMP_W_FR_KEY: dict(record.composition_weight_fractions),
-                        cnst.AN_ER_KEY: float(record.analytical_error),
+                        cnst.COMP_AT_FR_KEY: (
+                            dict(record.composition_atomic_fractions)
+                            if record.composition_atomic_fractions is not None
+                            else {el: float(fr) for el, fr in zip(std_els, std_at_frs)}
+                        ),
+                        cnst.COMP_W_FR_KEY: (
+                            dict(record.composition_weight_fractions)
+                            if record.composition_weight_fractions is not None
+                            else {el: float(fr) for el, fr in exp_std_comp_d.items()}
+                        ),
+                        cnst.AN_ER_KEY: (
+                            float(record.analytical_error)
+                            if record.analytical_error is not None
+                            else float("nan")
+                        ),
                     }
                     if record.fit_result is not None:
                         if record.fit_result.r_squared is not None:
