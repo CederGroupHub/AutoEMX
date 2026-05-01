@@ -16,6 +16,7 @@ import autoemx.calibrations as calibs
 import autoemx.utils.constants as cnst
 from autoemx.config.schema_models import EDSStandardsFile, Reference_Mean, StandardEntry, StandardLine
 from autoemx.core.quantifier import Quant_Corrections, XSp_Quantifier
+from autoemx.utils.legacy import standards_payload_to_model
 from autoemx.utils import make_unique_path, print_double_separator, print_single_separator
 
 from autoemx._logging import get_logger
@@ -56,13 +57,8 @@ class StandardsModule:
         return None
 
     def _compile_standards_from_references(self) -> dict:
-        std_dict_all_modes, stds_filepath = self._load_xsp_standards()
-        standards_model = EDSStandardsFile.from_standards_dict(
-            std_dict_all_modes,
-            meas_type=self.measurement_cfg.type,
-            beam_energy_keV=int(self.measurement_cfg.beam_energy_keV),
-        )
-        std_dict_all_lines = standards_model.standards_by_mode[self.measurement_cfg.mode]
+        standards, _ = self._load_standards()
+        std_dict_all_lines = standards.standards_by_mode[self.measurement_cfg.mode]
         ref_lines = XSp_Quantifier.xray_quant_ref_lines
         ref_formulae = self.clustering_cfg.ref_formulae
 
@@ -232,37 +228,56 @@ class StandardsModule:
         return results_df
 
     def _load_xsp_standards(self) -> Tuple[dict, str]:
+        """Return standards in legacy-dict shape for quantifier-facing boundaries."""
+        standards, stds_filepath = self._load_standards()
+        return standards.to_standards_dict(), stds_filepath
+
+    def _load_standards(self) -> Tuple[EDSStandardsFile, str]:
+        """Load standards as structured schema model for internal processing."""
         meas_mode = self.measurement_cfg.mode
         update_separate_std_dict = self.exp_stds_cfg.is_exp_std_measurement and self.exp_stds_cfg.generate_separate_std_dict
 
-        if self.standards_dict is None:
+        if self.standards is None:
             std_f_dir = None
             if update_separate_std_dict or self.quant_cfg.use_project_specific_std_dict:
                 project_dir = os.path.dirname(self.sample_result_dir)
                 std_f_dir = project_dir
 
             try:
-                standards, stds_filepath = calibs.load_standards(self.measurement_cfg.type, self.measurement_cfg.beam_energy_keV, std_f_dir=std_f_dir)
+                standards_dict, stds_filepath = calibs.load_standards(
+                    self.measurement_cfg.type,
+                    self.measurement_cfg.beam_energy_keV,
+                    std_f_dir=std_f_dir,
+                )
             except FileNotFoundError:
                 stds_filepath = calibs.standards_dir
-                standards = {meas_mode: {}}
+                standards = EDSStandardsFile(
+                    schema_version=1,
+                    measurement_type=self.measurement_cfg.type,
+                    beam_energy_keV=int(self.measurement_cfg.beam_energy_keV),
+                    standards_by_mode={meas_mode: {}},
+                )
             else:
                 if update_separate_std_dict and os.path.dirname(stds_filepath) != project_dir:
                     stds_filepath = shutil.copy(stds_filepath, project_dir)
-        else:
-            if isinstance(self.standards_dict, EDSStandardsFile):
-                standards = self.standards_dict.to_standards_dict()
-            else:
-                standards_model = EDSStandardsFile.from_payload(
-                    self.standards_dict,
-                    meas_type=self.measurement_cfg.type,
+                standards = standards_payload_to_model(
+                    payload=standards_dict,
+                    measurement_type=self.measurement_cfg.type,
                     beam_energy_keV=int(self.measurement_cfg.beam_energy_keV),
                 )
-                standards = standards_model.to_standards_dict()
+        else:
+            if isinstance(self.standards, EDSStandardsFile):
+                standards = self.standards
+            else:
+                standards = standards_payload_to_model(
+                    payload=self.standards,
+                    measurement_type=self.measurement_cfg.type,
+                    beam_energy_keV=int(self.measurement_cfg.beam_energy_keV),
+                )
             stds_filepath = ''
 
-        if meas_mode not in standards:
-            standards[meas_mode] = {}
+        if meas_mode not in standards.standards_by_mode:
+            standards.standards_by_mode[meas_mode] = {}
 
         return standards, stds_filepath
 
@@ -273,15 +288,10 @@ class StandardsModule:
         z_sample: np.ndarray
     ) -> None:
         meas_mode = self.measurement_cfg.mode
-        if self.standards_dict is not None:
-            self.standards_dict = None
-        standards, stds_filepath = self._load_xsp_standards()
-        standards_model = EDSStandardsFile.from_standards_dict(
-            standards,
-            meas_type=self.measurement_cfg.type,
-            beam_energy_keV=int(self.measurement_cfg.beam_energy_keV),
-        )
-        std_lib = standards_model.standards_by_mode[meas_mode]
+        if self.standards is not None:
+            self.standards = None
+        standards, stds_filepath = self._load_standards()
+        std_lib = standards.standards_by_mode[meas_mode]
 
         for el_line, line_payload in list(std_lib.items()):
             line_payload.entries = [
@@ -329,4 +339,4 @@ class StandardsModule:
             else:
                 line_payload.reference_mean = None
 
-        standards_model.to_json_file(stds_filepath, indent=2)
+        standards.to_json_file(stds_filepath, indent=2)

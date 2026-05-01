@@ -25,6 +25,7 @@ from datetime import datetime
 import autoemx.utils.constants as cnst
 from autoemx.config.schema_models import EDSStandardsFile
 from autoemx.utils import print_single_separator
+from autoemx.utils.legacy import is_legacy_standards_payload, standards_payload_to_model
 
 from autoemx._logging import get_logger
 logger = get_logger(__name__)
@@ -308,11 +309,29 @@ def load_standards(meas_type: str, beam_energy: int, std_f_dir : str = None) -> 
     
     standards_dir = os.path.join(std_f_dir, std_dict_filename)
     try:
-        standards_file = EDSStandardsFile.from_json_file(
-            standards_dir,
-            meas_type=meas_type,
+        with open(standards_dir, "r", encoding="utf-8") as standards_handle:
+            standards_payload = json.load(standards_handle)
+
+        payload_is_legacy = is_legacy_standards_payload(standards_payload)
+        standards_file = standards_payload_to_model(
+            payload=standards_payload,
+            measurement_type=meas_type,
             beam_energy_keV=int(beam_energy),
         )
+
+        if payload_is_legacy:
+            backup_path = f"{standards_dir})OLD"
+            if os.path.exists(backup_path):
+                idx = 1
+                while os.path.exists(f"{backup_path}_{idx}"):
+                    idx += 1
+                backup_path = f"{backup_path}_{idx}"
+            os.rename(standards_dir, backup_path)
+            standards_file.to_json_file(standards_dir, indent=2)
+            logger.info(
+                f"ℹ️ Migrated legacy standards file to schema format. "
+                f"Legacy backup saved at '{backup_path}'."
+            )
     except FileNotFoundError as e:
         raise FileNotFoundError(
             f"Could not find the standards file for beam energy {beam_energy} keV.\n"

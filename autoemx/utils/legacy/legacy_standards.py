@@ -4,7 +4,10 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import TYPE_CHECKING, Any, Dict
+
+if TYPE_CHECKING:
+    from autoemx.config.schema_models import EDSStandardsFile
 
 
 def _is_mapping(value: Any) -> bool:
@@ -54,3 +57,35 @@ def normalize_standards_file_payload(
         )
 
     return dict(payload)
+
+
+def load_legacy_standards_dict_as_model(
+    standards_dict: Dict[str, Any],
+    measurement_type: str,
+    beam_energy_keV: int,
+) -> "EDSStandardsFile":
+    """Convert an old standards dictionary into the schema-based Pydantic model."""
+    from autoemx.config.schema_models import EDSStandardsFile
+
+    payload = migrate_legacy_standards_payload(
+        payload=standards_dict,
+        measurement_type=measurement_type,
+        beam_energy_keV=beam_energy_keV,
+    )
+    return EDSStandardsFile.model_validate(payload)
+
+
+def standards_payload_to_model(
+    payload: Any,
+    measurement_type: str,
+    beam_energy_keV: int,
+) -> "EDSStandardsFile":
+    """Convert standards payloads (legacy or schema-envelope) into the schema model."""
+    from autoemx.config.schema_models import EDSStandardsFile
+
+    normalized_payload = normalize_standards_file_payload(
+        payload=payload,
+        measurement_type=measurement_type,
+        beam_energy_keV=beam_energy_keV,
+    )
+    return EDSStandardsFile.model_validate(normalized_payload)

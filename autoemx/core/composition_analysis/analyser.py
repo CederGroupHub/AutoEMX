@@ -310,11 +310,11 @@ class EMXSp_Composition_Analyzer:
         # --- Fitting and Quantification
         self.quant_cfg = quant_cfg
         if standards_dict is None:
-            self.standards_dict = None
+            self.standards = None
         elif isinstance(standards_dict, EDSStandardsFile):
-            self.standards_dict = standards_dict
+            self.standards = standards_dict
         elif isinstance(standards_dict, dict):
-            self.standards_dict = EDSStandardsFile.from_payload(
+            self.standards = EDSStandardsFile.from_payload(
                 standards_dict,
                 meas_type=self.measurement_cfg.type,
                 beam_energy_keV=int(self.measurement_cfg.beam_energy_keV),
@@ -402,7 +402,7 @@ class EMXSp_Composition_Analyzer:
 
         if is_XSp_measurement:
             # --- Variable initialization
-            self.XSp_std_dict = None
+            self.standards_dict = None
             self.sp_coords = [] # List containing particle number + relative coordinates on the image to retrieve exact position where spectra were collected
             self.particle_cntr = -1 # Counter to save particle number
             
@@ -721,7 +721,7 @@ class EMXSp_Composition_Analyzer:
         """
         Initialise the dictionary of X-ray standards for quantification.
     
-        This method determines how the `XSp_std_dict` attribute is initialised
+        This method determines how the `standards_dict` attribute is initialised
         based on the sample configuration and measurement type:
     
         - If the measurement is of a known powder mixture, the standards dictionary
@@ -733,19 +733,18 @@ class EMXSp_Composition_Analyzer:
         Returns
         -------
         None
-            This method modifies the `self.XSp_std_dict` attribute in place.
+            This method modifies the `self.standards_dict` attribute in place.
         """
         is_known_mixture = getattr(self.powder_meas_cfg, "is_known_powder_mixture_meas", False)
         
         if is_known_mixture:
-            self.XSp_std_dict = self._compile_standards_from_references()
+            self.standards_dict = self._compile_standards_from_references()
         elif self.quant_cfg.use_project_specific_std_dict:
-            std_dict_all_modes, _ = self._load_xsp_standards()
-            std_dict = std_dict_all_modes[self.measurement_cfg.mode]
-            self.XSp_std_dict = std_dict
+            standards, _ = self._load_standards()
+            self.standards_dict = standards.to_standards_dict().get(self.measurement_cfg.mode, {})
         else:
             # Standards dictionary will be loaded directly within the `XSp_Quantifier`
-            self.XSp_std_dict = None
+            self.standards_dict = None
 
 
     def _calc_reference_phases_df(self) -> None:
@@ -1013,7 +1012,7 @@ class EMXSp_Composition_Analyzer:
                 sp_collection_time=sp_collection_time,
                 max_undetectable_w_fr=self.undetectable_an_er,
                 fit_tol=self.quant_cfg.fit_tolerance,
-                standards_dict=self.XSp_std_dict,
+                standards_dict=self.standards_dict,
                 verbose=False,
                 fitting_verbose=False
             )
@@ -1180,7 +1179,7 @@ class EMXSp_Composition_Analyzer:
             sp_collection_time=sp_collection_time,
             max_undetectable_w_fr=self.undetectable_an_er,
             fit_tol=self.quant_cfg.fit_tolerance,
-            standards_dict=self.XSp_std_dict,
+            standards_dict=self.standards_dict,
             verbose=False,
             fitting_verbose=False
         )
@@ -1943,26 +1942,26 @@ class EMXSp_Composition_Analyzer:
         standards_by_line = None
 
         if self.quant_cfg.use_project_specific_std_dict:
-            if self.XSp_std_dict is not None and not load_if_missing:
-                standards_by_line = self.XSp_std_dict
+            if self.standards_dict is not None and not load_if_missing:
+                standards_by_line = self.standards_dict
             else:
-                std_dict_all_modes, _ = self._load_xsp_standards()
-                standards_by_line = std_dict_all_modes.get(self.measurement_cfg.mode, {})
+                standards, _ = self._load_standards()
+                standards_by_line = standards.standards_by_mode.get(self.measurement_cfg.mode, {})
         else:
-            standards_by_line = self.XSp_std_dict
-            if standards_by_line is None and self.standards_dict is not None:
-                if isinstance(self.standards_dict, EDSStandardsFile):
-                    standards_by_line = self.standards_dict.standards_by_mode.get(
+            standards_by_line = self.standards_dict
+            if standards_by_line is None and self.standards is not None:
+                if isinstance(self.standards, EDSStandardsFile):
+                    standards_by_line = self.standards.standards_by_mode.get(
                         self.measurement_cfg.mode,
                         {},
                     )
-                elif self.measurement_cfg.mode in self.standards_dict:
-                    standards_by_line = self.standards_dict[self.measurement_cfg.mode]
+                elif self.measurement_cfg.mode in self.standards:
+                    standards_by_line = self.standards[self.measurement_cfg.mode]
                 else:
-                    standards_by_line = self.standards_dict
+                    standards_by_line = self.standards
             if standards_by_line is None and load_if_missing:
-                std_dict_all_modes, _ = self._load_xsp_standards()
-                standards_by_line = std_dict_all_modes.get(self.measurement_cfg.mode, {})
+                standards, _ = self._load_standards()
+                standards_by_line = standards.standards_by_mode.get(self.measurement_cfg.mode, {})
 
         if standards_by_line is None:
             return {}
@@ -6466,6 +6465,21 @@ class EMXSp_Composition_Analyzer:
             standards[meas_mode] = {}
             
         return standards, stds_filepath
+
+
+    def _load_standards(self) -> Tuple[EDSStandardsFile, str]:
+        """Load standards as EDSStandardsFile model.
+
+        This placeholder keeps the class-level API explicit; runtime implementation is
+        delegated to StandardsModule at the end of this file.
+        """
+        standards_dict, stds_filepath = self._load_xsp_standards()
+        standards = EDSStandardsFile.from_standards_dict(
+            standards_dict,
+            meas_type=self.measurement_cfg.type,
+            beam_energy_keV=int(self.measurement_cfg.beam_energy_keV),
+        )
+        return standards, stds_filepath
     
     
     def _update_standard_library(
@@ -6618,6 +6632,8 @@ EMXSp_Composition_Analyzer._evaluate_exp_std_fit = StandardsModule._evaluate_exp
 EMXSp_Composition_Analyzer._assemble_std_PB_data = StandardsModule._assemble_std_PB_data
 EMXSp_Composition_Analyzer._calc_corrected_PB = StandardsModule._calc_corrected_PB
 EMXSp_Composition_Analyzer._save_std_results = StandardsModule._save_std_results
+EMXSp_Composition_Analyzer._serialize_standard_mean_z = StandardsModule._serialize_standard_mean_z
+EMXSp_Composition_Analyzer._load_standards = StandardsModule._load_standards
 EMXSp_Composition_Analyzer._load_xsp_standards = StandardsModule._load_xsp_standards
 EMXSp_Composition_Analyzer._update_standard_library = StandardsModule._update_standard_library
  
