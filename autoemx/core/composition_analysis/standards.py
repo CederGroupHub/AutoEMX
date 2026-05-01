@@ -14,7 +14,7 @@ from pymatgen.core.composition import Composition
 
 import autoemx.calibrations as calibs
 import autoemx.utils.constants as cnst
-from autoemx.config.schema_models import EDSStandardsFile
+from autoemx.config.schema_models import EDSStandardsFile, Reference_Mean, StandardEntry, StandardLine
 from autoemx.core.quantifier import Quant_Corrections, XSp_Quantifier
 from autoemx.utils import make_unique_path, print_double_separator, print_single_separator
 
@@ -23,9 +23,46 @@ logger = get_logger(__name__)
 
 
 class StandardsModule:
+    @staticmethod
+    def _serialize_standard_mean_z(z_sample: Any) -> Optional[Dict[str, float]]:
+        """Convert runtime Z summary payload to schema-compatible mean_z mapping."""
+        if z_sample is None:
+            return None
+
+        if isinstance(z_sample, dict):
+            required = [
+                cnst.Z_MEAN_W_KEY,
+                cnst.Z_MEAN_AT_KEY,
+                cnst.Z_MEAN_STATHAM_KEY,
+                cnst.Z_MEAN_MARKOWICZ_KEY,
+            ]
+            if all(key in z_sample for key in required):
+                return {
+                    cnst.Z_MEAN_W_KEY: float(z_sample[cnst.Z_MEAN_W_KEY]),
+                    cnst.Z_MEAN_AT_KEY: float(z_sample[cnst.Z_MEAN_AT_KEY]),
+                    cnst.Z_MEAN_STATHAM_KEY: float(z_sample[cnst.Z_MEAN_STATHAM_KEY]),
+                    cnst.Z_MEAN_MARKOWICZ_KEY: float(z_sample[cnst.Z_MEAN_MARKOWICZ_KEY]),
+                }
+            return None
+
+        if isinstance(z_sample, (list, tuple, np.ndarray)) and len(z_sample) >= 4:
+            return {
+                cnst.Z_MEAN_W_KEY: float(z_sample[0]),
+                cnst.Z_MEAN_AT_KEY: float(z_sample[1]),
+                cnst.Z_MEAN_STATHAM_KEY: float(z_sample[2]),
+                cnst.Z_MEAN_MARKOWICZ_KEY: float(z_sample[3]),
+            }
+
+        return None
+
     def _compile_standards_from_references(self) -> dict:
         std_dict_all_modes, stds_filepath = self._load_xsp_standards()
-        std_dict_all_lines = std_dict_all_modes[self.measurement_cfg.mode]
+        standards_model = EDSStandardsFile.from_standards_dict(
+            std_dict_all_modes,
+            meas_type=self.measurement_cfg.type,
+            beam_energy_keV=int(self.measurement_cfg.beam_energy_keV),
+        )
+        std_dict_all_lines = standards_model.standards_by_mode[self.measurement_cfg.mode]
         ref_lines = XSp_Quantifier.xray_quant_ref_lines
         ref_formulae = self.clustering_cfg.ref_formulae
 
@@ -36,24 +73,38 @@ class StandardsModule:
                 if el_line not in std_dict_all_lines:
                     continue
 
+                line_payload = std_dict_all_lines[el_line]
                 ref_entries = []
-                for i, std_dict in enumerate(std_dict_all_lines[el_line]):
-                    if std_dict[cnst.STD_ID_KEY] != cnst.STD_MEAN_ID_KEY:
-                        try:
-                            std_comp = Composition(std_dict[cnst.STD_FORMULA_KEY])
-                            for ref_formula in ref_formulae:
-                                if std_comp.reduced_formula == Composition(ref_formula).reduced_formula:
-                                    ref_entries += [i]
-                        except Exception:
-                            pass
-                    else:
-                        std_mean_value = std_dict[cnst.COR_PB_DF_KEY]
+                for i, std_entry in enumerate(line_payload.entries):
+                    try:
+                        if std_entry.formula is None:
+                            continue
+                        std_comp = Composition(std_entry.formula)
+                        for ref_formula in ref_formulae:
+                            if std_comp.reduced_formula == Composition(ref_formula).reduced_formula:
+                                ref_entries += [i]
+                    except Exception:
+                        pass
+
+                mean_payload = line_payload.reference_mean
+                std_mean_value = mean_payload.corrected_pb if mean_payload is not None else None
 
                 if len(ref_entries) < 1 and not self.exp_stds_cfg.is_exp_std_measurement:
+                    if std_mean_value is None:
+                        continue
                     ref_value = std_mean_value
                 else:
-                    new_std_ref_list = [std_d for i, std_d in enumerate(std_dict_all_lines[el_line]) if i in ref_entries]
-                    list_pb = [ref_line[cnst.COR_PB_DF_KEY] for ref_line in new_std_ref_list]
+                    new_std_ref_list = [std_d for i, std_d in enumerate(line_payload.entries) if i in ref_entries]
+                    if len(new_std_ref_list) < 1:
+                        if std_mean_value is None:
+                            continue
+                        ref_value = std_mean_value
+                        filtered_std_dict[el_line] = [{
+                            cnst.STD_ID_KEY: cnst.STD_MEAN_ID_KEY,
+                            cnst.COR_PB_DF_KEY: ref_value,
+                        }]
+                        continue
+                    list_pb = [ref_line.corrected_pb for ref_line in new_std_ref_list]
                     ref_value = float(np.mean(list_pb))
 
                 filtered_std_dict[el_line] = [{
@@ -225,13 +276,19 @@ class StandardsModule:
         if self.standards_dict is not None:
             self.standards_dict = None
         standards, stds_filepath = self._load_xsp_standards()
-        std_lib = standards[meas_mode]
+        standards_model = EDSStandardsFile.from_standards_dict(
+            standards,
+            meas_type=self.measurement_cfg.type,
+            beam_energy_keV=int(self.measurement_cfg.beam_energy_keV),
+        )
+        std_lib = standards_model.standards_by_mode[meas_mode]
 
-        for el_line, stds_list in list(std_lib.items()):
-            for i, std_dict in enumerate(list(stds_list)):
-                if std_dict.get(cnst.STD_ID_KEY) == self.sample_cfg.ID:
-                    std_lib[el_line].pop(i)
-                    break
+        for el_line, line_payload in list(std_lib.items()):
+            line_payload.entries = [
+                entry
+                for entry in line_payload.entries
+                if entry.standard_id != self.sample_cfg.ID
+            ]
 
         now = datetime.now()
         for el_line in std_ref_lines.keys():
@@ -245,33 +302,31 @@ class StandardsModule:
                 cnst.STDEV_PB_DF_KEY: results_df.at[el_line, cnst.STDEV_PB_DF_KEY],
                 cnst.REL_ER_PERCENT_PB_DF_KEY: results_df.at[el_line, cnst.REL_ER_PERCENT_PB_DF_KEY],
                 cnst.STD_USE_FOR_MEAN_KEY: self.exp_stds_cfg.use_for_mean_PB_calc,
-                cnst.STD_Z_KEY: z_sample,
+                cnst.STD_Z_KEY: self._serialize_standard_mean_z(z_sample),
             }
 
-            if el_line in std_lib:
-                std_lib[el_line].append(std_dict_new)
-            else:
-                std_lib[el_line] = [std_dict_new]
+            if el_line not in std_lib:
+                std_lib[el_line] = StandardLine()
 
-            std_el_line_entries = [std for std in std_lib[el_line] if std.get(cnst.STD_ID_KEY) != cnst.STD_MEAN_ID_KEY]
-            list_pb_for_mean = [std[cnst.COR_PB_DF_KEY] for std in std_el_line_entries if std[cnst.STD_USE_FOR_MEAN_KEY]]
+            line_payload = std_lib[el_line]
+            line_payload.entries.append(StandardEntry.model_validate(std_dict_new))
+
+            list_pb_for_mean = [
+                entry.corrected_pb
+                for entry in line_payload.entries
+                if bool(entry.use_for_mean_calc)
+            ]
             if len(list_pb_for_mean) > 0:
                 mean_pb = float(np.mean(list_pb_for_mean))
                 stddev_mean_pb = float(np.std(list_pb_for_mean))
                 error_mean_pb = (stddev_mean_pb / mean_pb * 100) if mean_pb else float("nan")
-                std_dict_mean = {
-                    cnst.STD_ID_KEY: cnst.STD_MEAN_ID_KEY,
+                line_payload.reference_mean = Reference_Mean.model_validate({
                     cnst.DATETIME_KEY: now.strftime("%Y-%m-%d %H:%M:%S"),
                     cnst.COR_PB_DF_KEY: mean_pb,
                     cnst.STDEV_PB_DF_KEY: stddev_mean_pb,
                     cnst.REL_ER_PERCENT_PB_DF_KEY: error_mean_pb,
-                }
-                std_el_line_entries.append(std_dict_mean)
-            std_lib[el_line] = std_el_line_entries
+                })
+            else:
+                line_payload.reference_mean = None
 
-        standards_model = EDSStandardsFile.from_standards_dict(
-            standards,
-            meas_type=self.measurement_cfg.type,
-            beam_energy_keV=int(self.measurement_cfg.beam_energy_keV),
-        )
         standards_model.to_json_file(stds_filepath, indent=2)
