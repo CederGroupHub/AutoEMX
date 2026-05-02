@@ -6,8 +6,9 @@ import importlib
 import json
 import os
 import re
+import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -20,10 +21,18 @@ from autoemx.config.ledger_schemas import (
     ClusteringConfig,
     Coordinate2D,
     FitResult,
+    LedgerConfigs,
     QuantificationConfig,
     QuantificationDiagnostics,
     QuantificationResult,
+    SampleLedger,
     SpotCoordinates,
+    SpectrumEntry,
+)
+from autoemx.config.schema_models.clustering import ClusteringAnalysis
+from autoemx.utils.legacy.legacy_backfill import (
+    backfill_spectra_from_data_csv,
+    load_ledger_configs_from_legacy_json,
 )
 
 _MIN_BACKGROUND_COMMENT_PATTERN = re.compile(
@@ -560,24 +569,325 @@ def build_legacy_import_quantification_config(
             reference_values_by_el_line=reference_values_by_el_line,
             preferred_lines=["Ka1", "La1", "Ma1", "Mz1"],
         ),
-        clustering_configs=[
-            ClusteringConfig(
-                clustering_id=0,
-                method=str(getattr(legacy_clustering_cfg, "method", "kmeans")),
-                features=str(getattr(legacy_clustering_cfg, "features", "")),
-                k_forced=getattr(
-                    legacy_clustering_cfg,
-                    "k_forced",
-                    getattr(legacy_clustering_cfg, "k", None),
+        clustering_analyses=[
+            ClusteringAnalysis(
+                config=ClusteringConfig(
+                    clustering_id=0,
+                    method=str(getattr(legacy_clustering_cfg, "method", "kmeans")),
+                    features=str(getattr(legacy_clustering_cfg, "features", "")),
+                    k_forced=getattr(
+                        legacy_clustering_cfg,
+                        "k_forced",
+                        getattr(legacy_clustering_cfg, "k", None),
+                    ),
+                    k_finding_method=str(getattr(legacy_clustering_cfg, "k_finding_method", "silhouette")),
+                    max_k=int(getattr(legacy_clustering_cfg, "max_k", 6)),
+                    ref_formulae=list(getattr(legacy_clustering_cfg, "ref_formulae", []) or []),
+                    do_matrix_decomposition=bool(getattr(legacy_clustering_cfg, "do_matrix_decomposition", True)),
+                    max_analytical_error_percent=getattr(legacy_clustering_cfg, "max_analytical_error_percent", 5.0),
+                    min_bckgrnd_cnts=getattr(legacy_clustering_cfg, "min_bckgrnd_cnts", 5),
+                    quant_flags_accepted=list(getattr(legacy_clustering_cfg, "quant_flags_accepted", [0, -1]) or []),
                 ),
-                k_finding_method=str(getattr(legacy_clustering_cfg, "k_finding_method", "silhouette")),
-                max_k=int(getattr(legacy_clustering_cfg, "max_k", 6)),
-                ref_formulae=list(getattr(legacy_clustering_cfg, "ref_formulae", []) or []),
-                do_matrix_decomposition=bool(getattr(legacy_clustering_cfg, "do_matrix_decomposition", True)),
-                max_analytical_error_percent=getattr(legacy_clustering_cfg, "max_analytical_error_percent", 5.0),
-                min_bckgrnd_cnts=getattr(legacy_clustering_cfg, "min_bckgrnd_cnts", 5),
-                quant_flags_accepted=list(getattr(legacy_clustering_cfg, "quant_flags_accepted", [0, -1]) or []),
+                result=None,
             )
         ],
-        active_clustering_cfg_index=0,
+        active_clustering_analysis_index=0,
     )
+
+
+def _list_pointer_files_in_spectra_dir(sample_result_dir: str) -> List[Path]:
+    """List pointer files currently present in the spectra directory."""
+    spectra_dir = Path(sample_result_dir, cnst.SPECTRA_DIR)
+    if not spectra_dir.exists():
+        return []
+
+    allowed_ext = {".msa", ".msg", ".json"}
+    files = []
+    for path in spectra_dir.iterdir():
+        if not path.is_file() or path.suffix.lower() not in allowed_ext:
+            continue
+        stem = path.stem
+        if not stem.startswith(cnst.SPECTRUM_FILENAME_PREFIX):
+            continue
+        if stem.endswith(cnst.SPECTRUM_MAN_BACKGROUND_SUFFIX):
+            continue
+        files.append(path)
+
+    def sort_key(path: Path) -> Tuple[int, Any, str]:
+        stem = path.stem
+        spectrum_id = stem[len(cnst.SPECTRUM_FILENAME_PREFIX):] if stem.startswith(cnst.SPECTRUM_FILENAME_PREFIX) else stem
+        if spectrum_id.isdigit():
+            return (0, int(spectrum_id), path.name)
+        return (1, spectrum_id.lower(), path.name)
+
+    return sorted(files, key=sort_key)
+
+
+def _load_existing_ledger(sample_result_dir: str) -> Optional[SampleLedger]:
+    """Load an existing ledger if present and valid."""
+    ledger_path = Path(sample_result_dir, cnst.LEDGER_FILENAME + cnst.LEDGER_FILEEXT)
+    if not ledger_path.exists():
+        return None
+    try:
+        return SampleLedger.from_json_file(str(ledger_path))
+    except Exception:
+        return None
+
+
+def _build_background_relpath(spectrum_id: str) -> str:
+    """Build relative path for one manufacturer background vector file."""
+    filename = (
+        f"{cnst.SPECTRUM_FILENAME_PREFIX}{spectrum_id}"
+        f"{cnst.SPECTRUM_MAN_BACKGROUND_SUFFIX}{cnst.VECTOR_FILEEXT}"
+    )
+    return os.path.join(cnst.SPECTRA_DIR, filename)
+
+
+def _load_realtime_from_pointer_file(pointer_path: Path) -> Optional[float]:
+    """Read REALTIME from an EMSA-like header when available."""
+    if pointer_path.suffix.lower() not in {".msa", ".msg"}:
+        return None
+
+    try:
+        with pointer_path.open("r", encoding="utf-8") as file_obj:
+            for raw_line in file_obj:
+                line = raw_line.strip()
+                if not line.startswith("#") or ":" not in line:
+                    continue
+                if line.upper().startswith("#SPECTRUM"):
+                    break
+                key, value = line[1:].split(":", maxsplit=1)
+                key_norm = key.strip().replace("_", "").replace(" ", "").upper()
+                if key_norm == "REALTIME":
+                    return float(value.strip())
+    except Exception:
+        return None
+
+    return None
+
+
+def _build_spectrum_entry_from_pointer_file(
+    *,
+    sample_result_dir: str,
+    pointer_file: Path,
+    acquisition_details_by_id: Optional[Dict[str, AcquisitionDetails]] = None,
+    quantification_results_by_id: Optional[Dict[str, List[QuantificationResult]]] = None,
+) -> SpectrumEntry:
+    """Build a SpectrumEntry by inspecting one file under sample_path/spectra."""
+    sample_root = Path(sample_result_dir).resolve()
+    pointer_abs = pointer_file.resolve()
+    pointer_rel = str(pointer_abs.relative_to(sample_root))
+    stem = pointer_file.stem
+    if stem.startswith(cnst.SPECTRUM_FILENAME_PREFIX):
+        spectrum_id = stem[len(cnst.SPECTRUM_FILENAME_PREFIX):]
+    else:
+        spectrum_id = stem
+
+    try:
+        counts = SampleLedger._load_counts_from_pointer_file(pointer_abs)
+        total_counts = int(round(float(np.sum(counts))))
+    except Exception:
+        total_counts = 0
+
+    acquisition_details = AcquisitionDetails(frame_id=None, particle_id=None, spot_coordinates=None)
+    if acquisition_details_by_id is not None:
+        acquisition_details = acquisition_details_by_id.get(spectrum_id, acquisition_details)
+
+    realtime_from_header = _parse_optional_float(_load_realtime_from_pointer_file(pointer_abs))
+    background_relpath = None
+    candidate_background = Path(sample_result_dir, _build_background_relpath(spectrum_id))
+    if candidate_background.exists():
+        background_relpath = str(candidate_background.resolve().relative_to(sample_root))
+
+    entry_results: List[QuantificationResult] = []
+    if quantification_results_by_id is not None:
+        entry_results = list(quantification_results_by_id.get(spectrum_id, []))
+
+    return SpectrumEntry(
+        live_acquisition_time=realtime_from_header if realtime_from_header is not None else 1.0,
+        total_counts=total_counts,
+        spectrum_id=spectrum_id,
+        spectrum_relpath=pointer_rel,
+        instrument_background_relpath=background_relpath,
+        acquisition_details=acquisition_details,
+        quantification_results=entry_results,
+    )
+
+
+def load_or_create_ledger_with_legacy_data_csv(
+    *,
+    sample_result_dir: str,
+    sample_id: str,
+    microscope_id: Optional[str],
+    use_instrument_background: bool,
+    default_ledger_configs: LedgerConfigs,
+    resolve_or_create_spectrum_pointer: Callable[..., str],
+    write_background_pointer: Optional[Callable[..., Optional[str]]] = None,
+) -> SampleLedger:
+    """Load a ledger or bootstrap it from legacy Data.csv when no ledger exists yet."""
+    spectra_dir = Path(sample_result_dir, cnst.SPECTRA_DIR)
+    spectra_dir.mkdir(parents=True, exist_ok=True)
+    ledger_path = Path(sample_result_dir, cnst.LEDGER_FILENAME + cnst.LEDGER_FILEEXT)
+
+    pointer_files = _list_pointer_files_in_spectra_dir(sample_result_dir)
+    if not pointer_files:
+        data_csv_path = os.path.join(sample_result_dir, cnst.DATA_FILENAME + cnst.DATA_FILEEXT)
+        n_written = backfill_spectra_from_data_csv(
+            data_csv_path,
+            resolve_or_create_spectrum_pointer,
+            spectrum_key=cnst.SPECTRUM_DF_KEY,
+            spectrum_id_key=cnst.SP_ID_DF_KEY,
+            live_time_key=cnst.LIVE_TIME_DF_KEY,
+            real_time_key=cnst.REAL_TIME_DF_KEY,
+            background_key=cnst.BACKGROUND_DF_KEY,
+            write_background_pointer=(write_background_pointer if use_instrument_background else None),
+        )
+        if n_written > 0:
+            warnings.warn(
+                "Deprecation warning: legacy Data.csv compatibility path was used to reconstruct spectra files. "
+                "Please reanalyse old samples so a ledger is created natively.",
+                UserWarning,
+            )
+        pointer_files = _list_pointer_files_in_spectra_dir(sample_result_dir)
+
+    ledger = _load_existing_ledger(sample_result_dir)
+    ledger_changed = False
+    data_csv_path = os.path.join(sample_result_dir, cnst.DATA_FILENAME + cnst.DATA_FILEEXT)
+    legacy_acq_details = load_legacy_acquisition_details_by_spectrum_id(
+        data_csv_path,
+        sample_result_dir=sample_result_dir,
+        microscope_id=microscope_id,
+    )
+    legacy_quant_results = load_legacy_quantification_results_by_spectrum_id(data_csv_path)
+    legacy_configs = load_ledger_configs_from_legacy_json(sample_result_dir)
+    ledger_configs = legacy_configs if legacy_configs is not None else default_ledger_configs
+
+    if ledger is None:
+        if pointer_files:
+            spectra_entries = [
+                _build_spectrum_entry_from_pointer_file(
+                    sample_result_dir=sample_result_dir,
+                    pointer_file=pointer_file,
+                    acquisition_details_by_id=legacy_acq_details,
+                    quantification_results_by_id=legacy_quant_results,
+                )
+                for pointer_file in pointer_files
+            ]
+            ledger = SampleLedger(
+                sample_id=sample_id,
+                sample_path=os.path.abspath(sample_result_dir),
+                configs=ledger_configs,
+                spectra=spectra_entries,
+                quantifications=[
+                    build_legacy_import_quantification_config(
+                        sample_result_dir=sample_result_dir,
+                        ledger_configs=ledger_configs,
+                    )
+                ],
+                active_quant=0,
+            )
+            ledger_changed = True
+        else:
+            ledger = SampleLedger(
+                sample_id=sample_id,
+                sample_path=os.path.abspath(sample_result_dir),
+                configs=ledger_configs,
+                spectra=[],
+                quantifications=[],
+                active_quant=None,
+            )
+            ledger_changed = True
+
+    existing_relpaths = {
+        spectrum.spectrum_relpath
+        for spectrum in ledger.spectra
+        if spectrum.spectrum_relpath is not None
+    }
+    pointer_files = _list_pointer_files_in_spectra_dir(sample_result_dir)
+    sample_root = Path(sample_result_dir).resolve()
+    for pointer_file in pointer_files:
+        pointer_rel = str(pointer_file.resolve().relative_to(sample_root))
+        if pointer_rel in existing_relpaths:
+            continue
+        ledger.spectra.append(
+            _build_spectrum_entry_from_pointer_file(
+                sample_result_dir=sample_result_dir,
+                pointer_file=pointer_file,
+                acquisition_details_by_id=legacy_acq_details,
+                quantification_results_by_id=legacy_quant_results,
+            )
+        )
+        existing_relpaths.add(pointer_rel)
+        ledger_changed = True
+
+    if ledger.sample_path != os.path.abspath(sample_result_dir):
+        ledger.sample_path = os.path.abspath(sample_result_dir)
+        ledger_changed = True
+
+    if _refresh_legacy_import_payloads(
+        ledger,
+        sample_result_dir=sample_result_dir,
+        data_csv_path=data_csv_path,
+        legacy_quant_results=legacy_quant_results,
+    ):
+        ledger_changed = True
+
+    if ledger_changed:
+        ledger.to_json_file(ledger_path)
+
+    return ledger
+
+def _refresh_legacy_import_payloads(
+    ledger: SampleLedger,
+    *,
+    sample_result_dir: str,
+    data_csv_path: str,
+    legacy_quant_results: Dict[str, List[QuantificationResult]],
+) -> bool:
+    """Refresh legacy-import config and quant results from Data.csv when stale."""
+    if not data_csv_path or not os.path.exists(data_csv_path):
+        return False
+
+    changed = False
+    legacy_configs = load_ledger_configs_from_legacy_json(sample_result_dir)
+    config_source = legacy_configs if legacy_configs is not None else ledger.configs
+    legacy_quant_config = build_legacy_import_quantification_config(
+        sample_result_dir=sample_result_dir,
+        ledger_configs=config_source,
+    )
+    existing_config_idx = next(
+        (i for i, config in enumerate(ledger.quantifications) if config.quantification_id == 0),
+        None,
+    )
+    if existing_config_idx is None:
+        ledger.quantifications.insert(0, legacy_quant_config)
+        changed = True
+    else:
+        existing_config = ledger.quantifications[existing_config_idx]
+        if existing_config.model_dump(mode="json") != legacy_quant_config.model_dump(mode="json"):
+            ledger.quantifications[existing_config_idx] = legacy_quant_config
+            changed = True
+
+    if ledger.active_quant is None and ledger.quantifications:
+        ledger.active_quant = 0
+        changed = True
+
+    for index, spectrum in enumerate(ledger.spectra):
+        spectrum_id = str(spectrum.spectrum_id) if spectrum.spectrum_id not in (None, "") else str(index)
+        replacement_results = legacy_quant_results.get(spectrum_id)
+        if replacement_results is None:
+            continue
+
+        retained_results = [
+            result for result in spectrum.quantification_results if result.quantification_id != 0
+        ]
+        merged_results = [
+            result.model_copy(deep=True) for result in replacement_results
+        ] + retained_results
+        if [result.model_dump(mode="json") for result in spectrum.quantification_results] != [
+            result.model_dump(mode="json") for result in merged_results
+        ]:
+            spectrum.quantification_results = merged_results
+            changed = True
+
+    return changed

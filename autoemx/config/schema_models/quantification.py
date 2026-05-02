@@ -9,6 +9,7 @@ import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .fitting import FitResult
+from .clustering import ClusteringAnalysis, ClusteringResult # type: ignore
 
 
 class QuantificationDiagnostics(BaseModel):
@@ -120,174 +121,6 @@ def _collect_payload_differences(
         out[path or "root"] = {"old": left, "new": right}
 
 
-class ClusteringConfig(BaseModel):
-    """Configuration for clustering of compositions and their filtering.
-
-    Attributes:
-        method (str): Clustering algorithm to use. Allowed: 'kmeans' (implemented), 'dbscan' (not implemented).
-        features (str): Feature set to use for clustering.
-        k_forced (Optional[int]): Forced number of clusters when `k_finding_method` is "forced".
-        k_resolved (Optional[int]): Number of clusters resolved from data for this run.
-        k_finding_method (str): Method to determine the number of clusters. Set to "forced" when `k_forced` is specified manually.
-            Allowed methods are "silhouette", "calinski_harabasz", "elbow".
-        max_k (int): Maximum allowed number of clusters.
-        ref_formulae (List[str]): List of possible phases present in the sample, as chemical formula strings.
-        do_matrix_decomposition (bool) : Whether to compute matrix decomposition for intermixed phases. Slow if many candidate phases are provided. Default: True
-        max_analytical_error_percent (Optional[float]): Maximum analytical error acceptable for composition to be considered in phase determination, expressed as w%. Can be None.
-        min_bckgrnd_cnts (Optional[float]): Minimum background counts required under reference lines for quantification to be accepted.
-            Set to None to disable this threshold-based filter.
-        quant_flags_accepted (List[int]): List of quantification flags considered acceptable, others are filtered out prior clustering.
-            Quantification flags indicate whether the quantification or the fit of each spectrum is likely to be affected by large errors:
-               - 0: Quantification is ok, although it may be affected by large analytical error
-               - -1: As above, but quantification did not converge within 30 steps
-               - 1: Error during EDS acquisition. No fit executed
-               - 2: Total number of counts is lower than 95% of target counts, likely due to wrong segmentation. No fit executed
-               - 3: Spectrum has too low signal in its low-energy portion, leading to poor quantification in this region. No fit executed
-               - 4: Poor fit. Fit interrupted if interrupt_fits_bad_spectra=True
-               - 5: Too high analytical error (>50%) indicating a missing element or other major sources of error. Fit interrupted if interrupt_fits_bad_spectra=True
-               - 6: Excessive X-ray absorption. Fit interrupted if interrupt_fits_bad_spectra=True
-               - 7: Excessive signal contamination from substrate
-               - 8: Too few background counts below reference peak, likely leading to large quantification errors
-               - 9: Unknown fitting error
-    """
-
-    clustering_id: int = 0
-    method: str = "kmeans"
-    features: str = "at_fr"
-    k_forced: Optional[int] = None
-    k_resolved: Optional[int] = None
-    k_finding_method: str = "silhouette"
-    max_k: int = 6
-    ref_formulae: List[str] = Field(default_factory=list)
-    do_matrix_decomposition: bool = True
-    max_analytical_error_percent: Optional[float] = 5.0
-    min_bckgrnd_cnts: Optional[float] = 5.0
-    quant_flags_accepted: List[int] = Field(default_factory=lambda: [0, -1])
-
-    model_config = ConfigDict(extra="forbid")
-
-    @field_validator("clustering_id", mode="before")
-    @classmethod
-    def validate_clustering_id_input(cls, v: Any) -> Any:
-        if isinstance(v, bool):
-            raise ValueError("clustering_id must be a non-negative integer")
-        return v
-
-    @field_validator("clustering_id")
-    @classmethod
-    def validate_clustering_id(cls, value: int) -> int:
-        if value < 0:
-            raise ValueError("clustering_id must be non-negative")
-        return value
-
-    @field_validator("method", "features", "k_finding_method")
-    @classmethod
-    def validate_non_empty_strings(cls, value: str) -> str:
-        normalized = str(value).strip()
-        if not normalized:
-            raise ValueError("Clustering string fields cannot be empty")
-        return normalized
-
-    @field_validator("max_k")
-    @classmethod
-    def validate_max_k(cls, value: int) -> int:
-        if value <= 0:
-            raise ValueError("max_k must be positive")
-        return value
-
-    @field_validator("k_forced", "k_resolved")
-    @classmethod
-    def validate_k(cls, value: Optional[int]) -> Optional[int]:
-        if value is not None and value <= 0:
-            raise ValueError("k values must be positive when provided")
-        return value
-
-    @model_validator(mode="after")
-    def validate_k_semantics(self) -> "ClusteringConfig":
-        """Enforce forced-k semantics and normalize method when a forced k is provided."""
-        forced_key = "forced"
-        if self.k_forced is not None and self.k_finding_method != forced_key:
-            self.k_finding_method = forced_key
-        if self.k_forced is None and self.k_finding_method == forced_key:
-            raise ValueError("k_finding_method='forced' requires k_forced to be set")
-        return self
-
-    @field_validator("max_analytical_error_percent")
-    @classmethod
-    def validate_max_analytical_error_percent(cls, value: Optional[float]) -> Optional[float]:
-        if value is not None and not np.isfinite(value):
-            raise ValueError("max_analytical_error_percent must be finite when provided")
-        return value
-
-    @field_validator("min_bckgrnd_cnts")
-    @classmethod
-    def validate_min_bckgrnd_cnts(cls, value: Optional[float]) -> Optional[float]:
-        if value is not None and value < 0:
-            raise ValueError("min_bckgrnd_cnts must be non-negative or None")
-        return value
-
-    @field_validator("ref_formulae")
-    @classmethod
-    def validate_ref_formulae(cls, values: List[str]) -> List[str]:
-        normalized: List[str] = []
-        seen = set()
-        for value in values:
-            formula = str(value).strip()
-            if not formula:
-                continue
-            if formula not in seen:
-                normalized.append(formula)
-                seen.add(formula)
-        return normalized
-
-    @field_validator("quant_flags_accepted")
-    @classmethod
-    def validate_quant_flags_accepted(cls, values: List[int]) -> List[int]:
-        normalized: List[int] = []
-        seen = set()
-        for value in values:
-            numeric = int(value)
-            if numeric not in seen:
-                normalized.append(numeric)
-                seen.add(numeric)
-        return normalized
-
-    def fingerprint_payload(self) -> Dict[str, Any]:
-        """Return canonical clustering inputs used to decide clustering reuse."""
-        return {
-            "method": self.method,
-            "features": self.features,
-            "k_forced": self.k_forced,
-            "k_finding_method": self.k_finding_method,
-            "max_k": self.max_k,
-            "ref_formulae": sorted(self.ref_formulae),
-            "do_matrix_decomposition": self.do_matrix_decomposition,
-            "max_analytical_error_percent": self.max_analytical_error_percent,
-            "min_bckgrnd_cnts": self.min_bckgrnd_cnts,
-            "quant_flags_accepted": sorted(self.quant_flags_accepted),
-        }
-
-    def fingerprint(self) -> str:
-        """Compute deterministic SHA-256 fingerprint for clustering scientific inputs."""
-        canonical_payload = _canonicalize_json_value(self.fingerprint_payload())
-        canonical_json = json.dumps(canonical_payload, sort_keys=True, separators=(",", ":"))
-        return hashlib.sha256(canonical_json.encode("utf-8")).hexdigest()
-
-    def fingerprint_differences(self, other: "ClusteringConfig") -> Dict[str, Dict[str, Any]]:
-        """Return a deterministic diff of clustering scientific inputs against another config."""
-        left_payload = _canonicalize_json_value(self.fingerprint_payload())
-        right_payload = _canonicalize_json_value(other.fingerprint_payload())
-
-        differences: Dict[str, Dict[str, Any]] = {}
-        _collect_payload_differences(
-            left=left_payload,
-            right=right_payload,
-            path="",
-            out=differences,
-        )
-        return dict(sorted(differences.items()))
-
-
 class QuantificationConfig(BaseModel):
     """Configuration descriptor for one full quantification run.
 
@@ -308,8 +141,8 @@ class QuantificationConfig(BaseModel):
     options: Dict[str, Any] = Field(default_factory=dict)
     reference_values_by_el_line: Dict[str, Any] = Field(default_factory=dict)
     reference_lines_by_element: Dict[str, str] = Field(default_factory=dict)
-    active_clustering_cfg_index: Optional[int] = None
-    clustering_configs: List[ClusteringConfig] = Field(default_factory=list)
+    active_clustering_analysis_index: Optional[int] = None
+    clustering_analyses: List[ClusteringAnalysis] = Field(default_factory=list)
 
 
     model_config = ConfigDict(extra="forbid")
@@ -419,25 +252,32 @@ class QuantificationConfig(BaseModel):
         return normalized
 
     @model_validator(mode="after")
-    def validate_clustering_config_index(self) -> "QuantificationConfig":
-        """Ensure active clustering config index is valid and defaults to the last config."""
+    def validate_clustering_analysis_index(self) -> "QuantificationConfig":
+        """Ensure active clustering analysis index is valid and defaults to the last entry."""
 
-        if self.clustering_configs:
-            if self.active_clustering_cfg_index is None:
-                self.active_clustering_cfg_index = len(self.clustering_configs) - 1
-            elif not (0 <= self.active_clustering_cfg_index < len(self.clustering_configs)):
-                raise ValueError("active_clustering_cfg_index must reference an existing clustering config")
-        elif self.active_clustering_cfg_index is not None:
-            raise ValueError("active_clustering_cfg_index must be None when no clustering configs are available")
+        if self.clustering_analyses:
+            if self.active_clustering_analysis_index is None:
+                self.active_clustering_analysis_index = len(self.clustering_analyses) - 1
+            elif not (0 <= self.active_clustering_analysis_index < len(self.clustering_analyses)):
+                raise ValueError("active_clustering_analysis_index must reference an existing clustering analysis")
+        elif self.active_clustering_analysis_index is not None:
+            raise ValueError("active_clustering_analysis_index must be None when no clustering analyses are available")
         return self
 
-    def get_active_clustering_config(self) -> Optional[ClusteringConfig]:
-        """Return the active clustering config, defaulting to the last one when available."""
-        if not self.clustering_configs:
+    def get_active_clustering_analysis(self) -> Optional[ClusteringAnalysis]:
+        """Return the active clustering analysis, defaulting to the last one when available."""
+        if not self.clustering_analyses:
             return None
-        if self.active_clustering_cfg_index is None:
-            return self.clustering_configs[-1]
-        return self.clustering_configs[self.active_clustering_cfg_index]
+        if self.active_clustering_analysis_index is None:
+            return self.clustering_analyses[-1]
+        return self.clustering_analyses[self.active_clustering_analysis_index]
+
+    def set_active_clustering_result(self, result: ClusteringResult) -> None:
+        """Attach a clustering result to the active clustering analysis."""
+        active_analysis = self.get_active_clustering_analysis()
+        if active_analysis is None:
+            raise ValueError("No active clustering analysis available to attach result")
+        active_analysis.result = result
 
     @staticmethod
     def derive_reference_lines_by_element(

@@ -84,7 +84,6 @@ import autoemx.config.defaults as dflt
 from autoemx.utils import (
     print_single_separator,
     print_double_separator,
-    to_latex_formula,
     make_unique_path,
 )
 from autoemx.config import (
@@ -111,13 +110,11 @@ from autoemx.config.ledger_schemas import (
     SpotCoordinates,
     SpectrumEntry,
 )
-from autoemx.config.schema_models import EDSStandardsFile
+from autoemx.config.schema_models.clustering import ClusteringAnalysis, ClusteringResult
+from autoemx.config.schema_models.standards import EDSStandardsFile
 from .clustering import ClusteringModule
-from autoemx.utils.legacy.legacy_backfill import backfill_spectra_from_data_csv, load_ledger_configs_from_legacy_json
 from autoemx.utils.legacy.legacy_ledger_loader import (
-    build_legacy_import_quantification_config,
-    load_legacy_acquisition_details_by_spectrum_id,
-    load_legacy_quantification_results_by_spectrum_id,
+    load_or_create_ledger_with_legacy_data_csv,
 )
 from .plotting import PlottingModule
 from .reference_matching import ReferenceMatchingModule
@@ -529,7 +526,7 @@ class EMXSp_Composition_Analyzer:
             sample_path=os.path.abspath(self.sample_result_dir),
             configs=self._build_ledger_configs(),
             spectra=[],
-            quantification_configs=[],
+            quantifications=[],
             active_quant=None,
         )
         ledger.to_json_file(ledger_path)
@@ -687,11 +684,11 @@ class EMXSp_Composition_Analyzer:
         if quant_config is None:
             raise RuntimeError("No active quantification config is available to name analysis directory")
 
-        active_clustering_config = quant_config.get_active_clustering_config()
-        if active_clustering_config is None:
+        active_clustering_analysis = quant_config.get_active_clustering_analysis()
+        if active_clustering_analysis is None:
             raise RuntimeError("No active clustering config is available to name analysis directory")
 
-        return int(quant_config.quantification_id), int(active_clustering_config.clustering_id)
+        return int(quant_config.quantification_id), int(active_clustering_analysis.config.clustering_id)
 
 
     @staticmethod
@@ -1161,7 +1158,7 @@ class EMXSp_Composition_Analyzer:
             logger.info('🔬 Quantifying spectrum' + sp_id_str)
             start_quant_time = time.time()
                             
-        # Check if spectrum is worth fitting
+        is_sp_valid_for_fitting, quant_flag, comment = self._is_spectrum_valid_for_fitting(spectrum, background)
         is_sp_valid_for_fitting, quant_flag, comment = self._is_spectrum_valid_for_fitting(spectrum, background)
         if not is_sp_valid_for_fitting:
             quant_record = QuantificationResult(
@@ -1212,7 +1209,12 @@ class EMXSp_Composition_Analyzer:
         except Exception as e:
             logger.error(f"❌ {type(e).__name__}: {e}")
             is_quant_fit_valid = False
-            quant_flag, comment = self._check_fit_quant_validity(is_quant_fit_valid, None, None, None)
+            quant_flag, comment = self._check_fit_quant_validity(
+                is_quant_fit_valid,
+                None,
+                None,
+                None,
+            )
             quant_record = quantifier.export_quantification_result(
                 quantification_id=self.current_quantification_id,
                 quant_result=None,
@@ -1389,38 +1391,6 @@ class EMXSp_Composition_Analyzer:
         return sorted(files, key=sort_key)
 
 
-    def _populate_spectra_dir_from_data_csv(self) -> int:
-        """Backfill spectra pointer files from Data.csv when legacy datasets lack external spectra files."""
-        data_csv_path = os.path.join(self.sample_result_dir, cnst.DATA_FILENAME + cnst.DATA_FILEEXT)
-        if not os.path.exists(data_csv_path):
-            return 0
-
-        n_written = backfill_spectra_from_data_csv(
-            data_csv_path,
-            self._resolve_or_create_spectrum_pointer,
-            spectrum_key=cnst.SPECTRUM_DF_KEY,
-            spectrum_id_key=cnst.SP_ID_DF_KEY,
-            live_time_key=cnst.LIVE_TIME_DF_KEY,
-            real_time_key=cnst.REAL_TIME_DF_KEY,
-            background_key=cnst.BACKGROUND_DF_KEY,
-            write_background_pointer=(
-                self._write_manufacturer_background_vector
-                if self.quant_cfg.use_instrument_background
-                else None
-            ),
-        )
-
-        if n_written > 0 and not getattr(self, "_legacy_backfill_warned", False):
-            warnings.warn(
-                "Deprecation warning: legacy Data.csv compatibility path was used to reconstruct spectra files. "
-                "Please reanalyse all old samples so a ledger is created; all new AutoEMX versions will read that ledger.",
-                UserWarning,
-            )
-            self._legacy_backfill_warned = True
-
-        return n_written
-
-
     @staticmethod
     def _parse_optional_int(value: Any) -> Optional[int]:
         if value is None or pd.isna(value) or value == "":
@@ -1522,155 +1492,16 @@ class EMXSp_Composition_Analyzer:
 
 
     def _load_or_create_ledger(self) -> SampleLedger:
-        """Load ledger or create/sync it from files in the spectra directory."""
-        ledger_path = self._get_ledger_path()
-        spectra_dir = self._get_spectra_dir()
-        os.makedirs(spectra_dir, exist_ok=True)
-
-        pointer_files = self._list_pointer_files_in_spectra_dir()
-        if not pointer_files:
-            # Backward compatibility: legacy datasets may only have Data.csv and no spectra/ files.
-            self._populate_spectra_dir_from_data_csv()
-            pointer_files = self._list_pointer_files_in_spectra_dir()
-
-        ledger = self._load_existing_ledger()
-        ledger_changed = False
-        data_csv_path = os.path.join(self.sample_result_dir, cnst.DATA_FILENAME + cnst.DATA_FILEEXT)
-        legacy_acq_details = load_legacy_acquisition_details_by_spectrum_id(
-            data_csv_path,
+        """Load ledger and apply only Data.csv-without-ledger legacy bootstrap compatibility."""
+        return load_or_create_ledger_with_legacy_data_csv(
             sample_result_dir=self.sample_result_dir,
+            sample_id=self.sample_cfg.ID,
             microscope_id=self.microscope_cfg.ID,
+            use_instrument_background=bool(self.quant_cfg.use_instrument_background),
+            default_ledger_configs=self._build_ledger_configs(),
+            resolve_or_create_spectrum_pointer=self._resolve_or_create_spectrum_pointer,
+            write_background_pointer=self._write_manufacturer_background_vector,
         )
-        legacy_quant_results = load_legacy_quantification_results_by_spectrum_id(data_csv_path)
-
-        if ledger is None:
-            if pointer_files:
-                legacy_configs = load_ledger_configs_from_legacy_json(self.sample_result_dir)
-                ledger_configs = legacy_configs if legacy_configs is not None else self._build_ledger_configs()
-                spectra_entries = [
-                    self._build_spectrum_entry_from_pointer_file(
-                        pointer_file,
-                        acquisition_details_by_id=legacy_acq_details,
-                        quantification_results_by_id=legacy_quant_results,
-                    )
-                    for pointer_file in pointer_files
-                ]
-                ledger = SampleLedger(
-                    sample_id=self.sample_cfg.ID,
-                    sample_path=os.path.abspath(self.sample_result_dir),
-                    configs=ledger_configs,
-                    spectra=spectra_entries,
-                    quantification_configs=[
-                        build_legacy_import_quantification_config(
-                            sample_result_dir=self.sample_result_dir,
-                            ledger_configs=ledger_configs,
-                        )
-                    ],
-                    active_quant=0,
-                )
-                ledger_changed = True
-            else:
-                ledger = SampleLedger(
-                    sample_id=self.sample_cfg.ID,
-                    sample_path=os.path.abspath(self.sample_result_dir),
-                    configs=ledger_configs,
-                    spectra=[],
-                    quantification_configs=[],
-                    active_quant=None,
-                )
-                ledger_changed = True
-
-        existing_relpaths = {
-            spectrum.spectrum_relpath
-            for spectrum in ledger.spectra
-            if spectrum.spectrum_relpath is not None
-        }
-        pointer_files = self._list_pointer_files_in_spectra_dir()
-        for pointer_file in pointer_files:
-            pointer_rel = str(pointer_file.resolve().relative_to(Path(self.sample_result_dir).resolve()))
-            if pointer_rel in existing_relpaths:
-                continue
-            ledger.spectra.append(
-                self._build_spectrum_entry_from_pointer_file(
-                    pointer_file,
-                    acquisition_details_by_id=legacy_acq_details,
-                    quantification_results_by_id=legacy_quant_results,
-                )
-            )
-            existing_relpaths.add(pointer_rel)
-            ledger_changed = True
-
-        if ledger.sample_path != os.path.abspath(self.sample_result_dir):
-            ledger.sample_path = os.path.abspath(self.sample_result_dir)
-            ledger_changed = True
-
-        if self._refresh_legacy_import_payloads(
-            ledger,
-            data_csv_path=data_csv_path,
-            legacy_quant_results=legacy_quant_results,
-        ):
-            ledger_changed = True
-
-        if ledger_changed:
-            ledger.to_json_file(ledger_path)
-
-        return ledger
-
-
-    def _refresh_legacy_import_payloads(
-        self,
-        ledger: SampleLedger,
-        *,
-        data_csv_path: str,
-        legacy_quant_results: Dict[str, List[QuantificationResult]],
-    ) -> bool:
-        """Refresh legacy-import config and quant results from Data.csv when they are stale."""
-        if not data_csv_path or not os.path.exists(data_csv_path):
-            return False
-
-        changed = False
-        legacy_configs = load_ledger_configs_from_legacy_json(self.sample_result_dir)
-        config_source = legacy_configs if legacy_configs is not None else ledger.configs
-        legacy_quant_config = build_legacy_import_quantification_config(
-            sample_result_dir=self.sample_result_dir,
-            ledger_configs=config_source,
-        )
-        existing_config_idx = next(
-            (i for i, config in enumerate(ledger.quantification_configs) if config.quantification_id == 0),
-            None,
-        )
-        if existing_config_idx is None:
-            ledger.quantification_configs.insert(0, legacy_quant_config)
-            changed = True
-        else:
-            existing_config = ledger.quantification_configs[existing_config_idx]
-            if existing_config.model_dump(mode="json") != legacy_quant_config.model_dump(mode="json"):
-                ledger.quantification_configs[existing_config_idx] = legacy_quant_config
-                changed = True
-
-        if ledger.active_quant is None and ledger.quantification_configs:
-            ledger.active_quant = 0
-            changed = True
-
-        for index, spectrum in enumerate(ledger.spectra):
-            spectrum_id = str(spectrum.spectrum_id) if spectrum.spectrum_id not in (None, "") else str(index)
-            replacement_results = legacy_quant_results.get(spectrum_id)
-            if replacement_results is None:
-                continue
-
-            retained_results = [
-                result for result in spectrum.quantification_results if result.quantification_id != 0
-            ]
-            merged_results = [
-                result.model_copy(deep=True) for result in replacement_results
-            ] + retained_results
-            if [result.model_dump(mode="json") for result in spectrum.quantification_results] != [
-                result.model_dump(mode="json") for result in merged_results
-            ]:
-                spectrum.quantification_results = merged_results
-                changed = True
-
-        return changed
 
 
     def _extract_coords_from_spectrum_entry(self, spectrum: 'SpectrumEntry', index: int) -> dict:
@@ -1931,13 +1762,13 @@ class EMXSp_Composition_Analyzer:
 
     def _apply_active_clustering_config(self, quant_config: QuantificationConfig) -> None:
         """Load runtime clustering options from the active clustering config of a quantification config."""
-        active_clustering_config = quant_config.get_active_clustering_config()
-        if active_clustering_config is None:
+        active_clustering_analysis = quant_config.get_active_clustering_analysis()
+        if active_clustering_analysis is None:
             raise ValueError(
                 "Active quantification config does not contain an active clustering config"
             )
 
-        self.clustering_cfg = active_clustering_config.model_copy(deep=True)
+        self.clustering_cfg = active_clustering_analysis.config.model_copy(deep=True)
         self.ref_formulae = list(dict.fromkeys(self.clustering_cfg.ref_formulae))
         self._calc_reference_phases_df()
 
@@ -1965,7 +1796,10 @@ class EMXSp_Composition_Analyzer:
         candidate_clustering_config = self._build_clustering_config_descriptor(
             clustering_id=self._next_clustering_config_id(quant_config)
         )
-        active_clustering_config = quant_config.get_active_clustering_config()
+        active_clustering_analysis = quant_config.get_active_clustering_analysis()
+        active_clustering_config = (
+            active_clustering_analysis.config if active_clustering_analysis is not None else None
+        )
 
         if (
             active_clustering_config is not None
@@ -1984,38 +1818,40 @@ class EMXSp_Composition_Analyzer:
                     UserWarning,
                 )
 
-        quant_config.clustering_configs.append(candidate_clustering_config)
-        quant_config.active_clustering_cfg_index = len(quant_config.clustering_configs) - 1
+        quant_config.clustering_analyses.append(
+            ClusteringAnalysis(config=candidate_clustering_config, result=None)
+        )
+        quant_config.active_clustering_analysis_index = len(quant_config.clustering_analyses) - 1
 
 
     @staticmethod
     def _next_clustering_config_id(quant_config: QuantificationConfig) -> int:
         """Return the next clustering config id local to the provided quantification config."""
-        if not quant_config.clustering_configs:
+        if not quant_config.clustering_analyses:
             return 0
-        return max(cfg.clustering_id for cfg in quant_config.clustering_configs) + 1
+        return max(analysis.config.clustering_id for analysis in quant_config.clustering_analyses) + 1
 
 
     @staticmethod
     def _get_active_quantification_config(existing_ledger: Optional[SampleLedger]) -> Optional[QuantificationConfig]:
         """Return the active quantification config from the ledger when available."""
-        if existing_ledger is None or not existing_ledger.quantification_configs:
+        if existing_ledger is None or not existing_ledger.quantifications:
             return None
 
         if existing_ledger.active_quant is not None:
-            for quant_config in existing_ledger.quantification_configs:
+            for quant_config in existing_ledger.quantifications:
                 if quant_config.quantification_id == existing_ledger.active_quant:
                     return quant_config
 
-        return existing_ledger.quantification_configs[-1]
+        return existing_ledger.quantifications[-1]
 
 
     @staticmethod
     def _next_quantification_id(existing_ledger: Optional[SampleLedger]) -> int:
         """Return the next ledger-local integer quantification identifier."""
-        if existing_ledger is None or not existing_ledger.quantification_configs:
+        if existing_ledger is None or not existing_ledger.quantifications:
             return 0
-        return max(config.quantification_id for config in existing_ledger.quantification_configs) + 1
+        return max(config.quantification_id for config in existing_ledger.quantifications) + 1
 
 
     def _build_quantification_config(
@@ -2043,29 +1879,8 @@ class EMXSp_Composition_Analyzer:
             options=options,
             reference_values_by_el_line=reference_values_by_el_line,
             reference_lines_by_element=reference_lines_by_element,
-            clustering_configs=[],
-            active_clustering_cfg_index=None,
-        )
-
-
-    def _build_legacy_import_quantification_config(self) -> QuantificationConfig:
-        """Build the baseline quantification config stored when migrating legacy Data.csv data."""
-        reference_values_by_el_line = self._extract_reference_values_from_standards(load_if_missing=True)
-        reference_lines_by_element = QuantificationConfig.derive_reference_lines_by_element(
-            reference_values_by_el_line=reference_values_by_el_line,
-            preferred_lines=XSp_Quantifier.xray_quant_ref_lines,
-        )
-        return QuantificationConfig(
-            quantification_id=0,
-            label="Legacy import",
-            sample_elements=list(self.all_els_sample),
-            substrate_elements=list(self.all_els_substrate),
-            els_w_fr=self._get_forced_mass_fractions(),
-            options=self._build_quantification_options(),
-            reference_values_by_el_line=reference_values_by_el_line,
-            reference_lines_by_element=reference_lines_by_element,
-            clustering_configs=[self._build_clustering_config_descriptor(clustering_id=0)],
-            active_clustering_cfg_index=0,
+            clustering_analyses=[],
+            active_clustering_analysis_index=None,
         )
 
 
@@ -2091,7 +1906,7 @@ class EMXSp_Composition_Analyzer:
         existing_index = next(
             (
                 i
-                for i, config in enumerate(ledger.quantification_configs)
+                for i, config in enumerate(ledger.quantifications)
                 if config.quantification_id == self.current_quant_config.quantification_id
             ),
             None,
@@ -2100,7 +1915,7 @@ class EMXSp_Composition_Analyzer:
         if existing_index is None:
             ledger.append_quantification_config(self.current_quant_config)
         else:
-            ledger.quantification_configs[existing_index] = self.current_quant_config
+            ledger.quantifications[existing_index] = self.current_quant_config
 
 
     def _persist_current_quantification_config(self) -> None:
@@ -2517,7 +2332,7 @@ class EMXSp_Composition_Analyzer:
                         sample_path=os.path.abspath(self.sample_result_dir),
                         configs=self._build_ledger_configs(),
                         spectra=[],
-                        quantification_configs=[],
+                        quantifications=[],
                         active_quant=None,
                     )
                 ledger.spectra.append(spectrum_entry)
@@ -2796,7 +2611,10 @@ class EMXSp_Composition_Analyzer:
         self.clustering_cfg.k_resolved = resolved_k_int
 
         if self.current_quant_config is not None:
-            active_clustering_config = self.current_quant_config.get_active_clustering_config()
+            active_clustering_analysis = self.current_quant_config.get_active_clustering_analysis()
+            active_clustering_config = (
+                active_clustering_analysis.config if active_clustering_analysis is not None else None
+            )
             if active_clustering_config is not None and active_clustering_config.k_resolved != resolved_k_int:
                 active_clustering_config.k_resolved = resolved_k_int
                 self._persist_current_quantification_config()
@@ -2807,11 +2625,32 @@ class EMXSp_Composition_Analyzer:
         if active_quant_config is None:
             return
 
-        active_clustering_config = active_quant_config.get_active_clustering_config()
+        active_clustering_analysis = active_quant_config.get_active_clustering_analysis()
+        active_clustering_config = (
+            active_clustering_analysis.config if active_clustering_analysis is not None else None
+        )
         if active_clustering_config is None or active_clustering_config.k_resolved == resolved_k_int:
             return
 
         active_clustering_config.k_resolved = resolved_k_int
+        ledger.to_json_file(self._get_ledger_path())
+
+
+    def _persist_clustering_result_on_active_analysis(self, clustering_result: ClusteringResult) -> None:
+        """Persist the latest clustering result on the active clustering analysis entry."""
+        ledger = self._load_or_create_ledger()
+        active_quant_config = self._get_active_quantification_config(ledger)
+        if active_quant_config is None:
+            return
+
+        active_quant_config.set_active_clustering_result(clustering_result.model_copy(deep=True))
+
+        if (
+            self.current_quant_config is not None
+            and self.current_quant_config.quantification_id == active_quant_config.quantification_id
+        ):
+            self.current_quant_config.set_active_clustering_result(clustering_result.model_copy(deep=True))
+
         ledger.to_json_file(self._get_ledger_path())
 
 
@@ -2936,11 +2775,23 @@ class EMXSp_Composition_Analyzer:
         # 8. Save and store results
         self._save_analysis_summary(labels, df_indices)
     
-        self._save_result_and_stats(
-            centroids, els_std_dev_per_cluster, centroids_other_fr, els_std_dev_per_cluster_other_fr,
-            n_points_per_cluster, wcss_per_cluster, rms_dist_cluster, rms_dist_cluster_other_fr,
-            refs_assigned_df, wcss, sil_score, n_datapts, clusters_assigned_mixtures
+        clustering_artifacts = ClusteringResult(
+            centroids=np.asarray(centroids, dtype=float).tolist(),
+            els_std_dev_per_cluster=els_std_dev_per_cluster,
+            centroids_other_fr=np.asarray(centroids_other_fr, dtype=float).tolist(),
+            els_std_dev_per_cluster_other_fr=els_std_dev_per_cluster_other_fr,
+            n_points_per_cluster=n_points_per_cluster,
+            wcss_per_cluster=wcss_per_cluster,
+            rms_dist_cluster=rms_dist_cluster,
+            rms_dist_cluster_other_fr=rms_dist_cluster_other_fr,
+            refs_assigned_rows=refs_assigned_df.to_dict(orient='records'),
+            wcss=wcss,
+            sil_score=sil_score,
+            tot_n_points=n_datapts,
+            clusters_assigned_mixtures=clusters_assigned_mixtures,
         )
+        self._save_result_and_stats(clustering_artifacts)
+        self._persist_clustering_result_on_active_analysis(clustering_artifacts)
     
         # 9. Save plots
         if self.plot_cfg.save_plots:
@@ -3381,19 +3232,7 @@ class EMXSp_Composition_Analyzer:
     # =============================================================================
     def _save_result_and_stats(
         self,
-        centroids: 'np.ndarray',
-        els_std_dev_per_cluster: list,
-        centroids_other_fr: 'np.ndarray',
-        els_std_dev_per_cluster_other_fr: list,
-        n_points_per_cluster: list,
-        wcss_per_cluster: list,
-        rms_dist_cluster: list,
-        rms_dist_cluster_other_fr: list,
-        refs_assigned_df: 'pd.DataFrame',
-        wcss: float,
-        sil_score: float,
-        tot_n_points: int,
-        clusters_assigned_mixtures: list
+        clustering_artifacts: ClusteringResult,
     ) -> None:
         """
         Save and store clustering results and statistics, including centroids, standard deviations, reference assignments, mixture assignments, and summary statistics.
@@ -3406,32 +3245,8 @@ class EMXSp_Composition_Analyzer:
     
         Parameters
         ----------
-        centroids : np.ndarray
-            Array of cluster centroids (shape: n_clusters, n_features).
-        els_std_dev_per_cluster : list
-            Standard deviations for each elemental fraction in each cluster (same shape as centroids).
-        centroids_other_fr : np.ndarray
-            Centroids in the alternate fraction representation.
-        els_std_dev_per_cluster_other_fr : list
-            Standard deviations of elemental fractions in the alternate fraction representation.
-        n_points_per_cluster : list
-            Number of points in each cluster.
-        wcss_per_cluster : list
-            Within-cluster sum of squares for each cluster.
-        rms_dist_cluster : list
-            Standard deviation of distances to centroid for each cluster.
-        rms_dist_cluster_other_fr : list
-            Standard deviation of distances in the alternate fraction representation.
-        refs_assigned_df : pd.DataFrame
-            DataFrame of reference assignments for each cluster.
-        wcss : float
-            Total within-cluster sum of squares.
-        sil_score : float
-            Silhouette score for the clustering.
-        tot_n_points : int
-            Total number of spectra considered.
-        clusters_assigned_mixtures : list
-            List of mixture assignments for each cluster.
+        clustering_artifacts : ClusteringResult
+            Schema model bundling all clustering outputs required for serialization.
     
         Returns
         -------
@@ -3455,6 +3270,20 @@ class EMXSp_Composition_Analyzer:
         """
     
         # Prepare cluster statistics as dictionaries for DataFrame construction
+        centroids = clustering_artifacts.centroids
+        els_std_dev_per_cluster = clustering_artifacts.els_std_dev_per_cluster
+        centroids_other_fr = clustering_artifacts.centroids_other_fr
+        els_std_dev_per_cluster_other_fr = clustering_artifacts.els_std_dev_per_cluster_other_fr
+        n_points_per_cluster = clustering_artifacts.n_points_per_cluster
+        wcss_per_cluster = clustering_artifacts.wcss_per_cluster
+        rms_dist_cluster = clustering_artifacts.rms_dist_cluster
+        rms_dist_cluster_other_fr = clustering_artifacts.rms_dist_cluster_other_fr
+        refs_assigned_df = pd.DataFrame(clustering_artifacts.refs_assigned_rows)
+        wcss = clustering_artifacts.wcss
+        sil_score = clustering_artifacts.sil_score
+        tot_n_points = clustering_artifacts.tot_n_points
+        clusters_assigned_mixtures = clustering_artifacts.clusters_assigned_mixtures
+
         els_fr = np.transpose(centroids)
         els_other_fr = np.transpose(centroids_other_fr)
         els_stdevs = np.transpose(els_std_dev_per_cluster)

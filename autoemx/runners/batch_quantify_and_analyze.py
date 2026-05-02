@@ -49,7 +49,7 @@ import warnings
 import time
 import logging
 import traceback
-from typing import List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from autoemx.utils import (
     print_double_separator,
@@ -58,9 +58,12 @@ from autoemx.utils import (
 )
 import autoemx.utils.constants as cnst
 import autoemx.config.defaults as dflt
-from autoemx.config import config_classes_dict, load_sample_ledger
+from autoemx.config.ledger_io import load_sample_ledger
+import autoemx.config as config_module
 from autoemx.config.ledger_schemas import ClusteringConfig # type: ignore
 from autoemx.core.composition_analysis import EMXSp_Composition_Analyzer
+
+config_classes_dict = cast(Dict[str, Any], getattr(config_module, "config_classes_dict"))
 
 # Configure logging
 logging.basicConfig(

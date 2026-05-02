@@ -9,7 +9,9 @@ This module re-exports the same public symbols to preserve existing imports.
 
 from .schema_models import (  # noqa: F401
     AcquisitionDetails,
+    ClusteringAnalysis,
     ClusteringConfig,
+    ClusteringResult,
     Coordinate2D,
     FitResult,
     FittedPeakResult,
@@ -24,7 +26,9 @@ from .schema_models import (  # noqa: F401
 
 __all__ = [
     "AcquisitionDetails",
+    "ClusteringAnalysis",
     "ClusteringConfig",
+    "ClusteringResult",
     "Coordinate2D",
     "FitResult",
     "FittedPeakResult",

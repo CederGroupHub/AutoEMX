@@ -53,7 +53,7 @@ class SampleLedger(BaseModel):
     configs: LedgerConfigs
     spectra: List[SpectrumEntry]
     active_quant: Optional[int] = None
-    quantification_configs: List[QuantificationConfig] = Field(default_factory=list)
+    quantifications: List[QuantificationConfig] = Field(default_factory=list)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -85,7 +85,7 @@ class SampleLedger(BaseModel):
 
     @model_validator(mode="after")
     def validate_ledger_integrity(self) -> "SampleLedger":
-        config_ids = [cfg.quantification_id for cfg in self.quantification_configs]
+        config_ids = [cfg.quantification_id for cfg in self.quantifications]
         if len(config_ids) != len(set(config_ids)):
             raise ValueError("quantification_id values must be unique within a ledger")
 
@@ -181,18 +181,18 @@ class SampleLedger(BaseModel):
 
     def append_quantification_config(self, quant_config: QuantificationConfig) -> None:
         """Append a quantification config, enforcing unique config identifiers."""
-        if any(existing.quantification_id == quant_config.quantification_id for existing in self.quantification_configs):
+        if any(existing.quantification_id == quant_config.quantification_id for existing in self.quantifications):
             raise ValueError(
                 f"quantification_id '{quant_config.quantification_id}' already exists in this ledger"
             )
-        self.quantification_configs.append(quant_config)
+        self.quantifications.append(quant_config)
         self.active_quant = quant_config.quantification_id
 
     def append_quantification_result(self, spectrum_index: int, result: QuantificationResult) -> None:
         """Append a quantification result to the requested spectrum entry."""
         if spectrum_index < 0 or spectrum_index >= len(self.spectra):
             raise IndexError(f"spectrum_index {spectrum_index} is out of range")
-        if result.quantification_id not in {cfg.quantification_id for cfg in self.quantification_configs}:
+        if result.quantification_id not in {cfg.quantification_id for cfg in self.quantifications}:
             raise ValueError(
                 f"Quantification result references unknown quantification_id '{result.quantification_id}'"
             )

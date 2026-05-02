@@ -3,11 +3,12 @@
 """Reference matching module for phase identification and mixture analysis."""
 
 import itertools
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 import cvxpy as cp
 import numpy as np
 import pandas as pd
+from cvxpy.constraints.constraint import Constraint
 from pymatgen.core.composition import Composition
 
 import autoemx.utils.constants as cnst
@@ -16,6 +17,14 @@ from autoemx.core.composition_analysis.plotting import PlottingModule
 
 class ReferenceMatchingModule:
 	"""Container for reference matching algorithms extracted from the analyser."""
+
+	# Attributes are populated by the orchestrating analyzer instance.
+	ref_formulae: Optional[List[str]]
+	ref_phases_df: pd.DataFrame
+	ref_weights_in_mixture: np.ndarray
+	detectable_els_sample: List[str]
+	clustering_cfg: Any
+	powder_meas_cfg: Any
 
 	def _correlate_centroids_to_refs(
 		self: Any,
@@ -31,7 +40,7 @@ class ReferenceMatchingModule:
 			distances = np.linalg.norm(all_ref_phases - centroid, axis=1)
 			indices = np.where(distances < max(0.1, 5 * radius))[0]
 			ref_names = [self.ref_formulae[i] for i in indices]
-			ref_phases = [all_ref_phases[i] for i in indices]
+			ref_phases = np.array([all_ref_phases[i] for i in indices])
 			max_raw_conf, refs_dict_row = ReferenceMatchingModule._get_ref_confidences(
 				centroid, ref_phases, ref_names
 			)
@@ -65,7 +74,7 @@ class ReferenceMatchingModule:
 		ref_names: List[str]
 	) -> Tuple[Optional[float], Dict]:
 		"""Compute raw and weighted confidence scores for candidate references."""
-		if ref_phases == [] or len(ref_phases) == 0:
+		if len(ref_phases) == 0:
 			refs_dict = {
 				f'{cnst.CND_DF_KEY}1': np.nan,
 				f'{cnst.CS_RAW_CND_DF_KEY}1': np.nan,
@@ -117,6 +126,7 @@ class ReferenceMatchingModule:
 		to discern clusters that may originate from binary phase mixtures or solid solutions.
 		"""
 		clusters_assigned_mixtures = []
+		ref_formulae = self.ref_formulae or []
 		for i in range(k):
 			# Get compositions of data points included in cluster as np.array (only detectable elements)
 			cluster_data = compositions_df[self.detectable_els_sample].iloc[labels == i].values
@@ -137,7 +147,7 @@ class ReferenceMatchingModule:
 			if is_cluster_single_phase:
 				# Cluster determined to stem from a single phase
 				pass
-			elif len(self.ref_formulae) > 1:
+			elif len(ref_formulae) > 1:
 				max_mix_raw_conf, mixtures_dicts = ReferenceMatchingModule._identify_mixture_from_refs(self, cluster_data, cluster_ID=i)
 				max_mix_conf = max(max_mix_conf, max_mix_raw_conf)
 			if not is_cluster_single_phase and max_mix_conf < 0.5:
@@ -149,7 +159,7 @@ class ReferenceMatchingModule:
 		return clusters_assigned_mixtures
 
 
-	def _identify_mixture_from_refs(self, X: 'np.ndarray', cluster_ID: int = None) -> Tuple[float, List[Dict]]:
+	def _identify_mixture_from_refs(self, X: 'np.ndarray', cluster_ID: Optional[int] = None) -> Tuple[float, List[Dict]]:
 		"""
 		Identify mixtures within a cluster by testing all pairs of candidate phases using constrained optimization.
 
@@ -175,13 +185,14 @@ class ReferenceMatchingModule:
 		"""
 		# Generate all possible pairs of candidate phases
 		ref_pair_combinations = list(itertools.combinations(range(len(self.ref_phases_df)), 2))
+		ref_formulae = self.ref_formulae or []
 
 		mixtures_dicts = []
 		max_confidence = 0
 
 		for ref_comb in ref_pair_combinations:
 			# Get the names of the candidate phases in this pair
-			ref_names = [self.ref_formulae[ref_i] for ref_i in ref_comb]
+			ref_names = [ref_formulae[ref_i] for ref_i in ref_comb]
 
 			# Ratio of weights of references, for molar concentrations of parent phases
 			ref_w_r = self.ref_weights_in_mixture[ref_comb[0]] / self.ref_weights_in_mixture[ref_comb[1]]
@@ -234,7 +245,7 @@ class ReferenceMatchingModule:
 		ref_w_r: float,
 		reconstruction_error: float,
 		ref_names: List[str],
-		cluster_ID: int = None
+		cluster_ID: Optional[int] = None
 	) -> Tuple[Optional[Dict], float]:
 		"""
 		Evaluate if a cluster is a mixture of two candidate phases, and compute a confidence score.
@@ -265,8 +276,8 @@ class ReferenceMatchingModule:
 			mol_frs_norm_means = np.mean(W_mol_frs, axis=0)
 			mol_frs_norm_stddevs = np.std(W_mol_frs, axis=0)
 
-			if save_violin_plot:
-				PlottingModule._save_violin_plot_powder_mixture(self, W_mol_frs, ref_names, cluster_ID)
+			if save_violin_plot and cluster_ID is not None:
+				PlottingModule._save_violin_plot_powder_mixture(cast(Any, self), W_mol_frs, ref_names, cluster_ID)
 
 			mixture_dict = {
 				cnst.REF_NAME_KEY: ref_names,
@@ -285,7 +296,7 @@ class ReferenceMatchingModule:
 		self,
 		X: 'np.ndarray',
 		n_components: int,
-		fixed_H: 'np.ndarray' = None
+		fixed_H: Optional['np.ndarray'] = None
 	) -> Tuple['np.ndarray', 'np.ndarray']:
 		"""
 		Perform Non-negative Matrix Factorization (NMF) with optional constraints on the factor matrices.
@@ -309,16 +320,19 @@ class ReferenceMatchingModule:
 		else:
 			H = fixed_H
 
-		prev_W, prev_H = np.inf, np.inf
+		prev_W: Optional[np.ndarray] = None
+		prev_H: Optional[np.ndarray] = None
 		convergence = np.inf
 		i = 0
 
 		while convergence > convergence_tol and i < max_iter:
 			W_var = cp.Variable((X.shape[0], n_components), nonneg=True)
 			objective_W = cp.Minimize(cp.sum_squares(X - W_var @ H))
-			constraints_W = [cp.sum(W_var, axis=1) == 1]
+			constraints_W: List[Constraint] = [cast(Constraint, cp.sum(W_var, axis=1) == 1)]
 			problem_W = cp.Problem(objective_W, constraints_W)
 			problem_W.solve(solver=cp.ECOS)
+			if W_var.value is None:
+				raise RuntimeError('Constrained NMF failed to produce W values.')
 			W = W_var.value
 
 			if fixed_H is None:
@@ -326,13 +340,22 @@ class ReferenceMatchingModule:
 				objective_H = cp.Minimize(
 					cp.sum_squares(X - W @ H_var) + lambda_H * cp.norm1(H_var)
 				)
-				constraints_H = [cp.sum(H_var, axis=1) == 1]
+				constraints_H: List[Constraint] = [cast(Constraint, cp.sum(H_var, axis=1) == 1)]
 				problem_H = cp.Problem(objective_H, constraints_H)
 				problem_H.solve(solver=cp.ECOS)
+				if H_var.value is None:
+					raise RuntimeError('Constrained NMF failed to produce H values.')
 				H = H_var.value
 
-			convergence_W = np.linalg.norm(W - prev_W, 'fro')
-			convergence_H = np.linalg.norm(H - prev_H, 'fro') if fixed_H is None else 0
+			if prev_W is None:
+				convergence_W = np.inf
+			else:
+				convergence_W = np.linalg.norm(W - prev_W, 'fro')
+
+			if fixed_H is None and prev_H is not None:
+				convergence_H = np.linalg.norm(H - prev_H, 'fro')
+			else:
+				convergence_H = 0.0
 			convergence = max(convergence_W, convergence_H)
 
 			prev_W, prev_H = W, H
@@ -345,7 +368,7 @@ class ReferenceMatchingModule:
 		self,
 		X: 'np.ndarray',
 		n_components: int = 2,
-		cluster_ID: int = None
+		cluster_ID: Optional[int] = None
 	) -> Tuple[float, Optional[Dict]]:
 		"""
 		Identify a mixture within a cluster using unconstrained NMF (Non-negative Matrix Factorization).
@@ -383,12 +406,14 @@ class ReferenceMatchingModule:
 			frs = phases[i, :].copy()
 			frs[frs < 0.005] = 0
 
-			fr_dict = {el: fr for el, fr in zip(self.detectable_els_sample, frs)}
+			fr_dict = {el: float(fr) for el, fr in zip(self.detectable_els_sample, frs)}
 
 			if self.clustering_cfg.features == cnst.W_FR_CL_FEAT:
-				comp = Composition().from_weight_dict(fr_dict)
+				comp = Composition().from_weight_dict(cast(Dict[Any, float], fr_dict))
 			elif self.clustering_cfg.features == cnst.AT_FR_CL_FEAT:
 				comp = Composition(fr_dict)
+			else:
+				raise ValueError(f'Unsupported clustering feature type: {self.clustering_cfg.features}')
 
 			formula = comp.get_integer_formula_and_factor()[0]
 			ref_integer_comp = Composition(formula)
