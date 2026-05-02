@@ -397,12 +397,8 @@ class EMXSp_Composition_Analyzer:
         if is_XSp_measurement:
             # --- Variable initialization
             self.standards_dict = None
-            self.sp_coords = [] # List containing particle number + relative coordinates on the image to retrieve exact position where spectra were collected
             self.particle_cntr = -1 # Counter to save particle number
-            
-            # Initialise lists containing spectral data and comments that will be saved with the quantification data
-            self.spectral_data = {key : [] for key in cnst.LIST_SPECTRAL_DATA_KEYS}
-            
+
             # List containing the quantification result records for each collected spectrum.
             # spectra_quant_records[i] is a QuantificationResult (or None when not yet quantified).
             # All composition/error/fit data needed for analysis is read directly from these records.
@@ -732,46 +728,13 @@ class EMXSp_Composition_Analyzer:
         is_known_mixture = getattr(self.powder_meas_cfg, "is_known_powder_mixture_meas", False)
         
         if is_known_mixture:
-            self.standards_dict = self._compile_standards_from_references()
+            self.standards_dict = StandardsModule._compile_standards_from_references(self)
         elif self.quant_cfg.use_project_specific_std_dict:
-            standards, _ = self._load_standards()
+            standards, _ = StandardsModule._load_standards(self)
             self.standards_dict = standards.to_standards_dict().get(self.measurement_cfg.mode, {})
         else:
             # Standards dictionary will be loaded directly within the `XSp_Quantifier`
             self.standards_dict = None
-
-    def _compile_standards_from_references(self) -> dict:
-        """Forward to StandardsModule implementation."""
-        return StandardsModule._compile_standards_from_references(self)
-
-    def _load_standards(self) -> Tuple[EDSStandardsFile, str]:
-        """Forward to StandardsModule implementation."""
-        return StandardsModule._load_standards(self)
-
-    def _load_xsp_standards(self):
-        return StandardsModule._load_xsp_standards(self)
-
-    def _fit_stds_and_save_results(self):
-        return StandardsModule._fit_stds_and_save_results(self)
-
-    def _evaluate_exp_std_fit(self, tot_n_spectra: int) -> Tuple[bool, bool]:
-        return StandardsModule._evaluate_exp_std_fit(self, tot_n_spectra)
-
-    def _assemble_std_PB_data(self, data_df: 'pd.DataFrame'):
-        return StandardsModule._assemble_std_PB_data(self, data_df)
-
-    def _calc_corrected_PB(self, std_ref_lines):
-        return StandardsModule._calc_corrected_PB(self, std_ref_lines)
-
-    def _save_std_results(self, std_ref_lines, pb_corrected, z_sample):
-        return StandardsModule._save_std_results(self, std_ref_lines, pb_corrected, z_sample)
-
-    @staticmethod
-    def _serialize_standard_mean_z(z_sample: Any):
-        return StandardsModule._serialize_standard_mean_z(z_sample)
-
-    def _update_standard_library(self, fit_results) -> None:
-        return StandardsModule._update_standard_library(self, fit_results)
 
 
     def _calc_reference_phases_df(self) -> None:
@@ -1607,7 +1570,14 @@ class EMXSp_Composition_Analyzer:
                 )
                 ledger_changed = True
             else:
-                ledger = self._build_ledger_from_current_state(existing_ledger=None)
+                ledger = SampleLedger(
+                    sample_id=self.sample_cfg.ID,
+                    sample_path=os.path.abspath(self.sample_result_dir),
+                    configs=ledger_configs,
+                    spectra=[],
+                    quantification_configs=[],
+                    active_quant=None,
+                )
                 ledger_changed = True
 
         existing_relpaths = {
@@ -1703,143 +1673,31 @@ class EMXSp_Composition_Analyzer:
         return changed
 
 
-    def _sync_in_memory_spectra_from_ledger(self) -> None:
-        """Hydrate in-memory spectral arrays from pointer files tracked in the ledger."""
-        if self.sample_result_dir is None:
-            return
-
-        ledger = self._load_or_create_ledger()
-        if ledger is None or not ledger.spectra:
-            return
-
-        spectra_vals: List[np.ndarray] = []
-        background_vals: List[Optional[np.ndarray]] = []
-        real_times: List[float] = []
-        live_times: List[float] = []
-        coords: List[Dict[str, Any]] = []
-
-        for i, spectrum in enumerate(ledger.spectra):
-            if not spectrum.spectrum_relpath:
-                continue
-
-            pointer_abs = Path(ledger.sample_path, spectrum.spectrum_relpath)
-            try:
-                counts = SampleLedger._load_counts_from_pointer_file(pointer_abs)
-                counts_arr = np.asarray(counts, dtype=float)
-            except Exception:
-                continue
-
-            # Only hydrate entries with valid counts (non-empty, non-NaN, positive sum)
-            if counts_arr.size == 0 or not np.isfinite(np.sum(counts_arr)) or np.sum(counts_arr) <= 0:
-                continue
-
-            spectra_vals.append(counts_arr)
-
-            background_vector = None
-            if self.quant_cfg.use_instrument_background and spectrum.instrument_background_relpath:
-                background_abs = Path(ledger.sample_path, spectrum.instrument_background_relpath)
-                background_vector = self._load_background_vector_from_file(background_abs)
-            background_vals.append(background_vector)
-
-            realtime = (
-                float(spectrum.live_acquisition_time)
-                if spectrum.live_acquisition_time is not None
-                else 1.0
-            )
-            real_times.append(realtime)
-            live_times.append(realtime)
-
-            acquisition_details = spectrum.acquisition_details
-            x_val = ""
-            y_val = ""
-            x_pixel_val = ""
-            y_pixel_val = ""
-            par_id = ""
-            frame_id = ""
-
-            if acquisition_details is not None:
-                if acquisition_details.spot_coordinates is not None:
-                    machine_coords = acquisition_details.spot_coordinates.machine_coordinates
-                    pixel_coords = acquisition_details.spot_coordinates.pixel_coordinates
-                    if machine_coords is not None:
-                        x_val = str(machine_coords.x)
-                        y_val = str(machine_coords.y)
-                    if pixel_coords is not None:
-                        x_pixel_val = str(pixel_coords[0])
-                        y_pixel_val = str(pixel_coords[1])
-                par_id = str(acquisition_details.particle_id or "")
-                frame_id = str(acquisition_details.frame_id or "")
-
-            resolved_spectrum_id = str(spectrum.spectrum_id) if spectrum.spectrum_id is not None else str(i)
-            coords.append(
-                {
-                    cnst.SP_ID_DF_KEY: resolved_spectrum_id,
-                    cnst.SP_X_COORD_DF_KEY: x_val,
-                    cnst.SP_Y_COORD_DF_KEY: y_val,
-                    cnst.SP_X_PIXEL_COORD_DF_KEY: x_pixel_val,
-                    cnst.SP_Y_PIXEL_COORD_DF_KEY: y_pixel_val,
-                    cnst.PAR_ID_DF_KEY: par_id,
-                    cnst.FRAME_ID_DF_KEY: frame_id,
-                }
-            )
-
-        if not spectra_vals:
-            return
-
-        self.spectral_data[cnst.SPECTRUM_DF_KEY] = spectra_vals
-        self.spectral_data[cnst.BACKGROUND_DF_KEY] = background_vals
-        self.spectral_data[cnst.REAL_TIME_DF_KEY] = real_times
-        self.spectral_data[cnst.LIVE_TIME_DF_KEY] = live_times
-        self.spectral_data[cnst.COMMENTS_DF_KEY] = [None] * len(spectra_vals)
-        self.spectral_data[cnst.QUANT_FLAG_DF_KEY] = [None] * len(spectra_vals)
-        self.sp_coords = coords
-
-
-    def _build_spectrum_entry(self, index: int, existing_results: Optional[List[QuantificationResult]] = None) -> SpectrumEntry:
-        """Build one ledger spectrum entry from the current in-memory spectral data."""
-        coords = self.sp_coords[index] if index < len(self.sp_coords) else {}
-        spectrum_id = str(coords.get(cnst.SP_ID_DF_KEY, index))
-        spectrum_vals = list(self.spectral_data[cnst.SPECTRUM_DF_KEY][index])
-        real_time = self._coerce_optional_finite_float(
-            self.spectral_data[cnst.REAL_TIME_DF_KEY][index] if index < len(self.spectral_data[cnst.REAL_TIME_DF_KEY]) else None
-        )
-        live_time = self._coerce_optional_finite_float(
-            self.spectral_data[cnst.LIVE_TIME_DF_KEY][index] if index < len(self.spectral_data[cnst.LIVE_TIME_DF_KEY]) else None
-        )
-        live_acquisition_time = live_time if live_time is not None else real_time
-        spectrum_relpath = self._resolve_or_create_spectrum_pointer(
-            spectrum_id=spectrum_id,
-            spectrum_vals=spectrum_vals,
-            live_time=live_time,
-            real_time=real_time,
-        )
-        background_relpath = None
-        background = None
-        if index < len(self.spectral_data[cnst.BACKGROUND_DF_KEY]):
-            background = self.spectral_data[cnst.BACKGROUND_DF_KEY][index]
-        if background is not None:
-            background_relpath = self._write_manufacturer_background_vector(spectrum_id, list(background))
-
-        raw_x = coords.get(cnst.SP_X_COORD_DF_KEY, '')
-        raw_y = coords.get(cnst.SP_Y_COORD_DF_KEY, '')
-        raw_x_pixel = coords.get(cnst.SP_X_PIXEL_COORD_DF_KEY, '')
-        raw_y_pixel = coords.get(cnst.SP_Y_PIXEL_COORD_DF_KEY, '')
-
-        acquisition_details = AcquisitionDetails(
-            frame_id=str(coords.get(cnst.FRAME_ID_DF_KEY, '')).strip() or None,
-            particle_id=self._parse_optional_int(coords.get(cnst.PAR_ID_DF_KEY, '')),
-            spot_coordinates=self._build_spot_coordinates(raw_x, raw_y, raw_x_pixel, raw_y_pixel),
-        )
-
-        return SpectrumEntry(
-            live_acquisition_time=live_acquisition_time if live_acquisition_time is not None else 1.0,
-            total_counts=int(round(float(np.sum(spectrum_vals)))),
-            spectrum_id=spectrum_id,
-            spectrum_relpath=spectrum_relpath,
-            instrument_background_relpath=background_relpath,
-            acquisition_details=acquisition_details,
-            quantification_results=list(existing_results or []),
-        )
+    def _extract_coords_from_spectrum_entry(self, spectrum: 'SpectrumEntry', index: int) -> dict:
+        """Extract a coordinate dict from a ledger SpectrumEntry for use in CSV export."""
+        x_val = y_val = x_pixel_val = y_pixel_val = par_id = frame_id = ""
+        acq = spectrum.acquisition_details
+        if acq is not None:
+            if acq.spot_coordinates is not None:
+                mc = acq.spot_coordinates.machine_coordinates
+                pc = acq.spot_coordinates.pixel_coordinates
+                if mc is not None:
+                    x_val = str(mc.x)
+                    y_val = str(mc.y)
+                if pc is not None:
+                    x_pixel_val = str(pc[0])
+                    y_pixel_val = str(pc[1])
+            par_id = str(acq.particle_id or "")
+            frame_id = str(acq.frame_id or "")
+        return {
+            cnst.SP_ID_DF_KEY: str(spectrum.spectrum_id) if spectrum.spectrum_id is not None else str(index),
+            cnst.SP_X_COORD_DF_KEY: x_val,
+            cnst.SP_Y_COORD_DF_KEY: y_val,
+            cnst.SP_X_PIXEL_COORD_DF_KEY: x_pixel_val,
+            cnst.SP_Y_PIXEL_COORD_DF_KEY: y_pixel_val,
+            cnst.PAR_ID_DF_KEY: par_id,
+            cnst.FRAME_ID_DF_KEY: frame_id,
+        }
 
 
     def _build_ledger_configs(self) -> LedgerConfigs:
@@ -1856,43 +1714,10 @@ class EMXSp_Composition_Analyzer:
         )
 
 
-    def _build_ledger_from_current_state(self, existing_ledger: Optional[SampleLedger] = None) -> SampleLedger:
-        """Build a ledger from current spectral data while preserving existing quantification records."""
-        spectra = []
-        n_spectra = len(self.spectral_data[cnst.SPECTRUM_DF_KEY])
-        for index in range(n_spectra):
-            existing_results = []
-            if existing_ledger is not None and index < len(existing_ledger.spectra):
-                existing_results = list(existing_ledger.spectra[index].quantification_results)
-            spectra.append(self._build_spectrum_entry(index, existing_results=existing_results))
-
-        existing_configs = []
-        active_quant = None
-        if existing_ledger is not None:
-            existing_configs = list(existing_ledger.quantification_configs)
-            active_quant = existing_ledger.active_quant
-
-        return SampleLedger(
-            sample_id=self.sample_cfg.ID,
-            sample_path=os.path.abspath(self.sample_result_dir),
-            configs=(
-                existing_ledger.configs
-                if existing_ledger is not None and existing_ledger.configs is not None
-                else self._build_ledger_configs()
-            ),
-            spectra=spectra,
-            quantification_configs=existing_configs,
-            active_quant=active_quant,
-        )
-
-
     def _ensure_quant_tracking_length(self, total_spectra: int) -> None:
         """Ensure in-memory quantification tracking lists are indexable for all spectra."""
         if len(self.spectra_quant_records) < total_spectra:
             self.spectra_quant_records.extend([None] * (total_spectra - len(self.spectra_quant_records)))
-        for key in (cnst.COMMENTS_DF_KEY, cnst.QUANT_FLAG_DF_KEY):
-            if len(self.spectral_data[key]) < total_spectra:
-                self.spectral_data[key].extend([None] * (total_spectra - len(self.spectral_data[key])))
 
 
     def _ensure_current_quantification_run(self, force_new: bool = False) -> None:
@@ -2000,7 +1825,7 @@ class EMXSp_Composition_Analyzer:
             if self.standards_dict is not None and not load_if_missing:
                 standards_by_line = self.standards_dict
             else:
-                standards, _ = self._load_standards()
+                standards, _ = StandardsModule._load_standards(self)
                 standards_by_line = standards.standards_by_mode.get(self.measurement_cfg.mode, {})
         else:
             standards_by_line = self.standards_dict
@@ -2015,7 +1840,7 @@ class EMXSp_Composition_Analyzer:
                 else:
                     standards_by_line = self.standards
             if standards_by_line is None and load_if_missing:
-                standards, _ = self._load_standards()
+                standards, _ = StandardsModule._load_standards(self)
                 standards_by_line = standards.standards_by_mode.get(self.measurement_cfg.mode, {})
 
         if standards_by_line is None:
@@ -2283,8 +2108,7 @@ class EMXSp_Composition_Analyzer:
         if self.current_quant_config is None or self.current_quantification_id is None:
             return
 
-        existing_ledger = self._load_or_create_ledger()
-        ledger = self._build_ledger_from_current_state(existing_ledger)
+        ledger = self._load_or_create_ledger()
         self._upsert_current_quantification_config_on_ledger(ledger)
 
         ledger.active_quant = self.current_quantification_id
@@ -2299,10 +2123,10 @@ class EMXSp_Composition_Analyzer:
         if existing_ledger is None:
             return
 
-        total_spectra = len(self.spectral_data[cnst.SPECTRUM_DF_KEY])
+        total_spectra = len(existing_ledger.spectra)
         self._ensure_quant_tracking_length(total_spectra)
 
-        for index, spectrum in enumerate(existing_ledger.spectra[:total_spectra]):
+        for index, spectrum in enumerate(existing_ledger.spectra):
             matching = next(
                 (
                     result for result in spectrum.quantification_results
@@ -2314,8 +2138,6 @@ class EMXSp_Composition_Analyzer:
                 continue
 
             self.spectra_quant_records[index] = matching
-            self.spectral_data[cnst.COMMENTS_DF_KEY][index] = matching.comment
-            self.spectral_data[cnst.QUANT_FLAG_DF_KEY][index] = matching.quant_flag
 
 
     def _persist_quantification_record(self, spectrum_index: int, quant_record: QuantificationResult, overwrite: bool = False) -> None:
@@ -2328,7 +2150,7 @@ class EMXSp_Composition_Analyzer:
             replace it (used when requantify_only_unquantified_spectra=True).
         """
         existing_ledger = self._load_or_create_ledger()
-        ledger = self._build_ledger_from_current_state(existing_ledger)
+        ledger = existing_ledger
 
         if self.current_quant_config is None:
             raise ValueError("Current quantification config is not initialized")
@@ -2646,24 +2468,6 @@ class EMXSp_Composition_Analyzer:
             for i, (x, y) in enumerate(spots_xy_list):
                 latest_spot_id = i
                 xy_center = self.EM_controller.convert_XS_coords_to_pixels((x, y))
-                value_map = {
-                    cnst.SP_ID_DF_KEY: n_tot_sp_collected,
-                    cnst.FRAME_ID_DF_KEY : frame_ID,
-                    cnst.SP_X_COORD_DF_KEY: f'{x:.3f}',
-                    cnst.SP_Y_COORD_DF_KEY: f'{y:.3f}',
-                    cnst.SP_X_PIXEL_COORD_DF_KEY: f'{xy_center[0]:.2f}',
-                    cnst.SP_Y_PIXEL_COORD_DF_KEY: f'{xy_center[1]:.2f}',
-                }
-                # Add particle ID only if not None
-                if self.particle_cntr is not None:
-                    value_map[cnst.PAR_ID_DF_KEY] = self.particle_cntr
-                    
-                self.sp_coords.append({
-                    key: value_map[key]
-                    for key in cnst.LIST_SPECTRUM_COORDINATES_KEYS
-                    if key in value_map
-                }) # Ensures any modification of keys is done at the level of LIST_SPECTRUM_COORDINATES_KEYS
-                    # This allows correct loading when quantifying or analysing spectra after acquisition
 
                 if self.verbose:
                     print_single_separator()
@@ -2687,9 +2491,20 @@ class EMXSp_Composition_Analyzer:
                     from autoemx.config.ledger_schemas import SpectrumEntry, SampleLedger
                 except ImportError:
                     pass  # Already imported at top
-                # Build SpectrumEntry for this spectrum
-                spectrum_index = n_tot_sp_collected - 1
-                spectrum_entry = self._build_spectrum_entry(spectrum_index)
+                # Build SpectrumEntry directly from the pointer file and current acquisition metadata
+                acq_details = AcquisitionDetails(
+                    frame_id=str(frame_ID).strip() if frame_ID is not None and str(frame_ID).strip() else None,
+                    particle_id=self.particle_cntr if self.particle_cntr is not None else None,
+                    spot_coordinates=self._build_spot_coordinates(
+                        f'{x:.3f}', f'{y:.3f}',
+                        f'{xy_center[0]:.2f}' if xy_center is not None else None,
+                        f'{xy_center[1]:.2f}' if xy_center is not None else None,
+                    ),
+                )
+                spectrum_entry = self._build_spectrum_entry_from_pointer_file(
+                    Path(manufacturer_msa_path),
+                    acquisition_details_by_id={current_spectrum_id: acq_details},
+                )
                 # Load or create ledger
                 ledger_path = self._get_ledger_path()
                 try:
@@ -2791,8 +2606,9 @@ class EMXSp_Composition_Analyzer:
                 None uses half of available cores.
             """
             
-            self._sync_in_memory_spectra_from_ledger()
-            tot_spectra_collected = len(self.spectral_data[cnst.SPECTRUM_DF_KEY])
+            _ledger = self._load_or_create_ledger()
+            tot_spectra_collected = len(_ledger.spectra) if _ledger is not None else 0
+            _ledger_spectra = list(_ledger.spectra) if _ledger is not None else []
 
             _n_cores = min(
                 (num_CPU_cores if num_CPU_cores is not None else max(1, os.cpu_count() // 2)),
@@ -2801,7 +2617,6 @@ class EMXSp_Composition_Analyzer:
 
             if quantify:
                 # Always bootstrap/sync ledger before quantification cycles.
-                self._load_or_create_ledger()
                 self._ensure_current_quantification_run(force_new=force_requantification)
                 self._persist_current_quantification_config()
                 self._ensure_quant_tracking_length(tot_spectra_collected)
@@ -2830,7 +2645,6 @@ class EMXSp_Composition_Analyzer:
                             if self.spectra_quant_records[i] is None
                         ]
             else:
-                self._load_or_create_ledger()
                 self._ensure_current_quantification_run(force_new=force_requantification)
                 self._persist_current_quantification_config()
                 self._ensure_quant_tracking_length(tot_spectra_collected)
@@ -2851,13 +2665,15 @@ class EMXSp_Composition_Analyzer:
         
             # Worker returns (index, result, quant_record, quantification_time) tuple
             def _process_one(i):
-                spectrum = self.spectral_data[cnst.SPECTRUM_DF_KEY][i]
-                background = (
-                    self.spectral_data[cnst.BACKGROUND_DF_KEY][i]
-                    if self.quant_cfg.use_instrument_background
-                    else None
-                )
-                sp_collection_time = self.spectral_data[cnst.LIVE_TIME_DF_KEY][i]
+                spectrum_entry = _ledger_spectra[i]
+                pointer_abs = Path(self.sample_result_dir, spectrum_entry.spectrum_relpath)
+                counts = SampleLedger._load_counts_from_pointer_file(pointer_abs)
+                spectrum = np.asarray(counts, dtype=float)
+                background = None
+                if self.quant_cfg.use_instrument_background and spectrum_entry.instrument_background_relpath:
+                    background_abs = Path(self.sample_result_dir, spectrum_entry.instrument_background_relpath)
+                    background = self._load_background_vector_from_file(background_abs)
+                sp_collection_time = float(spectrum_entry.live_acquisition_time) if spectrum_entry.live_acquisition_time is not None else 1.0
                 sp_id = f"{i}/{tot_spectra_collected - 1}"
         
                 if quantify:
@@ -2897,9 +2713,6 @@ class EMXSp_Composition_Analyzer:
                 )
 
                 self.spectra_quant_records[idx] = quant_record
-                self.spectral_data[cnst.COMMENTS_DF_KEY][idx] = comment
-                self.spectral_data[cnst.QUANT_FLAG_DF_KEY][idx] = quant_flag
-
                 if self.verbose:
                     print_single_separator()
                     lines = [""]
@@ -2974,76 +2787,6 @@ class EMXSp_Composition_Analyzer:
                         _finalize_quant_result(idx, result, quant_record, quantification_time)
 
 
-    #%% Find number of clusters in kmeans
-    # ============================================================================= 
-    def _find_optimal_k(self, compositions_df, k, compute_k_only_once = False):
-        return ClusteringModule._find_optimal_k(self, compositions_df, k, compute_k_only_once)
-
-    @staticmethod
-    def _get_most_freq_k(
-        compositions_df: 'pd.DataFrame',
-        max_k: int,
-        k_finding_method: str,
-        verbose: bool = False,
-        show_plot: bool = False,
-        results_dir: str = None
-    ) -> int:
-        return ClusteringModule._get_most_freq_k(
-            compositions_df,
-            max_k,
-            k_finding_method,
-            verbose=verbose,
-            show_plot=show_plot,
-            results_dir=results_dir,
-        )
-
-    @staticmethod
-    def _get_k(
-        compositions_df: 'pd.DataFrame',
-        max_k: int = 6,
-        method: str = 'silhouette',
-        model: 'KMeans' = None,
-        results_dir: str = None,
-        show_plot: bool = False
-    ) -> int:
-        return ClusteringModule._get_k(
-            compositions_df,
-            max_k=max_k,
-            method=method,
-            model=model,
-            results_dir=results_dir,
-            show_plot=show_plot,
-        )
-
-    @staticmethod
-    def _is_single_cluster(
-        compositions_df: 'pd.DataFrame',
-        verbose: bool = False
-    ) -> bool:
-        return ClusteringModule._is_single_cluster(compositions_df, verbose=verbose)
-
-    #%% Clustering operations
-    # ============================================================================= 
-    def _run_kmeans_clustering(self, k, compositions_df):
-        return ClusteringModule._run_kmeans_clustering(self, k, compositions_df)
-
-    def _prepare_composition_dataframes(self, compositions_list_at, compositions_list_w):
-        return ClusteringModule._prepare_composition_dataframes(self, compositions_list_at, compositions_list_w)
-
-    def _get_clustering_kmeans(
-        self,
-        k: int,
-        compositions_df: 'pd.DataFrame'
-    ) -> Tuple['KMeans', 'np.ndarray']:
-        return ClusteringModule._get_clustering_kmeans(self, k, compositions_df)
-
-    def _get_clustering_dbscan(
-        self,
-        compositions_df: 'pd.DataFrame'
-    ) -> Tuple['np.ndarray', int]:
-        return ClusteringModule._get_clustering_dbscan(self, compositions_df)
-
-
     def _persist_resolved_k_on_active_clustering_config(self, resolved_k: Optional[int]) -> None:
         """Persist resolved k for the active clustering config of the active quantification run."""
         if resolved_k is None:
@@ -3072,16 +2815,6 @@ class EMXSp_Composition_Analyzer:
         ledger.to_json_file(self._get_ledger_path())
 
 
-    def _compute_cluster_statistics(self, compositions_df, compositions_df_other_fr, centroids, labels):
-        return ClusteringModule._compute_cluster_statistics(
-            self,
-            compositions_df,
-            compositions_df_other_fr,
-            centroids,
-            labels,
-        )
-    
-    
     #%% Data compositional analysis
     # =============================================================================     
     def analyse_data(self, max_analytical_error_percent, k=None, compute_k_only_once=False):
@@ -3116,17 +2849,16 @@ class EMXSp_Composition_Analyzer:
         """
         # Ensure in-memory state is fully synced from the ledger before analysis.
         # This is essential when analyse_data is called without a preceding
-        # run_quantification (i.e. analysis-only path): we need both the spectral
-        # arrays and the typed QuantificationResult records populated in memory.
+        # run_quantification (i.e. analysis-only path): we need the typed
+        # QuantificationResult records populated in memory.
         if self.sample_result_dir is not None:
-            self._sync_in_memory_spectra_from_ledger()
             existing_ledger = self._load_or_create_ledger()
             # Resolve current_quantification_id from the ledger when not already set
             # (analysis-only callers skip run_quantification so it is never assigned).
             if self.current_quantification_id is None and existing_ledger is not None:
                 if existing_ledger.active_quant is not None:
                     self.current_quantification_id = existing_ledger.active_quant
-            tot = len(self.spectral_data[cnst.SPECTRUM_DF_KEY])
+            tot = len(existing_ledger.spectra) if existing_ledger is not None else 0
             if tot > 0:
                 self._ensure_quant_tracking_length(tot)
                 self._sync_existing_quantification_from_ledger()
@@ -3161,7 +2893,7 @@ class EMXSp_Composition_Analyzer:
             self._report_n_discarded_spectra(n_datapts, max_analytical_error)
 
         # 3. Prepare DataFrames for clustering
-        compositions_df, compositions_df_other_fr = self._prepare_composition_dataframes(compositions_list_at, compositions_list_w)
+        compositions_df, compositions_df_other_fr = ClusteringModule._prepare_composition_dataframes(self, compositions_list_at, compositions_list_w)
 
         # 4. Perform clustering
         if k is None:
@@ -3173,9 +2905,9 @@ class EMXSp_Composition_Analyzer:
                 # Recompute k for non-forced methods on each analysis run.
                 k = None
         if self.clustering_cfg.method == 'kmeans':
-            k = self._find_optimal_k(compositions_df, k, compute_k_only_once)
+            k = ClusteringModule._find_optimal_k(self, compositions_df, k, compute_k_only_once)
             self._persist_resolved_k_on_active_clustering_config(k)
-            kmeans, labels, sil_score = self._run_kmeans_clustering(k, compositions_df)
+            kmeans, labels, sil_score = ClusteringModule._run_kmeans_clustering(self, k, compositions_df)
             centroids = kmeans.cluster_centers_
             wcss = kmeans.inertia_
         elif self.clustering_cfg.method == 'dbscan':
@@ -3186,17 +2918,17 @@ class EMXSp_Composition_Analyzer:
         # 5. Compute cluster statistics
         (wcss_per_cluster, rms_dist_cluster, rms_dist_cluster_other_fr, 
          n_points_per_cluster, els_std_dev_per_cluster, els_std_dev_per_cluster_other_fr,
-         centroids_other_fr, max_cl_rmsdist) = self._compute_cluster_statistics(
-            compositions_df, compositions_df_other_fr, centroids, labels
+         centroids_other_fr, max_cl_rmsdist) = ClusteringModule._compute_cluster_statistics(
+            self, compositions_df, compositions_df_other_fr, centroids, labels
         )
     
         # 6. Assign candidate phases
-        min_conf, max_raw_confs, refs_assigned_df = self._assign_reference_phases(centroids, rms_dist_cluster)
+        min_conf, max_raw_confs, refs_assigned_df = ReferenceMatchingModule._assign_reference_phases(self, centroids, rms_dist_cluster)
     
         # 7. Assign mixtures
         if self.clustering_cfg.do_matrix_decomposition:
-            clusters_assigned_mixtures = self._assign_mixtures(
-                k, labels, compositions_df, rms_dist_cluster, max_raw_confs, n_points_per_cluster
+            clusters_assigned_mixtures = ReferenceMatchingModule._assign_mixtures(
+                self, k, labels, compositions_df, rms_dist_cluster, max_raw_confs, n_points_per_cluster
             )
         else:
             clusters_assigned_mixtures = []
@@ -3207,12 +2939,12 @@ class EMXSp_Composition_Analyzer:
         self._save_result_and_stats(
             centroids, els_std_dev_per_cluster, centroids_other_fr, els_std_dev_per_cluster_other_fr,
             n_points_per_cluster, wcss_per_cluster, rms_dist_cluster, rms_dist_cluster_other_fr,
-            refs_assigned_df, wcss, sil_score, n_datapts, max_analytical_error, clusters_assigned_mixtures
+            refs_assigned_df, wcss, sil_score, n_datapts, clusters_assigned_mixtures
         )
     
         # 9. Save plots
         if self.plot_cfg.save_plots:
-            self._save_plots(kmeans, compositions_df, centroids, labels, els_std_dev_per_cluster, unused_compositions_list)
+            PlottingModule._save_plots(self, kmeans, compositions_df, centroids, labels, els_std_dev_per_cluster, unused_compositions_list)
     
         return True, max_cl_rmsdist, min_conf
     
@@ -3252,7 +2984,7 @@ class EMXSp_Composition_Analyzer:
                 spectrum_quant_result_at = dict(record.composition_atomic_fractions)
                 spectrum_quant_result_w = dict(record.composition_weight_fractions)
                 analytical_error = float(record.analytical_error)
-                quant_flag = self.spectral_data[cnst.QUANT_FLAG_DF_KEY][i]
+                quant_flag = record.quant_flag
 
                 # Check if composition was flagged as bad during quantification
                 if quant_flag not in self.clustering_cfg.quant_flags_accepted:
@@ -3289,573 +3021,6 @@ class EMXSp_Composition_Analyzer:
     
         return compositions_list_at, compositions_list_w, unused_compositions_list, df_indices, n_datapts
 
-
-    def _correlate_centroids_to_refs(
-        self,
-        centroids: 'np.ndarray',
-        cluster_radii: 'np.ndarray',
-        ref_phases_df: 'pd.DataFrame'
-    ) -> Tuple[List[float], 'pd.DataFrame']:
-        return ReferenceMatchingModule._correlate_centroids_to_refs(
-            self,
-            centroids,
-            cluster_radii,
-            ref_phases_df,
-        )
-
-    def _assign_reference_phases(self, centroids, rms_dist_cluster):
-        return ReferenceMatchingModule._assign_reference_phases(self, centroids, rms_dist_cluster)
-
-    @staticmethod
-    def _get_ref_confidences(
-        centroid: 'np.ndarray',
-        ref_phases: 'np.ndarray',
-        ref_names: List[str]
-    ) -> Tuple[Optional[float], Dict]:
-        return ReferenceMatchingModule._get_ref_confidences(centroid, ref_phases, ref_names)
-
-
-    #%% Binary cluster decomposition
-    # =============================================================================       
-    def _assign_mixtures(self, k, labels, compositions_df, rms_dist_cluster, max_raw_confs, n_points_per_cluster):
-        """
-        Determine if clusters are mixtures or single phases, using candidate phases and NMF if needed.
-    
-        Returns
-        -------
-        clusters_assigned_mixtures : list
-            List of mixture assignments for each cluster.
-            
-        Potential improvements
-        ----------------------
-        Instead of using the cluster standard deviation, use covariance of elemental fractions
-        to discern clusters that may originate from binary phase mixtures or solid solutions.
-        """
-        clusters_assigned_mixtures = []
-        for i in range(k):
-            # Get compositions of data points included in cluster as np.array (only detectable elements)
-            cluster_data = compositions_df[self.detectable_els_sample].iloc[labels == i].values
-            max_mix_conf = 0
-            mixtures_dicts = []
-            
-            # # Use log-ratio transformations, which map the data from the simplex to real Euclidean space
-            # if len(cluster_data) > 1:
-            #     # Suppose X is your n × m array of normalized compositions
-            #     X_clr = clr(cluster_data + 1e-6) # to avoid zeroes
-            #     # Compute covariance matrix on CLR-transformed data
-            #     cov_clr = np.cov(X_clr.T, rowvar=True)
-            #     print(cov_clr)
-                
-            #     # 5. Compute correlation matrix
-            #     std_dev = np.sqrt(np.diag(cov_clr))
-            #     corr_matrix = cov_clr / np.outer(std_dev, std_dev)
-                
-            #     # 6. Plot covariance heatmap
-            #     plt.figure(figsize=(10, 4))
-                
-            #     plt.subplot(1, 2, 1)
-            #     sns.heatmap(cov_clr, xticklabels=self.detectable_els_sample, yticklabels=self.detectable_els_sample,
-            #                 cmap='coolwarm', center=0, annot=True, fmt=".3f")
-            #     plt.title('Covariance matrix (CLR space)')
-                
-            #     # 7. Plot correlation heatmap
-            #     plt.subplot(1, 2, 2)
-            #     sns.heatmap(corr_matrix, xticklabels=self.detectable_els_sample, yticklabels=self.detectable_els_sample,
-            #                 cmap='coolwarm', center=0, annot=True, fmt=".3f")
-            #     plt.title('Correlation matrix (CLR space)')
-                
-            #     plt.tight_layout()
-            #     plt.show()
-            
-            max_rmsdist_single_cluster = 0.03
-            if rms_dist_cluster[i] < max_rmsdist_single_cluster:
-                if max_raw_confs is None or len(max_raw_confs) < 1:
-                    is_cluster_single_phase = n_points_per_cluster[i] > 3
-                elif max_raw_confs[i] is not None and max_raw_confs[i] > 0.5:
-                    is_cluster_single_phase = True
-                else:
-                    is_cluster_single_phase = False
-            else:
-                is_cluster_single_phase = False
-    
-            if is_cluster_single_phase:
-                # Cluster determined to stem from a single phase
-                pass
-            elif len(self.ref_formulae) > 1:
-                max_mix_raw_conf, mixtures_dicts = self._identify_mixture_from_refs(cluster_data, cluster_ID = i)
-                max_mix_conf = max(max_mix_conf, max_mix_raw_conf)
-            if not is_cluster_single_phase and max_mix_conf < 0.5:
-                mix_nmf_conf, mixture_dict = self._identify_mixture_nmf(cluster_data, cluster_ID = i)
-                if mixture_dict is not None:
-                    mixtures_dicts.append(mixture_dict)
-                max_mix_conf = max(max_mix_conf, mix_nmf_conf)
-            clusters_assigned_mixtures.append(mixtures_dicts)
-        return clusters_assigned_mixtures
-    
-    
-    def _identify_mixture_from_refs(self, X: 'np.ndarray', cluster_ID: int = None) -> Tuple[float, List[Dict]]:
-        """
-        Identify mixtures within a cluster by testing all pairs of candidate phases using constrained optimization.
-    
-        For each possible pair of candidate phases, tests if the cluster compositions (X)
-        can be well described by a linear combination of the two candidate phases, using
-        non-negative matrix factorization (NMF) with fixed bases.
-    
-        Parameters
-        ----------
-        X : np.ndarray
-            Cluster data (compositions), shape (n_samples, n_features).
-        cluster_ID : int
-            Current cluster ID. Used for violin plot name
-    
-        Returns
-        -------
-        max_confidence : float
-            The highest confidence score among all tested mixtures.
-        mixtures_dicts : list of Dict
-            List of mixture descriptions for all successful reference pairs.
-        cluster_ID : int
-            Current cluster ID. Used for violin plot name
-    
-        Notes
-        -----
-        - Each mixture is described by a dictionary, as returned by _get_mixture_dict_with_conf.
-        - Only pairs with acceptable reconstruction error are included.
-        - The confidence metric and acceptance criteria are defined in _get_mixture_dict_with_conf.
-        """
-        # Generate all possible pairs of candidate phases
-        ref_pair_combinations = list(itertools.combinations(range(len(self.ref_phases_df)), 2))
-    
-        mixtures_dicts = []
-        max_confidence = 0
-    
-        for ref_comb in ref_pair_combinations:
-            # Get the names of the candidate phases in this pair
-            ref_names = [self.ref_formulae[ref_i] for ref_i in ref_comb]
-    
-            # Ratio of weights of references, for molar concentrations of parent phases
-            ref_w_r = self.ref_weights_in_mixture[ref_comb[0]] / self.ref_weights_in_mixture[ref_comb[1]]
-    
-            # Get matrix of basis vectors (H) for the two candidate phases
-            H = np.array([
-                self.ref_phases_df[self.detectable_els_sample].iloc[ref_i].values
-                for ref_i in ref_comb
-            ])
-            
-            # Perform NMF with fixed H to fit the cluster data as a mixture of the two candidate phases
-            W, _ = self._nmf_with_constraints(X, n_components=2, fixed_H=H)
-    
-            # Compute reconstruction error for the fit
-            recon_er = self._calc_reconstruction_error(X, W, H)
-    
-            # If the pair yields an acceptable reconstruction error, store the result
-            pair_dict, conf = self._get_mixture_dict_with_conf(W, ref_w_r, recon_er, ref_names, cluster_ID)
-            if pair_dict is not None:
-                mixtures_dicts.append(pair_dict)
-                max_confidence = max(max_confidence, conf)
-    
-        return max_confidence, mixtures_dicts
-
-
-    def _calc_reconstruction_error(
-        self,
-        X: 'np.ndarray',
-        W: 'np.ndarray',
-        H: 'np.ndarray'
-    ) -> float:
-        """
-        Calculate the reconstruction error for a matrix factorization X ≈ W @ H.
-    
-        The error metric is an exponential penalty (with parameter alpha) applied to the
-        absolute difference between X and its reconstruction W @ H, normalized by the
-        number of elements in X. This penalizes large deviations more strongly.
-    
-        Parameters
-        ----------
-        X : np.ndarray
-            Original data matrix of shape (m, n).
-        W : np.ndarray
-            Weight matrix of shape (m, k).
-        H : np.ndarray
-            Basis matrix of shape (k, n).
-    
-        Returns
-        -------
-        normalized_norm : float
-            The normalized exponential reconstruction error.
-    
-        Notes
-        -----
-        - The penalty parameter alpha is set to 15 by default.
-        """
-        # Compute the approximation WH
-        WH = np.dot(W, H)
-    
-        # Compute the Frobenius norm of the difference (X - WH), using an exponential form to penalize deviations more strongly
-        alpha = 15
-        norm = np.sum(np.exp(alpha * np.abs(X - WH)) - 1)
-    
-        # Get dimensions of the matrix X
-        m, n = X.shape
-    
-        # Normalize the error by the number of entries
-        normalized_norm = norm / (m * n)
-    
-        return normalized_norm
-    
-    
-    def _get_mixture_dict_with_conf(
-        self,
-        W: 'np.ndarray',
-        ref_w_r: float,
-        reconstruction_error: float,
-        ref_names: List[str],
-        cluster_ID: int = None
-    ) -> Tuple[Optional[Dict], float]:
-        """
-        Evaluate if a cluster is a mixture of two candidate phases, and compute a confidence score.
-    
-        If the reconstruction error is below a set threshold, computes a confidence score and
-        transforms the NMF coefficients into molar fractions. Returns a dictionary describing
-        the mixture and the confidence score.
-    
-        Parameters
-        ----------
-        W : np.ndarray
-            Matrix of NMF coefficients for each point in the cluster (shape: n_points, 2).
-        ref_w_r : float
-            Ratio of weights of the two candidate phases (for molar concentration conversion).
-        reconstruction_error : float
-            Reconstruction error for the mixture fit.
-        ref_names : list of str
-            Names of the two candidate phases.
-        cluster_ID : int
-            Current cluster ID. Used for violin plot name
-    
-        Returns
-        -------
-        mixture_dict : Dict or None
-            Dictionary with mixture information if fit is acceptable, else None.
-            Keys: 'refs', 'conf_score', 'mean', 'stddev'.
-        conf : float
-            Confidence score for this mixture (0 if not acceptable).
-    
-        Notes
-        -----
-        - The minimum acceptable reconstruction error is set empirically to 2 (a.u.).
-        - Confidence is calculated as a Gaussian function of the reconstruction error (sigma=0.5).
-        - Molar fractions are derived from NMF coefficients and normalized.
-        - Only the first component's mean and stddev are returned in the dictionary.
-        """
-        # Set a minimum reconstruction error threshold for accepting mixtures
-        min_acceptable_recon_error = 2  # Empirically determined
-        
-        save_violin_plot = getattr(
-            self.powder_meas_cfg,
-            "is_known_powder_mixture_meas",
-            False,
-        )
-        
-        if reconstruction_error < min_acceptable_recon_error or save_violin_plot:
-            # Calculate confidence score: 0.66 when error is 0.5 (empirical)
-            gauss_sigma = 0.5
-            conf = np.exp(-reconstruction_error**2 / (2 * gauss_sigma**2))
-    
-            # Transform NMF coefficients into molar fractions (see documentation for derivation)
-            W_mol_frs = []
-            for c1, c2 in W:
-                # x1, x2 are the molar fractions
-                x2 = c2 * ref_w_r / (1 - c2 * (1 - ref_w_r))
-                x1 = c1 * (1 + x2 * (1 / ref_w_r - 1))
-                W_mol_frs.append([x1, x2])
-            W_mol_frs = np.array(W_mol_frs)
-    
-            # Calculate mean and standard deviation of molar fractions (not normalized)
-            mol_frs_norm_means = np.mean(W_mol_frs, axis=0)
-            mol_frs_norm_stddevs = np.std(W_mol_frs, axis=0)
-            
-            if save_violin_plot:
-                self._save_violin_plot_powder_mixture(W_mol_frs, ref_names, cluster_ID)
-            
-            # Store mixture information
-            mixture_dict = {
-                cnst.REF_NAME_KEY: ref_names,
-                cnst.CONF_SCORE_KEY: conf,
-                cnst.MOLAR_FR_MEAN_KEY: mol_frs_norm_means[0],
-                cnst.MOLAR_FR_STDEV_KEY: mol_frs_norm_stddevs[0]
-            }
-        else:
-            mixture_dict = None
-            conf = 0
-    
-        return mixture_dict, conf
-    
-    
-    def _nmf_with_constraints(
-        self,
-        X: 'np.ndarray',
-        n_components: int,
-        fixed_H: 'np.ndarray' = None
-    ) -> Tuple['np.ndarray', 'np.ndarray']:
-        """
-        Perform Non-negative Matrix Factorization (NMF) with optional constraints on the factor matrices.
-    
-        This function alternates between optimizing two non-negative matrices W and H, such that X ≈ W @ H:
-          - If H is fixed (provided via fixed_H), only W is updated.
-          - If H is not fixed, both W and H are updated via alternating minimization.
-    
-        Constraints:
-          - Both W and H are non-negative.
-          - The rows of both W (sum of coefficients) and H (sum of elemental fractions) sum to 1.
-          - Sparsity regularization (L1) is applied to H when it is updated, to favor bases with limited elements.
-    
-        Parameters
-        ----------
-        X : np.ndarray, shape (m, n)
-            The input matrix to be factorized, where m is the number of samples and n is the number of elements.
-        n_components : int
-            The number of latent components (rank of the decomposition). For binary mixtures, n_components=2.
-        fixed_H : np.ndarray or None, optional
-            If provided, a fixed basis matrix of shape (n_components, n). If None, H is updated during optimization.
-    
-        Returns
-        -------
-        W : np.ndarray, shape (m, n_components)
-            The non-negative coefficient matrix learned during the factorization.
-        H : np.ndarray, shape (n_components, n)
-            The non-negative basis matrix learned during the factorization.
-            If fixed_H is provided, this matrix is not modified.
-    
-        Notes
-        -----
-        - Uses alternating minimization, solving for one matrix while keeping the other fixed.
-        - Convergence is based on the Frobenius norm of the change in W and H between iterations.
-        - Stops when the change is smaller than the specified tolerance (convergence_tol = 1e-3), or max_iter is reached.
-        - Regularization may be applied to H (if it is updated) to encourage sparsity and avoid all elements being present in both parent phases.
-        """
-        max_iter = 1000
-        convergence_tol = 1e-3  # Algorithm converges when change in coefficients or el_fr is less than 0.1%
-        lambda_H = 0  # Regularization parameter for sparsity in H. Set >0 to favor sparse basis matrix. Found to work better when not applied.
-    
-        # Initialize W and H with non-negative random values if not provided
-        W = np.random.rand(X.shape[0], n_components)
-        if fixed_H is None:
-            H = np.random.rand(n_components, X.shape[1])  # Initialize H if not provided
-        else:
-            H = fixed_H
-    
-        prev_W, prev_H = np.inf, np.inf
-        convergence = np.inf
-        i = 0
-    
-        while convergence > convergence_tol and i < max_iter:
-            # Solve for W with H fixed (or fixed_H provided)
-            W_var = cp.Variable((X.shape[0], n_components), nonneg=True)
-            objective_W = cp.Minimize(cp.sum_squares(X - W_var @ H))
-            constraints_W = [cp.sum(W_var, axis=1) == 1]
-            problem_W = cp.Problem(objective_W, constraints_W)
-            problem_W.solve(solver=cp.ECOS)
-            W = W_var.value # Update W
-            
-            # If H is not fixed, solve for H as well (alternating minimization)
-            if fixed_H is None:
-                H_var = cp.Variable((n_components, X.shape[1]), nonneg=True)
-                objective_H = cp.Minimize(
-                    cp.sum_squares(X - W @ H_var) + lambda_H * cp.norm1(H_var)
-                )
-                constraints_H = [cp.sum(H_var, axis=1) == 1]
-                problem_H = cp.Problem(objective_H, constraints_H)
-                problem_H.solve(solver=cp.ECOS)
-                H = H_var.value # Update H
-    
-            # Compute convergence based on the changes in W and H
-            convergence_W = np.linalg.norm(W - prev_W, 'fro')
-            convergence_H = np.linalg.norm(H - prev_H, 'fro') if fixed_H is None else 0
-            convergence = max(convergence_W, convergence_H)
-    
-            prev_W, prev_H = W, H
-            i += 1
-    
-        return W, H
-        
-    
-    def _identify_mixture_nmf(
-        self,
-        X: 'np.ndarray',
-        n_components: int = 2,
-        cluster_ID: int = None
-    ) -> Tuple[float, Optional[Dict]]:
-        """
-        Identify a mixture within a cluster using unconstrained NMF (Non-negative Matrix Factorization).
-    
-        This method fits the cluster data X to n_components using NMF with constraints (rows of W and H sum to 1),
-        evaluates the reconstruction error, and if acceptable, returns a dictionary describing the mixture and a confidence score.
-    
-        Parameters
-        ----------
-        X : np.ndarray
-            Cluster data (compositions), shape (n_samples, n_features).
-        n_components : int, optional
-            Number of components (phases) to fit (default: 2).
-    
-        Returns
-        -------
-        conf : float
-            Confidence score for the mixture (0 if not acceptable).
-        mixture_dict : Dict or None
-            Dictionary describing the mixture if reconstruction is acceptable, else None.
-        cluster_ID : int
-            Current cluster ID. Used for violin plot name
-    
-        Notes
-        -----
-        - The confidence and mixture dictionary are computed using _get_mixture_dict_with_conf.
-        - Elemental fractions lower than 0.5% are set to 0 using _get_pretty_formulas_nmf.
-        
-        Potential improvements
-        ----------------------
-        Consider re-running algorithms with fixed zeroes after purifying compositions
-        """
-        mixture_dict = None
-        conf = 0
-    
-        # Run NMF, constraining coefficients and values of bases to add up to 1
-        W, H = self._nmf_with_constraints(X, n_components)
-    
-        # Compute the reconstruction error
-        recon_er = self._calc_reconstruction_error(X, W, H)
-    
-        # Get human-readable formulas and weights for the NMF bases
-        ref_names, ref_weights = self._get_pretty_formulas_nmf(H, n_components)
-    
-        # Calculate ratio of reference weights, needed to compute molar fractions of parent phases
-        ref_w_r = ref_weights[0] / ref_weights[1]
-
-        # If pair of bases yields an acceptable reconstruction error, store the mixture info
-        mixture_dict, conf = self._get_mixture_dict_with_conf(W, ref_w_r, recon_er, ref_names, cluster_ID)  # Returns (None, 0) if error is too high
-
-        return conf, mixture_dict
-    
-    
-    def _get_pretty_formulas_nmf(
-        self,
-        phases: 'np.ndarray',
-        n_components: int
-    ) -> Tuple[List[str], List[float]]:
-        """
-        Generate human-readable (pretty) formulas from NMF bases, accounting for data noise.
-    
-        For each component, filters out small fractions, constructs a composition dictionary,
-        and returns a formula string and a weight or atom count, depending on the clustering feature.
-    
-        Parameters
-        ----------
-        phases : np.ndarray
-            Array of shape (n_components, n_elements), each row is a basis vector from NMF.
-        n_components : int
-            Number of components (phases) to process.
-    
-        Returns
-        -------
-        ref_names : list of str
-            List of pretty formula strings for each phase.
-        ref_weights : list of float
-            List of weights (for mass fractions) or atom counts (for atomic fractions), for each phase.
-    
-        Notes
-        -----
-        - Fractions below 0.5% are set to zero for formula construction.
-        - Uses `Composition` to generate formulas and weights.
-        - For mass fractions, the weight of the phase is used.
-        - For atomic fractions, the total atom count in the formula is used.
-        """
-        ref_names = []
-        ref_weights = []
-    
-        for i in range(n_components):
-            # Filter out too small fractions (set <0.5% to zero)
-            frs = phases[i, :].copy()
-            frs[frs < 0.005] = 0
-    
-            # Build dictionary for the parent phase composition
-            fr_dict = {el: fr for el, fr in zip(self.detectable_els_sample, frs)}
-    
-            # Generate a Composition object based on the selected feature type
-            if self.clustering_cfg.features == cnst.W_FR_CL_FEAT:
-                comp = Composition().from_weight_dict(fr_dict)
-            elif self.clustering_cfg.features == cnst.AT_FR_CL_FEAT:
-                comp = Composition(fr_dict)
-    
-            # Get integer formula and construct a pretty formula
-            formula = comp.get_integer_formula_and_factor()[0]
-            ref_integer_comp = Composition(formula)
-            min_at_n = min(ref_integer_comp.get_el_amt_dict().values())
-            pretty_at_frs = {el: round(n / min_at_n, 1) for el, n in ref_integer_comp.get_el_amt_dict().items()}
-            pretty_comp = Composition(pretty_at_frs)
-            pretty_formula = pretty_comp.formula
-            ref_names.append(pretty_formula)
-    
-            # Store weight or atom count for the phase
-            if self.clustering_cfg.features == cnst.W_FR_CL_FEAT:
-                ref_weights.append(pretty_comp.weight)
-            elif self.clustering_cfg.features == cnst.AT_FR_CL_FEAT:
-                n_atoms_in_formula = sum(pretty_comp.get_el_amt_dict().values())
-                ref_weights.append(n_atoms_in_formula)
-    
-        return ref_names, ref_weights
-    
-
-    def _build_mixtures_df(
-        self,
-        clusters_assigned_mixtures: List[List[Dict]]
-    ) -> 'pd.DataFrame':
-        """
-        Build a DataFrame summarizing mixture assignments for each cluster.
-    
-        For each cluster, sorts mixture dictionaries by confidence score and extracts:
-          - candidate phase names (as a comma-separated string)
-          - Confidence score
-          - Molar ratio (mean / (1 - mean))
-          - Mean and standard deviation of the main component's molar fraction
-    
-        Parameters
-        ----------
-        clusters_assigned_mixtures : list of list of Dict
-            Outer list: clusters; inner list: mixture dictionaries for each cluster.
-    
-        Returns
-        -------
-        mixtures_df : pd.DataFrame
-            DataFrame summarizing mixture assignments for each cluster.
-            Columns: Mix1, CS_mix1, Mol_Ratio1, Icomp_Mol_Fr_Mean1, Stddev1, etc.
-    
-        Notes
-        -----
-        - If no mixtures are assigned for a cluster, the entry will be an empty dictionary.
-        - The DataFrame is intended for addition to Clusters.csv or similar summary files.
-        """
-        mixtures_strings_dict = []
-        for mixtures_dict in clusters_assigned_mixtures:
-            if mixtures_dict:
-                # Sort mixture dictionaries by decreasing confidence score
-                sorted_mixtures = sorted(mixtures_dict, key=lambda x: -x[cnst.CONF_SCORE_KEY])
-                cluster_mix_dict = {}
-                for i, mixture_dict in enumerate(sorted_mixtures, start=1):
-                    cluster_mix_dict[f'{cnst.MIX_DF_KEY}{i}'] = ', '.join(mixture_dict[cnst.REF_NAME_KEY])
-                    cluster_mix_dict[f'{cnst.CS_MIX_DF_KEY}{i}'] = float(f"{mixture_dict[cnst.CONF_SCORE_KEY]:.2f}")
-                    cluster_mix_dict[f'{cnst.MIX_MOLAR_RATIO_DF_KEY}{i}'] = np.round(mixture_dict[cnst.MOLAR_FR_MEAN_KEY] / (1 - mixture_dict[cnst.MOLAR_FR_MEAN_KEY]), 2)
-                    cluster_mix_dict[f'{cnst.MIX_FIRST_COMP_MEAN_DF_KEY}{i}'] = np.round(mixture_dict[cnst.MOLAR_FR_MEAN_KEY], 2)
-                    cluster_mix_dict[f'{cnst.MIX_FIRST_COMP_STDEV_DF_KEY}{i}'] = np.round(mixture_dict[cnst.MOLAR_FR_STDEV_KEY], 2)
-                mixtures_strings_dict.append(cluster_mix_dict)
-            else:
-                mixtures_strings_dict.append({})
-    
-        # Create DataFrame to add to Clusters.csv
-        mixtures_df = pd.DataFrame(mixtures_strings_dict)
-    
-        return mixtures_df
-    
-    
     #%% Run algorithms
     # =============================================================================     
     def run_collection_and_quantification(
@@ -3942,7 +3107,7 @@ class EMXSp_Composition_Analyzer:
             if quantify and tot_n_spectra > 0:
                 if is_exp_std_measurement:
                     # Fit spectra and check if target number of good spectra has been collected
-                    is_analysis_successful, is_converged = self._evaluate_exp_std_fit(tot_n_spectra)
+                    is_analysis_successful, is_converged = StandardsModule._evaluate_exp_std_fit(self, tot_n_spectra)
                 else:
                     # Perform clustering analysis and check for convergence
                     is_analysis_successful, is_converged = self._evaluate_clustering_convergence(tot_n_spectra, n_spectra_to_collect)
@@ -4206,91 +3371,12 @@ class EMXSp_Composition_Analyzer:
         self.run_collection_and_quantification(quantify=fit_during_collection)
         
         # Fit standards and save results
-        fit_results = self._fit_stds_and_save_results()
+        fit_results = StandardsModule._fit_stds_and_save_results(self)
         
         # Optionally update the standards library with the new results
         if update_std_library and fit_results is not None and fit_results.lines:
-            self._update_standard_library(fit_results)
+            StandardsModule._update_standard_library(self, fit_results)
         
-    #%% Save Plots
-    def _load_custom_plot_function(self):
-        return PlottingModule._load_custom_plot_function(self)
-
-    def _run_custom_clustering_plot(
-        self,
-        elements: List[str],
-        els_comps_list: 'np.ndarray',
-        centroids: 'np.ndarray',
-        labels: 'np.ndarray',
-        els_std_dev_per_cluster: list,
-        unused_compositions_list: list
-    ) -> bool:
-        return PlottingModule._run_custom_clustering_plot(
-            self,
-            elements,
-            els_comps_list,
-            centroids,
-            labels,
-            els_std_dev_per_cluster,
-            unused_compositions_list,
-        )
-
-    def _save_plots(
-        self,
-        kmeans: 'KMeans',
-        compositions_df: 'pd.DataFrame',
-        centroids: 'np.ndarray',
-        labels: 'np.ndarray',
-        els_std_dev_per_cluster: list,
-        unused_compositions_list: list
-    ) -> None:
-        return PlottingModule._save_plots(
-            self,
-            kmeans,
-            compositions_df,
-            centroids,
-            labels,
-            els_std_dev_per_cluster,
-            unused_compositions_list,
-        )
-
-    def _save_clustering_plot(
-        self,
-        elements: List[str],
-        els_comps_list: 'np.ndarray',
-        centroids: 'np.ndarray',
-        labels: 'np.ndarray',
-        els_std_dev_per_cluster: list,
-        unused_compositions_list: list
-    ) -> None:
-        return PlottingModule._save_clustering_plot(
-            self,
-            elements,
-            els_comps_list,
-            centroids,
-            labels,
-            els_std_dev_per_cluster,
-            unused_compositions_list,
-        )
-
-    def _save_violin_plot_powder_mixture(
-        self,
-        W_mol_frs: List[float],
-        ref_names: List[str],
-        cluster_ID : int
-    ) -> None:
-        return PlottingModule._save_violin_plot_powder_mixture(self, W_mol_frs, ref_names, cluster_ID)
-
-    @staticmethod
-    def _save_silhouette_plot(
-        model: 'KMeans',
-        compositions_df: 'pd.DataFrame',
-        results_dir: str,
-        show_plot: bool
-    ) -> None:
-        return PlottingModule._save_silhouette_plot(model, compositions_df, results_dir, show_plot)
-    
-    
     #%% Save Data
     # =============================================================================
     def _save_result_and_stats(
@@ -4307,7 +3393,6 @@ class EMXSp_Composition_Analyzer:
         wcss: float,
         sil_score: float,
         tot_n_points: int,
-        max_analytical_error: float,
         clusters_assigned_mixtures: list
     ) -> None:
         """
@@ -4345,8 +3430,6 @@ class EMXSp_Composition_Analyzer:
             Silhouette score for the clustering.
         tot_n_points : int
             Total number of spectra considered.
-        max_analytical_error : float
-            Maximum allowed analytical error for spectra used in clustering.
         clusters_assigned_mixtures : list
             List of mixture assignments for each cluster.
     
@@ -4415,7 +3498,7 @@ class EMXSp_Composition_Analyzer:
             clusters_df = pd.concat([clusters_df.reset_index(drop=True), refs_assigned_df.reset_index(drop=True)], axis=1)
     
         # Add mixture assignments if any
-        mixtures_df = self._build_mixtures_df(clusters_assigned_mixtures)
+        mixtures_df = ReferenceMatchingModule._build_mixtures_df(self, clusters_assigned_mixtures)
         clusters_df = pd.concat([clusters_df.reset_index(drop=True), mixtures_df.reset_index(drop=True)], axis=1)
     
         # Ensure the analysis directory exists
@@ -4493,7 +3576,9 @@ class EMXSp_Composition_Analyzer:
             If the output directory cannot be created or files cannot be written.
         """
     
-        n_spectra = len(self.spectra_quant_records)
+        ledger = self._load_or_create_ledger()
+        ledger_spectra = list(ledger.spectra) if ledger is not None else []
+        n_spectra = len(ledger_spectra)
     
         if n_spectra == 0:
             return None
@@ -4502,6 +3587,7 @@ class EMXSp_Composition_Analyzer:
         for i in range(n_spectra):
             # Retrieve the typed QuantificationResult for this spectrum (None when not quantified)
             record = self.spectra_quant_records[i] if i < len(self.spectra_quant_records) else None
+            coords = self._extract_coords_from_spectrum_entry(ledger_spectra[i], i)
             has_composition_result = record is not None and record.composition_atomic_fractions is not None
             has_result = has_composition_result
 
@@ -4539,19 +3625,17 @@ class EMXSp_Composition_Analyzer:
                     
                 # Compose row of data to be saved
                 data_row = {
-                    **self.sp_coords[i],
+                    **coords,
                     **meas_data
                 }
             else:
                 # Counts in this spectrum were too low or quantification was interrupted
-                data_row = self.sp_coords[i]
+                data_row = coords
             
-            # Add comment and quantification flag columns, if available
-            try:
-                data_row[cnst.COMMENTS_DF_KEY] = self.spectral_data[cnst.COMMENTS_DF_KEY][i]
-                data_row[cnst.QUANT_FLAG_DF_KEY] = self.spectral_data[cnst.QUANT_FLAG_DF_KEY][i]
-            except Exception:
-                pass
+            # Add comment and quantification flag columns when a quantification record exists.
+            if record is not None:
+                data_row[cnst.COMMENTS_DF_KEY] = record.comment
+                data_row[cnst.QUANT_FLAG_DF_KEY] = record.quant_flag
     
             data_list.append(data_row)
     
@@ -4577,6 +3661,11 @@ class EMXSp_Composition_Analyzer:
         data_df = data_df[new_column_order]
 
         # Save compositions in Compositions.csv.
+        if not hasattr(self, 'analysis_dir') or self.analysis_dir is None:
+            # Quantification-only workflows can call this before analyse_data creates
+            # an analysis-specific subdirectory.
+            self.analysis_dir = self.sample_result_dir
+        os.makedirs(self.analysis_dir, exist_ok=True)
         comp_path = os.path.join(self.analysis_dir, cnst.COMPOSITIONS_FILENAME + '.csv')
         compositions_df = data_df.drop(
             columns=[
@@ -4661,8 +3750,7 @@ class EMXSp_Composition_Analyzer:
             raise OSError(f"Could not create output directory '{self.sample_result_dir}': {e}")
     
         try:
-            existing_ledger = self._load_existing_ledger()
-            ledger = self._build_ledger_from_current_state(existing_ledger=existing_ledger)
+            ledger = self._load_or_create_ledger()
             ledger.configs = LedgerConfigs.model_validate({
                 cnst.MICROSCOPE_CFG_KEY: spectrum_collection_info[cnst.MICROSCOPE_CFG_KEY],
                 cnst.SAMPLE_CFG_KEY: spectrum_collection_info[cnst.SAMPLE_CFG_KEY],

@@ -101,7 +101,7 @@ class PlottingModule:
         unused_compositions_list: list,
     ) -> bool:
         """Run custom clustering plotting code and return True on success."""
-        custom_plot_func = self._load_custom_plot_function()
+        custom_plot_func = PlottingModule._load_custom_plot_function(self)
 
         if custom_plot_func is None:
             custom_plot_func = getattr(builtin_custom_plotting, "_save_clustering_plot_custom_3D", None)
@@ -200,7 +200,8 @@ class PlottingModule:
         if can_plot_clustering:
             els_comps_list = compositions_df[els_for_plot].to_numpy().T
             if self.plot_cfg.use_custom_plots:
-                custom_successful = self._run_custom_clustering_plot(
+                custom_successful = PlottingModule._run_custom_clustering_plot(
+                    self,
                     els_for_plot,
                     els_comps_list,
                     centroids,
@@ -209,12 +210,14 @@ class PlottingModule:
                     unused_compositions_list,
                 )
                 if not custom_successful:
-                    self._save_clustering_plot(
+                    PlottingModule._save_clustering_plot(
+                        self,
                         els_for_plot, els_comps_list, centroids, labels,
                         els_std_dev_per_cluster, unused_compositions_list
                     )
             else:
-                self._save_clustering_plot(
+                PlottingModule._save_clustering_plot(
+                    self,
                     els_for_plot, els_comps_list, centroids, labels,
                     els_std_dev_per_cluster, unused_compositions_list
                 )

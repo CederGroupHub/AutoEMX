@@ -149,7 +149,7 @@ class StandardsModule:
         return None
 
     def _compile_standards_from_references(self: Any) -> dict:
-        standards, _ = self._load_standards()
+        standards, _ = StandardsModule._load_standards(self)
         std_dict_all_lines = standards.standards_by_mode[self.measurement_cfg.mode]
         ref_lines = XSp_Quantifier.xray_quant_ref_lines
         ref_formulae = self.clustering_cfg.ref_formulae
@@ -212,8 +212,8 @@ class StandardsModule:
 
         std_ref_lines = self._assemble_std_PB_data_from_records()
         if std_ref_lines:
-            pb_corrected, z_sample = self._calc_corrected_PB(std_ref_lines)
-            fit_results = self._save_std_results(std_ref_lines, pb_corrected, z_sample)
+            pb_corrected, z_sample = StandardsModule._calc_corrected_PB(self, std_ref_lines)
+            fit_results = StandardsModule._save_std_results(self, std_ref_lines, pb_corrected, z_sample)
         return fit_results
 
     def _assemble_std_PB_data_from_records(self: Any) -> Dict[str, StandardFitLineResult]:
@@ -285,7 +285,7 @@ class StandardsModule:
             print_double_separator()
             logger.info(f"🔬 Fitting after collection of {tot_n_spectra} spectra...")
 
-        fit_results = self._fit_stds_and_save_results()
+        fit_results = StandardsModule._fit_stds_and_save_results(self)
         if fit_results is not None and fit_results.lines:
             is_fit_successful = True
             num_valid_spectra = int(np.min([line.n_spectra_used for line in fit_results.lines.values()]))
@@ -408,13 +408,13 @@ class StandardsModule:
         results_path = os.path.join(self._get_std_exports_dir(), filename + cnst.DATA_FILEEXT)
         results_df.to_csv(results_path, index=True, header=True)
 
-        mean_z_payload = self._serialize_standard_mean_z(z_sample)
+        mean_z_payload = StandardsModule._serialize_standard_mean_z(z_sample)
         mean_z = StandardMeanZ.model_validate(mean_z_payload) if mean_z_payload is not None else None
         return StandardsFitResults.model_validate({"lines": fit_lines, "mean_z": mean_z})
 
     def _load_xsp_standards(self: Any) -> Tuple[EDSStandardsFile, str]:
         """Backward-compatible alias returning typed standards model."""
-        return self._load_standards()
+        return StandardsModule._load_standards(self)
 
     def _load_standards(self: Any) -> Tuple[EDSStandardsFile, str]:
         """Load standards as structured schema model for internal processing."""
@@ -465,7 +465,7 @@ class StandardsModule:
         meas_mode = self.measurement_cfg.mode
         if self.standards is not None:
             self.standards = None
-        standards, stds_filepath = self._load_standards()
+        standards, stds_filepath = StandardsModule._load_standards(self)
         std_lib = standards.standards_by_mode[meas_mode]
 
         for el_line, line_payload in list(std_lib.items()):

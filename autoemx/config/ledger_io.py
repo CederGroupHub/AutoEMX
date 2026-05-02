@@ -4,7 +4,7 @@
 
 from pathlib import Path
 
-from autoemx.config.ledger_schemas import SampleLedger
+from autoemx.config.ledger_schemas import SampleLedger # type: ignore
 
 
 def load_sample_ledger(file_path: str | Path) -> SampleLedger:

@@ -384,7 +384,7 @@ class ClusteringModule:
                 n_loop = 0
                 while not is_clustering_ok and n_loop < max_loops_nonneg_silh:
                     n_loop += 1
-                    kmeans, labels = self._get_clustering_kmeans(k, compositions_df)
+                    kmeans, labels = ClusteringModule._get_clustering_kmeans(self, k, compositions_df)
                     silhouette_vals = silhouette_samples(compositions_df, labels)
                     if np.all(silhouette_vals > 0):
                         # Clustering is accepted only if all silhouette values are positive (no wrong clustering)
@@ -397,7 +397,7 @@ class ClusteringModule:
             return best_kmeans, best_labels, best_sil_score
         else:
             # Clustering with k = 1 is trivial, and has no silhouette score
-            kmeans, labels = self._get_clustering_kmeans(k, compositions_df)
+            kmeans, labels = ClusteringModule._get_clustering_kmeans(self, k, compositions_df)
             return kmeans, labels, np.nan
     
 

@@ -55,7 +55,6 @@ from autoemx.utils import (
     print_double_separator,
     get_sample_dir,
     load_configurations_from_json,
-    extract_spectral_data,
 )
 import autoemx.utils.constants as cnst
 import autoemx.config.defaults as dflt
@@ -252,25 +251,12 @@ def batch_quantify_and_analyze(
         #                     this data on its first run.
         has_ledger   = os.path.exists(ledger_path)
         has_data_csv = os.path.exists(data_path)
-        sp_coords    = []
-        spectral_data = {key: [] for key in cnst.LIST_SPECTRAL_DATA_QUANT_KEYS}
 
         if not has_ledger:
             if has_data_csv:
-                # No ledger yet — load from Data.csv so run_quantification can
-                # create a ledger from it on this first run.
-                try:
-                    _, spectral_data, sp_coords, _ = extract_spectral_data(data_path)
-                except Exception as e:
-                    logging.warning(f"Could not load spectral data for '{sample_ID}': {e}")
-                    continue
-
-                if use_instrument_background:
-                    if spectral_data.get(cnst.BACKGROUND_DF_KEY, []) == []:
-                        warnings.warn(
-                            "Background column not found in input data. "
-                            "Spectral background will be computed instead."
-                        )
+                # No ledger yet — run_quantification will migrate legacy Data.csv
+                # into ledger.json via analyser._load_or_create_ledger().
+                pass
             else:
                 logging.warning(
                     f"No Data.csv or ledger.json found for '{sample_ID}'. Skipping."
@@ -299,19 +285,6 @@ def batch_quantify_and_analyze(
             verbose=True,
             results_dir=sample_dir
         )
-
-        if not has_ledger and has_data_csv:
-            # Seed in-memory arrays from the legacy CSV so run_quantification
-            # has the spectral data before it creates the ledger for the first time.
-            # Note: spectra_quant (the composition buffer used by analyse_data) is
-            # always built by run_quantification from ledger records — the runner
-            # never pre-populates it.
-            comp_analyzer.sp_coords = sp_coords # type: ignore
-            for key in cnst.LIST_SPECTRAL_DATA_QUANT_KEYS:
-                comp_analyzer.spectral_data[key] = spectral_data[key]
-        # When ledger exists, run_quantification populates spectral_data via
-        # _sync_in_memory_spectra_from_ledger() and spectra_quant via
-        # _sync_existing_quantification_from_ledger() — no manual injection needed.
 
         logging.info(f"Quantifying spectra for '{sample_ID}'.")
         
@@ -344,7 +317,11 @@ def batch_quantify_and_analyze(
         total_process_time = (time.time() - sample_processing_time_start) / 60
         print_double_separator()
         logging.info(f"Sample '{sample_ID}' successfully quantified in {total_process_time:.1f} min.")
-        logging.info(f"{len(sp_coords)} spectra have been quantified and saved for '{sample_ID}'.")
+        try:
+            quantified_spectra = len(comp_analyzer._load_or_create_ledger().spectra)
+        except Exception:
+            quantified_spectra = len(comp_analyzer.spectra_quant_records)
+        logging.info(f"{quantified_spectra} spectra have been quantified and saved for '{sample_ID}'.")
 
         
         quant_results.append(comp_analyzer)
