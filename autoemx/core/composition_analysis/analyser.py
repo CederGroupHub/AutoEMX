@@ -3151,7 +3151,7 @@ class EMXSp_Composition_Analyzer:
             # Print additional messages with how many spectra were discarded for which reason
             self._report_n_discarded_spectra(n_datapts, max_analytical_error)
             # Save Composition.csv file anyways
-            self._save_collected_data(None, None, backup_previous_data=True, include_spectral_data=False)
+            self._save_analysis_summary(None, None)
             return False, 0, 0  # zeroes are placeholders
     
         if self.verbose:
@@ -3202,12 +3202,7 @@ class EMXSp_Composition_Analyzer:
             clusters_assigned_mixtures = []
     
         # 8. Save and store results
-        if self.is_acquisition:
-            # When collecting, save collected spectra, their quantification, and to which cluster they are assigned
-            self._save_collected_data(labels, df_indices, backup_previous_data=True, include_spectral_data=True)
-        else:
-            # During analysis of Data.csv, save the compositions, together with their assigned phases, in the per-config analysis directory
-            self._save_collected_data(labels, df_indices, backup_previous_data=True, include_spectral_data=False)
+        self._save_analysis_summary(labels, df_indices)
     
         self._save_result_and_stats(
             centroids, els_std_dev_per_cluster, centroids_other_fr, els_std_dev_per_cluster_other_fr,
@@ -3870,9 +3865,9 @@ class EMXSp_Composition_Analyzer:
         """
         Perform iterative collection (and optional quantification) of spectra, followed by phase analysis and convergence check.
     
-        This method:
-          - Iteratively collects spectra in batches (and quantifies them if `quantify` is True).
-          - After each batch, saves collected data and (if quantification is enabled) performs phase analysis (clustering).
+                This method:
+                    - Iteratively collects spectra in batches (and quantifies them if `quantify` is True).
+                    - After each batch, persists acquisitions to the ledger and (if quantification is enabled) performs phase analysis (clustering).
           - Checks for convergence based on clustering statistics and confidence.
           - Stops early if convergence is achieved and minimum spectra is reached, or if no more particles are available.
     
@@ -3893,7 +3888,7 @@ class EMXSp_Composition_Analyzer:
         Notes
         -----
         - During experimental standard collection, "quantify" in fact determines whether spectra are "fitted" in-situ
-        - Saves data after each batch to prevent data loss.
+        - Acquisition and quantification records are persisted incrementally to the ledger to prevent data loss.
         - Prints a summary and processing times at the end.
         """
         tot_n_spectra = 0  # Total number of collected spectra
@@ -3933,13 +3928,9 @@ class EMXSp_Composition_Analyzer:
                 quantify=is_spectral_quant
             )
     
-            # Save temporary data file to avoid data loss
-            if self.is_acquisition:
-                self._save_collected_data(None, None, backup_previous_data=False, include_spectral_data=True)
-                
             if self.verbose:
                 print_single_separator()
-                logger.info(f"✅ {tot_n_spectra}/{tot_spectra_to_collect} spectra collected and saved.")
+                logger.info(f"✅ {tot_n_spectra}/{tot_spectra_to_collect} spectra collected.")
                 
             # Collect additional spectra in next iteration
             n_spectra_to_collect = min(
@@ -4158,7 +4149,7 @@ class EMXSp_Composition_Analyzer:
             interrupt_fits_bad_spectra=interrupt_fits_bad_spectra,
             num_CPU_cores=num_CPU_cores,
         )
-        self._save_collected_data(None, None, backup_previous_data=True, include_spectral_data=True)
+        self._save_analysis_summary(None, None)
         
     
     def run_exp_std_collection(
@@ -4471,19 +4462,13 @@ class EMXSp_Composition_Analyzer:
         self.clustering_info = clustering_info
         
         
-    def _save_collected_data(
+    def _save_analysis_summary(
         self,
         labels: Optional[List],
         df_indices: Optional[List],
-        backup_previous_data: Optional[bool] = True,
-        include_spectral_data: Optional[bool] = True,
     ) -> None:
         """
-        Save the collected spectra, their quantification (optionally), and their cluster assignments.
-    
-        This method builds a DataFrame with quantification and clustering information for each spectrum,
-        along with spectral data if requested. It ensures unique output files and backs up existing data.
-        Spectra with insufficient counts are handled gracefully.
+        Save quantification outputs to Compositions.csv.
     
         Parameters
         ----------
@@ -4491,23 +4476,16 @@ class EMXSp_Composition_Analyzer:
             List of cluster labels assigned to each spectrum (by index in df_indices).
         df_indices : List
             List of indices mapping labels to DataFrame rows.
-        backup_previous_data : bool, optional
-            Backs up previous data file if present (Default = True).
-        include_spectral_data : bool, optional
-            If True, includes raw spectral and background data in the output (default: True).
-            
         Returns
         -------
-        data_df: pd.Dataframe
-            Dataframe object containing the saved data.
-            None if no spectrum to save was acquired
+        data_df: pd.DataFrame | None
+            DataFrame object containing the exported composition data.
+            None if no spectrum is available for export.
     
         Notes
         -----
-        - If a file with the intended name exists and contains quantification data, a counter is appended to the filename.
-        - If include_spectral_data is False, only compositions are saved (to the analysis directory).
-        - Existing main data files are backed up before being overwritten.
-        - Uses make_unique_dir for unique directory creation if necessary.
+        - Only the Compositions.csv export path is retained.
+        - Legacy Data.csv handling is intentionally removed.
     
         Raises
         ------
@@ -4515,17 +4493,12 @@ class EMXSp_Composition_Analyzer:
             If the output directory cannot be created or files cannot be written.
         """
     
-        # Determine the number of spectra to process
-        if include_spectral_data:
-            n_spectra = len(self.spectral_data[cnst.SPECTRUM_DF_KEY])
-        else:
-            n_spectra = len(self.spectra_quant_records)
+        n_spectra = len(self.spectra_quant_records)
     
         if n_spectra == 0:
             return None
         
         data_list = []
-        ledger_entries = []  # list of per-spectrum dicts for ledger.json
         for i in range(n_spectra):
             # Retrieve the typed QuantificationResult for this spectrum (None when not quantified)
             record = self.spectra_quant_records[i] if i < len(self.spectra_quant_records) else None
@@ -4580,46 +4553,7 @@ class EMXSp_Composition_Analyzer:
             except Exception:
                 pass
     
-            # Add spectral data
-            if include_spectral_data:
-                try:  # If background present
-                    background_entry = '[' + ','.join(map(str, self.spectral_data[cnst.BACKGROUND_DF_KEY][i])) + ']'
-                except Exception:
-                    background_entry = None  # Use None so pandas will recognize as missing
-    
-                real_time = self.spectral_data[cnst.REAL_TIME_DF_KEY][i]
-                live_time = self.spectral_data[cnst.LIVE_TIME_DF_KEY][i]
-    
-                if real_time is not None:
-                    real_time = round(real_time, 2)
-                if live_time is not None:
-                    live_time = round(live_time, 2)
-    
-                # Format strings to avoid truncation when saving dataframe into csv
-                data_row = {
-                    **data_row,
-                    cnst.REAL_TIME_DF_KEY: real_time,
-                    cnst.LIVE_TIME_DF_KEY: live_time,
-                    cnst.SPECTRUM_DF_KEY: '[' + ','.join(map(str, self.spectral_data[cnst.SPECTRUM_DF_KEY][i])) + ']',
-                    cnst.BACKGROUND_DF_KEY: background_entry
-                }
-    
             data_list.append(data_row)
-
-            # Build ledger entry for ledger.json (spectral data + coordinates)
-            if include_spectral_data:
-                try:
-                    bg_vals = list(self.spectral_data[cnst.BACKGROUND_DF_KEY][i])
-                except Exception:
-                    bg_vals = None
-                ledger_entry = {
-                    **self.sp_coords[i],
-                    cnst.REAL_TIME_DF_KEY: real_time,
-                    cnst.LIVE_TIME_DF_KEY: live_time,
-                    cnst.SPECTRUM_DF_KEY: list(self.spectral_data[cnst.SPECTRUM_DF_KEY][i]),
-                    cnst.BACKGROUND_DF_KEY: bg_vals,
-                }
-                ledger_entries.append(ledger_entry)
     
         # Convert list of dictionaries to DataFrame
         data_df = pd.DataFrame(data_list)
@@ -4632,141 +4566,33 @@ class EMXSp_Composition_Analyzer:
                 # Convert to nullable integer Int64 dtype
                 data_df[cnst.CL_ID_DF_KEY] = data_df[cnst.CL_ID_DF_KEY].astype('Int64')
     
-        # Remove background column if it is entirely None or NaN
-        if cnst.BACKGROUND_DF_KEY in data_df.columns:
-            if data_df[cnst.BACKGROUND_DF_KEY].isna().all():
-                data_df.pop(cnst.BACKGROUND_DF_KEY)
-    
-        # Reorder columns to ensure spectral data is at the end
+        # Reorder columns to keep fit quality and flags toward the end.
         columns = data_df.columns.tolist()
         last_columns = [
             cnst.R_SQ_KEY, cnst.REDCHI_SQ_KEY,
             cnst.QUANT_FLAG_DF_KEY, cnst.COMMENTS_DF_KEY,
-            cnst.REAL_TIME_DF_KEY, cnst.LIVE_TIME_DF_KEY,
-            cnst.SPECTRUM_DF_KEY, cnst.BACKGROUND_DF_KEY
         ]
         remaining_columns = [col for col in columns if col not in last_columns]
         new_column_order = remaining_columns + [col for col in last_columns if col in columns]
         data_df = data_df[new_column_order]
 
-        # Save dataframe
-        if data_df is not None and include_spectral_data:
-            # Write ledger.json with per-spectrum spectral data and spatial coordinates
-            if ledger_entries:
-                ledger_path = os.path.join(
-                    self.sample_result_dir,
-                    cnst.LEDGER_FILENAME + cnst.LEDGER_FILEEXT
-                )
-                try:
-                    existing_ledger = self._load_or_create_ledger()
-
-                    spectra = []
-                    for i, entry in enumerate(ledger_entries):
-                        raw_x = entry.get(cnst.SP_X_COORD_DF_KEY, '')
-                        raw_y = entry.get(cnst.SP_Y_COORD_DF_KEY, '')
-                        raw_x_pixel = entry.get(cnst.SP_X_PIXEL_COORD_DF_KEY, '')
-                        raw_y_pixel = entry.get(cnst.SP_Y_PIXEL_COORD_DF_KEY, '')
-
-                        acquisition_details = AcquisitionDetails(
-                            frame_id=str(entry.get(cnst.FRAME_ID_DF_KEY, '')).strip() or None,
-                            particle_id=self._parse_optional_int(entry.get(cnst.PAR_ID_DF_KEY, '')),
-                            spot_coordinates=self._build_spot_coordinates(raw_x, raw_y, raw_x_pixel, raw_y_pixel),
-                        )
-
-                        existing_results = []
-                        if existing_ledger is not None and i < len(existing_ledger.spectra):
-                            existing_results = list(existing_ledger.spectra[i].quantification_results)
-                        spectrum_id = str(entry.get(cnst.SP_ID_DF_KEY, ''))
-                        spectrum_vals = list(entry[cnst.SPECTRUM_DF_KEY])
-                        spectrum_id_resolved = spectrum_id if spectrum_id else str(i)
-                        live_time = self._coerce_optional_finite_float(entry.get(cnst.LIVE_TIME_DF_KEY))
-                        real_time = self._coerce_optional_finite_float(entry.get(cnst.REAL_TIME_DF_KEY))
-                        spectrum_relpath = self._resolve_or_create_spectrum_pointer(
-                            spectrum_id=spectrum_id_resolved,
-                            spectrum_vals=spectrum_vals,
-                            live_time=live_time,
-                            real_time=real_time,
-                        )
-                        background_relpath = None
-                        background_vals = list(entry[cnst.BACKGROUND_DF_KEY]) if entry.get(cnst.BACKGROUND_DF_KEY) is not None else None
-                        if background_vals is not None:
-                            background_relpath = self._write_manufacturer_background_vector(
-                                spectrum_id=spectrum_id_resolved,
-                                background_vals=background_vals,
-                            )
-                        spectra.append(
-                            SpectrumEntry(
-                                live_acquisition_time=live_time if live_time is not None else (real_time if real_time is not None else 1.0),
-                                total_counts=int(round(float(np.sum(spectrum_vals)))),
-                                spectrum_id=spectrum_id_resolved,
-                                spectrum_relpath=spectrum_relpath,
-                                instrument_background_relpath=background_relpath,
-                                acquisition_details=acquisition_details,
-                                quantification_results=existing_results,
-                            )
-                        )
-
-                    existing_configs = []
-                    if existing_ledger is not None:
-                        existing_configs = list(existing_ledger.quantification_configs)
-
-                    ledger = SampleLedger(
-                        sample_id=self.sample_cfg.ID,
-                        sample_path=os.path.abspath(self.sample_result_dir),
-                        configs=(
-                            existing_ledger.configs
-                            if existing_ledger is not None and existing_ledger.configs is not None
-                            else self._build_ledger_configs()
-                        ),
-                        spectra=spectra,
-                        quantification_configs=existing_configs,
-                        active_quant=(
-                            existing_ledger.active_quant
-                            if existing_ledger is not None
-                            else (existing_configs[-1].quantification_id if existing_configs else None)
-                        ),
-                    )
-
-                    has_quant_records = any(
-                        record is not None for record in getattr(self, 'spectra_quant_records', [])
-                    )
-                    if has_quant_records and getattr(self, 'current_quant_config', None) is not None:
-                        self._upsert_current_quantification_config_on_ledger(ledger)
-                        ledger.active_quant = self.current_quant_config.quantification_id
-
-                        for i, quant_record in enumerate(getattr(self, 'spectra_quant_records', [])):
-                            if quant_record is None or i >= len(ledger.spectra):
-                                continue
-                            existing_ids = {
-                                existing.quantification_id
-                                for existing in ledger.spectra[i].quantification_results
-                            }
-                            if quant_record.quantification_id not in existing_ids:
-                                ledger.append_quantification_result(i, quant_record)
-
-                    ledger.to_json_file(ledger_path)
-                except Exception as e:
-                    raise OSError(f"Could not write ledger to '{ledger_path}': {e}")
-
-        else:
-            # Save only compositions in Compositions.csv.
-            # Used when cluster analysis is performed and cluster_IDs are assigned to each spectrum
-            comp_path = os.path.join(self.analysis_dir, cnst.COMPOSITIONS_FILENAME + '.csv')
-            compositions_df = data_df.drop(
-                columns=[
-                    c for c in [
-                        cnst.SP_X_COORD_DF_KEY,
-                        cnst.SP_Y_COORD_DF_KEY,
-                        cnst.SP_X_PIXEL_COORD_DF_KEY,
-                        cnst.SP_Y_PIXEL_COORD_DF_KEY,
-                    ]
-                    if c in data_df.columns
+        # Save compositions in Compositions.csv.
+        comp_path = os.path.join(self.analysis_dir, cnst.COMPOSITIONS_FILENAME + '.csv')
+        compositions_df = data_df.drop(
+            columns=[
+                c for c in [
+                    cnst.SP_X_COORD_DF_KEY,
+                    cnst.SP_Y_COORD_DF_KEY,
+                    cnst.SP_X_PIXEL_COORD_DF_KEY,
+                    cnst.SP_Y_PIXEL_COORD_DF_KEY,
                 ]
-            )
-            try:
-                compositions_df.to_csv(comp_path, index=False, header=True)
-            except Exception as e:
-                raise OSError(f"Could not write compositions data to '{comp_path}': {e}")
+                if c in data_df.columns
+            ]
+        )
+        try:
+            compositions_df.to_csv(comp_path, index=False, header=True)
+        except Exception as e:
+            raise OSError(f"Could not write compositions data to '{comp_path}': {e}")
 
         return data_df
 
