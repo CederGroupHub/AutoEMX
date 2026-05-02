@@ -79,7 +79,7 @@ import cvxpy as cp
 from yellowbrick.cluster import KElbowVisualizer, SilhouetteVisualizer
 
 # Project-specific imports
-from autoemx.core.quantifier import XSp_Quantifier, Quant_Corrections
+from autoemx.core.quantifier import XSp_Quantifier
 from autoemx.core.em_runtime.controller import EM_Controller
 from autoemx.core.em_runtime.sample_finder import EM_Sample_Finder
 import autoemx.calibrations as calibs
@@ -91,7 +91,6 @@ from autoemx.utils import (
     print_double_separator,
     to_latex_formula,
     make_unique_path,
-    weight_to_atomic_fr
 )
 from autoemx.config import (
     MicroscopeConfig,
@@ -745,6 +744,14 @@ class EMXSp_Composition_Analyzer:
         else:
             # Standards dictionary will be loaded directly within the `XSp_Quantifier`
             self.standards_dict = None
+
+    def _compile_standards_from_references(self) -> dict:
+        """Forward to StandardsModule implementation."""
+        return StandardsModule._compile_standards_from_references(self)
+
+    def _load_standards(self) -> Tuple[EDSStandardsFile, str]:
+        """Forward to StandardsModule implementation."""
+        return StandardsModule._load_standards(self)
 
 
     def _calc_reference_phases_df(self) -> None:
@@ -4801,11 +4808,11 @@ class EMXSp_Composition_Analyzer:
         self.run_collection_and_quantification(quantify=fit_during_collection)
         
         # Fit standards and save results
-        std_ref_lines, results_df, Z_sample = self._fit_stds_and_save_results(backup_previous_data=False)
+        fit_results = self._fit_stds_and_save_results()
         
         # Optionally update the standards library with the new results
-        if update_std_library and std_ref_lines is not None and len(std_ref_lines) > 0: 
-            self._update_standard_library(std_ref_lines, results_df, Z_sample)
+        if update_std_library and fit_results is not None and fit_results.lines:
+            self._update_standard_library(fit_results)
         
     #%% Save Plots
     def _save_plots(
@@ -5403,8 +5410,8 @@ class EMXSp_Composition_Analyzer:
         
     def _save_collected_data(
         self,
-        labels: List,
-        df_indices: List,
+        labels: Optional[List],
+        df_indices: Optional[List],
         backup_previous_data: Optional[bool] = True,
         include_spectral_data: Optional[bool] = True,
     ) -> None:
@@ -5429,7 +5436,7 @@ class EMXSp_Composition_Analyzer:
         Returns
         -------
         data_df: pd.Dataframe
-            Dataframe object containing the saved data. Used only when measuring experimental standards
+            Dataframe object containing the saved data.
             None if no spectrum to save was acquired
     
         Notes
@@ -5444,8 +5451,6 @@ class EMXSp_Composition_Analyzer:
         OSError
             If the output directory cannot be created or files cannot be written.
         """
-    
-        is_standards_measurements = self.exp_stds_cfg.is_exp_std_measurement
     
         # Determine the number of spectra to process
         if include_spectral_data:
@@ -5462,86 +5467,39 @@ class EMXSp_Composition_Analyzer:
             # Retrieve the typed QuantificationResult for this spectrum (None when not quantified)
             record = self.spectra_quant_records[i] if i < len(self.spectra_quant_records) else None
             has_composition_result = record is not None and record.composition_atomic_fractions is not None
-            has_fit_result = (
-                record is not None
-                and record.fit_result is not None
-                and bool(record.fit_result.fitted_peaks)
-            )
-            has_result = has_composition_result or (is_standards_measurements and has_fit_result)
+            has_result = has_composition_result
 
             if has_result:
-                if is_standards_measurements:
-                    exp_std_comp_d = self.exp_stds_cfg.w_frs
-                    std_els = list(exp_std_comp_d.keys())
-                    std_w_frs = list(exp_std_comp_d.values())
-                    std_at_frs = weight_to_atomic_fr(std_w_frs, std_els, verbose=False)
-                    atomic_comp = {el + cnst.AT_FR_DF_KEY: round(fr * 100, 2) for el, fr in zip(std_els, std_at_frs)}
-                    weight_comp = {el + cnst.W_FR_DF_KEY: round(fr * 100, 2) for el, fr in exp_std_comp_d.items()}
+                # Unpack spectral quantification results and convert from elemental fraction to % for readability
+                atomic_comp = {el + cnst.AT_FR_DF_KEY: round(fr * 100, 2) for el, fr in record.composition_atomic_fractions.items()}
+                weight_comp = {el + cnst.W_FR_DF_KEY: round(fr * 100, 2) for el, fr in record.composition_weight_fractions.items()}
+                analytical_er = {cnst.AN_ER_DF_KEY: round(float(record.analytical_error) * 100, 2)}
 
-                    fit_pb_data: Dict[str, float] = {}
-                    if record.fit_result is not None:
-                        for peak_key, peak in record.fit_result.fitted_peaks.items():
-                            if peak.pb_ratio is None:
-                                continue
-                            if peak.line in XSp_Quantifier.xray_quant_ref_lines:
-                                fit_pb_data[peak_key] = float(peak.pb_ratio)
+                # Fit quality metrics (present only when a full fit was performed)
+                r_squared = None
+                redchi_sq = None
+                if record.fit_result is not None:
+                    r_squared = float(f"{record.fit_result.r_squared:.5f}") if record.fit_result.r_squared is not None else None
+                    redchi_sq = float(f"{record.fit_result.reduced_chi_squared:.1f}") if record.fit_result.reduced_chi_squared is not None else None
 
-                    meas_data = {
-                        **fit_pb_data,
-                        **atomic_comp,
-                        **weight_comp,
-                        cnst.COMP_AT_FR_KEY: (
-                            dict(record.composition_atomic_fractions)
-                            if record.composition_atomic_fractions is not None
-                            else {el: float(fr) for el, fr in zip(std_els, std_at_frs)}
-                        ),
-                        cnst.COMP_W_FR_KEY: (
-                            dict(record.composition_weight_fractions)
-                            if record.composition_weight_fractions is not None
-                            else {el: float(fr) for el, fr in exp_std_comp_d.items()}
-                        ),
-                        cnst.AN_ER_KEY: (
-                            float(record.analytical_error)
-                            if record.analytical_error is not None
-                            else float("nan")
-                        ),
-                    }
-                    if record.fit_result is not None:
-                        if record.fit_result.r_squared is not None:
-                            meas_data[cnst.R_SQ_KEY] = float(f"{record.fit_result.r_squared:.5f}")
-                        if record.fit_result.reduced_chi_squared is not None:
-                            meas_data[cnst.REDCHI_SQ_KEY] = float(f"{record.fit_result.reduced_chi_squared:.1f}")
-                else:
-                    # Unpack spectral quantification results and convert from elemental fraction to % for readability
-                    atomic_comp = {el + cnst.AT_FR_DF_KEY: round(fr * 100, 2) for el, fr in record.composition_atomic_fractions.items()}
-                    weight_comp = {el + cnst.W_FR_DF_KEY: round(fr * 100, 2) for el, fr in record.composition_weight_fractions.items()}
-                    analytical_er = {cnst.AN_ER_DF_KEY: round(float(record.analytical_error) * 100, 2)}
+                # Extract cluster label if assigned
+                try:
+                    label_index = df_indices.index(i)
+                    cluster_n = labels[label_index]
+                except ValueError:
+                    cluster_n = pd.NA
+                except AttributeError:
+                    cluster_n = pd.NA
 
-                    # Fit quality metrics (present only when a full fit was performed)
-                    r_squared = None
-                    redchi_sq = None
-                    if record.fit_result is not None:
-                        r_squared = float(f"{record.fit_result.r_squared:.5f}") if record.fit_result.r_squared is not None else None
-                        redchi_sq = float(f"{record.fit_result.reduced_chi_squared:.1f}") if record.fit_result.reduced_chi_squared is not None else None
-        
-                    # Extract cluster label if assigned
-                    try:
-                        label_index = df_indices.index(i)
-                        cluster_n = labels[label_index]
-                    except ValueError:
-                        cluster_n = pd.NA
-                    except AttributeError:
-                        cluster_n = pd.NA
-                    
-                    # Compose row of data to be saved
-                    meas_data = {
-                        cnst.CL_ID_DF_KEY: cluster_n,
-                        **atomic_comp,
-                        **analytical_er,
-                        **weight_comp,
-                        cnst.R_SQ_KEY: r_squared,
-                        cnst.REDCHI_SQ_KEY: redchi_sq,
-                    }
+                # Compose row of data to be saved
+                meas_data = {
+                    cnst.CL_ID_DF_KEY: cluster_n,
+                    **atomic_comp,
+                    **analytical_er,
+                    **weight_comp,
+                    cnst.R_SQ_KEY: r_squared,
+                    cnst.REDCHI_SQ_KEY: redchi_sq,
+                }
                     
                 # Compose row of data to be saved
                 data_row = {
@@ -5628,63 +5586,8 @@ class EMXSp_Composition_Analyzer:
         new_column_order = remaining_columns + [col for col in last_columns if col in columns]
         data_df = data_df[new_column_order]
 
-        # Build CSV-only DataFrame: drop spectral arrays and spatial coordinates (kept in ledger.json)
-        csv_exclude_columns = [
-            cnst.SPECTRUM_DF_KEY, cnst.BACKGROUND_DF_KEY,
-            cnst.REAL_TIME_DF_KEY, cnst.LIVE_TIME_DF_KEY,
-            cnst.SP_X_COORD_DF_KEY, cnst.SP_Y_COORD_DF_KEY,
-            cnst.SP_X_PIXEL_COORD_DF_KEY, cnst.SP_Y_PIXEL_COORD_DF_KEY,
-        ]
-        csv_df = data_df.drop(columns=[c for c in csv_exclude_columns if c in data_df.columns])
-
         # Save dataframe
         if data_df is not None and include_spectral_data:
-            # Keep standards measurement exports unchanged, but avoid writing Data.csv for sample quantification runs.
-            if is_standards_measurements:
-                base_name = f'{cnst.STDS_MEAS_FILENAME}'
-                legacy_base_name = f'{base_name}_legacy'
-                extension = f'{cnst.DATA_FILEEXT}'
-                data_path = os.path.join(self.sample_result_dir, base_name + extension)
-
-                if os.path.exists(data_path) and backup_previous_data:
-                    if cnst.QUANT_FLAG_DF_KEY in pd.read_csv(data_path, nrows=0).columns:
-                        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                        backup_path = make_unique_path(self.sample_result_dir, f'{base_name}_old_{timestamp}', extension)
-                        try:
-                            shutil.copyfile(data_path, backup_path)
-                        except Exception as e:
-                            backup_successful = False
-                            raise OSError(f"Could not backup previous {data_path} file. This file was not overwritten."
-                                          f"Ensure you ovewrite it with a copy of {base_name}{extension} prior analysis:"
-                                          f"{e}")
-                        else:
-                            backup_successful = True
-                    else:
-                        backup_successful = True
-                else:
-                    backup_successful = True
-
-                try:
-                    if backup_successful:
-                        if isinstance(self.output_filename_suffix, str) and self.output_filename_suffix != '':
-                            if backup_previous_data:
-                                data_path_with_suffix = make_unique_path(self.sample_result_dir, base_name + self.output_filename_suffix, extension)
-                                legacy_path_with_suffix = make_unique_path(self.sample_result_dir, legacy_base_name + self.output_filename_suffix, extension)
-                            else:
-                                data_path_with_suffix = os.path.join(self.sample_result_dir, base_name + self.output_filename_suffix + extension)
-                                legacy_path_with_suffix = os.path.join(self.sample_result_dir, legacy_base_name + self.output_filename_suffix + extension)
-                            csv_df.to_csv(data_path_with_suffix, index=False, header=True)
-                            data_df.to_csv(legacy_path_with_suffix, index=False, header=True)
-                        else:
-                            csv_df.to_csv(data_path, index=False, header=True)
-                            legacy_data_path = os.path.join(self.sample_result_dir, legacy_base_name + extension)
-                            data_df.to_csv(legacy_data_path, index=False, header=True)
-                    else:
-                        csv_df.to_csv(data_path_with_suffix, index=False, header=True)
-                        data_df.to_csv(legacy_path_with_suffix, index=False, header=True)
-                except Exception as e:
-                    raise OSError(f"Could not write '{data_path}': {e}")
-
             # Write ledger.json with per-spectrum spectral data and spatial coordinates
             if ledger_entries:
                 ledger_path = os.path.join(
@@ -6056,638 +5959,6 @@ class EMXSp_Composition_Analyzer:
         except Exception as e:
             raise RuntimeError(f"Error printing phase results: {e}")
     
-
-    #%% Experimental standard PB ratios
-    # =============================================================================
-    def _compile_standards_from_references(self) -> dict:
-        """
-        Compile a standards dictionary for the current sample by using the input
-        candidate phases, if present in the list of standards.
-    
-        This function loads the standards library, iterates over all elements in
-        the current sample, and for each X-ray reference line:
-          - Verifies if the candidate phase compositions are present in the standards.
-          - If no candidate phases are found, a warning is issued and existing
-            standards are used.
-          - If references are found, the function computes the mean of the
-            corrected PB values and substitutes them into the standards dictionary.
-    
-        Returns:
-            dict: The updated standards dictionary, where each entry for a given
-                  element-line combination contains either existing standards or
-                  a single mean standard to be fed to XSp_Quantifier
-    
-        Warns:
-            UserWarning: If none of the input candidate phase compositions are
-                    present for a given reference line in the standards file.
-                    
-        Note
-        ----
-        Currently only used when analysing mixtures of known powder precursors
-        (i.e., powder_meas_cfg.is_known_powder_mixture_meas = True)
-        """
-        std_dict_all_modes, stds_filepath = self._load_xsp_standards()
-        std_dict_all_lines = std_dict_all_modes[self.measurement_cfg.mode]
-        ref_lines = XSp_Quantifier.xray_quant_ref_lines
-        ref_formulae = self.clustering_cfg.ref_formulae
-        
-        filtered_std_dict = {}
-        for el in self.detectable_els_sample:
-            for line in ref_lines:
-                el_line = f"{el}_{line}"
-                if el_line not in std_dict_all_lines:
-                    continue
-
-                # Gather matching reference entries by comparing chemical formulas
-                ref_entries = []
-                for i, std_dict in enumerate(std_dict_all_lines[el_line]):
-                    if std_dict[cnst.STD_ID_KEY] != cnst.STD_MEAN_ID_KEY:
-                        try:
-                            std_comp = Composition(std_dict[cnst.STD_FORMULA_KEY])
-                            for ref_formula in ref_formulae:
-                                if std_comp.reduced_formula == Composition(ref_formula).reduced_formula:
-                                    ref_entries += [i]
-                        except Exception as e:
-                            warnings.warn(
-                                f"Could not parse formula '{std_dict[cnst.STD_FORMULA_KEY]}' "
-                                f"or compare with reference formulas {ref_formulae}. Error: {e}"
-                            )
-                    else:
-                        std_mean_value = std_dict[cnst.COR_PB_DF_KEY]
-
-                if len(ref_entries) < 1 and not self.exp_stds_cfg.is_exp_std_measurement:
-                    text_line = "provided standards" if stds_filepath == "" else f"standards file at: {stds_filepath}"
-                    warnings.warn(
-                        f"None of the input candidate phases {ref_formulae} "
-                        f"is present for line {el_line} in the {text_line}. "
-                        "Using other available standards."
-                    )
-                    ref_value = std_mean_value # Mean value used for regular quantification
-                else:
-                    # Compute mean PB value from all available references
-                    new_std_ref_list = [std_d for i, std_d in enumerate(std_dict_all_lines[el_line]) if i in ref_entries]
-                    list_PB = [ref_line[cnst.COR_PB_DF_KEY] for ref_line in new_std_ref_list]
-                    ref_value = float(np.mean(list_PB))
-        
-                std_dict_mean = {
-                    cnst.STD_ID_KEY: cnst.STD_MEAN_ID_KEY,
-                    cnst.COR_PB_DF_KEY: ref_value,
-                }
-                filtered_std_dict[el_line] = [std_dict_mean]
-
-        return filtered_std_dict
-
-    
-    def _fit_stds_and_save_results(self, backup_previous_data: bool = True) -> Union[Tuple, None]:
-        """
-        Fit spectra collected from experimental standards, process results, and save them to disk.
-    
-        Parameters
-        ----------
-        backup_previous_data : bool, optional
-            Backs up previous data file if present (Default = True).
-    
-        Returns
-        -------
-        Tuple or None
-            If data was successfully processed:
-                - std_ref_lines : Any
-                    Data structure containing assembled standard PB data.
-                - results_df : pandas.DataFrame
-                    DataFrame containing averaged PB ratios and corrected values.
-                - Z_sample : Any
-                    Sample average atomic number computed with different methods.
-            If no measurement data was available:
-                Returns `(None, None, None)`.
-    
-        Raises
-        ------
-        RuntimeError
-            If fitting, saving, or PB correction fails unexpectedly.
-        """
-        
-        # Initialize return variables
-        std_ref_lines = None
-        results_df = None
-        Z_sample = None
-        
-        try:
-            # Fit spectra and assemble results
-            self._fit_and_quantify_spectra(quantify=False)
-        except Exception as e:
-            raise RuntimeError(f"Error during fitting and quantification: {e}") from e
-        
-        try:
-            # Save per-spectrum measurement results
-            data_df = self._save_collected_data(
-                None,
-                None,
-                backup_previous_data=backup_previous_data,
-                include_spectral_data=True
-            )
-        except Exception as e:
-            raise RuntimeError(f"Error while saving collected data: {e}") from e
-        
-        if data_df is not None and not data_df.empty:
-            try:
-                # Assemble PB data and calculate corrections
-                std_ref_lines = self._assemble_std_PB_data(data_df)
-                if std_ref_lines != {}:
-                    PB_corrected, Z_sample = self._calc_corrected_PB(std_ref_lines)
-                    
-                    # Save averaged PB results
-                    results_df = self._save_std_results(std_ref_lines, PB_corrected)
-                else:
-                    if self.verbose:
-                        logger.warning("⚠️ No valid standard measurement acquired.")
-            except Exception as e:
-                raise RuntimeError(f"Error while processing standard results: {e}") from e
-    
-            return std_ref_lines, results_df, Z_sample
-        
-        # No data available to process
-        return None, None, None
-
-    
-    def _evaluate_exp_std_fit(self, tot_n_spectra: int) -> Tuple[bool, bool]:
-        """
-        Evaluate the experimental standard fitting results after collecting a given number of spectra.
-    
-        This method attempts to fit the experimental standards using the currently collected spectra.
-        It determines whether the fit was successful and whether the minimum required number of valid
-        spectra has been reached. The method also provides verbose feedback if enabled.
-    
-        Parameters
-        ----------
-        tot_n_spectra : int
-            Total number of spectra collected so far.
-    
-        Returns
-        -------
-        Tuple[bool, bool]
-            A Tuple containing:
-            - is_fit_successful (bool): Whether the fitting process produced valid results.
-            - is_converged (bool): Whether the minimum number of valid spectra was reached.
-        """
-        is_fit_successful = False
-        is_converged = False
-    
-        try:
-            if self.verbose:
-                print_double_separator()
-                logger.info(f"🔬 Fitting after collection of {tot_n_spectra} spectra...")
-    
-            _, results_df, _ = self._fit_stds_and_save_results(backup_previous_data=False)
-    
-            if results_df is not None and not results_df.empty:
-                is_fit_successful = True
-    
-                # Retrieve the minimum number of valid spectra from the results
-                try:
-                    num_valid_spectra = int(np.min(results_df[cnst.N_SP_USED_KEY]))
-                except (KeyError, ValueError, TypeError) as e:
-                    raise RuntimeError(f"Results DataFrame missing or invalid '{cnst.N_SP_USED_KEY}' column.") from e
-    
-                is_converged = num_valid_spectra >= self.min_n_spectra
-    
-                if self.verbose:
-                    print_double_separator()
-                    logger.info("✅ Fitting performed.")
-                    logger.info(f"✅ {num_valid_spectra} valid spectra were collected.")
-                    if is_converged:
-                        logger.info(f"✅ Target number of {self.min_n_spectra} was reached.")
-            else:
-                if self.verbose:
-                    print_double_separator()
-                    logger.error("❌ No valid spectrum collected.")
-    
-            # If not converged, provide feedback
-            if not is_converged and self.verbose:
-                if tot_n_spectra >= self.max_n_spectra:
-                    logger.info(f"ℹ️ Maximum allowed number of {self.max_n_spectra} spectra was acquired, "
-                          f"but target number of {self.min_n_spectra} was not reached.")
-                else:
-                    logger.info(f"ℹ️ More spectra will be collected to reach target number of {self.min_n_spectra}.")
-    
-        except Exception as e:
-            raise RuntimeError("An error occurred while evaluating the experimental standard fit.") from e
-    
-        return is_fit_successful, is_converged
-    
-        
-    def _assemble_std_PB_data(
-        self,
-        data_df: "pd.DataFrame"
-    ) -> Dict[str, Dict[str, Union[float, List[float]]]]:
-        """
-        Assemble Peak-to-Background (PB) ratio data for the experimental standard references to use during quantification.
-    
-        This method processes the provided DataFrame of spectral data to:
-        1. Remove any X-ray peaks whose PB ratio is absent or below the acceptable threshold for all spectra.
-        2. Exclude spectra that do not meet the accepted quantification flags.
-        3. Compile PB ratio statistics (mean, std. dev) and corresponding theoretical energies for each relevant element line.
-    
-        Parameters
-        ----------
-        data_df : pd.DataFrame
-            DataFrame containing PB ratio measurements and associated metadata.
-            Must contain:
-            - `cnst.QUANT_FLAG_DF_KEY` column for quantification flags.
-            - Columns for PB ratios of element lines (e.g., 'Fe_Ka', 'Cu_Ka', etc.).
-            - Possibly NaN values where peaks are absent.
-    
-        Returns
-        -------
-        Dict[str, Dict[str, float | List[float]]]
-            Dictionary mapping each fitted standard element line to a sub-dictionary containing:
-            - cnst.PB_RATIO_KEY: List of measured PB ratios.
-            - cnst.MEAN_PB_KEY: mean PB ratio (ignoring NaN).
-            - cnst.STDEV_PB_DF_KEY: standard deviation of PB ratios (ignoring NaN).
-            - cnst.PEAK_TH_ENERGY_KEY: theoretical peak energy for that element line.
-    
-        Notes
-        -----
-        - Assumes that `self._th_peak_energies` is a dictionary mapping element lines to their theoretical energies.
-        """
-        # Filter out X-ray peaks whose PB ratio is absent for all spectra
-        data_df = data_df.dropna(axis=1, how="all")
-        # Filter out rows corresponding to spectra that should be discarded
-        try:
-            data_filtered_df = data_df[data_df[cnst.QUANT_FLAG_DF_KEY].isin(self.exp_stds_cfg.quant_flags_accepted)]
-        except KeyError as e:
-            raise RuntimeError(f"Missing required column '{cnst.QUANT_FLAG_DF_KEY}' in input DataFrame.") from e
-            
-        # Get fitted element lines for elements in the standard
-        all_fitted_el_lines = [
-            el_line for el_line in self._th_peak_energies.keys()
-            if el_line in data_filtered_df.columns
-        ]
-        fitted_std_el_lines = [
-            el_line for el_line in all_fitted_el_lines
-            if el_line.split("_")[0] in self.detectable_els_sample
-        ]
-
-        # Update lists of measured PB ratios, their means, stddev, and corresponding theoretical energies
-        std_ref_lines = {}
-        for el_line in fitted_std_el_lines:
-            meas_PB_ratios = data_filtered_df[el_line].tolist()
-            if len(meas_PB_ratios) > 0:
-                std_ref_lines[el_line] = {
-                    cnst.PB_RATIO_KEY: meas_PB_ratios,
-                    cnst.MEAN_PB_KEY: float(np.nanmean(meas_PB_ratios)),
-                    cnst.STDEV_PB_DF_KEY: float(np.nanstd(meas_PB_ratios)),
-                    cnst.PEAK_TH_ENERGY_KEY: self._th_peak_energies[el_line]
-                }
-
-        return std_ref_lines
-        
-        
-    def _calc_corrected_PB(
-        self,
-        std_ref_lines: Dict[str, Dict[str, Union[float, List[float]]]]
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Calculate ZAF-corrected Peak-to-Background (PB) ratios for the experimental standard.
-    
-        This method applies ZAF (atomic number, bnackscattering, absorption) corrections
-        to the measured PB ratios of the standard's element lines. The corrected PB ratios are normalized
-        by the mass fraction of each element to obtain the pure element PB ratios.
-    
-        Parameters
-        ----------
-        std_ref_lines : Dict[str, Dict[str, float | List[float]]]
-            Dictionary mapping each element line (e.g., 'Fe_Ka') to its PB ratio statistics and theoretical peak energy.
-            Must contain:
-            - cnst.PEAK_TH_ENERGY_KEY: float, theoretical peak energy.
-            - cnst.MEAN_PB_KEY: float, mean measured PB ratio.
-            - Corresponding element's mass fraction in `self.exp_stds_cfg.w_frs`.
-    
-        Returns
-        -------
-        Tuple[np.ndarray, np.ndarray]
-            - PB_corrected (np.ndarray): ZAF-corrected PB ratios, normalized by mass fractions.
-            - Z_sample (np.ndarray): ZAF correction factors for the sample.
-    
-        Notes
-        -----
-        - Expects std_ref_lines to be non-empty
-        - Relies on `self.exp_stds_cfg.w_frs` for element mass fractions.
-        - Uses `Quant_Corrections.get_ZAF_mult_f_pb` for ZAF factor computation.
-        - Assumes `self.detectable_els_sample` contains the list of detectable element symbols.
-        """
-        peak_energies_dict: Dict[str, float] = {}
-        means_PB: List[float] = []
-        w_frs: List[float] = []
-    
-        # Extract peak energies, mean PB ratios, and corresponding mass fractions
-        for el_line, el_line_dict in std_ref_lines.items():
-            try:
-                peak_energies_dict[el_line] = el_line_dict[cnst.PEAK_TH_ENERGY_KEY]
-                means_PB.append(float(el_line_dict[cnst.MEAN_PB_KEY]))
-            except KeyError as e:
-                raise RuntimeError(f"Missing expected key in std_ref_lines for element line '{el_line}'.") from e
-    
-            el = el_line.split('_')[0]
-            try:
-                w_frs.append(self.exp_stds_cfg.w_frs[el])
-            except KeyError as e:
-                raise RuntimeError(f"Mass fraction for element '{el}' not found in exp_stds_cfg.w_frs.") from e
-    
-        # Initialize ZAF correction calculator (second-order corrections for PB method)
-        ZAF_calculator = Quant_Corrections(
-            elements=self.detectable_els_sample,
-            beam_energy=self.measurement_cfg.beam_energy_keV,
-            emergence_angle=self.measurement_cfg.emergence_angle,
-            meas_mode=self.measurement_cfg.mode,
-            verbose=False
-        )
-    
-        # Get nominal mass fractions for all detectable elements
-        missing_elements = [el for el in self.detectable_els_sample if el not in self.exp_stds_cfg.w_frs]
-        if missing_elements:
-            raise RuntimeError(
-                f"Missing mass fraction(s) for detectable element(s): {', '.join(missing_elements)}."
-            )
-        
-        nominal_w_frs = [self.exp_stds_cfg.w_frs[el] for el in self.detectable_els_sample]
-
-        # Calculate ZAF corrections
-        # Returns arrays with dimensions corresponding to w_frs
-        ZAF_pb, Z_sample = ZAF_calculator.get_ZAF_mult_f_pb(nominal_w_frs, peak_energies_dict)
-    
-        # Apply ZAF correction and normalize by mass fractions to get pure element PB ratios
-        PB_corrected = ZAF_pb * np.array(means_PB) / np.array(w_frs)
-    
-        return PB_corrected, Z_sample
-    
-    
-    def _save_std_results(
-        self,
-        std_ref_lines: Dict[str, Dict[str, Any]],
-        PB_corrected: List[float]
-    ) -> Optional[pd.DataFrame]:
-        """
-        Save and return a summary table of standard reference line results.
-    
-        Constructs a table summarizing the mean, standard deviation, relative error,
-        and number of spectra used for each reference line, then saves it as a CSV file.
-    
-        Parameters
-        ----------
-        std_ref_lines : Dict
-            Dictionary mapping line identifiers (str) to dictionaries containing
-            statistical results for each line. Each inner dictionary must contain keys
-            for mean, standard deviation, and a list or Series of PB ratios.
-        PB_corrected : list of float
-            List of corrected PB values, one per reference line (order must match keys of std_ref_lines).
-    
-        Returns
-        -------
-        results_df : pandas.DataFrame or None
-            DataFrame with summary statistics for each reference line, or None if no lines are provided.
-    
-        Raises
-        ------
-        ValueError
-            If the number of PB_corrected values does not match the number of reference lines.
-    
-        Notes
-        -----
-        The DataFrame is saved as a CSV file in Std_measurements, with a filename
-        including the measurement mode and output filename suffix.
-        """
-        if not std_ref_lines:
-            return None
-    
-        # Extract statistics for each reference line
-        means_PB = []
-        stdevs_PB = []
-        n_spectra_per_line = []
-        line_keys = list(std_ref_lines.keys())
-    
-        if len(PB_corrected) != len(line_keys):
-            raise ValueError("Length of PB_corrected does not match number of reference lines.")
-    
-        for el_line in line_keys:
-            el_line_dict = std_ref_lines[el_line]
-            means_PB.append(el_line_dict[cnst.MEAN_PB_KEY])
-            stdevs_PB.append(el_line_dict[cnst.STDEV_PB_DF_KEY])
-            pb_ratios = el_line_dict[cnst.PB_RATIO_KEY]
-            n_spectra_used = sum(
-                (x is not None) and (not (isinstance(x, float) and np.isnan(x)))
-                for x in pb_ratios
-            )
-            n_spectra_per_line.append(n_spectra_used)
-    
-        # Construct the results DataFrame
-        results_df = pd.DataFrame({
-            cnst.MEAS_PB_DF_KEY: means_PB,
-            cnst.STDEV_PB_DF_KEY: stdevs_PB,
-            cnst.COR_PB_DF_KEY: PB_corrected,
-            cnst.REL_ER_PERCENT_PB_DF_KEY: np.array(stdevs_PB) / np.array(means_PB) * 100,
-            cnst.N_SP_USED_KEY: n_spectra_per_line
-        }, index=line_keys)
-    
-        # Save the DataFrame as CSV
-        filename = f"{cnst.STDS_RESULT_FILENAME}_{self.measurement_cfg.mode}" + self.output_filename_suffix
-        results_path = os.path.join(self.sample_result_dir, filename + '.csv')
-        results_df.to_csv(results_path, index=True, header=True)
-    
-        return results_df
-    
-    
-    def _load_xsp_standards(self) -> Tuple[dict, str]:
-        """
-        Load the X-ray Spectroscopy standards library for the current measurement configuration.
-        
-        This function attempts to load an existing standards library based on the
-        measurement type and beam energy defined in the measurement configuration.
-        If the library cannot be found, a new empty dictionary is created for the
-        current measurement mode. If loading fails due to an unexpected error, a
-        RuntimeError is raised with the original exception preserved.
-        
-        The function also handles copying of the reference standards to the project
-        folder during reference standard measurements when exp_stds_cfg.generate_separate_std_dict = True.
-        
-        Returns:
-            tuple[dict, str]: 
-                A tuple containing:
-                - standards (dict): The standards library, indexed by measurement mode.
-                - stds_filepath (str): The path to the reference standards .json file.
-        
-        Raises:
-            RuntimeError: If loading the standards library fails due to an 
-                          unexpected error (not just missing files).
-        """
-        meas_mode = self.measurement_cfg.mode
-        update_separate_std_dict = self.exp_stds_cfg.is_exp_std_measurement and self.exp_stds_cfg.generate_separate_std_dict
-        
-        # Load or create standards dictionary
-        if self.standards_dict is None:
-            
-            # Determine directory of standards dict
-            std_f_dir = None # Loads default std_dict
-            if update_separate_std_dict or self.quant_cfg.use_project_specific_std_dict:
-                # Load and save std_dict to project directory, assumed to be up 1 level from the sample directory
-                project_dir = os.path.dirname(self.sample_result_dir)
-                std_f_dir = project_dir
-                
-            try:
-                standards, stds_filepath = calibs.load_standards(self.measurement_cfg.type, self.measurement_cfg.beam_energy_keV, std_f_dir = std_f_dir)
-            except FileNotFoundError:
-                stds_filepath = calibs.standards_dir
-                standards = {meas_mode: {}}
-            except Exception as e:
-                raise RuntimeError("Failed to load standards library.") from e
-            else:
-                # Check if it needs to copy the reference standards files to the project folder
-                if update_separate_std_dict and os.path.dirname(stds_filepath) != project_dir:
-                    stds_filepath = shutil.copy(stds_filepath, project_dir) # Copy standards to project folder
-        else:
-            standards = self.standards_dict
-            stds_filepath = ''
-
-        # Ensure measurement mode exists in the standards dictionary, otherwise create it
-        if meas_mode not in standards:
-            standards[meas_mode] = {}
-            
-        return standards, stds_filepath
-
-
-    def _load_standards(self) -> Tuple[EDSStandardsFile, str]:
-        """Load standards as EDSStandardsFile model.
-
-        This placeholder keeps the class-level API explicit; runtime implementation is
-        delegated to StandardsModule at the end of this file.
-        """
-        standards_dict, stds_filepath = self._load_xsp_standards()
-        standards = EDSStandardsFile.from_standards_dict(
-            standards_dict,
-            meas_type=self.measurement_cfg.type,
-            beam_energy_keV=int(self.measurement_cfg.beam_energy_keV),
-        )
-        return standards, stds_filepath
-    
-    
-    def _update_standard_library(
-        self,
-        std_ref_lines: Dict[str, Dict[str, Union[float, List[float]]]],
-        results_df: pd.DataFrame,
-        Z_sample: np.ndarray
-    ) -> None:
-        """
-        Update the standards library with new Peak-to-Background (PB) ratio measurements.
-    
-        This method:
-        1. Loads the current standards library from disk (or creates a new one if missing).
-        2. Removes any previous entries for the current standard.
-        3. Appends the new measurements for each element line.
-        4. Recalculates the 'Mean' reference PB ratio and associated uncertainty for each element line.
-        5. Saves the updated standards library back to disk.
-    
-        Parameters
-        ----------
-        std_ref_lines : Dict[str, Dict[str, float | List[float]]]
-            Dictionary mapping element lines (e.g., 'Fe_Ka') to PB ratio data and metadata.
-        results_df : pd.DataFrame
-            DataFrame containing measured PB ratios, corrected PB ratios, standard deviations,
-            and relative errors for each element line.
-        Z_sample : np.ndarray
-            Mean sampel atomic number, computed using different methods.
-    
-        Raises
-        ------
-        RuntimeError
-            If the standards library cannot be loaded or updated due to missing keys or invalid data.
-        """
-        meas_mode = self.measurement_cfg.mode
-        
-        # Load standards
-        if self.standards_dict is not None:
-            warnings.warn("The 'standards_dict' provided when initializing EMXSp_Composition_Analyzer will be ignored."
-                          f"Loading standards dictionary from XSp_calibs/{self.microscope_cfg.ID}", UserWarning())
-            self.standards_dict = None
-        standards, stds_filepath = self._load_xsp_standards()
-        
-        std_lib = standards[meas_mode]
-        
-        # Remove all previous entries measured from this standard
-        was_standard_already_measured = False
-        for el_line, stds_list in list(std_lib.items()):
-            for i, std_dict in enumerate(list(stds_list)):
-                if std_dict.get(cnst.STD_ID_KEY) == self.sample_cfg.ID:
-                    std_lib[el_line].pop(i)
-                    was_standard_already_measured = True
-                    break
-        if was_standard_already_measured and self.verbose:
-            print_single_separator()
-            logger.info(f"ℹ️ Previously measured values for standard '{self.sample_cfg.ID}' were found and removed.")
-    
-        # Add new standards
-        now = datetime.now()
-        for el_line in std_ref_lines.keys():
-            # Validate presence of required result_df fields
-            for key in [
-                cnst.COR_PB_DF_KEY,
-                cnst.MEAS_PB_DF_KEY,
-                cnst.STDEV_PB_DF_KEY,
-                cnst.REL_ER_PERCENT_PB_DF_KEY
-            ]:
-                if key not in results_df.columns:
-                    raise RuntimeError(f"Missing required column '{key}' in results_df.")
-    
-            std_dict_new = {
-                cnst.STD_ID_KEY: self.sample_cfg.ID,
-                cnst.STD_FORMULA_KEY: self.exp_stds_cfg.formula,
-                cnst.STD_TYPE_KEY: self.sample_cfg.type,
-                cnst.DATETIME_KEY: now.strftime("%Y-%m-%d %H:%M:%S"),
-                cnst.COR_PB_DF_KEY: results_df.at[el_line, cnst.COR_PB_DF_KEY],
-                cnst.MEAS_PB_DF_KEY: results_df.at[el_line, cnst.MEAS_PB_DF_KEY],
-                cnst.STDEV_PB_DF_KEY: results_df.at[el_line, cnst.STDEV_PB_DF_KEY],
-                cnst.REL_ER_PERCENT_PB_DF_KEY: results_df.at[el_line, cnst.REL_ER_PERCENT_PB_DF_KEY],
-                cnst.STD_USE_FOR_MEAN_KEY : self.exp_stds_cfg.use_for_mean_PB_calc,
-                cnst.STD_Z_KEY: Z_sample
-            }
-    
-            # Add or append standard measurement
-            if el_line in std_lib:
-                if self.verbose:
-                    logger.info(f"✅ Added the measured standard PB value for {el_line} to the current list.")
-                std_lib[el_line].append(std_dict_new)
-            else:
-                if self.verbose:
-                    logger.info(f"✅ Created a new list for the {el_line} line PB standard values.")
-                std_lib[el_line] = [std_dict_new]
-    
-            # Recalculate mean of standards (excluding previous mean entry)
-            std_el_line_entries = [
-                std for std in std_lib[el_line]
-                if std.get(cnst.STD_ID_KEY) != cnst.STD_MEAN_ID_KEY
-            ]
-            # Select corrected PB ratios that should be used for calculating the mean (i.e., PB ratios computed from the mean)
-            list_PB_for_mean = [std[cnst.COR_PB_DF_KEY] for std in std_el_line_entries if std[cnst.STD_USE_FOR_MEAN_KEY]]
-            if len(list_PB_for_mean) > 0: 
-                mean_PB = float(np.mean(list_PB_for_mean)) if list_PB_for_mean else float("nan")
-                stddev_mean_PB = float(np.std(list_PB_for_mean)) if list_PB_for_mean else float("nan")
-                error_mean_PB = (stddev_mean_PB / mean_PB * 100) if mean_PB else float("nan")
-        
-                std_dict_mean = {
-                    cnst.STD_ID_KEY: cnst.STD_MEAN_ID_KEY,
-                    cnst.DATETIME_KEY: now.strftime("%Y-%m-%d %H:%M:%S"),
-                    cnst.COR_PB_DF_KEY: mean_PB,
-                    cnst.STDEV_PB_DF_KEY: stddev_mean_PB,
-                    cnst.REL_ER_PERCENT_PB_DF_KEY: error_mean_PB
-                }
-                std_el_line_entries.append(std_dict_mean)
-            std_lib[el_line] = std_el_line_entries
-    
-        # Save updated file with standards
-        try:
-            with open(stds_filepath, "w") as file:
-                json.dump(standards, file, indent=2)
-        except Exception as e:
-            raise RuntimeError(f"Failed to save updated standards to {stds_filepath}.") from e
-
 
 # Delegation to extracted composition_analysis modules.
 # This preserves the current public class/API while routing implementation

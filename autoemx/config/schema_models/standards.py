@@ -24,17 +24,24 @@ class StandardMeanZ(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
 
-class StandardEntry(BaseModel):
+class StandardPbSummary(BaseModel):
+    """Shared PB summary fields used by fit results and persisted entries."""
+
+    corrected_pb: float = Field(alias=cnst.COR_PB_DF_KEY)
+    stdev_pb: float = Field(alias=cnst.STDEV_PB_DF_KEY)
+    rel_stdev_pb_percent: float = Field(alias=cnst.REL_ER_PERCENT_PB_DF_KEY)
+    measured_pb: Optional[float] = Field(default=None, alias=cnst.MEAS_PB_DF_KEY)
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+
+class StandardEntry(StandardPbSummary):
     """Single standards-library entry for one element reference line."""
 
     standard_id: str = Field(alias=cnst.STD_ID_KEY)
     datetime: str = Field(alias=cnst.DATETIME_KEY)
-    corrected_pb: float = Field(alias=cnst.COR_PB_DF_KEY)
-    stdev_pb: float = Field(alias=cnst.STDEV_PB_DF_KEY)
-    rel_stdev_pb_percent: float = Field(alias=cnst.REL_ER_PERCENT_PB_DF_KEY)
     formula: Optional[str] = Field(default=None, alias=cnst.STD_FORMULA_KEY)
     std_type: Optional[str] = Field(default=None, alias=cnst.STD_TYPE_KEY)
-    measured_pb: Optional[float] = Field(default=None, alias=cnst.MEAS_PB_DF_KEY)
     use_for_mean_calc: Optional[bool] = Field(default=None, alias=cnst.STD_USE_FOR_MEAN_KEY)
     mean_z: Optional[StandardMeanZ] = Field(default=None, alias=cnst.STD_Z_KEY)
 
@@ -49,13 +56,10 @@ class StandardEntry(BaseModel):
         return normalized
 
 
-class Reference_Mean(BaseModel):
+class ReferenceMean(StandardPbSummary):
     """Dedicated reference-mean values for one element reference line."""
 
     datetime: Optional[str] = Field(default=None, alias=cnst.DATETIME_KEY)
-    corrected_pb: float = Field(alias=cnst.COR_PB_DF_KEY)
-    stdev_pb: Optional[float] = Field(default=None, alias=cnst.STDEV_PB_DF_KEY)
-    rel_stdev_pb_percent: Optional[float] = Field(default=None, alias=cnst.REL_ER_PERCENT_PB_DF_KEY)
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
@@ -74,9 +78,50 @@ class StandardLine(BaseModel):
     """Structured standards payload for one element reference line."""
 
     entries: List[StandardEntry] = Field(default_factory=list)
-    reference_mean: Optional[Reference_Mean] = None
+    reference_mean: Optional[ReferenceMean] = None
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+
+class StandardFitLineResult(StandardPbSummary):
+    """Computed standards-fit metrics for one element reference line."""
+
+    pb_ratios: List[float]
+    peak_theoretical_energy_keV: float
+    n_spectra_used: int
+
+    model_config = ConfigDict(extra="forbid")
+    def to_standard_entry(
+        self,
+        *,
+        standard_id: str,
+        datetime: str,
+        formula: Optional[str] = None,
+        std_type: Optional[str] = None,
+        use_for_mean_calc: Optional[bool] = None,
+        mean_z: Optional[StandardMeanZ] = None,
+    ) -> StandardEntry:
+        return StandardEntry.model_validate({
+            cnst.STD_ID_KEY: standard_id,
+            cnst.DATETIME_KEY: datetime,
+            cnst.COR_PB_DF_KEY: self.corrected_pb,
+            cnst.STDEV_PB_DF_KEY: self.stdev_pb,
+            cnst.REL_ER_PERCENT_PB_DF_KEY: self.rel_stdev_pb_percent,
+            cnst.MEAS_PB_DF_KEY: self.measured_pb,
+            cnst.STD_FORMULA_KEY: formula,
+            cnst.STD_TYPE_KEY: std_type,
+            cnst.STD_USE_FOR_MEAN_KEY: use_for_mean_calc,
+            cnst.STD_Z_KEY: mean_z.model_dump(mode="json", by_alias=True) if mean_z is not None else None,
+        })
+
+
+class StandardsFitResults(BaseModel):
+    """Aggregate standards-fit output used for persistence and library updates."""
+
+    lines: Dict[str, StandardFitLineResult] = Field(default_factory=dict)
+    mean_z: Optional[StandardMeanZ] = None
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class EDSStandardsFile(BaseModel):
