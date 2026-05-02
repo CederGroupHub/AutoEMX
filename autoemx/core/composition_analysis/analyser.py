@@ -69,14 +69,10 @@ warnings.filterwarnings(
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-import matplotlib.cm as cm
-import seaborn as sns
 from pymatgen.core.composition import Composition
-from sklearn.cluster import KMeans, DBSCAN
-from sklearn.metrics import silhouette_score, silhouette_samples
+from sklearn.cluster import KMeans
 import cvxpy as cp
-from yellowbrick.cluster import KElbowVisualizer, SilhouetteVisualizer
+ 
 
 # Project-specific imports
 from autoemx.core.quantifier import XSp_Quantifier
@@ -85,7 +81,6 @@ from autoemx.core.em_runtime.sample_finder import EM_Sample_Finder
 import autoemx.calibrations as calibs
 import autoemx.utils.constants as cnst
 import autoemx.config.defaults as dflt
-from autoemx.core.composition_analysis import custom_plotting_builtin as custom_plotting
 from autoemx.utils import (
     print_single_separator,
     print_double_separator,
@@ -752,6 +747,31 @@ class EMXSp_Composition_Analyzer:
     def _load_standards(self) -> Tuple[EDSStandardsFile, str]:
         """Forward to StandardsModule implementation."""
         return StandardsModule._load_standards(self)
+
+    def _load_xsp_standards(self):
+        return StandardsModule._load_xsp_standards(self)
+
+    def _fit_stds_and_save_results(self):
+        return StandardsModule._fit_stds_and_save_results(self)
+
+    def _evaluate_exp_std_fit(self, tot_n_spectra: int) -> Tuple[bool, bool]:
+        return StandardsModule._evaluate_exp_std_fit(self, tot_n_spectra)
+
+    def _assemble_std_PB_data(self, data_df: 'pd.DataFrame'):
+        return StandardsModule._assemble_std_PB_data(self, data_df)
+
+    def _calc_corrected_PB(self, std_ref_lines):
+        return StandardsModule._calc_corrected_PB(self, std_ref_lines)
+
+    def _save_std_results(self, std_ref_lines, pb_corrected, z_sample):
+        return StandardsModule._save_std_results(self, std_ref_lines, pb_corrected, z_sample)
+
+    @staticmethod
+    def _serialize_standard_mean_z(z_sample: Any):
+        return StandardsModule._serialize_standard_mean_z(z_sample)
+
+    def _update_standard_library(self, fit_results) -> None:
+        return StandardsModule._update_standard_library(self, fit_results)
 
 
     def _calc_reference_phases_df(self) -> None:
@@ -2957,38 +2977,8 @@ class EMXSp_Composition_Analyzer:
     #%% Find number of clusters in kmeans
     # ============================================================================= 
     def _find_optimal_k(self, compositions_df, k, compute_k_only_once = False):
-        """
-        Determine the optimal number of clusters for k-means.
-    
-        Returns
-        -------
-        k : int
-            Optimal number of clusters.
-        """
-        if not k:
-            # Check if there is only one single cluster, or no clusters
-            is_single_cluster = EMXSp_Composition_Analyzer._is_single_cluster(compositions_df, verbose=self.verbose)
-            if is_single_cluster or self.clustering_cfg.max_k <= 1:
-                k = 1
-            elif compute_k_only_once:
-                # Get number of clusters (k) and optionally save the plot
-                results_dir = self.analysis_dir if self.plot_cfg.save_plots else None
-                k = EMXSp_Composition_Analyzer._get_k(
-                    compositions_df, self.clustering_cfg.max_k, self.clustering_cfg.k_finding_method,
-                    show_plot=self.plot_cfg.show_plots, results_dir=results_dir
-                )
-            else:
-                # Calculate most frequent number of clusters (k) with elbow method. Does not save the plot
-                k = EMXSp_Composition_Analyzer._get_most_freq_k(
-                    compositions_df, self.clustering_cfg.max_k, self.clustering_cfg.k_finding_method,
-                    verbose=self.verbose
-                )
-        elif self.verbose:
-            print_single_separator()
-            logger.info(f"ℹ️ Number of clusters was forced to be {k}")
-        return k
-    
-    
+        return ClusteringModule._find_optimal_k(self, compositions_df, k, compute_k_only_once)
+
     @staticmethod
     def _get_most_freq_k(
         compositions_df: 'pd.DataFrame',
@@ -2998,111 +2988,15 @@ class EMXSp_Composition_Analyzer:
         show_plot: bool = False,
         results_dir: str = None
     ) -> int:
-        """
-        Determine the most frequent optimal number of clusters (k) for the given compositions.
-    
-        This method repeatedly runs the k-finding algorithm and selects the most robust k value.
-        It loops until it finds a value of k that is at least twice as frequent as the second most frequent value,
-        or until a maximum number of iterations is reached.
-    
-        Parameters
-        ----------
-        compositions_df : pd.DataFrame
-            DataFrame containing the compositions to cluster.
-        max_k : int
-            Maximum number of clusters to test.
-        k_finding_method : str
-            Method used to determine the optimal k (passed to _get_k).
-        verbose : bool, optional
-            If True, print progress and summary information.
-        show_plot : bool, optional
-            If True, display plots for each k-finding run.
-        results_dir : str, optional
-            Directory to save plots/results (if applicable).
-    
-        Returns
-        -------
-        k : int
-            The most robustly determined number of clusters.
-    
-        Raises
-        ------
-        ValueError
-            If there are not enough data points to determine clusters.
-    
-        Notes
-        -----
-        - The function tries up to 5 times to find a dominant k value.
-        - If a tie or ambiguity remains, it picks the smallest k with frequency ≥ half of the most frequent.
-    
-        """
-        if len(compositions_df) < 2:
-            raise ValueError("Not enough data points to determine clusters (need at least 2).")
-    
-        if verbose:
-            print_single_separator()
-            logger.info("📊 Computing number of clusters k...")
-    
-        k_found = []
-        k = None
-        max_iter = 5
-        i = 0
-    
-        max_allowed_k = len(compositions_df) - 1  # KElbowVisualizer throws error if max_k > n_samples - 1
-        if max_k > max_allowed_k:
-            max_k = max_allowed_k
-            warnings.warn(
-                f"Maximum number of clusters reduced to {max_allowed_k} because number of clustered points is {max_allowed_k + 1}.",
-                UserWarning
-            )
-    
-        while k is None:
-            i += 1
-            for n in range(20):
-                k_val = EMXSp_Composition_Analyzer._get_k(
-                    compositions_df, max_k, k_finding_method,
-                    show_plot=show_plot, results_dir=results_dir
-                )
-                if not isinstance(k_val, int) or k_val < 1:
-                    continue  # skip invalid k values
-                k_found.append(k_val)
-    
-            if not k_found:
-                raise ValueError("No valid cluster counts were found.")
-    
-            counts = np.bincount(k_found)
-            total = counts.sum()
-            sorted_k = np.argsort(-counts)  # descending
-            first_k = sorted_k[0]
-            first_count = counts[first_k]
-    
-            if len(sorted_k) > 1:
-                second_k = sorted_k[1]
-                second_count = counts[second_k]
-            else:
-                second_k = None
-                second_count = 0
-    
-            # Check if first is at least twice as common as second
-            if second_count == 0 or first_count >= 2 * second_count:
-                k = first_k
-            elif i >= max_iter:  # max_iter reached
-                # Pick smallest of all k values whose frequency is ≥ half of the most frequent
-                threshold = first_count / 2
-                k = min([k_val for k_val, count in enumerate(counts) if count >= threshold])
-            else:
-                k = None
-    
-        if verbose:
-            logger.info(f"📊 Most frequent k: {first_k} (count = {first_count}, frequency = {first_count / total:.2%})")
-            if second_k is not None and second_k != 0:
-                logger.info(f"📊 Second most frequent k: {second_k} (count = {second_count}, frequency = {second_count / total:.2%})")
-            if len(np.where(counts == first_count)[0]) > 1:
-                logger.info(f"ℹ️ Tie detected among: {np.where(counts == first_count)[0].tolist()} (choosing {k})")
-    
-        return int(k)
-    
-    
+        return ClusteringModule._get_most_freq_k(
+            compositions_df,
+            max_k,
+            k_finding_method,
+            verbose=verbose,
+            show_plot=show_plot,
+            results_dir=results_dir,
+        )
+
     @staticmethod
     def _get_k(
         compositions_df: 'pd.DataFrame',
@@ -3112,334 +3006,42 @@ class EMXSp_Composition_Analyzer:
         results_dir: str = None,
         show_plot: bool = False
     ) -> int:
-        """
-        Determine the optimal number of clusters for the data using visualizer methods.
-    
-        Parameters
-        ----------
-        compositions_df : pd.DataFrame
-            DataFrame containing the compositions to cluster.
-        max_k : int, optional
-            Maximum number of clusters to test (default: 6).
-        method : str, optional
-            Method for evaluating the number of clusters. One of 'elbow', 'silhouette', or 'calinski_harabasz' (default: 'silhouette').
-        model : KMeans or compatible, optional
-            Clustering model to use (default: KMeans(n_init='auto')).
-        results_dir : str, optional
-            Directory to save the plot (if provided).
-        show_plot : bool, optional
-            If True, show the plot interactively (default: False).
-    
-        Returns
-        -------
-        optimal_k : int
-            The optimal number of clusters found.
-    
-        Raises
-        ------
-        ValueError
-            If an unsupported method is provided.
-    
-        Notes
-        -----
-        - Uses yellowbrick's KElbowVisualizer.
-        - For 'elbow', finds the inflection point; for 'silhouette' or 'calinski_harabasz', finds the k with the highest score.
-        - If cluster finding fails, returns 1 and prints a warning.
-        - If `show_plot` is True, the plot is shown interactively.
-        - If `results_dir` is provided, the plot is saved as 'Elbow_plot.png'.
-        """
-        if model is None:
-            from sklearn.cluster import KMeans
-            model = KMeans(n_init='auto')
-    
-        # Map 'elbow' to 'distortion' for yellowbrick, but keep original for logic
-        user_method = method
-        if method == 'elbow':
-            yb_method = 'distortion'
-        elif method in ['silhouette', 'calinski_harabasz']:
-            yb_method = method
-        else:
-            raise ValueError(f"Unsupported method '{method}' for evaluating number of clusters.")
-    
-        plt.figure(figsize=(10, 8))
-        visualizer = KElbowVisualizer(model, k=max_k, metric=yb_method, timings=True, show=False)
-    
-        try:
-            visualizer.fit(compositions_df)
-        except ValueError as er:
-            warnings.warn(f"Number of clusters could not be identified due to the following error:\n{er}\nForcing k = 1.", UserWarning)
-            return 1
-    
-        # Get optimal number of clusters
-        if user_method == 'elbow':
-            optimal_k = visualizer.elbow_value_
-        elif user_method in ['silhouette', 'calinski_harabasz']:
-            # For silhouette and calinski_harabasz, k_scores_ is indexed from k=2
-            optimal_k = np.argmax(visualizer.k_scores_) + 2
-            visualizer.elbow_value_ = optimal_k  # For correct plotting
-    
-        # Add labels
-        ax1, ax2 = visualizer.axes
-        ax1.set_ylabel(f'{user_method} score')
-        ax1.set_xlabel('k: number of clusters')
-        ax2.set_ylabel('Fit time (sec)')
-        ax1.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
-    
-        if show_plot:
-            plt.ion()
-            visualizer.show()
-            plt.pause(0.001)
-    
-        if results_dir:
-            fig = visualizer.fig
-            fig.savefig(os.path.join(results_dir, 'Elbow_plot.png'))
-    
-        if not show_plot:
-            plt.close(visualizer.fig)
-    
-        # Set k to 1 if elbow method was unsuccessful
-        if optimal_k is None:
-            optimal_k = 1
-    
-        return int(optimal_k)
-    
-    
+        return ClusteringModule._get_k(
+            compositions_df,
+            max_k=max_k,
+            method=method,
+            model=model,
+            results_dir=results_dir,
+            show_plot=show_plot,
+        )
+
     @staticmethod
     def _is_single_cluster(
         compositions_df: 'pd.DataFrame',
         verbose: bool = False
     ) -> bool:
-        """
-        Determine if the data effectively forms a single cluster using k-means and silhouette analysis.
-    
-        This method:
-          - Fits k-means with k=1 and calculates the RMS distance from the centroid.
-          - Fits k-means with k=2 multiple times, keeping the best silhouette score and inertia.
-          - Uses empirically determined thresholds on silhouette score, centroid distance, and inertia ratio
-            to decide if the data forms a single cluster or multiple clusters.
-    
-        Parameters
-        ----------
-        compositions_df : pd.DataFrame
-            DataFrame of samples (rows) and features (columns) to analyze.
-        verbose : bool, optional
-            If True, print detailed output of the clustering metrics.
-    
-        Returns
-        -------
-        is_single_cluster : bool
-            True if the data is best described as a single cluster, False otherwise.
-    
-        Notes
-        -----
-        - Uses silhouette score and inertia ratio as main criteria.
-        - Empirical thresholds: mean centroid distance < 0.025, silhouette < 0.5, or inertia ratio < 1.5.
-        """
-        from sklearn.cluster import KMeans
-        from sklearn.metrics import silhouette_score
-        import numpy as np
-    
-        if verbose:
-            print_single_separator()
-            logger.info('📊 Checking if more than 1 cluster is present...')
-    
-        # Fit k-means for k=1
-        kmeans_1 = KMeans(n_clusters=1, random_state=0, n_init='auto')
-        kmeans_1.fit(compositions_df)
-        inertia_1 = kmeans_1.inertia_
-        rms_distance_1 = np.sqrt(inertia_1 / len(compositions_df))
-    
-        # Fit k-means for k=2, keep best silhouette score and inertia
-        best_silhouette_score_2 = -1
-        best_inertia_2 = None
-        for _ in range(10):
-            kmeans_2 = KMeans(n_clusters=2, random_state=None, n_init='auto')
-            labels_2 = kmeans_2.fit_predict(compositions_df)
-            inertia_2 = kmeans_2.inertia_
-            sil_score = silhouette_score(compositions_df, labels_2)
-            if sil_score > best_silhouette_score_2:
-                best_silhouette_score_2 = sil_score
-                best_inertia_2 = inertia_2
-    
-        ratio_inertias = inertia_1 / best_inertia_2 if best_inertia_2 else float('inf')
-    
-        if verbose:
-            logger.info(f"📊 RMS distance for k=1: {rms_distance_1*100:.1f}%")
-            logger.info(f"📊 Inertia for k=1: {inertia_1:.3f}")
-            logger.info(f"📊 Inertia for k=2: {best_inertia_2:.3f}")
-            logger.info(f"📊 Ratio of inertia for k=1 over k=2: {ratio_inertias:.2f}")
-            logger.info(f"📊 Silhouette Score for k=2: {best_silhouette_score_2:.2f}")
-    
-        # Empirical decision logic
-        if rms_distance_1 < 0.03:
-            is_single_cluster = True
-            reason_str = 'd_rms < 3%'
-        elif best_silhouette_score_2 < 0.5:
-            is_single_cluster = True
-            reason_str = 's < 0.5'
-        elif best_silhouette_score_2 > 0.6:
-            is_single_cluster = False
-            reason_str = 's > 0.6'
-        elif ratio_inertias < 1.5:
-            is_single_cluster = True
-            reason_str = 'ratio of inertias < 1.5'
-        else:
-            is_single_cluster = False
-            reason_str = 'ratio of inertias > 1.5 and 0.5 < s < 0.6'
-    
-        if verbose:
-            if is_single_cluster:
-                logger.info("ℹ️ " + reason_str + ": The data effectively forms a single cluster.")
-            else:
-                logger.info("ℹ️ " + reason_str + ": The data forms multiple clusters.") 
-    
-        return is_single_cluster
+        return ClusteringModule._is_single_cluster(compositions_df, verbose=verbose)
+
     #%% Clustering operations
     # ============================================================================= 
     def _run_kmeans_clustering(self, k, compositions_df):
-        """
-        Run k-means clustering multiple times and select the best solution by silhouette score.
-    
-        Returns
-        -------
-        kmeans : KMeans
-            The best fitted KMeans instance.
-        labels : np.ndarray
-            Cluster labels for each composition.
-        sil_score : float
-            Best silhouette score obtained.
-        """
-        if k > 1:
-            n_clustering_eval = 20  # Number of clustering evaluations to run
-            best_sil_score = -np.inf  # Initialise best silhouette score
-            for _ in range(n_clustering_eval):
-                # K-means is not ideal for clusters with varying sizes/densities. Consider alternatives (e.g., GMM).
-                is_clustering_ok = False
-                max_loops_nonneg_silh = 50  # Max loops to find clustering solutions with no negative silhouette values
-                n_loop = 0
-                while not is_clustering_ok and n_loop < max_loops_nonneg_silh:
-                    n_loop += 1
-                    kmeans, labels = self._get_clustering_kmeans(k, compositions_df)
-                    silhouette_vals = silhouette_samples(compositions_df, labels)
-                    if np.all(silhouette_vals > 0):
-                        # Clustering is accepted only if all silhouette values are positive (no wrong clustering)
-                        is_clustering_ok = True
-                    sil_score = silhouette_score(compositions_df, labels)
-                if sil_score > best_sil_score:
-                    best_kmeans = kmeans
-                    best_labels = labels
-                    best_sil_score = sil_score
-            return best_kmeans, best_labels, best_sil_score
-        else:
-            # Clustering with k = 1 is trivial, and has no silhouette score
-            kmeans, labels = self._get_clustering_kmeans(k, compositions_df)
-            return kmeans, labels, np.nan
-    
+        return ClusteringModule._run_kmeans_clustering(self, k, compositions_df)
 
     def _prepare_composition_dataframes(self, compositions_list_at, compositions_list_w):
-        """
-        Convert lists of compositions to DataFrames for clustering.
-    
-        Returns
-        -------
-        compositions_df : pd.DataFrame
-            DataFrame of compositions for clustering (feature set selected).
-        compositions_df_other_fr : pd.DataFrame
-            DataFrame of compositions in the alternate fraction representation.
-        """
-        # Substitute nan with 0
-        if self.clustering_cfg.features == cnst.AT_FR_CL_FEAT:
-            compositions_df = pd.DataFrame(compositions_list_at).fillna(0)
-            compositions_df_other_fr = (pd.DataFrame(compositions_list_w)).fillna(0) 
-        elif self.clustering_cfg.features == cnst.W_FR_CL_FEAT:
-            compositions_df = pd.DataFrame(compositions_list_w).fillna(0)
-            compositions_df_other_fr = (pd.DataFrame(compositions_list_at)).fillna(0)
-            
-        return compositions_df, compositions_df_other_fr
-    
-    
+        return ClusteringModule._prepare_composition_dataframes(self, compositions_list_at, compositions_list_w)
+
     def _get_clustering_kmeans(
         self,
         k: int,
         compositions_df: 'pd.DataFrame'
     ) -> Tuple['KMeans', 'np.ndarray']:
-        """
-        Perform k-means clustering on the given compositions.
-    
-        Parameters
-        ----------
-        k : int
-            The number of clusters to find.
-        compositions_df : pd.DataFrame
-            DataFrame of samples (rows) and features (columns) to cluster.
-    
-        Returns
-        -------
-        kmeans : KMeans
-            The fitted KMeans object.
-        labels : np.ndarray
-            Array of cluster (phase) labels for each composition point.
-    
-        Raises
-        ------
-        ValueError
-            If clustering is unsuccessful due to invalid data or parameters.
-    
-        Notes
-        -----
-        - Uses k-means++ initialization and scikit-learn's default settings.
-        - n_init='auto' requires scikit-learn >= 1.2.0.
-        """
-        try:
-            kmeans = KMeans(n_clusters=k, init='k-means++', n_init='auto')
-            # Perform clustering. Returns labels (array of cluster (= phase) ID each composition point belongs to)
-            labels = kmeans.fit_predict(compositions_df)
-        except Exception as e:
-            raise ValueError(f"Clustering unsuccessful due to the following error:\n{e}")
-    
-        return kmeans, labels
+        return ClusteringModule._get_clustering_kmeans(self, k, compositions_df)
 
-    
     def _get_clustering_dbscan(
         self,
         compositions_df: 'pd.DataFrame'
     ) -> Tuple['np.ndarray', int]:
-        """
-        Perform DBSCAN clustering on the given compositions.
-        CURRENTLY NOT SUPPORTED
-    
-        Parameters
-        ----------
-        compositions_df : pd.DataFrame
-            DataFrame of samples (rows) and features (columns) to cluster.
-    
-        Returns
-        -------
-        labels : np.ndarray
-            Array of cluster labels for each composition point. Noise points are labeled as -1.
-        num_labels : int
-            Number of unique clusters found (excluding noise points).
-    
-        Raises
-        ------
-        ValueError
-            If clustering is unsuccessful due to invalid data or parameters.
-    
-        Notes
-        -----
-        - Uses eps=0.1 and min_samples=1 as DBSCAN parameters by default.
-        - The number of clusters excludes noise points (label -1).
-        """
-        try:
-            dbscan = DBSCAN(eps=0.1, min_samples=1)
-            labels = dbscan.fit_predict(compositions_df)
-        except Exception as e:
-            raise ValueError(f"Clustering unsuccessful due to the following error:\n{e}")
-    
-        # Get the number of unique labels, excluding noise (-1)
-        num_labels = len(set(labels)) - (1 if -1 in labels else 0)
-    
-        return labels, num_labels
+        return ClusteringModule._get_clustering_dbscan(self, compositions_df)
 
 
     def _persist_resolved_k_on_active_clustering_config(self, resolved_k: Optional[int]) -> None:
@@ -3471,65 +3073,13 @@ class EMXSp_Composition_Analyzer:
 
 
     def _compute_cluster_statistics(self, compositions_df, compositions_df_other_fr, centroids, labels):
-        """
-        Compute statistics for each cluster, including WCSS, standard deviations, and centroids
-        in terms of both atomic and mass fractions.
-    
-        Returns
-        -------
-        wcss_per_cluster : list
-            Within-Cluster Sum of Squares for each cluster.
-        rms_dist_cluster : list
-            Standard deviation of distances to centroid for each cluster.
-        rms_dist_cluster_other_fr : list
-            Standard deviation of distances in alternate fraction representation.
-        n_points_per_cluster : list
-            Number of points in each cluster.
-        els_std_dev_per_cluster : list
-            Elemental standard deviations within each cluster.
-        els_std_dev_per_cluster_other_fr : list
-            Elemental standard deviations in alternate fraction representation.
-        centroids_other_fr : list
-            Centroids in alternate fraction representation.
-        max_cl_rmsdist : float
-            Maximum standard deviation across all clusters.
-        """
-        wcss_per_cluster = []
-        rms_dist_cluster = []
-        rms_dist_cluster_other_fr = []
-        n_points_per_cluster = []
-        els_std_dev_per_cluster = []
-        els_std_dev_per_cluster_other_fr = []
-        centroids_other_fr = []
-        for i, centroid in enumerate(centroids):
-            # Save data using the elemental fraction employed as feature
-            cluster_points = compositions_df[labels == i].to_numpy()
-            n_points_per_cluster.append(len(cluster_points))
-            if len(cluster_points) > 1:
-                els_std_dev_per_cluster.append(np.std(cluster_points, axis=0, ddof=1))
-            else:
-                # Append NaN or zero or skip
-                els_std_dev_per_cluster.append(np.full(cluster_points.shape[1], np.nan))
-            distances = np.linalg.norm(cluster_points - centroid, axis=1)
-            wcss_per_cluster.append(np.sum(distances ** 2))
-            rms_dist_cluster.append(np.sqrt(np.mean(distances ** 2)))
-    
-            # Save data also for the other elemental fraction type
-            cluster_points_other = compositions_df_other_fr[labels == i].to_numpy()
-            centroid_other_fr = np.mean(cluster_points_other, axis=0)
-            centroids_other_fr.append(centroid_other_fr)
-            if len(cluster_points) > 1:
-                els_std_dev_per_cluster_other_fr.append(np.std(cluster_points_other, axis=0, ddof=1))
-            else:
-                # Append NaN or zero or skip
-                els_std_dev_per_cluster_other_fr.append(np.full(cluster_points_other.shape[1], np.nan))
-            distances_other_fr = np.linalg.norm(cluster_points_other - centroid_other_fr, axis=1)
-            rms_dist_cluster_other_fr.append(np.sqrt(np.mean(distances_other_fr ** 2)))
-            
-        max_cl_rmsdist = max(rms_dist_cluster)
-        
-        return (wcss_per_cluster, rms_dist_cluster, rms_dist_cluster_other_fr, n_points_per_cluster,
-                els_std_dev_per_cluster, els_std_dev_per_cluster_other_fr, centroids_other_fr, max_cl_rmsdist)
+        return ClusteringModule._compute_cluster_statistics(
+            self,
+            compositions_df,
+            compositions_df_other_fr,
+            centroids,
+            labels,
+        )
     
     
     #%% Data compositional analysis
@@ -3751,91 +3301,15 @@ class EMXSp_Composition_Analyzer:
         cluster_radii: 'np.ndarray',
         ref_phases_df: 'pd.DataFrame'
     ) -> Tuple[List[float], 'pd.DataFrame']:
-        """
-        Correlate each cluster centroid to candidate phases and compute confidence scores.
-    
-        For each centroid, selects all candidate phases within a hypersphere of radius
-        max(0.1, 5 * cluster_radius) around the centroid, and computes a confidence score
-        for each reference. The highest confidence for each cluster is stored.
-    
-        Parameters
-        ----------
-        centroids : np.ndarray, shape (n_clusters, n_features)
-            Array of cluster centroids (in elemental fraction space).
-        cluster_radii : np.ndarray, shape (n_clusters,)
-            Array of standard deviations (radii) for each cluster.
-        ref_phases_df : pd.DataFrame
-            DataFrame where each row is a candidate phase (elemental fractions).
-    
-        Returns
-        -------
-        max_raw_confs : list of float
-            List of maximum confidence scores for each cluster.
-        refs_assigned_df : pd.DataFrame
-            DataFrame with reference names and their confidences for each cluster.
-    
-        Notes
-        -----
-        - Only candidate phases within 5 times the cluster radius (or at least 0.1) from the centroid are considered.
-        - Confidence is computed using EMXSp_Composition_Analyzer._get_ref_confidences.
-        """
-        # Get all candidate phase compositions as a numpy array
-        all_ref_phases = ref_phases_df.to_numpy()
-        refs_dict = []        # For DataFrame of references and their confidences
-        max_raw_confs = []    # For convergence checks
-    
-        # For each cluster, assign to reference(s) if present and calculate confidence
-        for centroid, radius in zip(centroids, cluster_radii):
-            # Calculate distances from centroid to each candidate phase
-            distances = np.linalg.norm(all_ref_phases - centroid, axis=1)
-            # Select all candidate phases within 5*radius (min 0.1) of centroid
-            indices = np.where(distances < max(0.1, 5 * radius))[0]
-            # Get chemical formulae and compositions of selected candidate phases
-            ref_names = [self.ref_formulae[i] for i in indices]
-            ref_phases = [all_ref_phases[i] for i in indices]
-            # Calculate confidences based on distance between centroid and reference
-            max_raw_conf, refs_dict_row = EMXSp_Composition_Analyzer._get_ref_confidences(
-                centroid, ref_phases, ref_names
-            )
-            # Store maximum confidence for this cluster
-            max_raw_confs.append(max_raw_conf)
-            # Store dictionary of reference names and confidences for this cluster
-            refs_dict.append(refs_dict_row)
-    
-        # Create DataFrame with information on candidate phases assigned to clusters
-        refs_assigned_df = pd.DataFrame(refs_dict)
-    
-        return max_raw_confs, refs_assigned_df
-
+        return ReferenceMatchingModule._correlate_centroids_to_refs(
+            self,
+            centroids,
+            cluster_radii,
+            ref_phases_df,
+        )
 
     def _assign_reference_phases(self, centroids, rms_dist_cluster):
-        """
-        Assign candidate phases to clusters if reference formulae are provided.
-    
-        Returns
-        -------
-        min_conf : float or None
-            Minimum confidence among all clusters assigned to a reference.
-        max_raw_confs : list or None
-            Maximum raw confidence scores for each cluster.
-        refs_assigned_df : pd.DataFrame or None
-            DataFrame of reference assignments.
-        """
-        min_conf = None
-        max_raw_confs = None
-        refs_assigned_df = None
-        if self.ref_formulae is not None:
-            # Correlate calculated centroids to the candidate phases
-            max_raw_confs, refs_assigned_df = self._correlate_centroids_to_refs(
-                centroids, rms_dist_cluster, self.ref_phases_df
-            )
-            # Get lowest value among the highest confidences assigned to each cluster, used for convergence
-            if len(max_raw_confs) > 0:
-                max_confs_num = [conf for conf in max_raw_confs if conf is not None]
-                if len(max_confs_num) > 0:
-                    min_conf = min(max_confs_num)
-        return min_conf, max_raw_confs, refs_assigned_df
-
+        return ReferenceMatchingModule._assign_reference_phases(self, centroids, rms_dist_cluster)
 
     @staticmethod
     def _get_ref_confidences(
@@ -3843,74 +3317,7 @@ class EMXSp_Composition_Analyzer:
         ref_phases: 'np.ndarray',
         ref_names: List[str]
     ) -> Tuple[Optional[float], Dict]:
-        """
-        Compute confidence scores for candidate phases near a cluster centroid.
-    
-        For each candidate phase within a cluster's neighborhood, this function:
-          - Computes the Euclidean distance to the centroid.
-          - Assigns a confidence score using a Gaussian function of the distance.
-          - Reduces confidences if multiple references are nearby, to account for ambiguity.
-          - Returns a dictionary of references and their confidences (sorted by confidence), and the maximum raw confidence.
-    
-        Parameters
-        ----------
-        centroid : np.ndarray
-            Cluster centroid in feature space (shape: n_features,).
-        ref_phases : np.ndarray
-            Array of candidate phase compositions (shape: n_refs, n_features).
-        ref_names : list of str
-            Names of candidate phases.
-    
-        Returns
-        -------
-        max_raw_conf : float or None
-            Maximum confidence score among the references, or None if no reference is close.
-        refs_dict : Dict
-            Dictionary of reference names and their confidences, sorted by confidence.
-            Keys: 'Cnd1', 'CS_cnd1', 'Cnd2', 'CS_cnd2', etc.
-    
-        Notes
-        -----
-        - Only confidences above 1% are included in the output dictionary.
-        - The confidence spread (sigma) is set to 0.03 for the Gaussian.
-        - Nearby references reduce each other's confidence using a secondary Gaussian weighting.
-        """
-        if ref_phases == [] or len(ref_phases) == 0:
-            # No candidate phase is close enough to the centroid
-            refs_dict = {f'{cnst.CND_DF_KEY}1': np.nan, f'{cnst.CS_RAW_CND_DF_KEY}1': np.nan, '{cnst.CS_CND_DF_KEY}1': np.nan}
-            max_raw_conf = None
-        else:
-            # Calculate distances from centroid to each candidate phase
-            distances = np.linalg.norm(ref_phases - centroid, axis=1)
-    
-            # Assign confidence using a Gaussian function (sigma = 0.03)
-            raw_confidences = np.exp(-distances**2 / (2 * 0.03**2))
-    
-            # Reduce confidences for ambiguity if multiple references are close
-            weights_conf = np.exp(-(1 - raw_confidences)**2 / (2 * 0.3**2))
-            weights_conf /= np.sum(weights_conf)  # Normalize
-    
-            # Adjust confidences by their weights
-            confidences = raw_confidences * weights_conf
-    
-            # Get maximum raw confidence
-            max_raw_conf = float(np.max(raw_confidences))
-    
-            # Sort references by confidence, descending
-            sorted_indices = np.argsort(-confidences)
-            sorted_ref_names = np.array(ref_names)[sorted_indices]
-            sorted_confidences = confidences[sorted_indices]
-            sorted_raw_confs = raw_confidences[sorted_indices]
-    
-            # Build dictionary of references and confidences (only those > 1%)
-            refs_dict = {}
-            for i, (ref_name, conf, conf_raw) in enumerate(zip(sorted_ref_names, sorted_confidences, sorted_raw_confs)):
-                if conf_raw > 0.05:
-                    refs_dict[f'{cnst.CND_DF_KEY}{i+1}'] = ref_name
-                    refs_dict[f'{cnst.CS_CND_DF_KEY}{i+1}'] = float(f"{conf:.2f}")
-                    refs_dict[f'{cnst.CS_RAW_CND_DF_KEY}{i+1}'] = float(f"{conf_raw:.2f}")
-    
-        return max_raw_conf, refs_dict
+        return ReferenceMatchingModule._get_ref_confidences(centroid, ref_phases, ref_names)
 
 
     #%% Binary cluster decomposition
@@ -4815,6 +4222,28 @@ class EMXSp_Composition_Analyzer:
             self._update_standard_library(fit_results)
         
     #%% Save Plots
+    def _load_custom_plot_function(self):
+        return PlottingModule._load_custom_plot_function(self)
+
+    def _run_custom_clustering_plot(
+        self,
+        elements: List[str],
+        els_comps_list: 'np.ndarray',
+        centroids: 'np.ndarray',
+        labels: 'np.ndarray',
+        els_std_dev_per_cluster: list,
+        unused_compositions_list: list
+    ) -> bool:
+        return PlottingModule._run_custom_clustering_plot(
+            self,
+            elements,
+            els_comps_list,
+            centroids,
+            labels,
+            els_std_dev_per_cluster,
+            unused_compositions_list,
+        )
+
     def _save_plots(
         self,
         kmeans: 'KMeans',
@@ -4824,108 +4253,16 @@ class EMXSp_Composition_Analyzer:
         els_std_dev_per_cluster: list,
         unused_compositions_list: list
     ) -> None:
-        """
-        Generate and save clustering and silhouette plots for the clustering analysis.
-    
-        This method:
-          - Saves a silhouette plot if more than one cluster is present.
-          - Determines which elements to include in the clustering plot (max 3 for 3D).
-          - Excludes elements as specified in plot configuration.
-          - Warns if only one element is available for plotting.
-          - Saves a clustering plot (2D or 3D) using either a custom or default plotting function.
-    
-        Parameters
-        ----------
-        kmeans : KMeans
-            Fitted KMeans clustering object.
-        compositions_df : pd.DataFrame
-            DataFrame of sample compositions used for clustering.
-        centroids : np.ndarray
-            Array of cluster centroids (shape: n_clusters, n_features).
-        labels : np.ndarray
-            Cluster labels for each sample.
-        els_std_dev_per_cluster : list
-            List of standard deviations for each element in each cluster.
-        unused_compositions_list : list
-            List of compositions excluded from clustering.
-    
-        Returns
-        -------
-        None
-    
-        Notes
-        -----
-        - Only up to 3 elements can be plotted; others are excluded.
-        - If only one element is left after exclusions, no plot is generated.
-        - Uses either a custom or default plotting function as configured.
-        """
-        # Silhouette plot (only if more than one cluster)
-        if len(centroids) > 1:
-            EMXSp_Composition_Analyzer._save_silhouette_plot(
-                kmeans, compositions_df, self.analysis_dir, show_plot=self.plot_cfg.show_plots
-            )
-    
-        # Determine which elements can be used for plotting
-        can_plot_clustering = True
-    
-        # Elements for plotting (excluding those set for exclusion)
-        els_for_plot = list(set(self.detectable_els_sample) - set(self.plot_cfg.els_excluded_clust_plot))
-        els_excluded_clust_plot = list(set(self.all_els_sample) - set(els_for_plot))
-        n_els = len(els_for_plot)
-    
-        if n_els == 1:
-            # Cannot plot with only 1 detectable element
-            can_plot_clustering = False
-            print_single_separator()
-            warnings.warn("Cannot generate clustering plot with a single element.", UserWarning)
-            if len(self.detectable_els_sample) > 1:
-                logger.warning('⚠️ Too many elements were excluded from the clustering plot via the use of "els_excluded_clust_plot".')
-                logger.info(f'ℹ️ Consider removing one or more among the list: {self.plot_cfg.els_excluded_clust_plot}')
-        elif n_els > 3:
-            # Only 3 elements can be plotted at once (for 3D)
-            els_excluded_clust_plot += els_for_plot[3:]
-            els_for_plot = els_for_plot[:3]
-    
-        # Determine indices to remove for excluded elements
-        indices_to_remove = [self.all_els_sample.index(el) for el in els_excluded_clust_plot]
-        # Update values to exclude the selected elements
-        els_for_plot = [el for i, el in enumerate(self.all_els_sample) if i not in indices_to_remove]
-        centroids = np.array([
-            [coord for i, coord in enumerate(row) if i not in indices_to_remove]
-            for row in centroids
-        ])
-        els_std_dev_per_cluster = [
-            [stddev for i, stddev in enumerate(row) if i not in indices_to_remove]
-            for row in els_std_dev_per_cluster
-        ]
-        unused_compositions_list = [
-            [fr for i, fr in enumerate(row) if i not in indices_to_remove]
-            for row in unused_compositions_list
-        ]
-    
-        # Generate and save the clustering plot if possible
-        if can_plot_clustering:
-            # List of lists, where each list is populated with the atomic fractions of one element in all data points
-            els_comps_list = compositions_df[els_for_plot].to_numpy().T
-    
-            # Use custom or default plotting function
-            if self.plot_cfg.use_custom_plots:
-                custom_plotting._save_clustering_plot_custom_3D(
-                    els_for_plot, els_comps_list, centroids, labels,
-                    els_std_dev_per_cluster, unused_compositions_list,
-                    self.clustering_cfg.features, self.ref_phases_df,
-                    self.ref_formulae, self.plot_cfg.show_plots, self.sample_cfg.ID
-                )
-            else:
-                self._save_clustering_plot(
-                    els_for_plot, els_comps_list, centroids, labels,
-                    els_std_dev_per_cluster, unused_compositions_list
-                )
-        elif self.verbose:
-            logger.warning('⚠️ Clusters were not plotted because only one detectable element was present in the sample.')
-            logger.warning(f"⚠️ Elements {calibs.undetectable_els} cannot be detected at the employed instrument.")
-            
-            
+        return PlottingModule._save_plots(
+            self,
+            kmeans,
+            compositions_df,
+            centroids,
+            labels,
+            els_std_dev_per_cluster,
+            unused_compositions_list,
+        )
+
     def _save_clustering_plot(
         self,
         elements: List[str],
@@ -4935,251 +4272,23 @@ class EMXSp_Composition_Analyzer:
         els_std_dev_per_cluster: list,
         unused_compositions_list: list
     ) -> None:
-        """
-        Generate and save a 2D or 3D clustering plot with centroids, standard deviation ellipses/ellipsoids,
-        unused compositions, and candidate phases.
-    
-        Parameters
-        ----------
-        elements : list of str
-            List of element symbols to plot (max 3).
-        els_comps_list : np.ndarray
-            Array of shape (n_elements, n_samples) with elemental fractions for each sample (used for clustering).
-        centroids : np.ndarray
-            Array of cluster centroids (shape: n_clusters, n_elements).
-        labels : np.ndarray
-            Cluster labels for each sample.
-        els_std_dev_per_cluster : list
-            List of standard deviations for each element in each cluster.
-        unused_compositions_list : list
-            List of compositions excluded from clustering.
-        
-        Returns
-        -------
-        None
-    
-        Notes
-        -----
-        - The plot is saved as 'Clustering_plot.png' in the analysis directory.
-        - Uses matplotlib for plotting (2D or 3D based on the number of elements).
-        - candidate phases and centroids are annotated; standard deviation is shown as ellipses (2D) or ellipsoids (3D).
-        """
-        # Set font parameters
-        plt.rcParams['font.family'] = 'Arial'
-        fontsize = 14
-        labelpad = 12
-        plt.rcParams['font.size'] = fontsize
-        plt.rcParams['axes.titlesize'] = fontsize
-        plt.rcParams['axes.labelsize'] = fontsize
-        plt.rcParams['xtick.labelsize'] = fontsize
-        plt.rcParams['ytick.labelsize'] = fontsize
-    
-        # Define axis label suffix
-        axis_label_add = ' (w%)' if self.clustering_cfg.features == cnst.W_FR_CL_FEAT else ' (at%)'
-        ticks = np.arange(0, 1, 0.1)
-        ticks_labels = [f"{x*100:.0f}" for x in ticks]
-    
-        # Create figure and axes
-        fig = plt.figure(figsize=(6, 6))
-        if len(elements) == 3:
-            ax = fig.add_subplot(111, projection='3d')
-            ax.set_zlabel(elements[2] + axis_label_add, labelpad=labelpad * 0.95)
-            ax.set_zlim(0, 1)
-            ax.set_zticks(ticks)
-            ax.set_zticklabels(ticks_labels)
-        else:
-            ax = fig.add_subplot(111)
-    
-        # Plot clustered datapoints
-        ax.scatter(*els_comps_list, c=labels, cmap='viridis', marker='o')
-    
-        # Plot centroids
-        ax.scatter(*centroids.T, c='red', marker='x', s=100, label='Centroids')
-    
-        # Plot standard deviation ellipses or ellipsoids
-        first_ellipse = True
-        for centroid, stdevs in zip(centroids, els_std_dev_per_cluster):
-            if ~np.any(np.isnan(stdevs)):
-                if len(elements) == 3:  # 3D plot
-                    x_c, y_c, z_c = centroid
-                    rx, ry, rz = stdevs
-    
-                    # Create the ellipsoid
-                    u = np.linspace(0, 2 * np.pi, 100)
-                    v = np.linspace(0, np.pi, 100)
-                    x = x_c + rx * np.outer(np.cos(u), np.sin(v))
-                    y = y_c + ry * np.outer(np.sin(u), np.sin(v))
-                    z = z_c + rz * np.outer(np.ones_like(u), np.cos(v))
-    
-                    # Plot the surface with transparency
-                    ax.plot_surface(x, y, z, color='red', alpha=0.1, edgecolor='none')
-    
-                    if first_ellipse:
-                        first_ellipse = False
-                        ax.plot([], [], [], color='red', alpha=0.1, label='Stddev')
-                else:  # 2D plot
-                    x_c, y_c = centroid
-                    rx, ry = stdevs
-    
-                    # Plot the ellipse with transparency
-                    ellipse = patches.Ellipse((x_c, y_c), rx, ry, edgecolor='red', facecolor='red', linestyle='--', alpha=0.2)
-                    if first_ellipse:
-                        ellipse.set_label('Stddev')
-                        first_ellipse = False
-                    ax.add_patch(ellipse)
-    
-        # Plot unused compositions (discarded from clustering)
-        if unused_compositions_list and self.plot_cfg.show_unused_comps_clust:
-            ax.scatter(*np.array(unused_compositions_list).T, c='grey', marker='^', label='Discarded comps.')
-    
-        # Plot candidate phases
-        if self.ref_formulae is not None:
-            first_ref = True
-            ref_phases_df = self.ref_phases_df[elements]
-            for index, row in ref_phases_df.iterrows():
-                label = 'Candidate phases' if first_ref else None
-                ax.scatter(*row.values, c='blue', marker='*', s=100, label=label)
-                ref_label = to_latex_formula(self.ref_formulae[index])
-                ax.text(*row.values, ref_label, color='black', fontsize=fontsize, ha='left', va='bottom')
-                first_ref = False
-    
-        # Annotate centroids with their cluster labels
-        for i, centroid in enumerate(centroids):
-            ax.text(*centroid, str(i), color='black', fontsize=fontsize, ha='right', va='bottom')
-    
-        # Set axis labels and limits
-        ax.set_xlabel(elements[0] + axis_label_add, labelpad=labelpad)
-        ax.set_ylabel(elements[1] + axis_label_add, labelpad=labelpad)
-        ax.set_xlim(0, 1)
-        ax.set_ylim(0, 1)
-        ax.set_xticks(ticks)
-        ax.set_xticklabels(ticks_labels)
-        ax.set_yticks(ticks)
-        ax.set_yticklabels(ticks_labels)
-        ax.set_title(f'{self.clustering_cfg.method} clustering {self.sample_cfg.ID}')
-        
-        if getattr(self.plot_cfg, 'show_legend_clustering', None):
-            ax.legend(fontsize = fontsize)
-        
-        # plt.ion()
-        if self.plot_cfg.show_plots:
-            plt.show()
-        # plt.pause(0.001)
-        fig.savefig(os.path.join(self.analysis_dir, cnst.CLUSTERING_PLOT_FILENAME + cnst.CLUSTERING_PLOT_FILEEXT))
-        # plt.close(fig)
+        return PlottingModule._save_clustering_plot(
+            self,
+            elements,
+            els_comps_list,
+            centroids,
+            labels,
+            els_std_dev_per_cluster,
+            unused_compositions_list,
+        )
 
-    
     def _save_violin_plot_powder_mixture(
         self,
         W_mol_frs: List[float],
         ref_names: List[str],
         cluster_ID : int
     ) -> None:
-        """
-        Generate and save a violin plot visualizing the distribution of precursor molar fractions in a binary powder mixture.
-    
-        The plot displays:
-          - The kernel density estimate (KDE) of the measured molar fractions
-          - Individual measured values
-          - The mean and standard deviation of the distribution
-    
-        Note:
-            Prior to plotting, the precursor molar fractions are normalized so their sum equals 1.
-            As a result, the standard deviation is identical for both precursors in the mixture.
-    
-        Parameters
-        ----------
-        W_mol_frs : list(float)
-            Measured molar fractions of the precursors for the current cluster, represented as a binary mixture of two powders.
-        ref_names : list(str)
-            Chemical formulas (or names) of the two parent phases forming the mixture.
-        cluster_ID : int
-            Current cluster ID. Used for violin plot name
-        """
-    
-        # --- Plot styling ---
-        plt.rcParams['font.family'] = 'Arial'
-        fontsize = 17
-        labelpad = 0
-        plt.rcParams['font.size'] = fontsize
-        plt.rcParams['axes.titlesize'] = fontsize
-        plt.rcParams['axes.labelsize'] = fontsize
-        plt.rcParams['xtick.labelsize'] = fontsize
-        plt.rcParams['ytick.labelsize'] = fontsize
-        purple_cmap = cm.get_cmap('Purples')
-        yellow_cmap = cm.get_cmap('autumn')
-    
-        # Extract coordinates from W
-        y_vals = W_mol_frs[:, 0]
-    
-        fig, ax_left = plt.subplots(figsize=(4, 4))
-        
-        mean = np.mean(y_vals)
-        std = np.std(y_vals)
-        
-        # Violin plot (default zorder is 1)
-        ax_left = sns.violinplot(data=y_vals, inner=None, color=purple_cmap(0.3),
-                                 linewidth=1.5, density_norm='area', width=1, zorder=1)
-        
-        # Swarmplot (zorder 2)
-        sns.swarmplot(data=y_vals, color=purple_cmap(0.8),
-                      edgecolor=purple_cmap(1.0), linewidth=2, size=5, label='data', zorder=2)
-        
-        # Error bars (zorder 3 and 4)
-        ax_left.errorbar(0, mean, yerr=std / 2, fmt='none', color=yellow_cmap(0.9),
-                         label='Mean ±1 Std Dev', capsize=5, elinewidth=1,
-                         zorder=4, markerfacecolor=yellow_cmap(0.9),
-                         markeredgecolor='black', markeredgewidth=1,
-                         marker='o', linestyle='none')
-        ax_left.errorbar(0, mean, yerr=std / 2, fmt='none', color='none',
-                         label='_nolegend_', capsize=6, elinewidth=2,
-                         zorder=3, markerfacecolor='none',
-                         markeredgecolor='black', markeredgewidth=2,
-                         marker='o', linestyle='none', ecolor='black')
-        
-        # Mean point (highest zorder, plotted last)
-        ax_left.scatter(0, mean, color=yellow_cmap(0.9), marker='o', s=50,
-                        edgecolors='k', linewidths=1, label='Mean', zorder=10)
-    
-        ax_left = plt.gca()
-        ax_left.set_xticks([])
-        ax_left.set_yticks([0, 1])  # Show ticks at 0 and 1 on left y-axis
-        ax_left.set_frame_on(True)
-        for spine in ax_left.spines.values():
-            spine.set_color('black')
-            spine.set_linewidth(0.5)
-        plt.grid(False)
-    
-        plt.xlim(-0.5, 0.5)
-        ylim_bottom = 0
-        ylim_top = 1
-        ax_left.set_ylim(ylim_bottom, ylim_top)
-    
-        # Left y-axis label (0→1)
-        left_formula = to_latex_formula(ref_names[0], include_dollar_signs=False)
-        ax_left.set_ylabel(rf"$x_{{\mathrm{{{left_formula}}}}}$", labelpad=labelpad)
-        
-        # Right y-axis (inverted 1→0)
-        ax_right = ax_left.twinx()
-        ax_right.set_ylim(ylim_top, ylim_bottom)
-        ax_right.set_yticks([1, 0])  # Inverted ticks on right y-axis
-        right_formula = to_latex_formula(ref_names[1], include_dollar_signs=False)
-        ax_right.set_ylabel(rf"$x_{{\mathrm{{{right_formula}}}}}$", labelpad=labelpad)
-    
-        # Add standard deviation inside the plot
-        ax_left.text(0.03, 0.03, rf"$\sigma_x = {std*100:.1f}$%", fontsize=fontsize,
-                     color='black', ha='left', va='bottom', transform=ax_left.transAxes)
-    
-        ax_left.set_title(f'Violin plot {self.sample_cfg.ID}')
-    
-        # Save figure
-        fig.savefig(
-            os.path.join(self.analysis_dir,
-                         cnst.POWDER_MIXTURE_PLOT_FILENAME + f"_cl{cluster_ID}_{ref_names[0]}_{ref_names[1]}" + cnst.CLUSTERING_PLOT_FILEEXT),
-            dpi=300,
-            bbox_inches='tight',
-            pad_inches=0
-        )
+        return PlottingModule._save_violin_plot_powder_mixture(self, W_mol_frs, ref_names, cluster_ID)
 
     @staticmethod
     def _save_silhouette_plot(
@@ -5188,53 +4297,7 @@ class EMXSp_Composition_Analyzer:
         results_dir: str,
         show_plot: bool
     ) -> None:
-        """
-        Generate and save a silhouette plot for the clustering results.
-    
-        Parameters
-        ----------
-        model : KMeans
-            Fitted clustering model.
-        compositions_df : pd.DataFrame
-            DataFrame of sample compositions used for clustering.
-        results_dir : str
-            Directory where the plot will be saved.
-        show_plot : bool
-            If True, the plot will be displayed interactively.
-    
-        Returns
-        -------
-        None
-    
-        Notes
-        -----
-        - Uses Yellowbrick's SilhouetteVisualizer for plotting.
-        - Suppresses harmless sklearn warnings during visualization.
-        - The plot is saved as 'Silhouette_plot.png' in the results directory.
-        """
-        plt.figure(figsize=(10, 8))
-        sil_visualizer = SilhouetteVisualizer(model, colors='yellowbrick')
-        with warnings.catch_warnings():
-            # Suppress harmless sklearn warnings
-            warnings.simplefilter("ignore", UserWarning)
-            sil_visualizer.fit(compositions_df)  # Fit the data to the visualizer
-    
-        plt.ylabel('Cluster label')
-        plt.xlabel('Silhouette coefficient values')
-        plt.legend(loc='upper right', frameon=True)
-    
-        if show_plot:
-            plt.ion()
-            sil_visualizer.show()
-            plt.pause(0.001)
-            plt.ioff()
-    
-        fig = sil_visualizer.fig
-        fig.savefig(os.path.join(results_dir, 'Silhouette_plot.png'))
-    
-        # Close the figure if not displaying
-        if not show_plot:
-            plt.close(fig)
+        return PlottingModule._save_silhouette_plot(model, compositions_df, results_dir, show_plot)
     
     
     #%% Save Data
@@ -5958,40 +5021,4 @@ class EMXSp_Composition_Analyzer:
                 logger.info("Identified phases:\n%s", phase_table)
         except Exception as e:
             raise RuntimeError(f"Error printing phase results: {e}")
-    
-
-# Delegation to extracted composition_analysis modules.
-# This preserves the current public class/API while routing implementation
-# to the new modular structure.
-EMXSp_Composition_Analyzer._find_optimal_k = ClusteringModule._find_optimal_k
-EMXSp_Composition_Analyzer._get_most_freq_k = ClusteringModule._get_most_freq_k
-EMXSp_Composition_Analyzer._get_k = ClusteringModule._get_k
-EMXSp_Composition_Analyzer._is_single_cluster = ClusteringModule._is_single_cluster
-EMXSp_Composition_Analyzer._run_kmeans_clustering = ClusteringModule._run_kmeans_clustering
-EMXSp_Composition_Analyzer._prepare_composition_dataframes = ClusteringModule._prepare_composition_dataframes
-EMXSp_Composition_Analyzer._get_clustering_kmeans = ClusteringModule._get_clustering_kmeans
-EMXSp_Composition_Analyzer._get_clustering_dbscan = ClusteringModule._get_clustering_dbscan
-EMXSp_Composition_Analyzer._compute_cluster_statistics = ClusteringModule._compute_cluster_statistics
-
-EMXSp_Composition_Analyzer._correlate_centroids_to_refs = ReferenceMatchingModule._correlate_centroids_to_refs
-EMXSp_Composition_Analyzer._assign_reference_phases = ReferenceMatchingModule._assign_reference_phases
-EMXSp_Composition_Analyzer._get_ref_confidences = ReferenceMatchingModule._get_ref_confidences
-
-EMXSp_Composition_Analyzer._save_plots = PlottingModule._save_plots
-EMXSp_Composition_Analyzer._load_custom_plot_function = PlottingModule._load_custom_plot_function
-EMXSp_Composition_Analyzer._run_custom_clustering_plot = PlottingModule._run_custom_clustering_plot
-EMXSp_Composition_Analyzer._save_clustering_plot = PlottingModule._save_clustering_plot
-EMXSp_Composition_Analyzer._save_violin_plot_powder_mixture = PlottingModule._save_violin_plot_powder_mixture
-EMXSp_Composition_Analyzer._save_silhouette_plot = PlottingModule._save_silhouette_plot
-
-EMXSp_Composition_Analyzer._compile_standards_from_references = StandardsModule._compile_standards_from_references
-EMXSp_Composition_Analyzer._fit_stds_and_save_results = StandardsModule._fit_stds_and_save_results
-EMXSp_Composition_Analyzer._evaluate_exp_std_fit = StandardsModule._evaluate_exp_std_fit
-EMXSp_Composition_Analyzer._assemble_std_PB_data = StandardsModule._assemble_std_PB_data
-EMXSp_Composition_Analyzer._calc_corrected_PB = StandardsModule._calc_corrected_PB
-EMXSp_Composition_Analyzer._save_std_results = StandardsModule._save_std_results
-EMXSp_Composition_Analyzer._serialize_standard_mean_z = StandardsModule._serialize_standard_mean_z
-EMXSp_Composition_Analyzer._load_standards = StandardsModule._load_standards
-EMXSp_Composition_Analyzer._load_xsp_standards = StandardsModule._load_xsp_standards
-EMXSp_Composition_Analyzer._update_standard_library = StandardsModule._update_standard_library
  
