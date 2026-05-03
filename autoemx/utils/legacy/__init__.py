@@ -8,6 +8,7 @@ from .legacy_standards import (
     normalize_standards_file_payload,
     standards_payload_to_model,
 )
+from .legacy_config_loader import load_legacy_configurations_from_json
 
 __all__ = [
     "is_legacy_standards_payload",
@@ -15,4 +16,5 @@ __all__ = [
     "migrate_legacy_standards_payload",
     "normalize_standards_file_payload",
     "standards_payload_to_model",
+    "load_legacy_configurations_from_json",
 ]

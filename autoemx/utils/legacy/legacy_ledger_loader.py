@@ -152,6 +152,21 @@ def _load_legacy_quant_cfg(sample_result_dir: str) -> Optional[Any]:
     """Load the raw legacy quantification config when LedgerConfigs has already dropped it."""
     from autoemx.config.runtime_configs import QuantificationOptionsConfig
 
+    payload = _load_legacy_config_payload(sample_result_dir)
+    if not isinstance(payload, dict):
+        return None
+
+    raw_quant_cfg = payload.get(cnst.QUANTIFICATION_CFG_KEY)
+    if raw_quant_cfg is None:
+        return None
+    try:
+        return QuantificationOptionsConfig.model_validate(raw_quant_cfg)
+    except Exception:
+        return None
+
+
+def _load_legacy_config_payload(sample_result_dir: str) -> Optional[Dict[str, Any]]:
+    """Load the first available legacy/new JSON config payload for this sample."""
     candidate_files = [
         Path(sample_result_dir) / f"{cnst.CONFIG_FILENAME}.json",
         Path(sample_result_dir) / f"{cnst.ACQUISITION_INFO_FILENAME}.json",
@@ -163,13 +178,8 @@ def _load_legacy_quant_cfg(sample_result_dir: str) -> Optional[Any]:
             payload = json.loads(config_path.read_text(encoding="utf-8"))
         except Exception:
             continue
-        raw_quant_cfg = payload.get(cnst.QUANTIFICATION_CFG_KEY)
-        if raw_quant_cfg is None:
-            continue
-        try:
-            return QuantificationOptionsConfig.model_validate(raw_quant_cfg)
-        except Exception:
-            continue
+        if isinstance(payload, dict):
+            return payload
     return None
 
 
@@ -504,6 +514,11 @@ def build_legacy_import_quantification_config(
     ledger_configs: Any,
 ) -> QuantificationConfig:
     """Build legacy quantification config with standards-derived reference values."""
+    raw_config_payload = _load_legacy_config_payload(sample_result_dir) or {}
+    raw_quant_cfg = raw_config_payload.get(cnst.QUANTIFICATION_CFG_KEY, {})
+    raw_measurement_cfg = raw_config_payload.get(cnst.MEASUREMENT_CFG_KEY, {})
+    raw_microscope_cfg = raw_config_payload.get(cnst.MICROSCOPE_CFG_KEY, {})
+
     quant_cfg = getattr(ledger_configs, "quant_cfg", None)
     if quant_cfg is None:
         quant_cfg = _load_legacy_quant_cfg(sample_result_dir)
@@ -525,6 +540,56 @@ def build_legacy_import_quantification_config(
         "fit_tolerance": fit_tolerance,
         "use_instrument_background": use_instrument_background,
         "spectrum_lims": spectrum_lims,
+        # Canonicalized effective-state fields used for quantification reuse matching.
+        # Prefer explicit quant_cfg values from legacy JSON when present.
+        "is_particle": bool(
+            raw_quant_cfg.get(
+                "is_particle",
+                getattr(ledger_configs.sample_cfg, "is_surface_rough", False),
+            )
+        ),
+        "beam_energy_keV": float(
+            raw_quant_cfg.get(
+                "beam_energy_keV",
+                raw_measurement_cfg.get(
+                    "beam_energy_keV",
+                    getattr(ledger_configs.measurement_cfg, "beam_energy_keV"),
+                ),
+            )
+        ),
+        "emergence_angle": float(
+            raw_quant_cfg.get(
+                "emergence_angle",
+                raw_measurement_cfg.get(
+                    "emergence_angle",
+                    getattr(ledger_configs.measurement_cfg, "emergence_angle"),
+                ),
+            )
+        ),
+        "det_ch_offset": float(
+            raw_quant_cfg.get(
+                "det_ch_offset",
+                raw_quant_cfg.get(
+                    "energy_zero",
+                    raw_microscope_cfg.get(
+                        "energy_zero",
+                        getattr(ledger_configs.microscope_cfg, "energy_zero"),
+                    ),
+                ),
+            )
+        ),
+        "det_ch_width": float(
+            raw_quant_cfg.get(
+                "det_ch_width",
+                raw_quant_cfg.get(
+                    "bin_width",
+                    raw_microscope_cfg.get(
+                        "bin_width",
+                        getattr(ledger_configs.microscope_cfg, "bin_width"),
+                    ),
+                ),
+            )
+        ),
     }
 
     reference_values_by_el_line: Dict[str, Any] = {}

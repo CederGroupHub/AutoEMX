@@ -256,7 +256,7 @@ def segment_particles(frame_image: np.ndarray,
             else:
                 raise ValueError(f"m_comb contains label {max_val} > 65535, unsupported for direct saving.")
 
-        filename = f"{EM.sample_cfg.ID}_fr{EM.current_frame_label}_Rettenberger2024_mask"
+        filename = f"{EM.sample_id}_fr{EM.current_frame_label}_Rettenberger2024_mask"
         EM.save_frame_image(filename, frame_image = overlay)
 
     # Return the 8-bit index map

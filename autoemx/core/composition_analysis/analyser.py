@@ -18,6 +18,7 @@ Example Usage
 -------------
     # Create analyzer instance
     >>> analyzer = EMXSp_Composition_Analyzer(
+            sample_id='sample_001',
             microscope_cfg=microscope_cfg,
             sample_cfg=sample_cfg,
             measurement_cfg=measurement_cfg,
@@ -47,6 +48,7 @@ Created on Mon Jul 22 17:43:35 2024
 # Standard library imports
 import os
 import json
+import re
 import time
 import shutil
 import itertools
@@ -55,7 +57,7 @@ import traceback
 from pathlib import Path
 from datetime import datetime
 from dataclasses import asdict
-from typing import Any, Optional, Tuple, List, Dict, Iterable, Union
+from typing import Any, Optional, Tuple, List, Dict, Iterable, Sequence, Union
 from joblib import Parallel, delayed
 
 #TODO remove in future versions
@@ -126,6 +128,208 @@ logger = get_logger(__name__)
 
 parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+
+def _worker_is_spectrum_valid_for_fitting(
+    *,
+    spectrum: np.ndarray,
+    energy_vals: Sequence[float],
+    sp_start: int,
+    sp_end: int,
+    target_acquisition_counts: int,
+    min_bckgrnd_cnts: Optional[float],
+) -> tuple[bool, Optional[int], Optional[str]]:
+    """Pure worker-safe version of spectrum pre-fit validation."""
+    if spectrum is None:
+        return False, 1, "No spectral data present"
+
+    if np.sum(spectrum) < 0.9 * target_acquisition_counts:
+        return False, 2, "Total counts too low"
+
+    n_vals_considered = 20
+    filter_len = 3
+    en_threshold = 2
+
+    xy_data = zip(energy_vals, spectrum[sp_start:sp_end])
+    spectrum_data_to_consider = [cnts for en, cnts in xy_data if cnts > 0 and en < en_threshold]
+    if len(spectrum_data_to_consider) == 0:
+        return False, 3, "Background counts too low"
+
+    spectrum_smooth = np.convolve(
+        spectrum_data_to_consider,
+        np.ones(filter_len) / filter_len,
+        mode='same',
+    )
+    min_vals = np.sort(spectrum_smooth)[:n_vals_considered]
+    if min_bckgrnd_cnts is not None and len(min_vals) > 0 and all(min_vals < min_bckgrnd_cnts):
+        return False, 3, "Background counts too low"
+
+    return True, None, None
+
+
+def _worker_flag_spectrum_for_clustering(
+    *,
+    min_bckgrnd_ref_lines: float,
+    quantifier: Any,
+    detectable_els_substrate: Sequence[str],
+    min_bckgrnd_cnts: Optional[float],
+) -> tuple[bool, int, str]:
+    """Pure worker-safe version of clustering-validity flagging."""
+    is_spectrum_valid = True
+    sub_peak_int_threshold = 10
+    sub_peak_int_thresh_cnts = quantifier.tot_sp_counts * sub_peak_int_threshold / 100
+
+    els_substrate_intensities = {el: 0 for el in detectable_els_substrate}
+    for el_line, peak_info in quantifier.fitted_peaks_info.items():
+        el = el_line.split('_')[0]
+        if el in detectable_els_substrate:
+            els_substrate_intensities[el] += peak_info[cnst.PEAK_INTENSITY_KEY]
+
+    for el, peak_int in els_substrate_intensities.items():
+        if peak_int > sub_peak_int_thresh_cnts:
+            return False, 7, f"{el} {peak_int:.0f} counts > {sub_peak_int_threshold} % of total counts"
+
+    if min_bckgrnd_cnts is not None and min_bckgrnd_ref_lines < min_bckgrnd_cnts:
+        return False, 8, f"Reference background counts too low ({min_bckgrnd_ref_lines:.1f} < {min_bckgrnd_cnts})"
+
+    return True, 0, ""
+
+
+def _worker_check_fit_quant_validity(
+    *,
+    is_quant_fit_valid: bool,
+    bad_quant_flag: Optional[int],
+    quantifier: Any,
+    min_bckgrnd_ref_lines: Any,
+    detectable_els_substrate: Sequence[str],
+    min_bckgrnd_cnts: Optional[float],
+) -> tuple[int, str]:
+    """Pure worker-safe version of post-fit quantification validation."""
+    start_str_comments = 'Fit interrupted due to ' if not is_quant_fit_valid else ''
+
+    if bad_quant_flag == 1:
+        comment = start_str_comments + 'poor fit'
+        quant_flag = 4
+    elif bad_quant_flag == 2:
+        comment = start_str_comments + 'excessively high analytical error'
+        quant_flag = 5
+    elif bad_quant_flag == 3:
+        comment = start_str_comments + 'excessive X-ray absorption'
+        quant_flag = 6
+    elif not is_quant_fit_valid:
+        comment = 'Fit interrupted for unknown reasons'
+        quant_flag = 9
+    else:
+        _, quant_flag, comment = _worker_flag_spectrum_for_clustering(
+            min_bckgrnd_ref_lines=min_bckgrnd_ref_lines,
+            quantifier=quantifier,
+            detectable_els_substrate=detectable_els_substrate,
+            min_bckgrnd_cnts=min_bckgrnd_cnts,
+        )
+
+    if bad_quant_flag == -1 and quant_flag == 0:
+        comment = f"{comment} - Quantification did not converge." if comment else 'Quantification did not converge.'
+        quant_flag = -1
+
+    return quant_flag, comment
+
+
+def _quantify_spectrum_worker(worker_payload: Dict[str, Any]) -> tuple[int, Optional[Dict[str, Any]], QuantificationResult, Optional[float]]:
+    """Process-safe worker for one spectrum quantification."""
+    spectrum_index = int(worker_payload['spectrum_index'])
+    pointer_abs = Path(worker_payload['pointer_abs'])
+    counts = SampleLedger._load_counts_from_pointer_file(pointer_abs)
+    spectrum = np.asarray(counts, dtype=float)
+
+    background = None
+    background_abs = worker_payload.get('background_abs')
+    if background_abs:
+        background = EMXSp_Composition_Analyzer._load_background_vector_from_file(Path(background_abs))
+
+    start_quant_time = time.time()
+    is_sp_valid_for_fitting, quant_flag, comment = _worker_is_spectrum_valid_for_fitting(
+        spectrum=spectrum,
+        energy_vals=worker_payload['energy_vals'],
+        sp_start=int(worker_payload['sp_start']),
+        sp_end=int(worker_payload['sp_end']),
+        target_acquisition_counts=int(worker_payload['target_acquisition_counts']),
+        min_bckgrnd_cnts=worker_payload['min_bckgrnd_cnts'],
+    )
+    if not is_sp_valid_for_fitting:
+        quant_record = QuantificationResult(
+            quantification_id=int(worker_payload['quantification_id']),
+            quant_flag=quant_flag,
+            comment=comment,
+            diagnostics=QuantificationDiagnostics(
+                converged=False,
+                interrupted=True,
+            ),
+        )
+        return spectrum_index, None, quant_record, time.time() - start_quant_time
+
+    quantifier = XSp_Quantifier(
+        spectrum_vals=spectrum,
+        spectrum_lims=(int(worker_payload['sp_start']), int(worker_payload['sp_end'])),
+        microscope_ID=worker_payload['microscope_id'],
+        meas_type=worker_payload['measurement_type'],
+        meas_mode=worker_payload['measurement_mode'],
+        det_ch_offset=float(worker_payload['det_ch_offset']),
+        det_ch_width=float(worker_payload['det_ch_width']),
+        beam_e=float(worker_payload['beam_energy_keV']),
+        emergence_angle=float(worker_payload['emergence_angle']),
+        energy_vals=None,
+        background_vals=background,
+        els_sample=worker_payload['all_els_sample'],
+        els_substrate=worker_payload['detectable_els_substrate'],
+        els_w_fr=worker_payload['sample_w_frs'],
+        is_particle=bool(worker_payload['apply_geom_factors']),
+        sp_collection_time=float(worker_payload['sp_collection_time']),
+        max_undetectable_w_fr=float(worker_payload['max_undetectable_w_fr']),
+        fit_tol=float(worker_payload['fit_tolerance']),
+        standards_dict=worker_payload['standards_dict'],
+        verbose=False,
+        fitting_verbose=False,
+    )
+
+    try:
+        quant_result, min_bckgrnd_ref_lines, bad_quant_flag = quantifier.quantify_spectrum(
+            print_result=False,
+            interrupt_fits_bad_spectra=bool(worker_payload['interrupt_fits_bad_spectra']),
+        )
+        is_quant_fit_valid = quant_result is not None
+    except Exception as exc:
+        logger.error(f"❌ {type(exc).__name__}: {exc}")
+        quant_flag, comment = _worker_check_fit_quant_validity(
+            is_quant_fit_valid=False,
+            bad_quant_flag=None,
+            quantifier=None,
+            min_bckgrnd_ref_lines=None,
+            detectable_els_substrate=worker_payload['detectable_els_substrate'],
+            min_bckgrnd_cnts=worker_payload['min_bckgrnd_cnts'],
+        )
+        quant_record = quantifier.export_quantification_result(
+            quantification_id=int(worker_payload['quantification_id']),
+            quant_result=None,
+            quant_flag=quant_flag,
+            comment=comment,
+        )
+        return spectrum_index, None, quant_record, time.time() - start_quant_time
+
+    quant_flag, comment = _worker_check_fit_quant_validity(
+        is_quant_fit_valid=is_quant_fit_valid,
+        bad_quant_flag=bad_quant_flag,
+        quantifier=quantifier,
+        min_bckgrnd_ref_lines=min_bckgrnd_ref_lines,
+        detectable_els_substrate=worker_payload['detectable_els_substrate'],
+        min_bckgrnd_cnts=worker_payload['min_bckgrnd_cnts'],
+    )
+    quant_record = quantifier.export_quantification_result(
+        quantification_id=int(worker_payload['quantification_id']),
+        quant_result=quant_result,
+        quant_flag=quant_flag,
+        comment=comment,
+    )
+    return spectrum_index, quant_result, quant_record, time.time() - start_quant_time
+
 #%% EMXSp_Composition_Analyzer class
 class EMXSp_Composition_Analyzer:
     """
@@ -140,7 +344,7 @@ class EMXSp_Composition_Analyzer:
     microscope_cfg : MicroscopeConfig
         Configuration for the microscope hardware.
     sample_cfg : SampleConfig
-        Configuration for the sample.
+        Configuration for sample composition and geometry.
     measurement_cfg : MeasurementConfig
         Configuration for the measurement/acquisition.
     sample_substrate_cfg : SampleSubstrateConfig
@@ -174,6 +378,10 @@ class EMXSp_Composition_Analyzer:
         Directory to save results (default: None). If None, uses default directory, created inside package folder
             - Results, for sample analysis
             - Std_measurements, for experimental standard measurements
+    sample_id : Optional[str], optional
+        Canonical identifier of the analyzed sample/run. Used for persistence
+        (e.g., ledger.sample_id), output directory naming, and file prefixes.
+        If omitted, it is derived from `results_dir` basename.
 
     Attributes
     ----------
@@ -193,6 +401,74 @@ class EMXSp_Composition_Analyzer:
             return None
         return numeric_value
 
+    @staticmethod
+    def _to_finite_float(value: Any, default: float = 0.0) -> float:
+        """Return a finite float, falling back to default for NaN/inf/unparseable values."""
+        try:
+            numeric_value = float(value)
+        except (TypeError, ValueError):
+            return float(default)
+        if not np.isfinite(numeric_value):
+            return float(default)
+        return numeric_value
+
+    @staticmethod
+    def _to_finite_float_list(values: Any) -> List[float]:
+        """Convert a 1D numeric sequence to finite floats (NaN/inf -> 0.0)."""
+        arr = np.asarray(values, dtype=float)
+        return np.nan_to_num(arr, nan=0.0, posinf=0.0, neginf=0.0).tolist()
+
+    @staticmethod
+    def _to_finite_float_matrix(values: Any) -> List[List[float]]:
+        """Convert a 2D numeric sequence to finite floats (NaN/inf -> 0.0)."""
+        arr = np.asarray(values, dtype=float)
+        return np.nan_to_num(arr, nan=0.0, posinf=0.0, neginf=0.0).tolist()
+
+    @classmethod
+    def _sanitize_json_compatible(cls, value: Any) -> Any:
+        """Recursively replace non-finite numeric values with None in free-form payloads."""
+        if isinstance(value, dict):
+            return {k: cls._sanitize_json_compatible(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [cls._sanitize_json_compatible(v) for v in value]
+        if isinstance(value, tuple):
+            return [cls._sanitize_json_compatible(v) for v in value]
+        if isinstance(value, np.generic):
+            return cls._sanitize_json_compatible(value.item())
+        if isinstance(value, (float, np.floating)):
+            return None if not np.isfinite(float(value)) else float(value)
+        return value
+
+    @staticmethod
+    def _clean_sample_id(sample_id: str) -> str:
+        """Normalize sample_id for folder/file-safe persistence."""
+        cleaned_id = str(sample_id).rstrip()
+        cleaned_id = re.sub(r'^\W+|\W+$', '', cleaned_id)
+        if not cleaned_id:
+            raise ValueError("sample_id must contain at least one alphanumeric character.")
+        return cleaned_id
+
+    @classmethod
+    def _resolve_sample_id(
+        cls,
+        sample_id: Optional[str],
+        results_dir: Optional[str],
+        is_acquisition: bool,
+    ) -> str:
+        """Resolve canonical sample_id from explicit input or a sample folder path."""
+        if sample_id is not None and str(sample_id).strip():
+            return cls._clean_sample_id(sample_id)
+
+        if results_dir:
+            derived_id = os.path.basename(os.path.normpath(results_dir))
+            if derived_id:
+                return cls._clean_sample_id(derived_id)
+
+        mode_hint = "acquisition" if is_acquisition else "analysis"
+        raise ValueError(
+            f"sample_id is required for {mode_hint} unless it can be derived from results_dir."
+        )
+
     def __init__(
         self,
         microscope_cfg: MicroscopeConfig,
@@ -211,17 +487,24 @@ class EMXSp_Composition_Analyzer:
         output_filename_suffix: str = '',
         verbose: bool = True,
         results_dir: Optional[str] = None,
+        sample_id: Optional[str] = None,
     ):
         """
         Initialize the EMXSp_Composition_Analyzer with all configuration objects.
 
         See class docstring for parameter documentation.
         """
+        self.sample_id = self._resolve_sample_id(
+            sample_id=sample_id,
+            results_dir=results_dir,
+            is_acquisition=is_acquisition,
+        )
+
         # --- Record process time
         self.start_process_time = time.time()
         if verbose:
             print_double_separator()
-            logger.info(f"▶️ Starting compositional analysis of sample {sample_cfg.ID}")
+            logger.info(f"▶️ Starting compositional analysis of sample {self.sample_id}")
             
             
         # --- Define use of class instance
@@ -366,13 +649,13 @@ class EMXSp_Composition_Analyzer:
                     results_folder = cnst.STDS_DIR
                 else:
                     results_folder = cnst.RESULTS_DIR
-                results_dir = make_unique_path(os.path.join(os.getcwd(), results_folder), sample_cfg.ID)
+                results_dir = make_unique_path(os.path.join(os.getcwd(), results_folder), self.sample_id)
                 os.makedirs(results_dir)
             else:
                 # When a project directory is provided, save under a per-sample folder.
                 # If the provided path already points to a sample folder (resume), reuse it.
                 normalized_results_dir = os.path.normpath(results_dir)
-                is_sample_dir = os.path.basename(normalized_results_dir) == sample_cfg.ID
+                is_sample_dir = os.path.basename(normalized_results_dir) == self.sample_id
                 has_sample_artifacts = (
                     os.path.exists(os.path.join(results_dir, cnst.LEDGER_FILENAME + cnst.LEDGER_FILEEXT))
                     or os.path.exists(os.path.join(results_dir, cnst.IMAGES_DIR))
@@ -382,7 +665,7 @@ class EMXSp_Composition_Analyzer:
                 if is_sample_dir or has_sample_artifacts:
                     sample_result_dir = results_dir
                 else:
-                    sample_result_dir = os.path.join(results_dir, sample_cfg.ID)
+                    sample_result_dir = os.path.join(results_dir, self.sample_id)
 
                 os.makedirs(sample_result_dir, exist_ok=True)
                 results_dir = sample_result_dir
@@ -478,6 +761,7 @@ class EMXSp_Composition_Analyzer:
             self.sample_substrate_cfg,
             self.powder_meas_cfg,
             self.bulk_meas_cfg,
+            sample_id=self.sample_id,
             results_dir=EM_images_dir,
             verbose=self.verbose
         )
@@ -522,7 +806,7 @@ class EMXSp_Composition_Analyzer:
         if os.path.exists(ledger_path):
             return
         ledger = SampleLedger(
-            sample_id=self.sample_cfg.ID,
+            sample_id=self.sample_id,
             sample_path=os.path.abspath(self.sample_result_dir),
             configs=self._build_ledger_configs(),
             spectra=[],
@@ -595,6 +879,30 @@ class EMXSp_Composition_Analyzer:
         use_proj_std_dict_used = bool(
             active_options.get("use_project_specific_std_dict", q.use_project_specific_std_dict)
         )
+        is_particle_used = bool(
+            active_options.get("is_particle", getattr(self, "_apply_geom_factors", False))
+        )
+        beam_energy_used = float(
+            active_options.get("beam_energy_keV", self.measurement_cfg.beam_energy_keV)
+        )
+        emergence_angle_used = active_options.get("emergence_angle", self.measurement_cfg.emergence_angle)
+        emergence_angle_used = (
+            float(emergence_angle_used)
+            if emergence_angle_used is not None
+            else None
+        )
+        det_ch_offset_used = active_options.get("det_ch_offset", self.det_ch_offset)
+        det_ch_offset_used = (
+            float(det_ch_offset_used)
+            if det_ch_offset_used is not None
+            else None
+        )
+        det_ch_width_used = active_options.get("det_ch_width", self.det_ch_width)
+        det_ch_width_used = (
+            float(det_ch_width_used)
+            if det_ch_width_used is not None
+            else None
+        )
         spectrum_lims_used = active_options.get("spectrum_lims", q.spectrum_lims)
         if isinstance(spectrum_lims_used, (list, tuple)) and len(spectrum_lims_used) == 2:
             sp_low = int(float(spectrum_lims_used[0]))
@@ -619,6 +927,23 @@ class EMXSp_Composition_Analyzer:
         lines.append(f"  Fit tolerance        : {fit_tolerance_used:.2e}")
         lines.append(f"  Instrument background: {'yes' if use_instr_background_used else 'no'}")
         lines.append(f"  Project std dict     : {'yes' if use_proj_std_dict_used else 'no'}")
+        lines.append(f"  Particle corrections : {'yes' if is_particle_used else 'no'}")
+        lines.append(f"  Beam energy (keV)    : {beam_energy_used:.4f}")
+        lines.append(
+            f"  Emergence angle (deg): {emergence_angle_used:.4f}"
+            if emergence_angle_used is not None
+            else "  Emergence angle (deg): unavailable"
+        )
+        lines.append(
+            f"  Detector offset      : {det_ch_offset_used:.6f}"
+            if det_ch_offset_used is not None
+            else "  Detector offset      : unavailable"
+        )
+        lines.append(
+            f"  Detector width       : {det_ch_width_used:.6f}"
+            if det_ch_width_used is not None
+            else "  Detector width       : unavailable"
+        )
         if qc is not None and qc.reference_lines_by_element:
             sample_elements = set(qc.sample_elements or [])
             reference_lines_by_element = [
@@ -1159,7 +1484,6 @@ class EMXSp_Composition_Analyzer:
             start_quant_time = time.time()
                             
         is_sp_valid_for_fitting, quant_flag, comment = self._is_spectrum_valid_for_fitting(spectrum, background)
-        is_sp_valid_for_fitting, quant_flag, comment = self._is_spectrum_valid_for_fitting(spectrum, background)
         if not is_sp_valid_for_fitting:
             quant_record = QuantificationResult(
                 quantification_id=self.current_quantification_id,
@@ -1495,7 +1819,7 @@ class EMXSp_Composition_Analyzer:
         """Load ledger and apply only Data.csv-without-ledger legacy bootstrap compatibility."""
         return load_or_create_ledger_with_legacy_data_csv(
             sample_result_dir=self.sample_result_dir,
-            sample_id=self.sample_cfg.ID,
+            sample_id=self.sample_id,
             microscope_id=self.microscope_cfg.ID,
             use_instrument_background=bool(self.quant_cfg.use_instrument_background),
             default_ledger_configs=self._build_ledger_configs(),
@@ -1625,6 +1949,12 @@ class EMXSp_Composition_Analyzer:
             ],
             "fit_tolerance": float(self.quant_cfg.fit_tolerance),
             "use_instrument_background": bool(self.quant_cfg.use_instrument_background),
+            # Effective quantifier state values that materially affect quantification output.
+            "is_particle": bool(self._apply_geom_factors),
+            "beam_energy_keV": float(self.measurement_cfg.beam_energy_keV),
+            "emergence_angle": float(self.measurement_cfg.emergence_angle),
+            "det_ch_offset": float(self.det_ch_offset),
+            "det_ch_width": float(self.det_ch_width),
         }
 
 
@@ -1636,9 +1966,14 @@ class EMXSp_Composition_Analyzer:
         if active_quant_config is not None and active_quant_config.reference_values_by_el_line:
             cached_reference_values = dict(sorted(active_quant_config.reference_values_by_el_line.items()))
             current_reference_values = self._extract_reference_values_from_standards(load_if_missing=False)
-            if current_reference_values and current_reference_values != cached_reference_values:
+            if current_reference_values and self._reference_values_changed(
+                current_reference_values,
+                cached_reference_values,
+                decimals=2,
+            ):
                 warnings.warn(
-                    "Reference values in standards differ from active quantification config; "
+                    "Reference values in standards differ from active quantification config "
+                    "(beyond 2-decimal tolerance); "
                     "a new quantification config will be created.",
                     UserWarning,
                 )
@@ -1646,6 +1981,31 @@ class EMXSp_Composition_Analyzer:
             return cached_reference_values
 
         return self._extract_reference_values_from_standards(load_if_missing=True)
+
+
+    @staticmethod
+    def _rounded_reference_values(
+        reference_values_by_el_line: Dict[str, Any],
+        decimals: int,
+    ) -> Dict[str, float]:
+        """Return deterministic rounded reference values keyed by element-line."""
+        rounded: Dict[str, float] = {}
+        for el_line, value in reference_values_by_el_line.items():
+            rounded[str(el_line)] = round(float(value), decimals)
+        return dict(sorted(rounded.items()))
+
+
+    @classmethod
+    def _reference_values_changed(
+        cls,
+        current_reference_values: Dict[str, Any],
+        cached_reference_values: Dict[str, Any],
+        decimals: int,
+    ) -> bool:
+        """Return True when reference values differ beyond configured decimal tolerance."""
+        rounded_current = cls._rounded_reference_values(current_reference_values, decimals)
+        rounded_cached = cls._rounded_reference_values(cached_reference_values, decimals)
+        return rounded_current != rounded_cached
 
 
     def _extract_reference_values_from_standards(self, load_if_missing: bool) -> Dict[str, Any]:
@@ -2059,7 +2419,7 @@ class EMXSp_Composition_Analyzer:
     def _is_spectrum_valid_for_fitting(
         self, 
         spectrum: np.ndarray, 
-        background: np.ndarray = None
+        background: Optional[np.ndarray] = None,
     ) -> tuple[bool, int, str]:
         """
         Check if a spectrum is valid for quantification fitting.
@@ -2076,8 +2436,9 @@ class EMXSp_Composition_Analyzer:
         ----------
         spectrum : np.ndarray
             The spectrum data to be validated.
-        background : np.ndarray, optional
-            The background data (not used in this method).
+        background : Optional[np.ndarray], optional
+            Reserved for interface compatibility with call sites and potential
+            future checks. Currently not used.
     
         Returns
         -------
@@ -2328,7 +2689,7 @@ class EMXSp_Composition_Analyzer:
                     ledger = None
                 if ledger is None:
                     ledger = SampleLedger(
-                        sample_id=self.sample_cfg.ID,
+                        sample_id=self.sample_id,
                         sample_path=os.path.abspath(self.sample_result_dir),
                         configs=self._build_ledger_configs(),
                         spectra=[],
@@ -2352,7 +2713,7 @@ class EMXSp_Composition_Analyzer:
             if latest_spot_id is not None:
                 # Prepare save path
                 par_cntr_str = f"_par{self.particle_cntr}" if self.particle_cntr is not None else ''
-                filename = f"{self.sample_cfg.ID}{par_cntr_str}_fr{frame_ID}_xyspots"
+                filename = f"{self.sample_id}{par_cntr_str}_fr{frame_ID}_xyspots"
                 # Construct annotation dictionary
                 im_annotations = []
                 for i, xy_coords in enumerate(spots_xy_list):
@@ -2511,6 +2872,47 @@ class EMXSp_Composition_Analyzer:
                     quantification_time = None
         
                 return i, result, quant_record, quantification_time
+
+            quant_worker_payloads: List[Dict[str, Any]] = []
+            if quantify:
+                for i in indices_to_process:
+                    spectrum_entry = _ledger_spectra[i]
+                    background_abs = None
+                    if self.quant_cfg.use_instrument_background and spectrum_entry.instrument_background_relpath:
+                        background_abs = str(Path(self.sample_result_dir, spectrum_entry.instrument_background_relpath))
+                    quant_worker_payloads.append({
+                        'spectrum_index': i,
+                        'pointer_abs': str(Path(self.sample_result_dir, spectrum_entry.spectrum_relpath)),
+                        'background_abs': background_abs,
+                        'sp_collection_time': (
+                            float(spectrum_entry.live_acquisition_time)
+                            if spectrum_entry.live_acquisition_time is not None else 1.0
+                        ),
+                        'quantification_id': int(self.current_quantification_id),
+                        'energy_vals': list(map(float, self.energy_vals)),
+                        'sp_start': int(self.sp_start),
+                        'sp_end': int(self.sp_end),
+                        'target_acquisition_counts': int(self.measurement_cfg.target_acquisition_counts),
+                        'min_bckgrnd_cnts': self.clustering_cfg.min_bckgrnd_cnts,
+                        'microscope_id': self.microscope_cfg.ID,
+                        'measurement_type': self.measurement_cfg.type,
+                        'measurement_mode': self.measurement_cfg.mode,
+                        'det_ch_offset': float(self.det_ch_offset),
+                        'det_ch_width': float(self.det_ch_width),
+                        'beam_energy_keV': float(self.measurement_cfg.beam_energy_keV),
+                        'emergence_angle': float(self.measurement_cfg.emergence_angle),
+                        'all_els_sample': list(self.all_els_sample),
+                        'detectable_els_substrate': list(self.detectable_els_substrate),
+                        'sample_w_frs': (
+                            dict(self.sample_cfg.w_frs)
+                            if self.sample_cfg.w_frs is not None else None
+                        ),
+                        'apply_geom_factors': bool(self._apply_geom_factors),
+                        'max_undetectable_w_fr': float(self.undetectable_an_er),
+                        'fit_tolerance': float(self.quant_cfg.fit_tolerance),
+                        'standards_dict': self.standards_dict,
+                        'interrupt_fits_bad_spectra': bool(interrupt_fits_bad_spectra),
+                    })
         
             # Temporarily remove the analyzer to avoid pickling errors from 'loky' backend
             tmp_analyzer = None
@@ -2563,27 +2965,30 @@ class EMXSp_Composition_Analyzer:
                             backend='loky',
                             return_as='generator_unordered',
                         )(
-                            delayed(_process_one)(i) for i in indices_to_process
+                            delayed(_quantify_spectrum_worker)(payload) for payload in quant_worker_payloads
                         )
                     except TypeError:
                         # Compatibility fallback for joblib versions without return_as.
                         completed = Parallel(n_jobs=_n_cores, backend='loky')(
-                            delayed(_process_one)(i) for i in indices_to_process
+                            delayed(_quantify_spectrum_worker)(payload) for payload in quant_worker_payloads
                         )
 
                     for idx, result, quant_record, quantification_time in completed:
                         _finalize_quant_result(idx, result, quant_record, quantification_time)
                 else:
                     # Run in parallel for fitting-only path
-                    results_with_idx = Parallel(n_jobs=_n_cores, backend='loky')(
+                    results_with_idx = Parallel(n_jobs=_n_cores, backend='threading')(
                         delayed(_process_one)(i) for i in indices_to_process
                     )
             except Exception as e:
-                logger.warning(f"⚠️ Parallel quantification failed ({type(e).__name__}: {e}), falling back to sequential execution.")
+                logger.warning(
+                    f"⚠️ Parallel quantification failed ({type(e).__name__}: {e}), "
+                    "falling back to sequential execution."
+                )
                 if quantify:
                     # Sequential fallback, also stream per-spectrum logging/progress.
-                    for i in indices_to_process:
-                        idx, result, quant_record, quantification_time = _process_one(i)
+                    for payload in quant_worker_payloads:
+                        idx, result, quant_record, quantification_time = _quantify_spectrum_worker(payload)
                         _finalize_quant_result(idx, result, quant_record, quantification_time)
                 else:
                     # Sequential fallback, also collect results
@@ -2776,19 +3181,19 @@ class EMXSp_Composition_Analyzer:
         self._save_analysis_summary(labels, df_indices)
     
         clustering_artifacts = ClusteringResult(
-            centroids=np.asarray(centroids, dtype=float).tolist(),
-            els_std_dev_per_cluster=els_std_dev_per_cluster,
-            centroids_other_fr=np.asarray(centroids_other_fr, dtype=float).tolist(),
-            els_std_dev_per_cluster_other_fr=els_std_dev_per_cluster_other_fr,
+            centroids=self._to_finite_float_matrix(centroids),
+            els_std_dev_per_cluster=self._to_finite_float_matrix(els_std_dev_per_cluster),
+            centroids_other_fr=self._to_finite_float_matrix(centroids_other_fr),
+            els_std_dev_per_cluster_other_fr=self._to_finite_float_matrix(els_std_dev_per_cluster_other_fr),
             n_points_per_cluster=n_points_per_cluster,
-            wcss_per_cluster=wcss_per_cluster,
-            rms_dist_cluster=rms_dist_cluster,
-            rms_dist_cluster_other_fr=rms_dist_cluster_other_fr,
-            refs_assigned_rows=refs_assigned_df.to_dict(orient='records'),
-            wcss=wcss,
-            sil_score=sil_score,
+            wcss_per_cluster=self._to_finite_float_list(wcss_per_cluster),
+            rms_dist_cluster=self._to_finite_float_list(rms_dist_cluster),
+            rms_dist_cluster_other_fr=self._to_finite_float_list(rms_dist_cluster_other_fr),
+            refs_assigned_rows=self._sanitize_json_compatible(refs_assigned_df.to_dict(orient='records')),
+            wcss=self._to_finite_float(wcss),
+            sil_score=self._to_finite_float(sil_score),
             tot_n_points=n_datapts,
-            clusters_assigned_mixtures=clusters_assigned_mixtures,
+            clusters_assigned_mixtures=self._sanitize_json_compatible(clusters_assigned_mixtures),
         )
         self._save_result_and_stats(clustering_artifacts)
         self._persist_clustering_result_on_active_analysis(clustering_artifacts)
@@ -2979,7 +3384,7 @@ class EMXSp_Composition_Analyzer:
                 break
     
         print_double_separator()
-        logger.info('ℹ️ Sample ID: %s', self.sample_cfg.ID)
+        logger.info('ℹ️ Sample ID: %s', self.sample_id)
         par_str = f' over {self.particle_cntr} particles' if self.sample_cfg.is_particle_acquisition else ''
         logger.info(f'✅ {tot_n_spectra} spectra were collected{par_str}.')
         process_time = (time.time() - self.start_process_time) / 60
@@ -3165,6 +3570,10 @@ class EMXSp_Composition_Analyzer:
             interrupt_fits_bad_spectra=interrupt_fits_bad_spectra,
             num_CPU_cores=num_CPU_cores,
         )
+        # Quantification-only workflows also export Compositions.csv, so ensure
+        # a deterministic analysis directory exists instead of falling back to
+        # the sample root.
+        self._make_analysis_dir()
         self._save_analysis_summary(None, None)
         
     
@@ -3215,7 +3624,7 @@ class EMXSp_Composition_Analyzer:
         
         if self.verbose:
             print_double_separator()
-            logger.info(f"🔬 Experimental standard acquisition of {self.sample_cfg.ID}")
+            logger.info(f"🔬 Experimental standard acquisition of {self.sample_id}")
         
         # Run collection and quantification (fitting optionally performed during collection)
         self._th_peak_energies = {} # Initialise
@@ -3489,11 +3898,9 @@ class EMXSp_Composition_Analyzer:
         new_column_order = remaining_columns + [col for col in last_columns if col in columns]
         data_df = data_df[new_column_order]
 
-        # Save compositions in Compositions.csv.
+        # Save compositions in Compositions.csv under the analysis directory only.
         if not hasattr(self, 'analysis_dir') or self.analysis_dir is None:
-            # Quantification-only workflows can call this before analyse_data creates
-            # an analysis-specific subdirectory.
-            self.analysis_dir = self.sample_result_dir
+            self._make_analysis_dir()
         os.makedirs(self.analysis_dir, exist_ok=True)
         comp_path = os.path.join(self.analysis_dir, cnst.COMPOSITIONS_FILENAME + '.csv')
         compositions_df = data_df.drop(
@@ -3699,7 +4106,7 @@ class EMXSp_Composition_Analyzer:
         """
         # Print clustering info
         print_double_separator()
-        logger.info(f"📊 Compositional analysis results for sample {self.sample_cfg.ID}:")
+        logger.info(f"📊 Compositional analysis results for sample {self.sample_id}:")
         print_single_separator()
         try:
             logger.info('  Clustering method: %s', self.clustering_cfg.method)

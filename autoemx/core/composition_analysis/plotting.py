@@ -131,7 +131,7 @@ class PlottingModule:
                     self.ref_phases_df,
                     self.ref_formulae,
                     self.plot_cfg.show_plots,
-                    self.sample_cfg.ID,
+                    self.sample_id,
                     analysis_dir=self.analysis_dir,
                     output_filename=cnst.CUSTOM_CLUSTERING_PLOT_FILENAME + cnst.CLUSTERING_PLOT_FILEEXT,
                     ideal_elev=ideal_elev,
@@ -150,7 +150,7 @@ class PlottingModule:
                     self.ref_phases_df,
                     self.ref_formulae,
                     self.plot_cfg.show_plots,
-                    self.sample_cfg.ID,
+                    self.sample_id,
                 )
             return True
         except Exception as exc:
@@ -333,7 +333,7 @@ class PlottingModule:
                 ax.set_zlim(0, 1)
                 ax.set_zticks(ticks)
                 ax.set_zticklabels(ticks_labels)
-            ax.set_title(f'{self.clustering_cfg.method} clustering {self.sample_cfg.ID}{title_suffix}')
+            ax.set_title(f'{self.clustering_cfg.method} clustering {self.sample_id}{title_suffix}')
 
             if getattr(self.plot_cfg, 'show_legend_clustering', None):
                 ax.legend(fontsize=fontsize)
@@ -491,7 +491,7 @@ class PlottingModule:
         right_formula = to_latex_formula(ref_names[1], include_dollar_signs=False)
         ax_right.set_ylabel(rf"$x_{{\mathrm{{{right_formula}}}}}$", labelpad=labelpad)
         ax_left.text(0.03, 0.03, rf"$\sigma_x = {std*100:.1f}$%", fontsize=fontsize, color='black', ha='left', va='bottom', transform=ax_left.transAxes)
-        ax_left.set_title(f'Violin plot {self.sample_cfg.ID}')
+        ax_left.set_title(f'Violin plot {self.sample_id}')
 
         fig.savefig(
             os.path.join(self.analysis_dir, cnst.POWDER_MIXTURE_PLOT_FILENAME + f"_cl{cluster_ID}_{ref_names[0]}_{ref_names[1]}" + cnst.CLUSTERING_PLOT_FILEEXT),

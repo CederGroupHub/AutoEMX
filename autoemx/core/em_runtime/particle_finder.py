@@ -145,7 +145,7 @@ class EM_Particle_Finder:
 
     Internal Attributes
     -------------------
-    _sample_ID : str
+    _sample_id : str
         Identifier for the sample. Inherited from EM_Controller.
     _im_width : int
         Image width in pixels. Inherited from EM_Controller.
@@ -209,7 +209,7 @@ class EM_Particle_Finder:
         ### Inherit attributes
         if EM_controller is not None:
             # EM_controller is set to None when simply processing data
-            self._sample_ID = EM_controller.sample_cfg.ID
+            self._sample_id = EM_controller.sample_id
             self._im_width = EM_controller.im_width
             self._im_height = EM_controller.im_height
         
@@ -425,7 +425,7 @@ class EM_Particle_Finder:
         
         
         # Save frame image annotating it with the identified particles
-        filename = f"{self._sample_ID}_fr{self.EM.current_frame_label}_particles"
+        filename = f"{self._sample_id}_fr{self.EM.current_frame_label}_particles"
         im_annotations = [{cnst.ANNOTATION_CIRCLE_KEY: (int(rad), center.astype(int), 2)} for rad, center in zip(par_radius_pixels, par_pos_pixels)]
         self.EM.save_frame_image(filename, im_annotations = im_annotations)
         
@@ -516,7 +516,7 @@ class EM_Particle_Finder:
         
         # cv2.imshow('Segmented Particles Mask', par_mask)
         
-        mask_img_path = os.path.join(self.results_dir, self._sample_ID + f'_fr{self.EM.current_frame_label}' + '_mask.png')
+        mask_img_path = os.path.join(self.results_dir, self._sample_id + f'_fr{self.EM.current_frame_label}' + '_mask.png')
         # Mask is always saved when collecting particles. Avoids double saving
         save_image = save_image and not self.EM.measurement_cfg.type == self.EM.measurement_cfg.PARTICLE_STATS_MEAS_TYPE_KEY
         if self.development_mode or save_image:
@@ -765,7 +765,7 @@ class EM_Particle_Finder:
             # Save mask, only for development
             cv2.imwrite(os.path.join(
                 self.results_dir,
-                self._sample_ID + f'_par{self.tot_par_cntr}_fr{self.EM.current_frame_label}_mask.png'
+                self._sample_id + f'_par{self.tot_par_cntr}_fr{self.EM.current_frame_label}_mask.png'
             ), par_mask)
         
         return (par_mask, par_image)
@@ -866,7 +866,7 @@ class EM_Particle_Finder:
         min_area_pixels = int(0.1 / self.EM.pixel_size_um ** 2)
         if self.development_mode and self.results_dir:
             eroded_par_mask = draw_scalebar(thresholded_image, self.EM.pixel_size_um)
-            cv2.imwrite(os.path.join(self.results_dir, self._sample_ID + f'_par{self.tot_par_cntr}_fr{self.EM.current_frame_label}_maskXY.png'), eroded_par_mask)
+            cv2.imwrite(os.path.join(self.results_dir, self._sample_id + f'_par{self.tot_par_cntr}_fr{self.EM.current_frame_label}_maskXY.png'), eroded_par_mask)
         return thresholded_image, min_area_pixels
 
 
@@ -1048,7 +1048,7 @@ class EM_Particle_Finder:
                 n_tot_sp_collected += 1
             color_image = draw_scalebar(color_image, self.EM.pixel_size_um)
             # cv2.imshow('Selected XS spots', color_image)
-            cv2.imwrite(os.path.join(self.results_dir, self._sample_ID + f'_par{self.tot_par_cntr}_fr{self.EM.current_frame_label}_xyspots.png'), color_image)
+            cv2.imwrite(os.path.join(self.results_dir, self._sample_id + f'_par{self.tot_par_cntr}_fr{self.EM.current_frame_label}_xyspots.png'), color_image)
     
         return pts_rel_coords
 
@@ -1369,7 +1369,7 @@ class EM_Particle_Finder:
             cnst.PAR_EQ_D_KEY: eq_diam_um
         })
         particle_data.to_csv(
-            os.path.join(output_dir, f"{self._sample_ID}_{cnst.PARTICLE_SIZES_FILENAME}{output_file_suffix}.csv"),
+            os.path.join(output_dir, f"{self._sample_id}_{cnst.PARTICLE_SIZES_FILENAME}{output_file_suffix}.csv"),
             header=True,
             index=False
         )
@@ -1392,7 +1392,7 @@ class EM_Particle_Finder:
         # ---- Save statistics to CSV ----
         stats_df = pd.DataFrame(par_size_distr, index=[0])
         stats_df.to_csv(
-            os.path.join(output_dir, f"{self._sample_ID}_{cnst.PARTICLE_STATS_FILENAME}{output_file_suffix}.csv"),
+            os.path.join(output_dir, f"{self._sample_id}_{cnst.PARTICLE_STATS_FILENAME}{output_file_suffix}.csv"),
             header=True,
             index=False
         )
@@ -1407,7 +1407,7 @@ class EM_Particle_Finder:
         self._save_particle_size_histogram(
             areas_um,
             results_dir=output_dir,
-            _sample_ID=self._sample_ID,
+            _sample_id=self._sample_id,
             verbose=self.verbose,
             output_file_suffix = output_file_suffix
         )
@@ -1415,7 +1415,7 @@ class EM_Particle_Finder:
         return stats_df
         
 
-    def _save_particle_size_histogram(self, diameters_um, results_dir=None, _sample_ID=None, verbose=False, output_file_suffix = '', bins=20):
+    def _save_particle_size_histogram(self, diameters_um, results_dir=None, _sample_id=None, verbose=False, output_file_suffix = '', bins=20):
         """
         Save a histogram plot of particle equivalent diameters.
     
@@ -1429,8 +1429,8 @@ class EM_Particle_Finder:
             Array of equivalent particle diameters in micrometers (μm).
         results_dir : str, optional
             Directory where the histogram PNG file will be saved. If None, uses `self.results_dir`.
-        _sample_ID : str, optional
-            Identifier for the sample, used in the output file name. If None, uses `self._sample_ID`.
+        _sample_id : str, optional
+            Identifier for the sample, used in the output file name. If None, uses `self._sample_id`.
         verbose : bool, optional
             If True, displays the plot interactively. Default is False.
         output_file_suffix : str, optional
@@ -1444,7 +1444,7 @@ class EM_Particle_Finder:
     
         Notes
         -----
-        - The histogram is always saved as a PNG file with the name '{_sample_ID}_Par_size_distribution_hist.png'.
+        - The histogram is always saved as a PNG file with the name '{_sample_id}_Par_size_distribution_hist.png'.
         - The function uses matplotlib for plotting.
     
         Potential Improvements / TODO
@@ -1458,15 +1458,15 @@ class EM_Particle_Finder:
         """
         if results_dir is None:
             results_dir = self.results_dir
-        if _sample_ID is None:
-            _sample_ID = self._sample_ID
+        if _sample_id is None:
+            _sample_id = self._sample_id
     
         plt.figure()
         plt.hist(diameters_um, bins=bins, edgecolor='black')
         plt.xlabel('Equivalent Diameter (μm)')
         plt.ylabel('Counts')
         plt.title('Particle size distribution')
-        out_path = os.path.join(results_dir, f'{_sample_ID}_{cnst.PARTICLE_STAT_HIST_FILENAME}{output_file_suffix}.png')
+        out_path = os.path.join(results_dir, f'{_sample_id}_{cnst.PARTICLE_STAT_HIST_FILENAME}{output_file_suffix}.png')
         plt.savefig(out_path)
         plt.close()
         
@@ -1515,7 +1515,7 @@ class EM_Particle_Finder:
                 # Collect image
                 frame_image = EM_driver.get_image_data(self._im_width, self._im_height, 1)
                 if self.development_mode:
-                    cv2.imwrite(os.path.join(self.results_dir, self._sample_ID + f'_fr_{self.EM.current_frame_label}.png'), frame_image)
+                    cv2.imwrite(os.path.join(self.results_dir, self._sample_id + f'_fr_{self.EM.current_frame_label}.png'), frame_image)
             else:
                 # No more frames are available
                 return None
@@ -1574,7 +1574,7 @@ class EM_Particle_Finder:
                 ann_dict[cnst.ANNOTATION_TEXT_KEY] = (str(first_par_n + i), (x_pos_text, y_pos_text))
                 im_annotations.append(ann_dict)
                 
-            filename = f"{self._sample_ID}_fr{self.EM.current_frame_label}"
+            filename = f"{self._sample_id}_fr{self.EM.current_frame_label}"
             # Save annotated particle image
             self.EM.save_frame_image(filename + '_particles', im_annotations = im_annotations, frame_image = frame_image)
             

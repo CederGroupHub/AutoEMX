@@ -73,7 +73,7 @@ else:
 
 # Re-calculate statistics and save filtered results
 calculator = EM_Particle_Finder(None, None, results_dir=sample_dir, verbose=True)
-calculator._sample_ID = sample_ID
+calculator._sample_id = sample_ID
 calculator.analyzed_pars = list(
     zip(par_data[cnst.PAR_ID_DF_KEY], par_data[cnst.FRAME_ID_DF_KEY], par_data[cnst.PAR_AREA_UM_KEY])
 )

@@ -14,7 +14,7 @@ spectrum fitting, quantification and filtering, powder measurement, and plotting
 Configurations:
 
 - MicroscopeConfig: Settings for microscope hardware, calibration, and imaging parameters.
-- SampleConfig: Defines the sample’s identity, elements, and spatial properties.
+- SampleConfig: Defines the sample’s composition/type and spatial properties.
 - SampleSubstrateConfig: Specifies the substrate composition and geometry supporting the sample.
 - MeasurementConfig: Controls measurement type, beam parameters, and acquisition settings.
 - QuantificationOptionsConfig: Runtime options for spectral fitting and quantification.
@@ -24,7 +24,6 @@ Configurations:
 
 Each dataclass includes attribute documentation and input validation.
 """
-import re
 import numpy as np
 import multiprocessing
 from typing import Any, ClassVar, Dict, List, Optional, Tuple
@@ -93,7 +92,11 @@ class MicroscopeConfig(BaseModel):
         if self.detector_type not in self.ALLOWED_DETECTOR_TYPES:
             raise ValueError(f"Detector type must be one of {self.ALLOWED_DETECTOR_TYPES}, got '{self.detector_type}'.")
 
-        if not self.is_auto_BC:
+        if self.is_auto_BC:
+            # Do not persist manual BC values when auto BC is enabled.
+            self.brightness = None
+            self.contrast = None
+        else:
             if self.brightness is None or self.contrast is None:
                 raise ValueError(
                     "If is_auto_BC is False, both brightness and contrast must be provided."
@@ -107,7 +110,6 @@ class SampleConfig(BaseModel):
     Configuration for the sample.
 
     Attributes:
-        ID (str): Identifier for the sample.
         elements (List[str]): List of elemental symbols (e.g., ['Fe', 'O']).
         type (str): Sample type. Allowed types:
             - powder: Expects particles, and uses geometrical correction factors during spectral fits.
@@ -126,7 +128,6 @@ class SampleConfig(BaseModel):
         - Element symbols are validated. An error is raised if any symbol is unrecognized.
     """
 
-    ID: str
     elements: List[str]
     type: str = cnst.S_POWDER_SAMPLE_TYPE
     w_frs: Optional[Dict[str, float]] = None
@@ -162,8 +163,6 @@ class SampleConfig(BaseModel):
 
     @model_validator(mode="after")
     def _validate(self) -> "SampleConfig":
-        self.ID = self._clean_ID(self.ID)
-
         if self.type not in self.ALLOWED_TYPES:
             raise ValueError(f"Sample type must be one of {self.ALLOWED_TYPES}, got '{self.type}'.")
 
@@ -182,15 +181,6 @@ class SampleConfig(BaseModel):
         self.is_particle_acquisition = self.type in self.PARTICLE_ACQUISITION_TYPES
 
         return self
-
-    @staticmethod
-    def _clean_ID(ID: str) -> str:
-        """Remove trailing whitespace and invisible characters from the ID to avoid errors in output saving."""
-        cleaned_ID = ID.rstrip()
-        if cleaned_ID != ID:
-            print(f"Warning: ID '{ID}' contained trailing whitespace or invisible characters. Using cleaned ID: '{cleaned_ID}'")
-        cleaned_ID = re.sub(r'^\W+|\W+$', '', cleaned_ID)
-        return cleaned_ID
 
 
 class SampleSubstrateConfig(BaseModel):
@@ -317,6 +307,11 @@ class QuantificationOptionsConfig(BaseModel):
             cleaned = dict(data)
             cleaned.pop("interrupt_fits_bad_spectra", None)
             cleaned.pop("min_bckgrnd_cnts", None)
+            cleaned.pop("is_particle", None)
+            cleaned.pop("beam_energy_keV", None)
+            cleaned.pop("emergence_angle", None)
+            cleaned.pop("det_ch_offset", None)
+            cleaned.pop("det_ch_width", None)
             return cleaned
         return data
 

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import json
+import os
 from pathlib import Path, PureWindowsPath, PurePosixPath
 from typing import Any, Dict, List, Literal, Optional
 
@@ -252,6 +253,14 @@ class SampleLedger(BaseModel):
         """Write ledger to JSON in one call."""
         path = Path(file_path)
         payload = self.to_dict(config_key_style=config_key_style, include_configs=include_configs)
-        with path.open("w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=indent, allow_nan=False)
-            f.write("\n")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = path.with_suffix(path.suffix + ".tmp")
+        try:
+            with tmp_path.open("w", encoding="utf-8") as f:
+                json.dump(payload, f, indent=indent, allow_nan=False)
+                f.write("\n")
+            os.replace(tmp_path, path)
+        except Exception:
+            if tmp_path.exists():
+                tmp_path.unlink()
+            raise

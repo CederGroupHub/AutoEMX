@@ -38,7 +38,6 @@ Main Features
 **File and Directory Handling**
 - `get_sample_dir()`: Locate a directory named after a given sample ID, with optional recursive search.
 - `make_unique_path()`: Generate a unique file or directory path if one already exists (e.g., ``file_1.png``).
-- `load_configurations_from_json()`: Reconstruct configuration dataclasses and metadata from a JSON file.
 - `extract_spectral_data()`: Extract spectra, quantification data, and coordinates from a `Data.csv` file.
 - `load_msa()`: Load and parse a `.msa` spectral file, returning energy and intensity arrays.
 
@@ -430,73 +429,6 @@ if __name__ == "__main__":
     for i in test_indices:
         print(f"{i}: {mapper.get_letter(i)}")
 
-#%% Files
-def load_configurations_from_json(json_path, config_classes_dict):
-    """
-    Load configuration dataclasses and metadata from a spectrum collection info JSON file.
-
-    Parameters
-    ----------
-    json_path : str
-        Path to the JSON file saved by EMXSp_Composition_Analyzer._save_spectrum_collection_info.
-    config_classes_dict : dict
-        Mapping from JSON keys to dataclass types, e.g.:
-            {'sample_cfg': SampleConfig, ...}
-        See configurations in autoemx/config/runtime_configs.py:
-            - MicroscopeConfig: Settings for microscope hardware, calibration, and imaging parameters.
-            - SampleConfig: Defines the sample’s identity, elements, and spatial properties.
-            - SampleSubstrateConfig: Specifies the substrate composition and geometry supporting the sample.
-            - MeasurementConfig: Controls measurement type, beam parameters, and acquisition settings.
-            - FittingConfig: Parameters for spectral fitting and background handling.
-            - QuantificationOptionsConfig: Runtime options for quantification and fitting.
-            - PowderMeasurementConfig: Settings for analyzing powder samples and particle selection.
-            - BulkMeasurementConfig: Settings for analyzing bulk samples.
-            - ExpStandardsConfig: Settings for experimental standard measurements
-            - ClusteringConfig: Configures clustering algorithms and feature selection for data grouping.
-            - PlotConfig: Options for saving, displaying, and customizing plots.
-
-    Returns
-    -------
-    configs : dict
-        Dictionary of configuration objects reconstructed from JSON, keyed by their JSON key.
-        If a key from config_classes_dict is missing in the JSON, it will not be present in configs.
-    metadata : dict
-        Dictionary of any additional metadata (e.g., timestamp) found in the JSON.
-
-    Raises
-    ------
-    FileNotFoundError
-        If the JSON file does not exist.
-
-    Example
-    -------
-    >>> config_classes = {'sample_cfg': SampleConfig, ...}
-    >>> configs, metadata = load_configurations_from_json('acquisition_info.json', config_classes)
-    """
-    import json
-    
-    with open(json_path, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-
-    configs = {}
-    metadata = {}
-    for key, cls in config_classes_dict.items():
-        if key in data:
-            if isinstance(data[key], dict):
-                # Remove legacy field to avoid Pydantic extra_forbidden errors
-                data[key].pop('num_CPU_cores', None)
-            configs[key] = cls(**data[key])
-        else:
-            configs[key] = None
-
-    # Any other keys in JSON are treated as metadata
-    for key, value in data.items():
-        if key not in config_classes_dict:
-            metadata[key] = value
-
-    return configs, metadata
-
-
 def extract_spectral_data(data_csv_path):
     """
     Extract spectra quantification, spectral data, and coordinates from Data.csv file.
@@ -813,11 +745,11 @@ def extract_spectral_data(data_csv_path):
                         sample_dir=sample_dir,
                     )
                     ledger = SampleLedger(
-                        sample_id=ledger_configs.sample_cfg.ID,
+                        sample_id=sample_dir.name,
                         sample_path=str(sample_dir.resolve()),
                         configs=ledger_configs,
                         spectra=entries,
-                        quantification_configs=[legacy_quant_config],
+                        quantifications=[legacy_quant_config],
                         active_quant=0,
                     )
                     ledger.to_json_file(ledger_path)

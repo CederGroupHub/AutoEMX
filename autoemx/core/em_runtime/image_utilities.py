@@ -104,7 +104,7 @@ def convert_XS_coords_to_pixels(xy_coords, im_width, im_height, EM_driver):
 
 
 def save_frame_image(frame_image, pixel_size_um, im_width, im_height,
-                     sample_cfg, microscope_cfg, filename, results_dir,
+                     sample_id, microscope_cfg, filename, results_dir,
                      im_annotations=None, scalebar=True, EM_driver=None, 
                      auto_adjust_bc=True):
     """
@@ -124,8 +124,8 @@ def save_frame_image(frame_image, pixel_size_um, im_width, im_height,
         Image width in pixels.
     im_height : int
         Image height in pixels.
-    sample_cfg : SampleConfig
-        Sample configuration.
+    sample_id : str
+        Canonical sample identifier used for metadata.
     microscope_cfg : MicroscopeConfig
         Microscope configuration.
     filename : str
@@ -217,7 +217,7 @@ def save_frame_image(frame_image, pixel_size_um, im_width, im_height,
     
     # Create image metadata
     image_description_d = {
-        "sample_ID": sample_cfg.ID,
+        "sample_ID": sample_id,
         "microscope_ID": microscope_cfg.ID,
         "microscope_type": microscope_cfg.type,
         "detector": microscope_cfg.detector_type,

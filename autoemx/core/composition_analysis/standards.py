@@ -472,7 +472,7 @@ class StandardsModule:
             line_payload.entries = [
                 entry
                 for entry in line_payload.entries
-                if entry.standard_id != self.sample_cfg.ID
+                if entry.standard_id != self.sample_id
             ]
 
         now = datetime.now()
@@ -483,7 +483,7 @@ class StandardsModule:
 
             line_payload = std_lib[el_line]
             line_payload.entries.append(line_result.to_standard_entry(
-                standard_id=self.sample_cfg.ID,
+                standard_id=self.sample_id,
                 datetime=now.strftime("%Y-%m-%d %H:%M:%S"),
                 formula=self.exp_stds_cfg.formula,
                 std_type=self.sample_cfg.type,

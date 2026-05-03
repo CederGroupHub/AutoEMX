@@ -222,6 +222,25 @@ class QuantificationConfig(BaseModel):
         normalized["use_instrument_background"] = bool(normalized["use_instrument_background"])
         if "use_project_specific_std_dict" in normalized:
             normalized["use_project_specific_std_dict"] = bool(normalized["use_project_specific_std_dict"])
+        if "is_particle" in normalized:
+            normalized["is_particle"] = bool(normalized["is_particle"])
+        if "beam_energy_keV" in normalized:
+            normalized["beam_energy_keV"] = float(normalized["beam_energy_keV"])
+        if "emergence_angle" in normalized:
+            normalized["emergence_angle"] = float(normalized["emergence_angle"])
+        if "det_ch_offset" in normalized:
+            normalized["det_ch_offset"] = float(normalized["det_ch_offset"])
+        if "det_ch_width" in normalized:
+            normalized["det_ch_width"] = float(normalized["det_ch_width"])
+
+        for float_key in (
+            "beam_energy_keV",
+            "emergence_angle",
+            "det_ch_offset",
+            "det_ch_width",
+        ):
+            if float_key in normalized and not np.isfinite(float(normalized[float_key])):
+                raise ValueError(f"options['{float_key}'] must be finite")
         normalized["method"] = str(normalized["method"]).strip()
         if not normalized["method"]:
             raise ValueError("options['method'] cannot be empty")

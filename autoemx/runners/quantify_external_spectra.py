@@ -324,7 +324,6 @@ def quantify_external_spectra(
 
         # ---- Sample-specific configs ----
         sample_cfg = SampleConfig(
-            ID=sample_id,
             elements=elements,
             type=smpl_type,
             half_width_mm=smpl_halfwidth,
@@ -346,6 +345,7 @@ def quantify_external_spectra(
         try:
             comp_analyzer = EMXSp_Composition_Analyzer(
                 microscope_cfg=microscope_cfg,
+                sample_id=sample_id,
                 sample_cfg=sample_cfg,
                 measurement_cfg=measurement_cfg,
                 sample_substrate_cfg=sample_substrate_cfg,

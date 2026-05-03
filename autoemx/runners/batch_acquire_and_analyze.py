@@ -309,7 +309,6 @@ def batch_acquire_and_analyze(
         logging.info(f"Sample '{sample_ID}'")
         
         sample_cfg = SampleConfig(
-            ID=sample_ID,
             elements=elements,
             type=smpl_type,
             center_pos=center_pos,
@@ -368,6 +367,7 @@ def batch_acquire_and_analyze(
         # --- Run Composition Analyzer
         comp_analyzer = EMXSp_Composition_Analyzer(
             microscope_cfg=microscope_cfg,
+            sample_id=sample_ID,
             sample_cfg=sample_cfg,
             measurement_cfg=measurement_cfg,
             sample_substrate_cfg=sample_substrate_cfg,

@@ -282,7 +282,6 @@ def batch_acquire_experimental_stds(
         
         elements = list(exp_stds_cfg.w_frs.keys())
         sample_cfg = SampleConfig(
-            ID=sample_ID,
             elements=elements,
             type=sample_type,
             center_pos=center_pos,
@@ -324,6 +323,7 @@ def batch_acquire_experimental_stds(
         # --- Run Composition Analyzer
         comp_analyzer = EMXSp_Composition_Analyzer(
             microscope_cfg=microscope_cfg,
+            sample_id=sample_ID,
             sample_cfg=sample_cfg,
             measurement_cfg=measurement_cfg,
             sample_substrate_cfg=sample_substrate_cfg,

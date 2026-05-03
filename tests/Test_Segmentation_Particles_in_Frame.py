@@ -119,6 +119,7 @@ EM = EM_Controller(
     sample_substrate_cfg,
     powder_meas_cfg,
     bulk_meas_cfg,
+    sample_id="",
     development_mode=True
 )
 EM.pixel_size_um = pixel_size_um

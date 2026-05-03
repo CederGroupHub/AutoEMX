@@ -129,6 +129,7 @@ class EM_Controller:
         sample_substrate_cfg: SampleSubstrateConfig,
         powder_meas_cfg: PowderMeasurementConfig,
         bulk_meas_cfg: BulkMeasurementConfig,
+        sample_id: Optional[str] = "",
         init_fw: float = 0.5,
         results_dir: Optional[str] = None,
         verbose: bool = True,
@@ -172,6 +173,7 @@ class EM_Controller:
         self.sample_substrate_cfg = sample_substrate_cfg
         self.powder_meas_cfg = powder_meas_cfg
         self.bulk_meas_cfg = bulk_meas_cfg
+        self.sample_id = str(sample_id).strip() if sample_id is not None else ""
         
         # --- Load microscope driver
         try:
@@ -243,8 +245,7 @@ class EM_Controller:
             results_dir=results_dir,
             verbose=verbose
         )
-    
-    
+
     #%% Microscope initialization
     # =============================================================================
     def initialise_SEM(self) -> None:
@@ -552,7 +553,7 @@ class EM_Controller:
             pixel_size_um=self.pixel_size_um,
             im_width=self.im_width,
             im_height=self.im_height,
-            sample_cfg=self.sample_cfg,
+            sample_id=self.sample_id,
             microscope_cfg=self.microscope_cfg,
             filename=filename,
             results_dir=save_dir,

@@ -33,7 +33,6 @@ from typing import Optional, List
 from autoemx.utils import (
     print_double_separator,
     get_sample_dir,
-    load_configurations_from_json,
     extract_spectral_data
 )
 import autoemx.utils.constants as cnst
@@ -43,6 +42,7 @@ from autoemx.config.ledger_schemas import ClusteringConfig
 from autoemx.core.composition_analysis import EMXSp_Composition_Analyzer
 from .fit_and_quantify_spectrum import fit_and_quantify_spectrum
 from autoemx.config import load_sample_ledger
+from autoemx.utils.legacy.legacy_config_loader import load_legacy_configurations_from_json
 
 # Configure logging
 logging.basicConfig(
@@ -162,20 +162,23 @@ def fit_and_quantify_spectrum_from_ledger(
                 cnst.SAMPLESUBSTRATE_CFG_KEY: ledger.configs.sample_substrate_cfg,
                 cnst.PLOT_CFG_KEY: ledger.configs.plot_cfg,
             }
-            if ledger.quantification_configs:
+            if ledger.quantifications:
                 active_quant_id = ledger.active_quant
                 active_quant_config = next(
                     (
                         quant_config
-                        for quant_config in ledger.quantification_configs
+                        for quant_config in ledger.quantifications
                         if quant_config.quantification_id == active_quant_id
                     ),
-                    ledger.quantification_configs[-1],
+                    ledger.quantifications[-1],
                 )
                 configs[cnst.QUANTIFICATION_CFG_KEY] = config_classes_dict[cnst.QUANTIFICATION_CFG_KEY](
                     **active_quant_config.options
                 )
-                active_clustering_config = active_quant_config.get_active_clustering_config()
+                active_clustering_analysis = active_quant_config.get_active_clustering_analysis()
+                active_clustering_config = (
+                    active_clustering_analysis.config if active_clustering_analysis is not None else None
+                )
                 if active_clustering_config is not None:
                     configs[cnst.CLUSTERING_CFG_KEY] = active_clustering_config
             else:
@@ -186,7 +189,7 @@ def fit_and_quantify_spectrum_from_ledger(
                 configs[cnst.BULK_MEASUREMENT_CFG_KEY] = ledger.configs.bulk_meas_cfg
             metadata = {}
         else:
-            configs, metadata = load_configurations_from_json(spectral_info_f_path, config_classes_dict)
+            configs, metadata = load_legacy_configurations_from_json(spectral_info_f_path, config_classes_dict)
     except FileNotFoundError:
         logging.warning(f"Could not find {spectral_info_f_path}. Skipping sample '{sample_ID}'.")
         return
@@ -218,6 +221,7 @@ def fit_and_quantify_spectrum_from_ledger(
 
     comp_analyzer = EMXSp_Composition_Analyzer(
         microscope_cfg=microscope_cfg,
+        sample_id=sample_ID,
         sample_cfg=sample_cfg,
         measurement_cfg=measurement_cfg,
         sample_substrate_cfg=sample_substrate_cfg,
