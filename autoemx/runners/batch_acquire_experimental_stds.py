@@ -32,11 +32,13 @@ Created on Fri Aug 20 09:34:34 2025
 """
 
 import logging
+from pathlib import Path
 from typing import List, Dict, Tuple, Any
 
 from autoemx.core.composition_analysis import EMXSp_Composition_Analyzer
 import autoemx.calibrations as calibs
 import autoemx.config.defaults as dflts
+import autoemx.utils.constants as cnst
 from autoemx.utils import print_double_separator
 from autoemx.config import (
     MicroscopeConfig,
@@ -354,6 +356,37 @@ def batch_acquire_experimental_stds(
             comp_analyzer.EM_controller.standby()
         except Exception as e:
             logging.warning(f"Could not put microscope in standby: {e}")
+
+    # Generate a standards-coverage report after collection so users can
+    # immediately inspect available standards by voltage/current/peak.
+    try:
+        from autoemx.runners.extract_experimental_standards_details import extract_experimental_standards_details  # type: ignore
+
+        if exp_std_dir is not None:
+            standards_dir = Path(exp_std_dir).expanduser().resolve()
+        else:
+            standards_dir = Path(__file__).resolve().parents[1] / cnst.CALIBS_DIR / microscope_ID
+
+        standards_json_filename = f"{measurement_type}_{cnst.STD_FILENAME}_{int(beam_energy):d}keV.json"
+        standards_json_path = standards_dir / standards_json_filename
+
+        if standards_json_path.exists():
+            report_path = extract_experimental_standards_details(
+                microscope_ID=microscope_ID,
+                voltage=beam_energy,
+                standards_json_path=str(standards_json_path),
+                report_output_dir=str(standards_dir),
+            )
+            logging.info("Standards details report generated at: %s", report_path)
+        else:
+            report_path = extract_experimental_standards_details(
+                microscope_ID=microscope_ID,
+                voltage=beam_energy,
+                report_output_dir=str(standards_dir),
+            )
+            logging.info("Standards details report generated at: %s", report_path)
+    except Exception as e:
+        logging.warning("Could not generate standards details report after collection: %s", e)
     
     return results
     

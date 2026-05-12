@@ -12,6 +12,7 @@ from .batch_acquire_experimental_stds import batch_acquire_experimental_stds
 from .batch_fit_spectra import batch_fit_spectra
 from .batch_quantify_and_analyze import batch_quantify_and_analyze
 from .collect_particle_statistics import collect_particle_statistics
+from .extract_experimental_standards_details import extract_experimental_standards_details
 from .fit_and_quantify_spectrum_from_datacsv import (
     fit_and_quantify_spectrum_from_ledger,
     fit_and_quantify_spectrum_fromDatacsv,
@@ -28,6 +29,7 @@ __all__ = [
     "batch_fit_spectra",
     "batch_quantify_and_analyze",
     "collect_particle_statistics",
+    "extract_experimental_standards_details",
     "fit_and_quantify_spectrum_from_ledger",
     "fit_and_quantify_spectrum_fromDatacsv",
     "fit_and_quantify_spectrum",
