@@ -32,6 +32,39 @@ def load_legacy_configurations_from_json(
         else:
             configs[key] = None
 
+    # Legacy compatibility:
+    # ClusteringConfig is not part of runtime config_classes_dict, but legacy
+    # Comp_analysis_configs.json files do include a clustering_cfg payload.
+    # Recover it explicitly so first-run analysis (before ledger exists) uses
+    # the intended ref_formulae and clustering options.
+    if cnst.CLUSTERING_CFG_KEY in data and configs.get(cnst.CLUSTERING_CFG_KEY) is None:
+        # Deferred import avoids circular imports during schema module initialization.
+        from autoemx.config.ledger_schemas import ClusteringConfig
+
+        raw_clustering_cfg = data.get(cnst.CLUSTERING_CFG_KEY)
+        if isinstance(raw_clustering_cfg, dict):
+            normalized_payload = dict(raw_clustering_cfg)
+
+            # Legacy key name
+            if "k_forced" not in normalized_payload and "k" in normalized_payload:
+                normalized_payload["k_forced"] = normalized_payload.get("k")
+            normalized_payload.pop("k", None)
+
+            # Keep only schema-declared fields to avoid extra-field errors.
+            allowed_fields = set(ClusteringConfig.model_fields.keys())
+            normalized_payload = {
+                key: value
+                for key, value in normalized_payload.items()
+                if key in allowed_fields
+            }
+
+            try:
+                configs[cnst.CLUSTERING_CFG_KEY] = ClusteringConfig.model_validate(normalized_payload)
+            except Exception:
+                configs[cnst.CLUSTERING_CFG_KEY] = None
+        else:
+            configs[cnst.CLUSTERING_CFG_KEY] = None
+
     for key, value in data.items():
         if key not in config_classes_dict:
             metadata[key] = value

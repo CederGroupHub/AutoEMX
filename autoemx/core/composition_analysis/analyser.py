@@ -2875,7 +2875,20 @@ class EMXSp_Composition_Analyzer:
 
             quant_worker_payloads: List[Dict[str, Any]] = []
             if quantify:
-                for i in indices_to_process:
+                indices_to_process_set = set(indices_to_process)
+                for i in range(tot_spectra_collected):
+                    if i not in indices_to_process_set:
+                        quant_record = self.spectra_quant_records[i]
+                        if quant_record is not None and not force_requantification:
+                            if self.verbose:
+                                print_single_separator()
+                                logger.info(
+                                    "⏭️ Spectrum #%d/%d already quantified. Skipping...",
+                                    i + 1,
+                                    tot_spectra_collected,
+                                )
+                        continue
+
                     spectrum_entry = _ledger_spectra[i]
                     background_abs = None
                     if self.quant_cfg.use_instrument_background and spectrum_entry.instrument_background_relpath:

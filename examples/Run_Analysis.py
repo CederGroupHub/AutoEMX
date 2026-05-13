@@ -27,7 +27,7 @@ from autoemx.runners import analyze_sample # type: ignore
 # =============================================================================
 # Sample Definition
 # =============================================================================
-sample_ID = 'Wulfenite_example2'
+sample_ID = 'Wulfenite_example'
 # sample_ID = 'K-412_NISTstd_example'
 # sample_ID = 'known_powder_mixture_example'
 

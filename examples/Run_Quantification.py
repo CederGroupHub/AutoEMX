@@ -26,7 +26,7 @@ import os
 # Examples
 # =============================================================================
 sample_IDs = [
-    'Wulfenite_example2',
+    'Wulfenite_example',
     # 'K-412_NISTstd_example'
     ]
 
