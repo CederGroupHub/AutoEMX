@@ -2931,6 +2931,8 @@ class EMXSp_Composition_Analyzer:
             except BaseException:
                 pass
 
+            quant_worker_payloads: List[Dict[str, Any]] = []
+
             if quantify:
                 # Always bootstrap/sync ledger before quantification cycles.
                 self._ensure_current_quantification_run(force_new=force_requantification)
@@ -3018,7 +3020,6 @@ class EMXSp_Composition_Analyzer:
                 quant_str = "quantification" if quantify else "fitting"
                 logger.info(f"▶️ Starting {quant_str} of {n_spectra_to_quant} spectra on up to {_n_cores} cores")
         
-            quant_worker_payloads: List[Dict[str, Any]] = []
             if quantify:
                 indices_to_process_set = set(indices_to_process)
                 for i in range(tot_spectra_collected):
