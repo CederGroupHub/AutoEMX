@@ -165,6 +165,27 @@ def _can_use_parallel_backend(backend: str, n_jobs: int) -> bool:
     return _PARALLEL_BACKEND_HEALTH[backend]
 
 
+def _resolve_parallel_mode(quantify: bool, requested_cores: int) -> tuple[int, Optional[str], bool]:
+    """Resolve execution mode shared by quantify and fitting-only workflows.
+
+    Returns
+    -------
+    n_cores : int
+        Effective number of cores to use.
+    backend : Optional[str]
+        Joblib backend to use when parallel is enabled.
+    use_parallel : bool
+        Whether parallel execution is enabled.
+    """
+    n_cores = max(1, int(requested_cores))
+    backend = 'loky' if quantify else 'threading'
+    use_parallel = n_cores > 1 and _can_use_parallel_backend(backend, n_cores)
+    if not use_parallel:
+        n_cores = 1
+        backend = None
+    return n_cores, backend, use_parallel
+
+
 def _worker_is_spectrum_valid_for_fitting(
     *,
     spectrum: np.ndarray,
@@ -2881,15 +2902,26 @@ class EMXSp_Composition_Analyzer:
 
             available_cores = os.cpu_count() or 1
             default_cores = max(1, available_cores // 2)
-            _n_cores = min(
+            requested_cores = min(
                 (num_CPU_cores if num_CPU_cores is not None else default_cores),
                 available_cores,
             )
+            _n_cores, parallel_backend, use_parallel = _resolve_parallel_mode(
+                quantify=quantify,
+                requested_cores=requested_cores,
+            )
 
-            if _n_cores > 1:
-                desired_backend = 'loky' if quantify else 'threading'
-                if not _can_use_parallel_backend(desired_backend, _n_cores):
-                    _n_cores = 1
+            try:
+                if use_parallel:
+                    logger.info(
+                        "⚙️ Execution mode: parallel (backend=%s, cores=%d)",
+                        parallel_backend,
+                        _n_cores,
+                    )
+                else:
+                    logger.info("⚙️ Execution mode: serial (cores=1)")
+            except BaseException:
+                pass
 
             if quantify:
                 # Always bootstrap/sync ledger before quantification cycles.
@@ -3094,7 +3126,7 @@ class EMXSp_Composition_Analyzer:
             results_with_idx = []
             try:
                 if quantify:
-                    if _n_cores <= 1:
+                    if not use_parallel:
                         for payload in quant_worker_payloads:
                             idx, result, quant_record, quantification_time = _quantify_spectrum_worker(payload)
                             _finalize_quant_result(idx, result, quant_record, quantification_time)
@@ -3103,25 +3135,25 @@ class EMXSp_Composition_Analyzer:
                         try:
                             completed = Parallel(
                                 n_jobs=_n_cores,
-                                backend='loky',
+                                backend=parallel_backend,
                                 return_as='generator_unordered',
                             )(
                                 delayed(_quantify_spectrum_worker)(payload) for payload in quant_worker_payloads
                             )
                         except TypeError:
                             # Compatibility fallback for joblib versions without return_as.
-                            completed = Parallel(n_jobs=_n_cores, backend='loky')(
+                            completed = Parallel(n_jobs=_n_cores, backend=parallel_backend)(
                                 delayed(_quantify_spectrum_worker)(payload) for payload in quant_worker_payloads
                             )
 
                         for idx, result, quant_record, quantification_time in completed:
                             _finalize_quant_result(idx, result, quant_record, quantification_time)
                 else:
-                    if _n_cores <= 1:
+                    if not use_parallel:
                         results_with_idx = [_process_one(i) for i in indices_to_process]
                     else:
                         # Run in parallel for fitting-only path
-                        results_with_idx = Parallel(n_jobs=_n_cores, backend='threading')(
+                        results_with_idx = Parallel(n_jobs=_n_cores, backend=parallel_backend)(
                             delayed(_process_one)(i) for i in indices_to_process
                         )
             except KeyboardInterrupt as e:
