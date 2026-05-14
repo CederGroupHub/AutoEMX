@@ -109,6 +109,7 @@ def connect_to_microscope(warn_if_unavailable: bool = True) -> bool:
     global ppi, phenom, acqScanParams, is_at_EM
 
     if is_at_EM and phenom is not None and ppi is not None and acqScanParams is not None:
+        logger.info("Microscope driver already connected.")
         return True
 
     try:
@@ -123,6 +124,7 @@ def connect_to_microscope(warn_if_unavailable: bool = True) -> bool:
         acqScanParams.hdr = False
         acqScanParams.scale = 1.0
         is_at_EM = True
+        logger.info("Microscope driver connected successfully.")
         return True
     except Exception as e:
         ppi = None
