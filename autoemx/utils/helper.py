@@ -366,9 +366,11 @@ if __name__ == "__main__":
     
     
 
-def print_single_separator():
-    """Log a single-line separator (50 dashes) for visual clarity."""
+def print_single_separator(message: Optional[str] = None):
+    """Log a single-line separator and optionally print a message right below it."""
     logging.getLogger("autoemx").info('-' * 50)
+    if message:
+        print(message)
 # print_single_separator()
 
 

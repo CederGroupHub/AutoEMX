@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from typing import Any, List, Optional, Tuple
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -116,32 +116,32 @@ class SpectrumEntry(BaseModel):
     @field_validator("spectrum_relpath")
     @classmethod
     def validate_spectrum_relpath(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return None
-        rel = v.strip()
-        if not rel:
-            return None
-        path = Path(rel)
-        if path.is_absolute():
-            raise ValueError("spectrum_relpath must be relative to SampleLedger.sample_path")
-        if ".." in path.parts:
-            raise ValueError("spectrum_relpath cannot contain '..'")
-        return rel
+        return cls._normalize_relpath(v, field_name="spectrum_relpath")
 
     @field_validator("instrument_background_relpath")
     @classmethod
     def validate_instrument_background_relpath(cls, v: Optional[str]) -> Optional[str]:
+        return cls._normalize_relpath(v, field_name="instrument_background_relpath")
+
+    @staticmethod
+    def _normalize_relpath(v: Optional[str], *, field_name: str) -> Optional[str]:
         if v is None:
             return None
         rel = v.strip()
         if not rel:
             return None
-        path = Path(rel)
-        if path.is_absolute():
-            raise ValueError("instrument_background_relpath must be relative to SampleLedger.sample_path")
+
+        # Normalize path separators so ledgers created on Windows can be read on POSIX.
+        rel_normalized = rel.replace("\\", "/")
+
+        if PureWindowsPath(rel).is_absolute() or PurePosixPath(rel_normalized).is_absolute():
+            raise ValueError(f"{field_name} must be relative to SampleLedger.sample_path")
+
+        path = PurePosixPath(rel_normalized)
         if ".." in path.parts:
-            raise ValueError("instrument_background_relpath cannot contain '..'")
-        return rel
+            raise ValueError(f"{field_name} cannot contain '..'")
+
+        return path.as_posix()
 
     @model_validator(mode="after")
     def validate_total_and_background(self) -> "SpectrumEntry":

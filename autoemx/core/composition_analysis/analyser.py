@@ -1879,8 +1879,13 @@ class EMXSp_Composition_Analyzer:
         """
         existing_ledger = self._load_or_create_ledger()
         active_quant_config = self._get_active_quantification_config(existing_ledger)
-        if active_quant_config is not None:
-            self._apply_active_clustering_config(active_quant_config)
+        active_quant_has_results = (
+            active_quant_config is not None
+            and self._ledger_has_quantification_results(
+                existing_ledger,
+                int(active_quant_config.quantification_id),
+            )
+        )
 
         current_sample_elements = list(self.all_els_sample)
         current_substrate_elements = list(self.all_els_substrate)
@@ -1907,6 +1912,12 @@ class EMXSp_Composition_Analyzer:
         ):
             self.current_quant_config = active_quant_config
             self.current_quantification_id = active_quant_config.quantification_id
+            # Even when reusing quantification settings, clustering inputs (e.g., ref_formulae
+            # passed via runners as sample['cnd']) may have changed for this run.
+            self._ensure_current_clustering_run(
+                self.current_quant_config,
+                replace_if_unused=not active_quant_has_results,
+            )
             self._apply_active_clustering_config(self.current_quant_config)
             return
 
@@ -1914,6 +1925,20 @@ class EMXSp_Composition_Analyzer:
             changes = active_quant_config.fingerprint_differences(candidate_config)
             if changes:
                 changed_summary = self._format_quantification_config_changes(changes)
+                if not active_quant_has_results:
+                    warnings.warn(
+                        "Quantification scientific inputs changed; replacing unused active quantification config. "
+                        f"Changed fields: {changed_summary}",
+                        UserWarning,
+                    )
+                    self.current_quant_config = candidate_config
+                    self.current_quantification_id = candidate_config.quantification_id
+                    self._ensure_current_clustering_run(
+                        self.current_quant_config,
+                        replace_if_unused=True,
+                    )
+                    self._apply_active_clustering_config(self.current_quant_config)
+                    return
                 warnings.warn(
                     "Quantification scientific inputs changed; creating a new quantification config. "
                     f"Changed fields: {changed_summary}",
@@ -2145,7 +2170,11 @@ class EMXSp_Composition_Analyzer:
         )
 
 
-    def _ensure_current_clustering_run(self, quant_config: QuantificationConfig) -> None:
+    def _ensure_current_clustering_run(
+        self,
+        quant_config: QuantificationConfig,
+        replace_if_unused: bool = False,
+    ) -> None:
         """Ensure active quantification config tracks clustering run history and active config."""
         candidate_clustering_config = self._build_clustering_config_descriptor(
             clustering_id=self._next_clustering_config_id(quant_config)
@@ -2164,6 +2193,23 @@ class EMXSp_Composition_Analyzer:
         if active_clustering_config is not None:
             changes = active_clustering_config.fingerprint_differences(candidate_clustering_config)
             if changes:
+                if replace_if_unused:
+                    replacement_config = candidate_clustering_config.model_copy(
+                        update={"clustering_id": active_clustering_config.clustering_id}
+                    )
+                    replace_index = quant_config.active_clustering_analysis_index
+                    if replace_index is None:
+                        replace_index = len(quant_config.clustering_analyses) - 1
+                    quant_config.clustering_analyses[replace_index] = ClusteringAnalysis(
+                        config=replacement_config,
+                        result=None,
+                    )
+                    quant_config.active_clustering_analysis_index = replace_index
+                    warnings.warn(
+                        "Clustering scientific inputs changed; replacing unused active clustering config.",
+                        UserWarning,
+                    )
+                    return
                 changed_summary = self._format_quantification_config_changes(changes)
                 warnings.warn(
                     "Clustering scientific inputs changed; appending a new clustering config to the active "
@@ -2206,6 +2252,21 @@ class EMXSp_Composition_Analyzer:
         if existing_ledger is None or not existing_ledger.quantifications:
             return 0
         return max(config.quantification_id for config in existing_ledger.quantifications) + 1
+
+
+    @staticmethod
+    def _ledger_has_quantification_results(
+        existing_ledger: Optional[SampleLedger],
+        quantification_id: int,
+    ) -> bool:
+        """Return True when at least one spectrum contains results for the given quantification id."""
+        if existing_ledger is None:
+            return False
+        for spectrum in existing_ledger.spectra:
+            for result in spectrum.quantification_results:
+                if result.quantification_id == quantification_id:
+                    return True
+        return False
 
 
     def _build_quantification_config(
@@ -2937,9 +2998,7 @@ class EMXSp_Composition_Analyzer:
 
                 self.spectra_quant_records[idx] = quant_record
                 if self.verbose:
-                    print_single_separator()
-                    lines = [""]
-                    lines.append(f" Spectrum #{idx}/{tot_spectra_collected - 1}:")
+                    lines = [f" Spectrum #{idx}/{tot_spectra_collected - 1}:"]
                     if result is None:
                         if comment:
                             lines.append(f"  {comment}")
@@ -2954,8 +3013,8 @@ class EMXSp_Composition_Analyzer:
                             lines.append(f"  {comment}")
                         if quantification_time is not None:
                             lines.append(f"  Quantification took {quantification_time:.2f} s")
-                    lines.append("")
-                    logger.info("\n".join(lines))
+                    lines.append("")  # Add an extra line for spacing
+                    print_single_separator("\n".join(lines))
 
                 if quant_record is not None:
                     overwrite = (requantify_only_unquantified_spectra and had_prior_record) or was_interrupted
@@ -3992,6 +4051,24 @@ class EMXSp_Composition_Analyzer:
                 cnst.BULK_MEASUREMENT_CFG_KEY: spectrum_collection_info.get(cnst.BULK_MEASUREMENT_CFG_KEY),
                 cnst.EXP_STD_MEASUREMENT_CFG_KEY: spectrum_collection_info.get(cnst.EXP_STD_MEASUREMENT_CFG_KEY),
             })
+
+            # Persist an initial quantification+clustering descriptor at acquisition start
+            # so user-provided clustering inputs (e.g., sample['cnd'] -> ref_formulae)
+            # are saved to ledger even before any quantification run is executed.
+            if is_XSp_measurement and not self.exp_stds_cfg.is_exp_std_measurement and not ledger.quantifications:
+                quantification_id = self._next_quantification_id(ledger)
+                self.current_quant_config = self._build_quantification_config(
+                    quantification_id=quantification_id,
+                    sample_elements=list(self.all_els_sample),
+                    substrate_elements=list(self.all_els_substrate),
+                    options=self._build_quantification_options(),
+                    reference_values_by_el_line=self._get_reference_values_by_el_line(active_quant_config=None),
+                )
+                self.current_quantification_id = quantification_id
+                self._ensure_current_clustering_run(self.current_quant_config)
+                ledger.append_quantification_config(self.current_quant_config)
+                ledger.active_quant = quantification_id
+
             ledger.to_json_file(self._get_ledger_path())
         except Exception as e:
             raise OSError(f"Could not persist configurations to ledger '{self._get_ledger_path()}': {e}")
