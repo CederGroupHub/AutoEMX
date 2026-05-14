@@ -110,44 +110,19 @@ class EM_Sample_Finder:
         EM_driver.load_microscope_driver(microscope_ID)
         self.EM_driver = EM_driver
         if not development_mode:
-            has_connect = hasattr(self.EM_driver, "connect_to_microscope")
-            has_status_check = hasattr(self.EM_driver, "is_microscope_connected")
-            connect_result = None
-            connect_exception = None
+            try:
+                connect_result = False
+                if hasattr(self.EM_driver, "connect_to_microscope"):
+                    connect_result = bool(self.EM_driver.connect_to_microscope(warn_if_unavailable=True))
 
-            if has_connect:
-                try:
-                    connect_result = self.EM_driver.connect_to_microscope(warn_if_unavailable=True)
-                except Exception as e:
-                    connect_exception = e
-
-            is_connected = bool(connect_result is True)
-            if has_status_check:
-                try:
+                is_connected = connect_result
+                if hasattr(self.EM_driver, "is_microscope_connected"):
                     is_connected = bool(self.EM_driver.is_microscope_connected()) or is_connected
-                except Exception:
-                    pass
+            except Exception as e:
+                raise EMError("Instrument driver could not be loaded") from e
 
-            if connect_exception is not None or not is_connected:
-                driver_file = getattr(self.EM_driver, "__file__", "<unknown>")
-                diagnostics = (
-                    "Instrument driver diagnostics: "
-                    f"microscope_ID={microscope_ID}, "
-                    f"driver_module={driver_file}, "
-                    f"has_connect_to_microscope={has_connect}, "
-                    f"has_is_microscope_connected={has_status_check}, "
-                    f"connect_result={connect_result}, "
-                    f"is_connected={is_connected}"
-                )
-                logger.error(diagnostics)
-                # Print explicitly so diagnostics are visible even if logging is not configured.
-                print(diagnostics)
-                if connect_exception is not None:
-                    raise EMError(
-                        "Instrument driver could not be loaded; "
-                        f"connect_to_microscope raised: {connect_exception}\n{diagnostics}"
-                    ) from connect_exception
-                raise EMError(f"Instrument driver could not be loaded\n{diagnostics}")
+            if not is_connected:
+                raise EMError("Instrument driver could not be loaded")
         
         self._sample_half_width_mm = sample_half_width_mm
         self._substrate_width_mm = substrate_width_mm

@@ -115,7 +115,6 @@ def connect_to_microscope(warn_if_unavailable: bool = True) -> bool:
 
     if is_microscope_connected():
         is_at_EM = True
-        logger.info("Microscope driver already connected.")
         return True
 
     try:
@@ -137,9 +136,8 @@ def connect_to_microscope(warn_if_unavailable: bool = True) -> bool:
         phenom = None
         acqScanParams = None
         is_at_EM = False
-        tb = traceback.format_exc()
-        logger.error("Microscope driver connection failed. Full traceback:\n%s", tb)
         if warn_if_unavailable:
+            tb = traceback.format_exc()
             warnings.warn(f"Microscope driver not available: {e}.\nTraceback:\n{tb}")
         return False
 
