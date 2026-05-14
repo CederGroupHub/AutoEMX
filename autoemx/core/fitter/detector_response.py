@@ -30,6 +30,21 @@ from autoemx.data.Xray_absorption_coeffs import xray_mass_absorption_coeff
 from autoemx._logging import get_logger
 logger = get_logger(__name__)
 
+
+def _safe_log(level: str, message: str, *, verbose: bool = True) -> None:
+    """Best-effort logging that never interrupts numerical routines."""
+    if not verbose:
+        return
+    try:
+        getattr(logger, level)(message)
+    except BaseException:
+        # On some microscope PCs, stream writes can fail and bubble up as
+        # KeyboardInterrupt/lost stderr from worker contexts.
+        try:
+            print(message, flush=True)
+        except Exception:
+            pass
+
 parent_dir = str(Path(__file__).resolve().parent.parent.parent)
 
 
@@ -546,7 +561,7 @@ class DetectorResponseFunction:
     
         start_time = time.time()
         if verbose:
-            logger.info("🔬 Calculating convolution matrix for detector resolution")
+            _safe_log("info", "🔬 Calculating convolution matrix for detector resolution")
     
         deltaE = energy_vals[5] - energy_vals[4]
         n_intervals = cls.energy_vals_padding
@@ -604,7 +619,7 @@ class DetectorResponseFunction:
         
         if verbose:
             process_time = time.time() - start_time
-            logger.info(f"✅ Calculation executed in {process_time:.1f} s")
+            _safe_log("info", f"✅ Calculation executed in {process_time:.1f} s")
     
         return det_res_conv_matrix
     
@@ -839,7 +854,7 @@ class DetectorResponseFunction:
         """
         start_time = time.time()
         if verbose:
-            logger.info("🔬 Calculating convolution matrix for incomplete charge collection")
+            _safe_log("info", "🔬 Calculating convolution matrix for incomplete charge collection")
     
         deltaE = energy_vals[5] - energy_vals[4]
         n_intervals = cls.energy_vals_padding
@@ -857,7 +872,7 @@ class DetectorResponseFunction:
 
         for i, en in enumerate(energy_vals_extended):
             if verbose:
-                logger.debug(f'  {i}\tEnergy: {en * 1000:.1f} eV')
+                _safe_log("debug", f'  {i}\tEnergy: {en * 1000:.1f} eV')
 
             if en > 0:
                 icc_spec = DetectorResponseFunction.get_icc_spectrum(
@@ -917,6 +932,6 @@ class DetectorResponseFunction:
         
         if verbose:
             process_time = time.time() - start_time
-            logger.info(f"✅ Calculation executed in {process_time:.1f} s")
+            _safe_log("info", f"✅ Calculation executed in {process_time:.1f} s")
     
         return icc_conv_matrix

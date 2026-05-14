@@ -297,7 +297,10 @@ def _quantify_spectrum_worker(worker_payload: Dict[str, Any]) -> tuple[int, Opti
         )
         is_quant_fit_valid = quant_result is not None
     except Exception as exc:
-        logger.error(f"❌ {type(exc).__name__}: {exc}")
+        try:
+            logger.error(f"❌ {type(exc).__name__}: {exc}")
+        except BaseException:
+            pass
         quant_flag, comment = _worker_check_fit_quant_validity(
             is_quant_fit_valid=False,
             bad_quant_flag=None,
@@ -2840,10 +2843,19 @@ class EMXSp_Composition_Analyzer:
             tot_spectra_collected = len(_ledger.spectra) if _ledger is not None else 0
             _ledger_spectra = list(_ledger.spectra) if _ledger is not None else []
 
-            _n_cores = min(
-                (num_CPU_cores if num_CPU_cores is not None else max(1, os.cpu_count() // 2)),
-                os.cpu_count(),
-            )
+            available_cores = os.cpu_count() or 1
+            default_cores = max(1, available_cores // 2)
+            if quantify and os.name == 'nt' and num_CPU_cores is None:
+                _n_cores = 1
+                logger.warning(
+                    "⚠️ Using serial quantification on Windows by default for runtime stability. "
+                    "Set num_CPU_cores>1 explicitly to force parallel execution."
+                )
+            else:
+                _n_cores = min(
+                    (num_CPU_cores if num_CPU_cores is not None else default_cores),
+                    available_cores,
+                )
 
             if quantify:
                 # Always bootstrap/sync ledger before quantification cycles.
@@ -3023,23 +3035,28 @@ class EMXSp_Composition_Analyzer:
             results_with_idx = []
             try:
                 if quantify:
-                    # Stream completed tasks back to the main process so progress is visible in real time.
-                    try:
-                        completed = Parallel(
-                            n_jobs=_n_cores,
-                            backend='loky',
-                            return_as='generator_unordered',
-                        )(
-                            delayed(_quantify_spectrum_worker)(payload) for payload in quant_worker_payloads
-                        )
-                    except TypeError:
-                        # Compatibility fallback for joblib versions without return_as.
-                        completed = Parallel(n_jobs=_n_cores, backend='loky')(
-                            delayed(_quantify_spectrum_worker)(payload) for payload in quant_worker_payloads
-                        )
+                    if _n_cores <= 1:
+                        for payload in quant_worker_payloads:
+                            idx, result, quant_record, quantification_time = _quantify_spectrum_worker(payload)
+                            _finalize_quant_result(idx, result, quant_record, quantification_time)
+                    else:
+                        # Stream completed tasks back to the main process so progress is visible in real time.
+                        try:
+                            completed = Parallel(
+                                n_jobs=_n_cores,
+                                backend='loky',
+                                return_as='generator_unordered',
+                            )(
+                                delayed(_quantify_spectrum_worker)(payload) for payload in quant_worker_payloads
+                            )
+                        except TypeError:
+                            # Compatibility fallback for joblib versions without return_as.
+                            completed = Parallel(n_jobs=_n_cores, backend='loky')(
+                                delayed(_quantify_spectrum_worker)(payload) for payload in quant_worker_payloads
+                            )
 
-                    for idx, result, quant_record, quantification_time in completed:
-                        _finalize_quant_result(idx, result, quant_record, quantification_time)
+                        for idx, result, quant_record, quantification_time in completed:
+                            _finalize_quant_result(idx, result, quant_record, quantification_time)
                 else:
                     # Run in parallel for fitting-only path
                     results_with_idx = Parallel(n_jobs=_n_cores, backend='threading')(
