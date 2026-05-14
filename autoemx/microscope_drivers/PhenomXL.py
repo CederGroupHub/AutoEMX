@@ -41,6 +41,7 @@ import time
 import os
 import cv2
 import warnings
+import traceback
 from typing import Optional, Tuple, List
 from autoemx.utils import EMError
 
@@ -128,8 +129,10 @@ def connect_to_microscope(warn_if_unavailable: bool = True) -> bool:
         phenom = None
         acqScanParams = None
         is_at_EM = False
+        tb = traceback.format_exc()
+        logger.error("Microscope driver connection failed. Full traceback:\n%s", tb)
         if warn_if_unavailable:
-            warnings.warn(f'Microscope driver not available: {e}.')
+            warnings.warn(f"Microscope driver not available: {e}.\nTraceback:\n{tb}")
         return False
 
 # =============================================================================
