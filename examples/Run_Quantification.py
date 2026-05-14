@@ -26,8 +26,9 @@ import os
 # Examples
 # =============================================================================
 sample_IDs = [
-    'Wulfenite_example',
-    # 'K-412_NISTstd_example'
+    # 'Wulfenite_example',
+    # 'K-412_NISTstd_example',
+    'Powder_mixture_example'
     ]
 
 results_path = os.path.join(os.path.dirname(__file__), 'Results')

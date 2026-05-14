@@ -278,7 +278,7 @@ class ReferenceMatchingModule:
 
 			if save_violin_plot and cluster_ID is not None:
 				PlottingModule._save_violin_plot_powder_mixture(cast(Any, self), W_mol_frs, ref_names, cluster_ID)
-
+				
 			mixture_dict = {
 				cnst.REF_NAME_KEY: ref_names,
 				cnst.CONF_SCORE_KEY: conf,

@@ -32,6 +32,7 @@ class PlottingModule:
     ref_phases_df: Any
     ref_formulae: Any
     sample_cfg: Any
+    sample_id: str
     analysis_dir: str
     detectable_els_sample: List[str]
     all_els_sample: List[str]
@@ -200,8 +201,7 @@ class PlottingModule:
         if can_plot_clustering:
             els_comps_list = compositions_df[els_for_plot].to_numpy().T
             if self.plot_cfg.use_custom_plots:
-                custom_successful = PlottingModule._run_custom_clustering_plot(
-                    self,
+                custom_successful = PlottingModule._run_custom_clustering_plot(self,
                     els_for_plot,
                     els_comps_list,
                     centroids,
@@ -210,14 +210,12 @@ class PlottingModule:
                     unused_compositions_list,
                 )
                 if not custom_successful:
-                    PlottingModule._save_clustering_plot(
-                        self,
+                    PlottingModule._save_clustering_plot(self,
                         els_for_plot, els_comps_list, centroids, labels,
                         els_std_dev_per_cluster, unused_compositions_list
                     )
             else:
-                PlottingModule._save_clustering_plot(
-                    self,
+                PlottingModule._save_clustering_plot(self,
                     els_for_plot, els_comps_list, centroids, labels,
                     els_std_dev_per_cluster, unused_compositions_list
                 )
@@ -282,7 +280,7 @@ class PlottingModule:
 
             first_ellipse = True
             for centroid, stdevs in zip(centroids, els_std_dev_per_cluster):
-                if ~np.any(np.isnan(stdevs)):
+                if not np.any(np.isnan(stdevs)):
                     if len(elements) == 3:
                         x_c, y_c, z_c = centroid
                         rx, ry, rz = stdevs
@@ -413,8 +411,6 @@ class PlottingModule:
             if full_view_azim is not None:
                 ax_zoomed.view_init(elev=full_view_elev, azim=full_view_azim)
 
-        if self.plot_cfg.show_plots:
-            plt.show()
         fig_zoomed.savefig(
             os.path.join(
                 self.analysis_dir,
@@ -459,23 +455,6 @@ class PlottingModule:
         for spine in ax_left.spines.values():
             spine.set_color('black')
             spine.set_linewidth(0.5)
-            # --- Highlight reference phases near outliers (within 10% distance) ---
-            if self.ref_formulae is not None and unused_compositions_list:
-                ref_phases_df_zoom = self.ref_phases_df[elements]
-                unused_arr = np.asarray(unused_compositions_list, dtype=float)
-                threshold = 0.10  # 10% distance
-                for index, row in ref_phases_df_zoom.iterrows():
-                    ref_point = np.array(row.values, dtype=float)
-                    # Compute distances to all unused points
-                    dists = np.linalg.norm(unused_arr - ref_point, axis=1)
-                    if np.any(dists < threshold):
-                        # Plot this reference phase in the zoomed plot
-                        ax_zoomed.scatter(*ref_point, c='cyan', marker='*', s=180, label='Nearby ref phase' if index == 0 else None, edgecolor='black', zorder=10)
-                        ref_label = to_latex_formula(self.ref_formulae[index])
-                        if len(elements) == 3:
-                            ax_zoomed.text(*ref_point, ref_label, color='black', fontsize=fontsize, ha='left', va='bottom')
-                        else:
-                            ax_zoomed.text(*ref_point, ref_label, color='black', fontsize=fontsize, ha='left', va='bottom')
         plt.grid(False)
 
         plt.xlim(-0.5, 0.5)

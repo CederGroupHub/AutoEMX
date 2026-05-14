@@ -29,7 +29,7 @@ from autoemx.runners import analyze_sample # type: ignore
 # =============================================================================
 sample_ID = 'Wulfenite_example'
 # sample_ID = 'K-412_NISTstd_example'
-# sample_ID = 'known_powder_mixture_example'
+# sample_ID = 'Powder_mixture_example'
 
 results_path = os.path.join(os.path.dirname(__file__), 'Results')
 
