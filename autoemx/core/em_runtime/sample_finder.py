@@ -110,6 +110,8 @@ class EM_Sample_Finder:
         EM_driver.load_microscope_driver(microscope_ID)
         self.EM_driver = EM_driver
         if not development_mode:
+            if hasattr(self.EM_driver, "connect_to_microscope"):
+                self.EM_driver.connect_to_microscope(warn_if_unavailable=True)
             if not self.EM_driver.is_at_EM:
                 raise EMError("Instrument driver could not be loaded")
         
