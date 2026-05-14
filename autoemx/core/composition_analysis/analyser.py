@@ -178,7 +178,7 @@ def _resolve_parallel_mode(quantify: bool, requested_cores: int) -> tuple[int, O
         Whether parallel execution is enabled.
     """
     n_cores = max(1, int(requested_cores))
-    backend = 'loky' if quantify else 'threading'
+    backend = 'loky'  # Use loky for both quantification and fitting paths
     use_parallel = n_cores > 1 and _can_use_parallel_backend(backend, n_cores)
     if not use_parallel:
         n_cores = 1
@@ -291,7 +291,7 @@ def _worker_check_fit_quant_validity(
 
 
 def _quantify_spectrum_worker(worker_payload: Dict[str, Any]) -> tuple[int, Optional[Dict[str, Any]], QuantificationResult, Optional[float]]:
-    """Process-safe worker for one spectrum quantification."""
+    """Process-safe worker for one spectrum quantification or fitting-only."""
     spectrum_index = int(worker_payload['spectrum_index'])
     pointer_abs = Path(worker_payload['pointer_abs'])
     counts = SampleLedger._load_counts_from_pointer_file(pointer_abs)
@@ -337,7 +337,7 @@ def _quantify_spectrum_worker(worker_payload: Dict[str, Any]) -> tuple[int, Opti
         background_vals=background,
         els_sample=worker_payload['all_els_sample'],
         els_substrate=worker_payload['detectable_els_substrate'],
-        els_w_fr=worker_payload['sample_w_frs'],
+        els_w_fr=worker_payload.get('sample_w_frs'),  # None for fitting-only
         is_particle=bool(worker_payload['apply_geom_factors']),
         sp_collection_time=float(worker_payload['sp_collection_time']),
         max_undetectable_w_fr=float(worker_payload['max_undetectable_w_fr']),
@@ -348,11 +348,19 @@ def _quantify_spectrum_worker(worker_payload: Dict[str, Any]) -> tuple[int, Opti
     )
 
     try:
-        quant_result, min_bckgrnd_ref_lines, bad_quant_flag = quantifier.quantify_spectrum(
-            print_result=False,
-            interrupt_fits_bad_spectra=bool(worker_payload['interrupt_fits_bad_spectra']),
-        )
-        is_quant_fit_valid = quant_result is not None
+        quantify = bool(worker_payload.get('quantify', True))
+        if quantify:
+            quant_result, min_bckgrnd_ref_lines, bad_quant_flag = quantifier.quantify_spectrum(
+                print_result=False,
+                interrupt_fits_bad_spectra=bool(worker_payload['interrupt_fits_bad_spectra']),
+            )
+            is_quant_fit_valid = quant_result is not None
+        else:
+            # Fitting-only path (experimental standards)
+            bad_quant_flag = quantifier.initialize_and_fit_spectrum(print_results=False)
+            quant_result = None
+            is_quant_fit_valid = True
+            min_bckgrnd_ref_lines = quantifier._get_min_bckgrnd_cnts_ref_quant_lines()
     except Exception as exc:
         try:
             logger.error(f"❌ {type(exc).__name__}: {exc}")
@@ -2953,6 +2961,7 @@ class EMXSp_Composition_Analyzer:
                             if self.spectra_quant_records[i] is None
                         ]
             else:
+                # Fitting-only (experimental standards) path
                 self._ensure_current_quantification_run(force_new=force_requantification)
                 self._persist_current_quantification_config()
                 self._ensure_quant_tracking_length(tot_spectra_collected)
@@ -2963,6 +2972,44 @@ class EMXSp_Composition_Analyzer:
                         i for i in range(tot_spectra_collected)
                         if self.spectra_quant_records[i] is None
                     ]
+                
+                # Build fitting payloads (same structure as quantification payloads)
+                for i in indices_to_process:
+                    spectrum_entry = _ledger_spectra[i]
+                    background_abs = None
+                    if self.quant_cfg.use_instrument_background and spectrum_entry.instrument_background_relpath:
+                        background_abs = str(Path(self.sample_result_dir, spectrum_entry.instrument_background_relpath))
+                    quant_worker_payloads.append({
+                        'spectrum_index': i,
+                        'pointer_abs': str(Path(self.sample_result_dir, spectrum_entry.spectrum_relpath)),
+                        'background_abs': background_abs,
+                        'sp_collection_time': (
+                            float(spectrum_entry.live_acquisition_time)
+                            if spectrum_entry.live_acquisition_time is not None else 1.0
+                        ),
+                        'quantification_id': int(self.current_quantification_id),
+                        'energy_vals': list(map(float, self.energy_vals)),
+                        'sp_start': int(self.sp_start),
+                        'sp_end': int(self.sp_end),
+                        'target_acquisition_counts': int(self.measurement_cfg.target_acquisition_counts),
+                        'min_bckgrnd_cnts': self.clustering_cfg.min_bckgrnd_cnts,
+                        'microscope_id': self.microscope_cfg.ID,
+                        'measurement_type': self.measurement_cfg.type,
+                        'measurement_mode': self.measurement_cfg.mode,
+                        'det_ch_offset': float(self.det_ch_offset),
+                        'det_ch_width': float(self.det_ch_width),
+                        'beam_energy_keV': float(self.measurement_cfg.beam_energy_keV),
+                        'emergence_angle': float(self.measurement_cfg.emergence_angle),
+                        'all_els_sample': list(self.all_els_sample),
+                        'detectable_els_substrate': list(self.detectable_els_substrate),
+                        'sample_w_frs': None,  # Not used for fitting-only
+                        'apply_geom_factors': bool(self._apply_geom_factors),
+                        'max_undetectable_w_fr': float(self.undetectable_an_er),
+                        'fit_tolerance': float(self.quant_cfg.fit_tolerance),
+                        'standards_dict': self.standards_dict,
+                        'interrupt_fits_bad_spectra': bool(interrupt_fits_bad_spectra),
+                        'quantify': False,
+                    })
 
             n_spectra_to_quant = len(indices_to_process)
         
@@ -2971,65 +3018,6 @@ class EMXSp_Composition_Analyzer:
                 quant_str = "quantification" if quantify else "fitting"
                 logger.info(f"▶️ Starting {quant_str} of {n_spectra_to_quant} spectra on up to {_n_cores} cores")
         
-            # Worker returns (index, result, quant_record, quantification_time) tuple
-            def _process_one(i):
-                spectrum_entry = _ledger_spectra[i]
-                pointer_abs = Path(self.sample_result_dir, spectrum_entry.spectrum_relpath)
-                try:
-                    counts = SampleLedger._load_counts_from_pointer_file(pointer_abs)
-                except BaseException as e:
-                    try:
-                        logger.warning(
-                            "⚠️ Failed to load spectrum pointer for spectrum #%d/%d (%s: %s). "
-                            "Marking as interrupted and continuing.",
-                            i,
-                            tot_spectra_collected - 1,
-                            type(e).__name__,
-                            e,
-                        )
-                    except BaseException:
-                        pass
-
-                    quant_record = QuantificationResult(
-                        quantification_id=int(self.current_quantification_id),
-                        quant_flag=9,
-                        comment=f"Failed to load spectrum pointer file: {type(e).__name__}: {e}",
-                        diagnostics=QuantificationDiagnostics(
-                            converged=False,
-                            interrupted=True,
-                        ),
-                    )
-                    return i, None, quant_record, None
-
-                spectrum = np.asarray(counts, dtype=float)
-                background = None
-                if self.quant_cfg.use_instrument_background and spectrum_entry.instrument_background_relpath:
-                    background_abs = Path(self.sample_result_dir, spectrum_entry.instrument_background_relpath)
-                    background = self._load_background_vector_from_file(background_abs)
-                sp_collection_time = float(spectrum_entry.live_acquisition_time) if spectrum_entry.live_acquisition_time is not None else 1.0
-                sp_id = f"{i}/{tot_spectra_collected - 1}"
-        
-                if quantify:
-                    result, quant_record, quantification_time = self._fit_quantify_spectrum(
-                        spectrum,
-                        background,
-                        sp_collection_time,
-                        sp_id,
-                        spectrum_index=i,
-                        interrupt_fits_bad_spectra=interrupt_fits_bad_spectra,
-                    )
-                else:
-                    quant_record = self._fit_exp_std_spectrum(
-                        spectrum,
-                        background,
-                        sp_collection_time,
-                        sp_id=sp_id,
-                    )
-                    result = None
-                    quantification_time = None
-        
-                return i, result, quant_record, quantification_time
-
             quant_worker_payloads: List[Dict[str, Any]] = []
             if quantify:
                 indices_to_process_set = set(indices_to_process)
@@ -3082,6 +3070,7 @@ class EMXSp_Composition_Analyzer:
                         'fit_tolerance': float(self.quant_cfg.fit_tolerance),
                         'standards_dict': self.standards_dict,
                         'interrupt_fits_bad_spectra': bool(interrupt_fits_bad_spectra),
+                        'quantify': True,
                     })
         
             # Temporarily remove the analyzer to avoid pickling errors from 'loky' backend
@@ -3125,72 +3114,47 @@ class EMXSp_Composition_Analyzer:
             
             results_with_idx = []
             try:
-                if quantify:
-                    if not use_parallel:
-                        for payload in quant_worker_payloads:
-                            idx, result, quant_record, quantification_time = _quantify_spectrum_worker(payload)
-                            _finalize_quant_result(idx, result, quant_record, quantification_time)
-                    else:
-                        # Stream completed tasks back to the main process so progress is visible in real time.
-                        try:
-                            completed = Parallel(
-                                n_jobs=_n_cores,
-                                backend=parallel_backend,
-                                return_as='generator_unordered',
-                            )(
-                                delayed(_quantify_spectrum_worker)(payload) for payload in quant_worker_payloads
-                            )
-                        except TypeError:
-                            # Compatibility fallback for joblib versions without return_as.
-                            completed = Parallel(n_jobs=_n_cores, backend=parallel_backend)(
-                                delayed(_quantify_spectrum_worker)(payload) for payload in quant_worker_payloads
-                            )
-
-                        for idx, result, quant_record, quantification_time in completed:
-                            _finalize_quant_result(idx, result, quant_record, quantification_time)
-                else:
-                    if not use_parallel:
-                        results_with_idx = [_process_one(i) for i in indices_to_process]
-                    else:
-                        # Run in parallel for fitting-only path
-                        results_with_idx = Parallel(n_jobs=_n_cores, backend=parallel_backend)(
-                            delayed(_process_one)(i) for i in indices_to_process
-                        )
-            except KeyboardInterrupt as e:
-                logger.warning(
-                    f"⚠️ Parallel spectrum processing was interrupted ({type(e).__name__}), falling back to sequential execution."
-                )
-                if quantify:
+                if not use_parallel:
                     for payload in quant_worker_payloads:
                         idx, result, quant_record, quantification_time = _quantify_spectrum_worker(payload)
                         _finalize_quant_result(idx, result, quant_record, quantification_time)
                 else:
-                    results_with_idx = [_process_one(i) for i in indices_to_process]
+                    # Stream completed tasks back to the main process so progress is visible in real time.
+                    try:
+                        completed = Parallel(
+                            n_jobs=_n_cores,
+                            backend=parallel_backend,
+                            return_as='generator_unordered',
+                        )(
+                            delayed(_quantify_spectrum_worker)(payload) for payload in quant_worker_payloads
+                        )
+                    except TypeError:
+                        # Compatibility fallback for joblib versions without return_as.
+                        completed = Parallel(n_jobs=_n_cores, backend=parallel_backend)(
+                            delayed(_quantify_spectrum_worker)(payload) for payload in quant_worker_payloads
+                        )
+
+                    for idx, result, quant_record, quantification_time in completed:
+                        _finalize_quant_result(idx, result, quant_record, quantification_time)
+            except KeyboardInterrupt as e:
+                logger.warning(
+                    f"⚠️ Parallel spectrum processing was interrupted ({type(e).__name__}), falling back to sequential execution."
+                )
+                for payload in quant_worker_payloads:
+                    idx, result, quant_record, quantification_time = _quantify_spectrum_worker(payload)
+                    _finalize_quant_result(idx, result, quant_record, quantification_time)
             except Exception as e:
                 logger.warning(
                     f"⚠️ Parallel spectrum processing failed ({type(e).__name__}: {e}), "
                     "falling back to sequential execution."
                 )
-                if quantify:
-                    # Sequential fallback, also stream per-spectrum logging/progress.
-                    for payload in quant_worker_payloads:
-                        idx, result, quant_record, quantification_time = _quantify_spectrum_worker(payload)
-                        _finalize_quant_result(idx, result, quant_record, quantification_time)
-                else:
-                    # Sequential fallback, also collect results
-                    results_with_idx = [_process_one(i) for i in indices_to_process]
+                for payload in quant_worker_payloads:
+                    idx, result, quant_record, quantification_time = _quantify_spectrum_worker(payload)
+                    _finalize_quant_result(idx, result, quant_record, quantification_time)
             finally:
                 # Restore analyzer
                 if tmp_analyzer is not None:
                     self.EM_controller.analyzer = tmp_analyzer
-            
-            if len(results_with_idx) > 0:
-                # Sort results by original spectrum index to guarantee correct order
-                results_with_idx.sort(key=lambda x: x[0])
-                
-                if not quantify:
-                    for idx, result, quant_record, quantification_time in results_with_idx:
-                        _finalize_quant_result(idx, result, quant_record, quantification_time)
 
 
     def _persist_resolved_k_on_active_clustering_config(self, resolved_k: Optional[int]) -> None:
