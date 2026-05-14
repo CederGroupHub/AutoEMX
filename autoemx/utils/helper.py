@@ -366,9 +366,22 @@ if __name__ == "__main__":
     
     
 
+def _safe_autoemx_log_info(msg: str) -> None:
+    """Log to autoemx logger; if stream handlers break, fall back to stdout."""
+    try:
+        logging.getLogger("autoemx").info(msg)
+    except (KeyboardInterrupt, OSError, ValueError):
+        # Some Windows environments can surface stream/handler issues as KeyboardInterrupt
+        # while writing logs (without an actual user Ctrl+C). Keep the workflow running.
+        try:
+            print(msg, flush=True)
+        except Exception:
+            pass
+
+
 def print_single_separator(message: Optional[str] = None):
     """Log a single-line separator and optionally print a message right below it."""
-    logging.getLogger("autoemx").info('-' * 50)
+    _safe_autoemx_log_info('-' * 50)
     if message:
         print(message)
 # print_single_separator()
@@ -378,7 +391,7 @@ def print_single_separator(message: Optional[str] = None):
 
 def print_double_separator():
     """Log a double-line separator (50 equals signs) for visual clarity."""
-    logging.getLogger("autoemx").info('=' * 50)
+    _safe_autoemx_log_info('=' * 50)
 # print_double_separator()
 
 
