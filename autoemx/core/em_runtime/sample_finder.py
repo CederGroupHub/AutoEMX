@@ -110,10 +110,36 @@ class EM_Sample_Finder:
         EM_driver.load_microscope_driver(microscope_ID)
         self.EM_driver = EM_driver
         if not development_mode:
-            if hasattr(self.EM_driver, "connect_to_microscope"):
-                self.EM_driver.connect_to_microscope(warn_if_unavailable=True)
-            if not self.EM_driver.is_at_EM:
-                raise EMError("Instrument driver could not be loaded PD")
+            has_connect = hasattr(self.EM_driver, "connect_to_microscope")
+            connect_result = None
+            connect_exception = None
+
+            if has_connect:
+                try:
+                    connect_result = self.EM_driver.connect_to_microscope(warn_if_unavailable=True)
+                except Exception as e:
+                    connect_exception = e
+
+            is_at_em = bool(getattr(self.EM_driver, "is_at_EM", False))
+            if connect_exception is not None or not is_at_em:
+                driver_file = getattr(self.EM_driver, "__file__", "<unknown>")
+                diagnostics = (
+                    "Instrument driver diagnostics: "
+                    f"microscope_ID={microscope_ID}, "
+                    f"driver_module={driver_file}, "
+                    f"has_connect_to_microscope={has_connect}, "
+                    f"connect_result={connect_result}, "
+                    f"is_at_EM={is_at_em}"
+                )
+                logger.error(diagnostics)
+                # Print explicitly so diagnostics are visible even if logging is not configured.
+                print(diagnostics)
+                if connect_exception is not None:
+                    raise EMError(
+                        "Instrument driver could not be loaded; "
+                        f"connect_to_microscope raised: {connect_exception}\n{diagnostics}"
+                    ) from connect_exception
+                raise EMError(f"Instrument driver could not be loaded\n{diagnostics}")
         
         self._sample_half_width_mm = sample_half_width_mm
         self._substrate_width_mm = substrate_width_mm
