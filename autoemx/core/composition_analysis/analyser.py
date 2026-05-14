@@ -128,44 +128,7 @@ logger = get_logger(__name__)
 
 parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-_PARALLEL_BACKEND_HEALTH: Dict[str, bool] = {}
-
-
-def _parallel_smoke_test_task(index: int) -> int:
-    """Trivial worker-safe function used to validate parallel backends."""
-    return index
-
-
-def _can_use_parallel_backend(backend: str, n_jobs: int) -> bool:
-    """Return True if the requested joblib backend appears healthy in this runtime."""
-    if n_jobs <= 1:
-        return False
-
-    cached = _PARALLEL_BACKEND_HEALTH.get(backend)
-    if cached is not None:
-        return cached
-
-    try:
-        Parallel(n_jobs=min(2, n_jobs), backend=backend)(
-            delayed(_parallel_smoke_test_task)(i) for i in range(2)
-        )
-        _PARALLEL_BACKEND_HEALTH[backend] = True
-    except BaseException as exc:
-        _PARALLEL_BACKEND_HEALTH[backend] = False
-        try:
-            logger.warning(
-                "⚠️ Parallel backend '%s' is unavailable (%s: %s). Falling back to serial execution.",
-                backend,
-                type(exc).__name__,
-                exc,
-            )
-        except BaseException:
-            pass
-
-    return _PARALLEL_BACKEND_HEALTH[backend]
-
-
-def _resolve_parallel_mode(quantify: bool, requested_cores: int) -> tuple[int, Optional[str], bool]:
+def _resolve_parallel_mode(requested_cores: int) -> tuple[int, Optional[str], bool]:
     """Resolve execution mode shared by quantify and fitting-only workflows.
 
     Returns
@@ -178,8 +141,8 @@ def _resolve_parallel_mode(quantify: bool, requested_cores: int) -> tuple[int, O
         Whether parallel execution is enabled.
     """
     n_cores = max(1, int(requested_cores))
-    backend = 'loky'  # Use loky for both quantification and fitting paths
-    use_parallel = n_cores > 1 and _can_use_parallel_backend(backend, n_cores)
+    backend = 'loky'
+    use_parallel = n_cores > 1
     if not use_parallel:
         n_cores = 1
         backend = None
@@ -2915,7 +2878,6 @@ class EMXSp_Composition_Analyzer:
                 available_cores,
             )
             _n_cores, parallel_backend, use_parallel = _resolve_parallel_mode(
-                quantify=quantify,
                 requested_cores=requested_cores,
             )
 
@@ -3074,12 +3036,6 @@ class EMXSp_Composition_Analyzer:
                         'quantify': True,
                     })
         
-            # Temporarily remove the analyzer to avoid pickling errors from 'loky' backend
-            tmp_analyzer = None
-            if hasattr(self, "EM_controller") and hasattr(self.EM_controller, "analyzer"):
-                tmp_analyzer = self.EM_controller.analyzer
-                del self.EM_controller.analyzer
-
             def _finalize_quant_result(idx, result, quant_record, quantification_time):
                 quant_flag = quant_record.quant_flag
                 comment = quant_record.comment
@@ -3092,7 +3048,7 @@ class EMXSp_Composition_Analyzer:
                 self.spectra_quant_records[idx] = quant_record
                 if self.verbose:
                     lines = [f" Spectrum #{idx}/{tot_spectra_collected - 1}:"]
-                    if result is None:
+                    if quantify and result is None:
                         if comment:
                             lines.append(f"  {comment}")
                     else:
@@ -3101,7 +3057,41 @@ class EMXSp_Composition_Analyzer:
                                 lines.append(f"  {el} at%: {at_fr * 100:.2f}%")
                             lines.append(f"  Analytical error: {result[cnst.AN_ER_KEY] * 100:.2f}%")
                         else:
-                            lines.append("  Fit completed")
+                            fit_result = getattr(quant_record, 'fit_result', None)
+                            fitted_peaks = getattr(fit_result, 'fitted_peaks', None)
+                            standard_elements = set(getattr(getattr(self, 'exp_stds_cfg', None), 'w_frs', {}) or {})
+                            ref_line_priority = {
+                                line: rank for rank, line in enumerate(XSp_Quantifier.xray_quant_ref_lines)
+                            }
+                            pb_by_peak: Dict[str, tuple[int, str, float]] = {}
+
+                            if fitted_peaks:
+                                for _, peak in fitted_peaks.items():
+                                    el = getattr(peak, 'element', None)
+                                    line = getattr(peak, 'line', None)
+                                    pb_ratio = getattr(peak, 'pb_ratio', None)
+
+                                    if el is None or line is None or pb_ratio is None:
+                                        continue
+                                    if line not in ref_line_priority:
+                                        continue
+                                    if standard_elements and el not in standard_elements:
+                                        continue
+
+                                    peak_label = f"{el}_{line}"
+                                    pb_by_peak[peak_label] = (
+                                        ref_line_priority[line],
+                                        peak_label,
+                                        float(pb_ratio),
+                                    )
+
+                            if pb_by_peak:
+                                lines.append("  Measured PB:")
+                                sorted_peaks = sorted(pb_by_peak.values(), key=lambda x: (x[0], x[1]))
+                                for _, peak_label, pb_ratio in sorted_peaks:
+                                    lines.append(f"  {peak_label}: {pb_ratio:.4f}")
+                            else:
+                                lines.append("  Fit completed")
                         if quant_flag not in (None, 0) and comment:
                             lines.append(f"  {comment}")
                         if quantification_time is not None:
@@ -3113,7 +3103,6 @@ class EMXSp_Composition_Analyzer:
                     overwrite = (requantify_only_unquantified_spectra and had_prior_record) or was_interrupted
                     self._persist_quantification_record(idx, quant_record, overwrite=overwrite)
             
-            results_with_idx = []
             try:
                 if not use_parallel:
                     for payload in quant_worker_payloads:
@@ -3152,10 +3141,6 @@ class EMXSp_Composition_Analyzer:
                 for payload in quant_worker_payloads:
                     idx, result, quant_record, quantification_time = _quantify_spectrum_worker(payload)
                     _finalize_quant_result(idx, result, quant_record, quantification_time)
-            finally:
-                # Restore analyzer
-                if tmp_analyzer is not None:
-                    self.EM_controller.analyzer = tmp_analyzer
 
 
     def _persist_resolved_k_on_active_clustering_config(self, resolved_k: Optional[int]) -> None:

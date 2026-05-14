@@ -108,7 +108,7 @@ class StandardsModule:
 
         data_df = pd.DataFrame(rows)
 
-        output_dir = self._get_std_exports_dir()
+        output_dir = StandardsModule._get_std_exports_dir(self)
         suffix = self.output_filename_suffix if isinstance(self.output_filename_suffix, str) else ""
         filename = f"{cnst.STDS_MEAS_FILENAME}" + suffix
         out_path = os.path.join(output_dir, filename + cnst.DATA_FILEEXT)
@@ -208,9 +208,9 @@ class StandardsModule:
         fit_results = None
 
         self._fit_and_quantify_spectra(quantify=False)
-        self._save_std_measurements_from_records()
+        StandardsModule._save_std_measurements_from_records(self)
 
-        std_ref_lines = self._assemble_std_PB_data_from_records()
+        std_ref_lines = StandardsModule._assemble_std_PB_data_from_records(self)
         if std_ref_lines:
             pb_corrected, z_sample = StandardsModule._calc_corrected_PB(self, std_ref_lines)
             fit_results = StandardsModule._save_std_results(self, std_ref_lines, pb_corrected, z_sample)
@@ -405,7 +405,7 @@ class StandardsModule:
 
         suffix = self.output_filename_suffix if isinstance(self.output_filename_suffix, str) else ""
         filename = f"{cnst.STDS_RESULT_FILENAME}" + suffix
-        results_path = os.path.join(self._get_std_exports_dir(), filename + cnst.DATA_FILEEXT)
+        results_path = os.path.join(StandardsModule._get_std_exports_dir(self), filename + cnst.DATA_FILEEXT)
         results_df.to_csv(results_path, index=True, header=True)
 
         mean_z_payload = StandardsModule._serialize_standard_mean_z(z_sample)

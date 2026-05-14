@@ -376,6 +376,8 @@ def batch_acquire_experimental_stds(
                 voltage=beam_energy,
                 standards_json_path=str(standards_json_path),
                 report_output_dir=str(standards_dir),
+                print_report=True,
+                print_per_peak=False,
             )
             logging.info("Standards details report generated at: %s", report_path)
         else:
@@ -383,6 +385,8 @@ def batch_acquire_experimental_stds(
                 microscope_ID=microscope_ID,
                 voltage=beam_energy,
                 report_output_dir=str(standards_dir),
+                print_report=True,
+                print_per_peak=False,
             )
             logging.info("Standards details report generated at: %s", report_path)
     except Exception as e:

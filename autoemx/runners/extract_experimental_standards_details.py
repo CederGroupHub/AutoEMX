@@ -150,6 +150,8 @@ def extract_experimental_standards_details(
     voltage: Optional[float] = None,
     standards_json_path: Optional[str] = None,
     report_output_dir: Optional[str] = None,
+    print_report: bool = True,
+    print_per_peak: bool = True,
 ) -> str:
     """Summarize standards coverage and per-peak corrected PB entries.
 
@@ -205,8 +207,9 @@ def extract_experimental_standards_details(
     detector_params = _find_latest_detector_params(calib_dir)
 
     report_lines: List[str] = []
-    report_lines.append("Experimental standards summary")
     report_lines.append("=" * 80)
+    report_lines.append("Experimental standards summary")
+    report_lines.append("-" * 80)
     report_lines.append(f"Microscope ID: {microscope_ID}")
     report_lines.append(f"Standards source: {source_label}")
     if standards_json_path is not None:
@@ -358,6 +361,15 @@ def extract_experimental_standards_details(
     with out_path.open("w", encoding="utf-8") as handle:
         handle.write(report_text)
 
-    print(report_text)
+    if print_report:
+        if print_per_peak:
+            print(report_text)
+        else:
+            summary_lines = list(report_lines)
+            summary_lines.append("")
+            summary_lines.append("Per-peak standards list not printed to terminal.")
+            summary_lines.append(f"See full details in: {out_path}")
+            summary_text = "\n".join(summary_lines).rstrip() + "\n"
+            print(summary_text)
     logging.info("Saved report to: %s", out_path)
     return str(out_path)
