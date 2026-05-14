@@ -113,7 +113,7 @@ class EM_Sample_Finder:
             if hasattr(self.EM_driver, "connect_to_microscope"):
                 self.EM_driver.connect_to_microscope(warn_if_unavailable=True)
             if not self.EM_driver.is_at_EM:
-                raise EMError("Instrument driver could not be loaded")
+                raise EMError("Instrument driver could not be loaded PD")
         
         self._sample_half_width_mm = sample_half_width_mm
         self._substrate_width_mm = substrate_width_mm
