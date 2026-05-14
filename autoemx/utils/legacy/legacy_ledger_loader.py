@@ -793,10 +793,46 @@ def load_or_create_ledger_with_legacy_data_csv(
     spectra_dir = Path(sample_result_dir, cnst.SPECTRA_DIR)
     spectra_dir.mkdir(parents=True, exist_ok=True)
     ledger_path = Path(sample_result_dir, cnst.LEDGER_FILENAME + cnst.LEDGER_FILEEXT)
+    data_csv_path = os.path.join(sample_result_dir, cnst.DATA_FILENAME + cnst.DATA_FILEEXT)
 
+    ledger = _load_existing_ledger(sample_result_dir)
+    ledger_changed = False
+
+    if ledger is not None:
+        # Ledger exists – Data.csv is not consulted at all.
+        existing_relpaths = {
+            spectrum.spectrum_relpath
+            for spectrum in ledger.spectra
+            if spectrum.spectrum_relpath is not None
+        }
+        sample_root = Path(sample_result_dir).resolve()
+        for pointer_file in _list_pointer_files_in_spectra_dir(sample_result_dir):
+            pointer_rel = str(pointer_file.resolve().relative_to(sample_root))
+            if pointer_rel in existing_relpaths:
+                continue
+            ledger.spectra.append(
+                _build_spectrum_entry_from_pointer_file(
+                    sample_result_dir=sample_result_dir,
+                    pointer_file=pointer_file,
+                    acquisition_details_by_id=None,
+                    quantification_results_by_id=None,
+                )
+            )
+            existing_relpaths.add(pointer_rel)
+            ledger_changed = True
+
+        if ledger.sample_path != os.path.abspath(sample_result_dir):
+            ledger.sample_path = os.path.abspath(sample_result_dir)
+            ledger_changed = True
+
+        if ledger_changed:
+            ledger.to_json_file(ledger_path)
+
+        return ledger
+
+    # No ledger yet – bootstrap from Data.csv / legacy JSON files.
     pointer_files = _list_pointer_files_in_spectra_dir(sample_result_dir)
     if not pointer_files:
-        data_csv_path = os.path.join(sample_result_dir, cnst.DATA_FILENAME + cnst.DATA_FILEEXT)
         n_written = backfill_spectra_from_data_csv(
             data_csv_path,
             resolve_or_create_spectrum_pointer,
@@ -815,9 +851,6 @@ def load_or_create_ledger_with_legacy_data_csv(
             )
         pointer_files = _list_pointer_files_in_spectra_dir(sample_result_dir)
 
-    ledger = _load_existing_ledger(sample_result_dir)
-    ledger_changed = False
-    data_csv_path = os.path.join(sample_result_dir, cnst.DATA_FILENAME + cnst.DATA_FILEEXT)
     legacy_acq_details = load_legacy_acquisition_details_by_spectrum_id(
         data_csv_path,
         sample_result_dir=sample_result_dir,
@@ -827,66 +860,39 @@ def load_or_create_ledger_with_legacy_data_csv(
     legacy_configs = load_ledger_configs_from_legacy_json(sample_result_dir)
     ledger_configs = legacy_configs if legacy_configs is not None else default_ledger_configs
 
-    if ledger is None:
-        if pointer_files:
-            spectra_entries = [
-                _build_spectrum_entry_from_pointer_file(
-                    sample_result_dir=sample_result_dir,
-                    pointer_file=pointer_file,
-                    acquisition_details_by_id=legacy_acq_details,
-                    quantification_results_by_id=legacy_quant_results,
-                )
-                for pointer_file in pointer_files
-            ]
-            ledger = SampleLedger(
-                sample_id=sample_id,
-                sample_path=os.path.abspath(sample_result_dir),
-                configs=ledger_configs,
-                spectra=spectra_entries,
-                quantifications=[
-                    build_legacy_import_quantification_config(
-                        sample_result_dir=sample_result_dir,
-                        ledger_configs=ledger_configs,
-                    )
-                ],
-                active_quant=0,
-            )
-            ledger_changed = True
-        else:
-            ledger = SampleLedger(
-                sample_id=sample_id,
-                sample_path=os.path.abspath(sample_result_dir),
-                configs=ledger_configs,
-                spectra=[],
-                quantifications=[],
-                active_quant=None,
-            )
-            ledger_changed = True
-
-    existing_relpaths = {
-        spectrum.spectrum_relpath
-        for spectrum in ledger.spectra
-        if spectrum.spectrum_relpath is not None
-    }
-    pointer_files = _list_pointer_files_in_spectra_dir(sample_result_dir)
-    sample_root = Path(sample_result_dir).resolve()
-    for pointer_file in pointer_files:
-        pointer_rel = str(pointer_file.resolve().relative_to(sample_root))
-        if pointer_rel in existing_relpaths:
-            continue
-        ledger.spectra.append(
+    if pointer_files:
+        spectra_entries = [
             _build_spectrum_entry_from_pointer_file(
                 sample_result_dir=sample_result_dir,
                 pointer_file=pointer_file,
                 acquisition_details_by_id=legacy_acq_details,
                 quantification_results_by_id=legacy_quant_results,
             )
+            for pointer_file in pointer_files
+        ]
+        ledger = SampleLedger(
+            sample_id=sample_id,
+            sample_path=os.path.abspath(sample_result_dir),
+            configs=ledger_configs,
+            spectra=spectra_entries,
+            quantifications=[
+                build_legacy_import_quantification_config(
+                    sample_result_dir=sample_result_dir,
+                    ledger_configs=ledger_configs,
+                )
+            ],
+            active_quant=0,
         )
-        existing_relpaths.add(pointer_rel)
         ledger_changed = True
-
-    if ledger.sample_path != os.path.abspath(sample_result_dir):
-        ledger.sample_path = os.path.abspath(sample_result_dir)
+    else:
+        ledger = SampleLedger(
+            sample_id=sample_id,
+            sample_path=os.path.abspath(sample_result_dir),
+            configs=ledger_configs,
+            spectra=[],
+            quantifications=[],
+            active_quant=None,
+        )
         ledger_changed = True
 
     if _refresh_legacy_import_payloads(

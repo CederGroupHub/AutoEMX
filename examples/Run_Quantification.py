@@ -40,7 +40,7 @@ min_bckgrnd_cnts = 5
 num_CPU_cores = None # If None, selects automatically half the available cores
 interrupt_fits_bad_spectra = True # Interrupts the fit and quantification of spectra when it finds they will lead to large quantification errors. Used to speed up computations. If False, previously interrupted spectra are re-quantified without interruption.
 
-force_requantification = True # If True, forces re-quantification of all spectra, even those with existing quantification results. Use with caution, as it will overwrite existing results and can lead to long computation times if many spectra are present.
+force_requantification = False # If True, forces re-quantification of all spectra, even those with existing quantification results. Use with caution, as it will overwrite existing results and can lead to long computation times if many spectra are present.
 
 output_filename_suffix = ''
 

@@ -229,6 +229,8 @@ def analyze_sample(
 
     if clustering_cfg is None:
         clustering_cfg = ClusteringConfig()
+    if quant_cfg is None:
+        quant_cfg = config_classes_dict[cnst.QUANTIFICATION_CFG_KEY]()
 
     # On first-run legacy migration (no ledger yet), use the same robust legacy
     # clustering reconstruction that ledger creation uses. This ensures

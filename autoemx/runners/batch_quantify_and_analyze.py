@@ -239,6 +239,8 @@ def batch_quantify_and_analyze(
 
         if clustering_cfg is None:
             clustering_cfg = ClusteringConfig()
+        if quant_cfg is None:
+            quant_cfg = config_classes_dict[cnst.QUANTIFICATION_CFG_KEY]()
         
         if min_bckgrnd_cnts is not None:
             clustering_cfg.min_bckgrnd_cnts = min_bckgrnd_cnts
