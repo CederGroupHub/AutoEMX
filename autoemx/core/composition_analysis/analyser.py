@@ -2943,7 +2943,32 @@ class EMXSp_Composition_Analyzer:
             def _process_one(i):
                 spectrum_entry = _ledger_spectra[i]
                 pointer_abs = Path(self.sample_result_dir, spectrum_entry.spectrum_relpath)
-                counts = SampleLedger._load_counts_from_pointer_file(pointer_abs)
+                try:
+                    counts = SampleLedger._load_counts_from_pointer_file(pointer_abs)
+                except BaseException as e:
+                    try:
+                        logger.warning(
+                            "⚠️ Failed to load spectrum pointer for spectrum #%d/%d (%s: %s). "
+                            "Marking as interrupted and continuing.",
+                            i,
+                            tot_spectra_collected - 1,
+                            type(e).__name__,
+                            e,
+                        )
+                    except BaseException:
+                        pass
+
+                    quant_record = QuantificationResult(
+                        quantification_id=int(self.current_quantification_id),
+                        quant_flag=9,
+                        comment=f"Failed to load spectrum pointer file: {type(e).__name__}: {e}",
+                        diagnostics=QuantificationDiagnostics(
+                            converged=False,
+                            interrupted=True,
+                        ),
+                    )
+                    return i, None, quant_record, None
+
                 spectrum = np.asarray(counts, dtype=float)
                 background = None
                 if self.quant_cfg.use_instrument_background and spectrum_entry.instrument_background_relpath:

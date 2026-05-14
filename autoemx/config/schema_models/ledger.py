@@ -3,6 +3,7 @@
 
 import json
 import os
+import time
 from pathlib import Path, PureWindowsPath, PurePosixPath
 from typing import Any, Dict, List, Literal, Optional
 
@@ -140,45 +141,56 @@ class SampleLedger(BaseModel):
     @staticmethod
     def _load_counts_from_pointer_file(file_path: Path) -> List[float]:
         """Load counts from an external spectrum pointer file."""
-        suffix = file_path.suffix.lower()
+        def _read_once() -> List[float]:
+            suffix = file_path.suffix.lower()
 
-        if suffix in {".msa", ".msg"}:
-            counts: List[float] = []
-            in_data_section = False
-            with file_path.open("r", encoding="utf-8") as f:
-                for raw_line in f:
-                    line = raw_line.strip()
-                    if not line:
-                        continue
-                    if line.startswith("#SPECTRUM"):
-                        in_data_section = True
-                        continue
-                    if line.startswith("#"):
-                        continue
-                    if not in_data_section:
-                        continue
+            if suffix in {".msa", ".msg"}:
+                counts: List[float] = []
+                in_data_section = False
+                with file_path.open("r", encoding="utf-8") as f:
+                    for raw_line in f:
+                        line = raw_line.strip()
+                        if not line:
+                            continue
+                        if line.startswith("#SPECTRUM"):
+                            in_data_section = True
+                            continue
+                        if line.startswith("#"):
+                            continue
+                        if not in_data_section:
+                            continue
 
-                    token = line.rstrip(",")
-                    if "," in token:
-                        token = token.split(",", maxsplit=1)[-1].strip()
-                    try:
-                        counts.append(float(token))
-                    except ValueError:
-                        continue
+                        token = line.rstrip(",")
+                        if "," in token:
+                            token = token.split(",", maxsplit=1)[-1].strip()
+                        try:
+                            counts.append(float(token))
+                        except ValueError:
+                            continue
 
-            if not counts:
-                raise ValueError(f"No spectrum counts found in pointer file '{file_path}'")
-            return counts
+                if not counts:
+                    raise ValueError(f"No spectrum counts found in pointer file '{file_path}'")
+                return counts
 
-        if suffix == ".json":
-            with file_path.open("r", encoding="utf-8") as f:
-                payload = json.load(f)
-            values = payload.get("spectrum_vals")
-            if not isinstance(values, list) or not values:
-                raise ValueError(f"JSON pointer file '{file_path}' does not contain non-empty 'spectrum_vals'")
-            return [float(v) for v in values]
+            if suffix == ".json":
+                with file_path.open("r", encoding="utf-8") as f:
+                    payload = json.load(f)
+                values = payload.get("spectrum_vals")
+                if not isinstance(values, list) or not values:
+                    raise ValueError(f"JSON pointer file '{file_path}' does not contain non-empty 'spectrum_vals'")
+                return [float(v) for v in values]
 
-        raise ValueError(f"Unsupported spectrum pointer extension '{suffix}' for file '{file_path}'")
+            raise ValueError(f"Unsupported spectrum pointer extension '{suffix}' for file '{file_path}'")
+
+        for attempt in range(2):
+            try:
+                return _read_once()
+            except KeyboardInterrupt:
+                if attempt == 0:
+                    time.sleep(0.05)
+                    continue
+                raise
+        raise RuntimeError(f"Failed to load spectrum counts from '{file_path}' after retries")
 
     def append_quantification_config(self, quant_config: QuantificationConfig) -> None:
         """Append a quantification config, enforcing unique config identifiers."""
