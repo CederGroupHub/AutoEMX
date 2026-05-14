@@ -3045,6 +3045,16 @@ class EMXSp_Composition_Analyzer:
                     results_with_idx = Parallel(n_jobs=_n_cores, backend='threading')(
                         delayed(_process_one)(i) for i in indices_to_process
                     )
+            except KeyboardInterrupt as e:
+                logger.warning(
+                    f"⚠️ Parallel quantification was interrupted ({type(e).__name__}), falling back to sequential execution."
+                )
+                if quantify:
+                    for payload in quant_worker_payloads:
+                        idx, result, quant_record, quantification_time = _quantify_spectrum_worker(payload)
+                        _finalize_quant_result(idx, result, quant_record, quantification_time)
+                else:
+                    results_with_idx = [_process_one(i) for i in indices_to_process]
             except Exception as e:
                 logger.warning(
                     f"⚠️ Parallel quantification failed ({type(e).__name__}: {e}), "
