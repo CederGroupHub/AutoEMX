@@ -140,20 +140,7 @@ class SpectrumAcquisition:
             return False, None, None
         
         if prompt.ok_pressed:
-            try:
-                frame_width_mm = self.EM_driver.get_frame_width()
-                if not hasattr(self, 'im_width') or self.im_width == 0:
-                    raise AttributeError("im_width attribute missing or zero.")
-                pixel_size_um = frame_width_mm / self.im_width * 1e3
-            except Exception as e:
-                logger.error(f"❌ Error determining pixel size: {e}")
-                return False, None, None
-            
-            spots_xy_list = self.EM_driver.frame_pixel_to_rel_coords(
-                (int(self.im_width / 2), int(self.im_height / 2)),
-                self.im_width,
-                self.im_height
-            )
+            spots_xy_list = [(int(self.im_width / 2), int(self.im_height / 2))]
             frame_navigator.current_frame_label = frame_navigator._frame_cntr
             frame_navigator._frame_cntr += 1
             return True, spots_xy_list, None
@@ -178,20 +165,7 @@ class SpectrumAcquisition:
             else:
                 return False, None, None
         
-        try:
-            frame_width_mm = self.EM_driver.get_frame_width()
-            if not hasattr(self, 'im_width') or self.im_width == 0:
-                raise AttributeError("im_width attribute missing or zero.")
-            pixel_size_um = frame_width_mm / self.im_width * 1e3
-        except Exception as e:
-            logger.error(f"❌ Error determining pixel size: {e}")
-            return False, None, None
-        
-        spots_xy_list = self.EM_driver.frame_pixel_to_rel_coords(
-            (int(self.im_width / 2), int(self.im_height / 2)),
-            self.im_width,
-            self.im_height
-        )
+        spots_xy_list = [(int(self.im_width / 2), int(self.im_height / 2))]
         return True, spots_xy_list, None
     
     
@@ -232,8 +206,7 @@ class SpectrumAcquisition:
         Parameters
         ----------
         x, y : float
-            X, Y coordinates for spectrum acquisition (normalized, aspect-ratio-correct system).
-            Origin at image center: x in [-0.5, 0.5], y in [-0.5*H/W, 0.5*H/W].
+            X, Y pixel coordinates for spectrum acquisition.
         max_acquisition_time : float
             Maximum allowed acquisition time in seconds.
         target_acquisition_counts : int
@@ -255,11 +228,15 @@ class SpectrumAcquisition:
             If the spectrum acquisition fails.
         """
         try:
+            xs_coords = self.EM_driver.frame_pixel_to_rel_coords(
+                (int(x), int(y)), self.im_width, self.im_height
+            )
+            x_stage, y_stage = xs_coords[0]
             spectrum_data, background_data, _, _ = (
                 self.EM_driver.acquire_XS_spectral_data(
                     self.analyzer,
-                    x,
-                    y,
+                    x_stage,
+                    y_stage,
                     max_acquisition_time,
                     target_acquisition_counts,
                     elements=elements,
@@ -268,4 +245,4 @@ class SpectrumAcquisition:
             )
             return spectrum_data, background_data
         except Exception as e:
-            raise EMError(f"Failed to acquire X-ray spectrum at ({x}, {y}): {e}") from e
+            raise EMError(f"Failed to acquire X-ray spectrum at pixel ({x}, {y}): {e}") from e

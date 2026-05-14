@@ -48,8 +48,10 @@ from autoemx.config import (
     MeasurementConfig,
     SampleSubstrateConfig,
     PowderMeasurementConfig,
-    BulkMeasurementConfig
+    BulkMeasurementConfig,
+    PlotConfig,
 )
+from autoemx.config.ledger_schemas import LedgerConfigs
 from autoemx import microscope_drivers as EM_driver
 
 # Component modules
@@ -72,11 +74,9 @@ class EM_Controller:
     a unified interface for automated particle detection, X-ray spectra acquisition,
     and sample management.
     
-    Configuration is provided via structured dataclasses:
-        - MicroscopeConfig
-        - SampleConfig
-        - MeasurementConfig
-        - SampleSubstrateConfig
+    Configuration is provided via a ``LedgerConfigs`` bundle read from the
+    sample ledger. Use the :meth:`from_configs` factory to construct from
+    individual config objects.
     
     Main Methods
     ------------
@@ -123,12 +123,7 @@ class EM_Controller:
     
     def __init__(
         self,
-        microscope_cfg: MicroscopeConfig,
-        sample_cfg: SampleConfig,
-        measurement_cfg: MeasurementConfig,
-        sample_substrate_cfg: SampleSubstrateConfig,
-        powder_meas_cfg: PowderMeasurementConfig,
-        bulk_meas_cfg: BulkMeasurementConfig,
+        ledger_configs: LedgerConfigs,
         sample_id: Optional[str] = "",
         init_fw: float = 0.5,
         results_dir: Optional[str] = None,
@@ -136,36 +131,39 @@ class EM_Controller:
         development_mode: Optional[bool] = False,
     ):
         """
-        Initialize an EM_Controller object.
-        
+        Initialize an EM_Controller object from a ``LedgerConfigs`` bundle.
+
+        Prefer :meth:`from_configs` when constructing from individual config
+        objects (e.g. in tests or standalone scripts).
+
         Parameters
         ----------
-        microscope_cfg : MicroscopeConfig
-            Microscope configuration dataclass instance.
-        sample_cfg : SampleConfig
-            Sample configuration dataclass instance.
-        measurement_cfg : MeasurementConfig
-            Measurement/acquisition configuration dataclass instance.
-        sample_substrate_cfg : SampleSubstrateConfig
-            Sample substrate configuration dataclass instance.
-        powder_meas_cfg : PowderMeasurementConfig
-            Configuration for powder measurement.
-        bulk_meas_cfg : BulkMeasurementConfig
-            Configuration for bulk measurement.
+        ledger_configs : LedgerConfigs
+            Bundle of all runtime configuration objects read from the ledger.
+        sample_id : str, optional
+            Sample identifier string (default: "").
         init_fw : float, optional
             Initial frame width in mm for grid search (default: 0.5).
         results_dir : str, optional
             Directory to save result images and data (default: None).
         verbose : bool, optional
             If True, print progress information (default: True).
-        development_mode (bool)
+        development_mode : bool, optional
             If True, enables offline testing mode (default: False).
-        
+
         Raises
         ------
         RuntimeError
             If the microscope driver cannot be loaded.
         """
+        # --- Unpack configs from ledger bundle
+        microscope_cfg = ledger_configs.microscope_cfg
+        sample_cfg = ledger_configs.sample_cfg
+        measurement_cfg = ledger_configs.measurement_cfg
+        sample_substrate_cfg = ledger_configs.sample_substrate_cfg
+        powder_meas_cfg = ledger_configs.powder_meas_cfg or PowderMeasurementConfig()
+        bulk_meas_cfg = ledger_configs.bulk_meas_cfg or BulkMeasurementConfig()
+
         # --- Configuration
         self.sample_cfg = sample_cfg
         self.microscope_cfg = microscope_cfg
@@ -244,6 +242,61 @@ class EM_Controller:
             im_height=self.im_height,
             results_dir=results_dir,
             verbose=verbose
+        )
+
+    # -------------------------------------------------------------------------
+    @classmethod
+    def from_configs(
+        cls,
+        microscope_cfg: MicroscopeConfig,
+        sample_cfg: SampleConfig,
+        measurement_cfg: MeasurementConfig,
+        sample_substrate_cfg: SampleSubstrateConfig,
+        powder_meas_cfg: Optional[PowderMeasurementConfig] = None,
+        bulk_meas_cfg: Optional[BulkMeasurementConfig] = None,
+        sample_id: Optional[str] = "",
+        init_fw: float = 0.5,
+        results_dir: Optional[str] = None,
+        verbose: bool = True,
+        development_mode: Optional[bool] = False,
+    ) -> "EM_Controller":
+        """
+        Construct an EM_Controller from individual config objects.
+
+        This factory wraps the configs into a ``LedgerConfigs`` bundle and
+        delegates to :meth:`__init__`. Use this in tests or standalone scripts
+        where a pre-existing ledger is not available.
+
+        Parameters
+        ----------
+        microscope_cfg : MicroscopeConfig
+        sample_cfg : SampleConfig
+        measurement_cfg : MeasurementConfig
+        sample_substrate_cfg : SampleSubstrateConfig
+        powder_meas_cfg : PowderMeasurementConfig, optional
+        bulk_meas_cfg : BulkMeasurementConfig, optional
+        sample_id : str, optional
+        init_fw : float, optional
+        results_dir : str, optional
+        verbose : bool, optional
+        development_mode : bool, optional
+        """
+        ledger_configs = LedgerConfigs(
+            microscope_cfg=microscope_cfg,
+            sample_cfg=sample_cfg,
+            measurement_cfg=measurement_cfg,
+            sample_substrate_cfg=sample_substrate_cfg,
+            plot_cfg=PlotConfig(),
+            powder_meas_cfg=powder_meas_cfg,
+            bulk_meas_cfg=bulk_meas_cfg,
+        )
+        return cls(
+            ledger_configs=ledger_configs,
+            sample_id=sample_id,
+            init_fw=init_fw,
+            results_dir=results_dir,
+            verbose=verbose,
+            development_mode=development_mode,
         )
 
     #%% Microscope initialization
@@ -327,7 +380,7 @@ class EM_Controller:
         success : bool
             True if a spot was selected/found, False otherwise.
         spots_xy_list : list of tuple or None
-            List of (x, y) coordinates for acquisition, or None if unsuccessful.
+            List of (x, y) pixel coordinates for acquisition, or None if unsuccessful.
         particle_cntr : int or None
             The particle counter/index, or None if not applicable.
         """
@@ -355,7 +408,7 @@ class EM_Controller:
         Parameters
         ----------
         x, y : float
-            X, Y coordinates for spectrum acquisition (normalized coordinates).
+            X, Y pixel coordinates for spectrum acquisition.
         max_acquisition_time : float
             Maximum allowed acquisition time in seconds.
         target_acquisition_counts : int

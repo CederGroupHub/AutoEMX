@@ -304,7 +304,7 @@ class XSp_Fitter:
         DetectorResponseFunction.det_res_conv_matrix = None
         DetectorResponseFunction.icc_conv_matrix = None
         DetectorResponseFunction.setup_detector_response_vars(
-            det_ch_offset, det_ch_width, spectrum_lims, microscope_ID, verbose = verbose
+            det_ch_offset, det_ch_width, spectrum_lims, microscope_ID, verbose=True
         )
 
         self.print_evolving_params = print_evolving_params

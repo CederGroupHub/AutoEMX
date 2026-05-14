@@ -933,7 +933,7 @@ class EM_Particle_Finder:
             self, n_tot_sp_collected, 
             par_image=None, pixel_size_um=None, results_dir=None):
         '''
-        Returns a list of coordinates (relative, in the current image) for X-ray spectrum spot collection on a particle.
+        Returns a list of pixel coordinates (in the current image) for X-ray spectrum spot collection on a particle.
     
         The function finds a suitable particle mask, erodes the mask to avoid particle edges, finds bright regions (or peak spots),
         and selects up to `powder_meas_cfg.max_spectra_per_par` spots per particle with a minimum distance between them (determined through 'powder_meas_cfg.par_mask_margin').
@@ -952,30 +952,8 @@ class EM_Particle_Finder:
     
         Returns
         -------
-        pts_rel_coords : ndarray
-            Array of selected (x, y) spot coordinates in relative units (centered at 0).
-    
-            Coordinate System
-            ----------------
-            The coordinates are expressed in a normalized, aspect-ratio-correct system centered at the image center:
-    
-                - The origin (0, 0) is at the image center.
-                - The x-axis is horizontal, increasing to the right, ranging from -0.5 (left) to +0.5 (right).
-                - The y-axis is vertical, increasing downward, and scaled by the aspect ratio (height/width):
-                    * Top edge:    y = -0.5 × (height / width)
-                    * Bottom edge: y = +0.5 × (height / width)
-                
-                |        (-0.5, -0.5*height/width)         (0.5, -0.5*height/width)
-                |                       +-------------------------+
-                |                       |                         |
-                |                       |                         |
-                |                       |           +(0,0)        |-----> +x
-                |                       |                         |
-                |                       |                         |
-                v  +y                   +-------------------------+
-                        (-0.5,  0.5*height/width)         (0.5, 0.5*height/width)
-    
-            This ensures the coordinate system is always centered and aspect-ratio-correct, regardless of image size.
+        selected_points : list[tuple[int, int]]
+            List of selected (x, y) spot coordinates in image pixel units.
     
         Potential Improvements
         ---------------------
@@ -1030,14 +1008,7 @@ class EM_Particle_Finder:
                 all_points, max_points=self.powder_meas_cfg.max_spectra_per_par, min_distance=min_distance_xsp_spots
             )
     
-        # --- 6. Convert pixel coordinates to relative image coordinates ---
-        pts_rel_coords = EM_driver.frame_pixel_to_rel_coords(
-            selected_points,
-            img_width=self._im_width,
-            img_height=self._im_height
-        )
-    
-        # --- 7. Annotate image and save ---
+        # --- 6. Annotate image and save ---
         if self.development_mode and self.results_dir:
             color_image = cv2.cvtColor(par_image, cv2.COLOR_GRAY2BGR)
             for center in selected_points:
@@ -1050,7 +1021,7 @@ class EM_Particle_Finder:
             # cv2.imshow('Selected XS spots', color_image)
             cv2.imwrite(os.path.join(self.results_dir, self._sample_id + f'_par{self.tot_par_cntr}_fr{self.EM.current_frame_label}_xyspots.png'), color_image)
     
-        return pts_rel_coords
+        return [tuple(map(int, pt)) for pt in selected_points]
 
         
     def _collect_candidate_points(self, thresholded_image, par_image, feature_selection, min_area_pixels):

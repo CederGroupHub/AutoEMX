@@ -753,17 +753,12 @@ class EMXSp_Composition_Analyzer:
             except Exception as e:
                 raise FileNotFoundError(f"Could not create results directory: {EM_images_dir}") from e
     
-        # Initialise instrument controller
+        # Initialise instrument controller — configs are read from the ledger bundle
         self.EM_controller = EM_Controller(
-            self.microscope_cfg,
-            self.sample_cfg,
-            self.measurement_cfg,
-            self.sample_substrate_cfg,
-            self.powder_meas_cfg,
-            self.bulk_meas_cfg,
+            self._build_ledger_configs(),
             sample_id=self.sample_id,
             results_dir=EM_images_dir,
-            verbose=self.verbose
+            verbose=self.verbose,
         )
         self.EM_controller.initialise_SEM()
         self.EM_controller.initialise_sample_navigator(exclude_sample_margin=True)
@@ -1737,8 +1732,8 @@ class EMXSp_Composition_Analyzer:
 
     def _build_spot_coordinates(
         self,
-        machine_x: Any,
-        machine_y: Any,
+        machine_x: Any = None,
+        machine_y: Any = None,
         pixel_x: Any = None,
         pixel_y: Any = None,
     ) -> Optional[SpotCoordinates]:
@@ -1754,6 +1749,18 @@ class EMXSp_Composition_Analyzer:
         y_pixel = self._parse_optional_float(pixel_y)
         if x_pixel is not None and y_pixel is not None:
             pixel_coords = (int(round(x_pixel)), int(round(y_pixel)))
+
+        # If machine coordinates are missing, derive them from pixel coordinates
+        # using the active frame context from EM_Controller.
+        if machine_coords is None and pixel_coords is not None and hasattr(self, "EM_controller"):
+            try:
+                pos_abs_mm = self.EM_controller.convert_pixel_pos_to_mm(np.array(pixel_coords, dtype=float))
+                machine_coords = Coordinate2D(
+                    x=float(pos_abs_mm[0]),
+                    y=float(pos_abs_mm[1]),
+                )
+            except Exception:
+                machine_coords = None
 
         if machine_coords is None and pixel_coords is None:
             return None
@@ -1828,28 +1835,15 @@ class EMXSp_Composition_Analyzer:
         )
 
 
-    def _extract_coords_from_spectrum_entry(self, spectrum: 'SpectrumEntry', index: int) -> dict:
-        """Extract a coordinate dict from a ledger SpectrumEntry for use in CSV export."""
-        x_val = y_val = x_pixel_val = y_pixel_val = par_id = frame_id = ""
+    def _extract_spectrum_info(self, spectrum: 'SpectrumEntry', index: int) -> dict:
+        """Extract spectrum metadata from a ledger SpectrumEntry for use in CSV export."""
+        par_id = frame_id = ""
         acq = spectrum.acquisition_details
         if acq is not None:
-            if acq.spot_coordinates is not None:
-                mc = acq.spot_coordinates.machine_coordinates
-                pc = acq.spot_coordinates.pixel_coordinates
-                if mc is not None:
-                    x_val = str(mc.x)
-                    y_val = str(mc.y)
-                if pc is not None:
-                    x_pixel_val = str(pc[0])
-                    y_pixel_val = str(pc[1])
             par_id = str(acq.particle_id or "")
             frame_id = str(acq.frame_id or "")
         return {
             cnst.SP_ID_DF_KEY: str(spectrum.spectrum_id) if spectrum.spectrum_id is not None else str(index),
-            cnst.SP_X_COORD_DF_KEY: x_val,
-            cnst.SP_Y_COORD_DF_KEY: y_val,
-            cnst.SP_X_PIXEL_COORD_DF_KEY: x_pixel_val,
-            cnst.SP_Y_PIXEL_COORD_DF_KEY: y_pixel_val,
             cnst.PAR_ID_DF_KEY: par_id,
             cnst.FRAME_ID_DF_KEY: frame_id,
         }
@@ -2643,7 +2637,7 @@ class EMXSp_Composition_Analyzer:
             latest_spot_id = None # For image annotations
             for i, (x, y) in enumerate(spots_xy_list):
                 latest_spot_id = i
-                xy_center = self.EM_controller.convert_XS_coords_to_pixels((x, y))
+                xy_center = (int(x), int(y))
 
                 if self.verbose:
                     print_single_separator()
@@ -2672,9 +2666,8 @@ class EMXSp_Composition_Analyzer:
                     frame_id=str(frame_ID).strip() if frame_ID is not None and str(frame_ID).strip() else None,
                     particle_id=self.particle_cntr if self.particle_cntr is not None else None,
                     spot_coordinates=self._build_spot_coordinates(
-                        f'{x:.3f}', f'{y:.3f}',
-                        f'{xy_center[0]:.2f}' if xy_center is not None else None,
-                        f'{xy_center[1]:.2f}' if xy_center is not None else None,
+                        pixel_x=xy_center[0],
+                        pixel_y=xy_center[1],
                     ),
                 )
                 spectrum_entry = self._build_spectrum_entry_from_pointer_file(
@@ -2720,8 +2713,8 @@ class EMXSp_Composition_Analyzer:
                     # Skip if latest_spot_id is None or i is out of range
                     if latest_spot_id is None or i > latest_spot_id:
                         break
-                
-                    xy_center = self.EM_controller.convert_XS_coords_to_pixels(xy_coords)
+
+                    xy_center = (int(xy_coords[0]), int(xy_coords[1]))
                     if xy_center is None:
                         continue
                     
@@ -3838,7 +3831,7 @@ class EMXSp_Composition_Analyzer:
         for i in range(n_spectra):
             # Retrieve the typed QuantificationResult for this spectrum (None when not quantified)
             record = self.spectra_quant_records[i] if i < len(self.spectra_quant_records) else None
-            coords = self._extract_coords_from_spectrum_entry(ledger_spectra[i], i)
+            coords = self._extract_spectrum_info(ledger_spectra[i], i)
             has_composition_result = record is not None and record.composition_atomic_fractions is not None
             has_result = has_composition_result
 
@@ -3916,19 +3909,8 @@ class EMXSp_Composition_Analyzer:
             self._make_analysis_dir()
         os.makedirs(self.analysis_dir, exist_ok=True)
         comp_path = os.path.join(self.analysis_dir, cnst.COMPOSITIONS_FILENAME + '.csv')
-        compositions_df = data_df.drop(
-            columns=[
-                c for c in [
-                    cnst.SP_X_COORD_DF_KEY,
-                    cnst.SP_Y_COORD_DF_KEY,
-                    cnst.SP_X_PIXEL_COORD_DF_KEY,
-                    cnst.SP_Y_PIXEL_COORD_DF_KEY,
-                ]
-                if c in data_df.columns
-            ]
-        )
         try:
-            compositions_df.to_csv(comp_path, index=False, header=True)
+            data_df.to_csv(comp_path, index=False, header=True)
         except Exception as e:
             raise OSError(f"Could not write compositions data to '{comp_path}': {e}")
 

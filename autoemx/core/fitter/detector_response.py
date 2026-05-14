@@ -18,9 +18,9 @@ import time
 import warnings
 import numpy as np
 from pathlib import Path
-from scipy.special import erfc
 from scipy.integrate import quad, trapezoid
 from scipy.optimize import root_scalar
+from pydantic import BaseModel
 
 from autoemx.utils import print_single_separator, load_msa
 import autoemx.utils.constants as cnst
@@ -31,6 +31,26 @@ from autoemx._logging import get_logger
 logger = get_logger(__name__)
 
 parent_dir = str(Path(__file__).resolve().parent.parent.parent)
+
+
+class SparseConvolutionRow(BaseModel):
+    """Sparse representation of a matrix row."""
+
+    start_index: int
+    values: list[float]
+
+
+class DetectorConvolutionMatricesCache(BaseModel):
+    """Typed cache payload for detector convolution matrices."""
+
+    det_ch_offset: float
+    det_ch_width: float
+    detector_ch_n: int
+    energy_vals_padding: int
+    matrix_size: int
+    zero_tol: float
+    det_res_rows: list[SparseConvolutionRow]
+    icc_rows: list[SparseConvolutionRow]
 
 
 class DetectorResponseFunction:
@@ -58,6 +78,75 @@ class DetectorResponseFunction:
     det_res_conv_matrix = None
     icc_conv_matrix = None
     energy_vals_padding = 30  # Padding added to energy_vals to ensure correct functioning of convolution operation
+    conv_zero_tol = 1e-14
+
+    @staticmethod
+    def _conv_matrices_key(det_ch_offset, det_ch_width):
+        return f"O{det_ch_offset},W{det_ch_width}"
+
+    @staticmethod
+    def _sparsify_row(row_vals, zero_tol):
+        """Trim leading and trailing zero values from a dense row."""
+        row_arr = np.asarray(row_vals, dtype=float)
+        nz_idx = np.where(np.abs(row_arr) > zero_tol)[0]
+        if nz_idx.size == 0:
+            return SparseConvolutionRow(start_index=0, values=[])
+        start_index = int(nz_idx[0])
+        end_index = int(nz_idx[-1]) + 1
+        return SparseConvolutionRow(start_index=start_index, values=row_arr[start_index:end_index].tolist())
+
+    @staticmethod
+    def _dense_from_sparse_rows(sparse_rows, matrix_size):
+        """Rebuild a dense matrix from sparse rows, padding missing values with zeros."""
+        dense = np.zeros((matrix_size, matrix_size), dtype=float)
+        for row_i, row in enumerate(sparse_rows[:matrix_size]):
+            if not row.values:
+                continue
+            col_start = max(0, int(row.start_index))
+            if col_start >= matrix_size:
+                continue
+            row_vals = np.asarray(row.values, dtype=float)
+            col_end = min(matrix_size, col_start + row_vals.size)
+            dense[row_i, col_start:col_end] = row_vals[:col_end - col_start]
+        return dense
+
+    @classmethod
+    def _load_conv_matrices_cache(cls, file_path, det_ch_offset, det_ch_width, matrix_size):
+        """Load typed cache matrices padded to matrix_size."""
+        if not os.path.exists(file_path):
+            return None
+        detector_ch_n = getattr(calibs, 'detector_ch_n', None)
+        if detector_ch_n is None:
+            return None
+        try:
+            with open(file_path, 'r') as file:
+                payload = json.load(file)
+        except Exception:
+            return None
+
+        cache_key = cls._conv_matrices_key(det_ch_offset, det_ch_width)
+        if not isinstance(payload, dict) or cache_key not in payload:
+            return None
+
+        try:
+            cache_payload = DetectorConvolutionMatricesCache.model_validate(payload[cache_key])
+        except Exception:
+            return None
+
+        same_settings = (
+            cache_payload.detector_ch_n == detector_ch_n and
+            cache_payload.energy_vals_padding == cls.energy_vals_padding and
+            np.isclose(cache_payload.det_ch_offset, det_ch_offset) and
+            np.isclose(cache_payload.det_ch_width, det_ch_width)
+        )
+        if not same_settings:
+            return None
+
+        det_res_dense = cls._dense_from_sparse_rows(cache_payload.det_res_rows, matrix_size)
+        icc_dense = cls._dense_from_sparse_rows(cache_payload.icc_rows, matrix_size)
+        if det_res_dense.shape != (matrix_size, matrix_size) or icc_dense.shape != (matrix_size, matrix_size):
+            return None
+        return det_res_dense, icc_dense
 
     @classmethod
     def setup_detector_response_vars(cls, det_ch_offset, det_ch_width, spectrum_lims, microscope_ID, verbose=True):
@@ -107,30 +196,54 @@ class DetectorResponseFunction:
     
         cls.det_eff_energy_vals = det_eff_energy_vals
         cls.det_eff_vals = det_eff_vals
+        detector_ch_n = getattr(calibs, 'detector_ch_n', None)
+        if detector_ch_n is None:
+            raise AttributeError("calibrations.detector_ch_n is not initialized")
     
         # --- Load or calculate convolution matrices ---
         conv_matrices_file_path = os.path.join(
             parent_dir, cnst.XRAY_SPECTRA_CALIBS_DIR, microscope_ID, cnst.DETECTOR_CONV_MATRICES_FILENAME
         )
         lock_file_path = conv_matrices_file_path + ".lock"
-        conv_mat_key = f"O{det_ch_offset},W{det_ch_width}"
+        matrix_size = detector_ch_n + cls.energy_vals_padding + cls.energy_vals_padding // 2 - 1
         
         conv_matrices = None
 
-        # 1. FAST PATH: Try to read the file without a lock first.
-        # If the file exists and our key is in it, we don't need to lock anything.
-        if os.path.exists(conv_matrices_file_path):
-            try:
-                with open(conv_matrices_file_path, 'r') as file:
-                    conv_matrices_dict = json.load(file)
-                    conv_matrices = conv_matrices_dict.get(conv_mat_key)
-            except Exception:
-                pass # Ignore decode errors (another core might be mid-write)
+        # 1. FAST PATH: Load cache without lock if settings match.
+        conv_matrices = cls._load_conv_matrices_cache(
+            conv_matrices_file_path,
+            det_ch_offset,
+            det_ch_width,
+            matrix_size,
+        )
 
         # 2. SLOW PATH: We need to compute it (or wait for another core to compute it)
         if conv_matrices is None:
             start_wait_time = time.time()
             max_wait_time = 600  # 10 minute timeout for stale locks
+            stale_lock_max_age_s = 120.0
+            wait_msg_interval_s = 30.0
+            last_wait_msg_time = None
+            wait_announced = False
+
+            def _read_lock_pid(path):
+                try:
+                    with open(path, 'r') as f:
+                        txt = f.read().strip()
+                    if txt.startswith('PID '):
+                        return int(txt.split(' ', 1)[1])
+                except Exception:
+                    return None
+                return None
+
+            def _is_process_alive(pid):
+                if pid is None or pid <= 0:
+                    return False
+                try:
+                    os.kill(pid, 0)
+                except OSError:
+                    return False
+                return True
             
             # Loop until conv_matrices is successfully populated
             while conv_matrices is None:
@@ -141,29 +254,62 @@ class DetectorResponseFunction:
                     
                     # === WE HAVE THE LOCK ===
                     try:
-                        # Reload JSON: another process might have JUST calculated it while we waited
-                        conv_matrices_dict = {}
-                        if os.path.exists(conv_matrices_file_path):
-                            with open(conv_matrices_file_path, 'r') as file:
-                                conv_matrices_dict = json.load(file)
-                        
-                        conv_matrices = conv_matrices_dict.get(conv_mat_key)
+                        # Reload cache: another process might have finished while we waited.
+                        conv_matrices = cls._load_conv_matrices_cache(
+                            conv_matrices_file_path,
+                            det_ch_offset,
+                            det_ch_width,
+                            matrix_size,
+                        )
                         
                         # If it's STILL missing, we actually do the heavy lifting
                         if conv_matrices is None:
-                            if True: # verbose:
-                                logger.info(f"🔬 Calculating convolution matrices for key {conv_mat_key}...")
+                            compute_start_time = time.time()
+                            if verbose:
+                                print('-' * 50, flush=True)
+                                print("ℹ️ No cached convolution matrices found for this detector setup.", flush=True)
+                                print("🔬 Calculating detector convolution matrices...", flush=True)
                                 
-                            full_en_vector = [det_ch_offset + j * det_ch_width for j in range(calibs.detector_ch_n)]
+                            full_en_vector = [det_ch_offset + j * det_ch_width for j in range(detector_ch_n)]
                             det_res_conv_matrix = cls._calc_det_res_conv_matrix(full_en_vector, verbose)
                             icc_conv_matrix = cls._calc_icc_conv_matrix(full_en_vector, verbose)
+
+                            cache_payload = DetectorConvolutionMatricesCache(
+                                det_ch_offset=det_ch_offset,
+                                det_ch_width=det_ch_width,
+                                detector_ch_n=detector_ch_n,
+                                energy_vals_padding=cls.energy_vals_padding,
+                                matrix_size=matrix_size,
+                                zero_tol=cls.conv_zero_tol,
+                                det_res_rows=[
+                                    cls._sparsify_row(row, cls.conv_zero_tol)
+                                    for row in det_res_conv_matrix
+                                ],
+                                icc_rows=[
+                                    cls._sparsify_row(row, cls.conv_zero_tol)
+                                    for row in icc_conv_matrix
+                                ],
+                            )
                             
-                            conv_matrices_dict[conv_mat_key] = (det_res_conv_matrix.tolist(), icc_conv_matrix.tolist())
-                            
+                            cache_key = cls._conv_matrices_key(det_ch_offset, det_ch_width)
+                            cache_file_payload = {}
+                            if os.path.exists(conv_matrices_file_path):
+                                try:
+                                    with open(conv_matrices_file_path, 'r') as file:
+                                        existing_payload = json.load(file)
+                                    if isinstance(existing_payload, dict):
+                                        cache_file_payload = existing_payload
+                                except Exception:
+                                    cache_file_payload = {}
+
+                            cache_file_payload[cache_key] = cache_payload.model_dump()
                             with open(conv_matrices_file_path, 'w') as file:
-                                json.dump(conv_matrices_dict, file)
+                                json.dump(cache_file_payload, file)
                             
                             conv_matrices = (det_res_conv_matrix, icc_conv_matrix)
+                            if verbose:
+                                compute_time = time.time() - compute_start_time
+                                print(f"✅ Finished computing convolution matrices in {compute_time:.1f} s", flush=True)
                             
                     finally:
                         # === RELEASE THE LOCK ===
@@ -172,31 +318,55 @@ class DetectorResponseFunction:
                             
                 except FileExistsError:
                     # === ANOTHER CORE HAS THE LOCK ===
+                    lock_age = None
+                    if os.path.exists(lock_file_path):
+                        try:
+                            lock_age = time.time() - os.path.getmtime(lock_file_path)
+                        except OSError:
+                            lock_age = None
+                    lock_pid = _read_lock_pid(lock_file_path) if os.path.exists(lock_file_path) else None
+                    lock_owner_dead = lock_pid is not None and not _is_process_alive(lock_pid)
+                    lock_too_old = lock_age is not None and lock_age > stale_lock_max_age_s
+
+                    if lock_owner_dead or lock_too_old:
+                        try:
+                            os.remove(lock_file_path)
+                            start_wait_time = time.time()
+                            wait_announced = False
+                            last_wait_msg_time = None
+                            if verbose:
+                                reason = []
+                                if lock_owner_dead:
+                                    reason.append(f"owner PID {lock_pid} is not alive")
+                                if lock_too_old:
+                                    reason.append(f"lock age {lock_age:.1f} s > {stale_lock_max_age_s:.0f} s")
+                                print_single_separator()
+                                print(f"⚠️ Removed stale convolution lock ({'; '.join(reason)}).", flush=True)
+                            continue
+                        except OSError:
+                            pass
+
                     if time.time() - start_wait_time > max_wait_time:
                         # Lock is stale (the other core crashed). Force delete it.
                         try:
                             os.remove(lock_file_path)
                             start_wait_time = time.time() # Reset timeout
+                            if verbose:
+                                print_single_separator()
+                                print("⚠️ Removed stale convolution lock file.", flush=True)
                         except OSError:
                             pass
                     else:
                         # Wait patiently
-                        if verbose:
-                            logger.info("ℹ️ Waiting for another core to finish computing matrices...")
                         time.sleep(3)
                         
                         # Peek at the file to see if the other core finished our key
-                        if os.path.exists(conv_matrices_file_path):
-                            try:
-                                with open(conv_matrices_file_path, 'r') as file:
-                                    conv_matrices = json.load(file).get(conv_mat_key)
-                            except Exception:
-                                pass # File is currently being written to, loop will retry naturally
-
-        else:
-            if verbose:
-                print_single_separator()
-                logger.info("✅ Detector response convolution matrices loaded")
+                        conv_matrices = cls._load_conv_matrices_cache(
+                            conv_matrices_file_path,
+                            det_ch_offset,
+                            det_ch_width,
+                            matrix_size,
+                        )
                 
         det_res_conv_matrix, icc_conv_matrix = conv_matrices
     
@@ -367,8 +537,8 @@ class DetectorResponseFunction:
         - Integration is performed for each matrix element to ensure normalization.
         """
     
+        start_time = time.time()
         if verbose:
-            start_time = time.time()
             logger.info("🔬 Calculating convolution matrix for detector resolution")
     
         deltaE = energy_vals[5] - energy_vals[4]
@@ -382,25 +552,48 @@ class DetectorResponseFunction:
         def gaussian(E, E0, sigma):
             """Normalized Gaussian function."""
             return 1 / (sigma * np.sqrt(2 * np.pi)) * np.exp(-0.5 / sigma**2 * (E - E0)**2)
-    
-        conv_matrix = []
+
+        len_axis = len(energy_vals_extended)
+        sparse_rows = []
+        prev_start_index = 0
         for i, en in enumerate(energy_vals_extended):
-            # Initialize row for this energy; padding prevents signal loss at edges
-            g_vals = [0.0 for _ in range(len(energy_vals_extended))]
             sigma = cls._det_sigma(en)
-            for j in range(-n_intervals, n_intervals + 1):
-                cen_E = en + j * deltaE
-                idx = i + j
-                if 0 <= idx < len(g_vals):
-                    try:
-                        # Integrate the Gaussian over the width of the energy bin
-                        int_E, _ = quad(lambda E: gaussian(E, en, sigma), cen_E - deltaE / 2, cen_E + deltaE / 2)
-                        g_vals[idx] = int_E
-                    except Exception:
-                        pass  # Ignore integration errors (should be rare)
-            conv_matrix.append(g_vals)
-    
-        det_res_conv_matrix = np.array(conv_matrix).T  # Transpose for correct orientation
+            row_start_index = None
+            row_values = []
+            seen_nonzero = False
+            zero_streak = 0
+
+            for idx in range(prev_start_index, len_axis):
+                cen_E = energy_vals_extended[idx]
+                try:
+                    int_E, _ = quad(
+                        lambda E: gaussian(E, en, sigma),
+                        cen_E - deltaE / 2,
+                        cen_E + deltaE / 2,
+                    )
+                except Exception:
+                    int_E = 0.0
+
+                if abs(int_E) > cls.conv_zero_tol:
+                    if row_start_index is None:
+                        row_start_index = idx
+                    row_values.append(int_E)
+                    seen_nonzero = True
+                    zero_streak = 0
+                elif seen_nonzero:
+                    zero_streak += 1
+                    if zero_streak >= 2:
+                        break
+
+            if row_start_index is None:
+                sparse_rows.append(SparseConvolutionRow(start_index=0, values=[]))
+            else:
+                sparse_rows.append(
+                    SparseConvolutionRow(start_index=row_start_index, values=row_values)
+                )
+                prev_start_index = row_start_index
+
+        det_res_conv_matrix = cls._dense_from_sparse_rows(sparse_rows, len_axis).T
         
         if verbose:
             process_time = time.time() - start_time
@@ -485,16 +678,16 @@ class DetectorResponseFunction:
         def dN_dz(z):
             return alpha * np.exp(-alpha * z)
     
-        def get_z(Q_val):
+        def get_z(Q_val, z_min=0.0):
             Q_val_rnd = np.clip(Q_val, Q_min, 1)
-            solution = root_scalar(lambda z: Q(z) - Q_val_rnd, method='brentq', bracket=[0, R_e])
+            solution = root_scalar(lambda z: Q(z) - Q_val_rnd, method='brentq', bracket=[z_min, R_e])
             return solution.root
     
-        def n(x):
+        def n(x, z_min=0.0):
             Q_val = x / line_en
-            z_val = get_z(Q_val)
+            z_val = get_z(Q_val, z_min=z_min)
             n_val = dN_dz(z_val) * dQ_dz(z_val) ** -1 / line_en
-            return n_val
+            return n_val, z_val
     
         def get_n_at_line_en(integral_rest, last_E, last_n):
             def n_fnct(n_):
@@ -512,7 +705,11 @@ class DetectorResponseFunction:
     
         e_vals = list(np.linspace(E_min, line_en, 1000))
         e_vals.pop()  # Remove last energy value corresponding to line_en
-        n_vals = [n(en) for en in e_vals]
+        n_vals = []
+        prev_z = 0.0
+        for en in e_vals:
+            n_val, prev_z = n(en, z_min=prev_z)
+            n_vals.append(n_val)
         signal_integral = trapezoid(n_vals, e_vals)
         n_val_at_E = get_n_at_line_en(signal_integral, e_vals[-1], n_vals[-1])
     
@@ -544,12 +741,15 @@ class DetectorResponseFunction:
         """
         ch_width = eds_en_vals[1] - eds_en_vals[0]
         icc_en_spacing = icc_en_vals[1] - icc_en_vals[0]
+        icc_en_vals = np.asarray(icc_en_vals, dtype=float)
+        icc_n_vals = np.asarray(icc_n_vals, dtype=float)
     
         # Determine which channels are affected by ICC
-        indices_affected = [
-            i for i, en in enumerate(eds_en_vals)
-            if icc_en_vals[0] - ch_width / 2 < en <= icc_en_vals[-1] + ch_width / 2
-        ]
+        left_bound = icc_en_vals[0] - ch_width / 2
+        right_bound = icc_en_vals[-1] + ch_width / 2
+        first_affected = int(np.searchsorted(eds_en_vals, left_bound, side='right'))
+        last_affected = int(np.searchsorted(eds_en_vals, right_bound, side='right'))
+        indices_affected = list(range(first_affected, last_affected))
         # Calculate number of points to add on the right side of the list to make it symmetrical. Needed to avoid shifts during convolution
         n_pts_to_center_data = len(indices_affected) - 1
         n_pts_added = 20  # Pad array of energy values for full overlap during convolution
@@ -582,13 +782,12 @@ class DetectorResponseFunction:
         for index, en in enumerate(eds_icc_en_vals):
             interval_boundary_left = en - ch_width / 2
             interval_boundary_right = en + ch_width / 2
-            indices_to_int = [
-                i for i, e in enumerate(icc_en_vals) if interval_boundary_left < e <= interval_boundary_right
-            ]
-            e_vals_to_int = [icc_en_vals[i] for i in indices_to_int]
-            n_vals_to_int = [icc_n_vals[i] for i in indices_to_int]
-            if indices_to_int:
-                if len(indices_to_int) > 1:
+            left_idx = int(np.searchsorted(icc_en_vals, interval_boundary_left, side='right'))
+            right_idx = int(np.searchsorted(icc_en_vals, interval_boundary_right, side='right'))
+            if left_idx < right_idx:
+                e_vals_to_int = icc_en_vals[left_idx:right_idx]
+                n_vals_to_int = icc_n_vals[left_idx:right_idx]
+                if len(e_vals_to_int) > 1:
                     # Integrate ICC function over interval corresponding to energy value en
                     eds_icc_n_val = trapezoid(n_vals_to_int, e_vals_to_int)
                 else: # Case of only 1 point within the detector channel
@@ -596,14 +795,14 @@ class DetectorResponseFunction:
                     # The portion of interval within this channel is added on the next steps
                     eds_icc_n_val = 0
                 # Add portion of interval shared with left of en, unless at boundary
-                if interval_boundary_left < e_vals_to_int[0] and e_vals_to_int[0] > 0 and indices_to_int[0] != 0:
-                    extra_i_left = indices_to_int[0] - 1
+                if interval_boundary_left < e_vals_to_int[0] and e_vals_to_int[0] > 0 and left_idx != 0:
+                    extra_i_left = left_idx - 1
                     left_int = trapezoid([icc_n_vals[extra_i_left], n_vals_to_int[0]],
                                          [icc_en_vals[extra_i_left], e_vals_to_int[0]])
                     eds_icc_n_val += left_int * (e_vals_to_int[0] - interval_boundary_left) / icc_en_spacing
                 # Add portion of interval shared with right of en, unless at boundary
-                if interval_boundary_right > e_vals_to_int[-1] and indices_to_int[-1] != len(icc_n_vals) - 1:
-                    extra_i_right = indices_to_int[-1] + 1
+                if interval_boundary_right > e_vals_to_int[-1] and right_idx < len(icc_n_vals):
+                    extra_i_right = right_idx
                     right_int = trapezoid([n_vals_to_int[-1], icc_n_vals[extra_i_right]],
                                           [e_vals_to_int[-1], icc_en_vals[extra_i_right]])
                     eds_icc_n_val += right_int * (interval_boundary_right - e_vals_to_int[-1]) / icc_en_spacing
@@ -631,10 +830,8 @@ class DetectorResponseFunction:
         icc_conv_matrix : np.ndarray
             The ICC convolution matrix (energy_vals x energy_vals).
         """
-        import sys
-        
+        start_time = time.time()
         if verbose:
-            start_time = time.time()
             logger.info("🔬 Calculating convolution matrix for incomplete charge collection")
     
         deltaE = energy_vals[5] - energy_vals[4]
@@ -645,23 +842,71 @@ class DetectorResponseFunction:
         right_pad = [energy_vals[-1] + deltaE * i for i in range(1, n_intervals)]
         energy_vals_extended = left_pad + list(energy_vals) + right_pad
     
-        conv_matrix = []
         len_row = len(energy_vals_extended)
+        sparse_rows = []
+        prev_start_index = 0
+        seen_nonzero = False
+        trailing_zero_rows = 0
+
         for i, en in enumerate(energy_vals_extended):
             if verbose:
                 logger.debug(f'  {i}\tEnergy: {en * 1000:.1f} eV')
-            icc_n_vals = np.zeros([len_row])
+
             if en > 0:
                 icc_spec = DetectorResponseFunction.get_icc_spectrum(
                     energy_vals_extended, en, calibs.R_e_background, calibs.F_loss_background
                 )
                 if len(icc_spec) == 0:
                     icc_spec = [0]
+
+                icc_n_vals = np.zeros([len_row])
                 icc_n_vals[i] = 1
                 icc_n_vals = np.convolve(icc_n_vals, icc_spec, mode='same')
-            conv_matrix.append(icc_n_vals)
-    
-        icc_conv_matrix = np.array(conv_matrix).T
+
+                row_start_index = None
+                row_values = []
+                seen_row_nonzero = False
+                zero_streak = 0
+                for idx in range(prev_start_index, len_row):
+                    val = float(icc_n_vals[idx])
+                    if abs(val) > cls.conv_zero_tol:
+                        if row_start_index is None:
+                            row_start_index = idx
+                        row_values.append(val)
+                        seen_row_nonzero = True
+                        zero_streak = 0
+                    elif seen_row_nonzero:
+                        zero_streak += 1
+                        if zero_streak >= 2:
+                            break
+
+                if row_start_index is None:
+                    sparse_rows.append(SparseConvolutionRow(start_index=0, values=[]))
+                    if seen_nonzero:
+                        trailing_zero_rows += 1
+                        if trailing_zero_rows >= 2:
+                            sparse_rows.extend(
+                                [SparseConvolutionRow(start_index=0, values=[]) for _ in range(len_row - i - 1)]
+                            )
+                            break
+                else:
+                    sparse_rows.append(
+                        SparseConvolutionRow(start_index=row_start_index, values=row_values)
+                    )
+                    prev_start_index = row_start_index
+                    seen_nonzero = True
+                    trailing_zero_rows = 0
+            else:
+                sparse_rows.append(SparseConvolutionRow(start_index=0, values=[]))
+                if seen_nonzero:
+                    trailing_zero_rows += 1
+                    if trailing_zero_rows >= 2:
+                        sparse_rows.extend(
+                            [SparseConvolutionRow(start_index=0, values=[]) for _ in range(len_row - i - 1)]
+                        )
+                        break
+
+        icc_conv_matrix = cls._dense_from_sparse_rows(sparse_rows, len_row).T
         
         if verbose:
             process_time = time.time() - start_time

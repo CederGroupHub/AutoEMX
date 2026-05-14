@@ -94,7 +94,7 @@ bulk_meas_cfg = BulkMeasurementConfig()
 powder_meas_cfg = PowderMeasurementConfig(par_segmentation_model = PowderMeasurementConfig.DEFAULT_PAR_SEGMENTATION_MODEL)
 
 # Controller handles EM workflow
-EM = EM_Controller(
+EM = EM_Controller.from_configs(
     microscope_cfg,
     sample_cfg,
     measurement_cfg,
