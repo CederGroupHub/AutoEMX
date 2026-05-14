@@ -364,7 +364,7 @@ class EM_Particle_Finder:
             the EDS detector direction).
           - To do this, add a control '_is_particle_shadowed()' together with '_is_particle_area_ok()' to select valid particles.
         '''
-        if EM_driver.is_at_EM:
+        if EM_driver.is_microscope_connected():
             self._check_EM_controller_initialization()
             move_to_frame_success = self.EM.go_to_next_frame()
             if move_to_frame_success:
@@ -699,7 +699,7 @@ class EM_Particle_Finder:
         - The commented `cv2.imshow` lines can be enabled for debugging visualization.
         '''
         # Get particle mask
-        if EM_driver.is_at_EM:
+        if EM_driver.is_microscope_connected():
             self._check_EM_controller_initialization()
             par_image = EM_driver.get_image_data(self._im_width, self._im_height, 1)
         elif par_image is not None and pixel_size_um is not None:
@@ -735,7 +735,7 @@ class EM_Particle_Finder:
             distances = np.linalg.norm(centroids[1:] - np.array([center_x, center_y]), axis=1)
             sorted_indices = np.argsort(distances) + 1  # Skip background (index 0)
             for label in sorted_indices:
-                if not EM_driver.is_at_EM:
+                if not EM_driver.is_microscope_connected():
                     par_label = label
                     break
                 elif self._is_particle_area_ok(stats[label, cv2.CC_STAT_AREA]):
@@ -965,7 +965,7 @@ class EM_Particle_Finder:
           as these may absorb emitted X-rays and degrade spectral signal.
         '''
         # --- 1. Acquire or prepare the particle mask and image ---
-        if EM_driver.is_at_EM:
+        if EM_driver.is_microscope_connected():
             par_mask_return = self._get_particle_mask()
         elif par_image is not None and pixel_size_um is not None:
             self._im_height, self._im_width = par_image.shape
@@ -1479,7 +1479,7 @@ class EM_Particle_Finder:
         - If at least one particle is found, the microscope focus/contrast/brightness is refreshed if needed.
         """
     
-        if EM_driver.is_at_EM:
+        if EM_driver.is_microscope_connected():
             self._check_EM_controller_initialization()
             move_to_frame_success = self.EM.go_to_next_frame()
             if move_to_frame_success:

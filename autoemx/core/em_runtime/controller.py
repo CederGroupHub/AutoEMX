@@ -180,9 +180,13 @@ class EM_Controller:
         except Exception as e:
             raise RuntimeError(f"Failed to load microscope driver: {e}")
         if not development_mode:
+            connect_result = None
             if hasattr(self.EM_driver, "connect_to_microscope"):
-                self.EM_driver.connect_to_microscope(warn_if_unavailable=True)
-            if not getattr(self.EM_driver, "is_at_EM", False):
+                connect_result = self.EM_driver.connect_to_microscope(warn_if_unavailable=True)
+            is_connected = bool(connect_result is True)
+            if hasattr(self.EM_driver, "is_microscope_connected"):
+                is_connected = bool(self.EM_driver.is_microscope_connected()) or is_connected
+            if not is_connected:
                 raise EMError("Instrument driver could not be loaded")
         
         # --- Working distance bounds

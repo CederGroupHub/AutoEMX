@@ -120,7 +120,7 @@ class FrameNavigator:
         
         if self.sample_cfg.is_particle_acquisition:
             # Set frame width, and update current pixel size
-            if getattr(self.EM_driver, "is_at_EM", True):
+            if self.EM_driver.is_microscope_connected():
                 min_fw, max_fw = self.EM_driver.get_range_frame_width()
                 self.grid_search_fw_mm = np.clip(
                     self.powder_meas_cfg.par_search_frame_width_um / 1000, 
@@ -150,7 +150,7 @@ class FrameNavigator:
             )
         
         elif self.sample_cfg.is_grid_acquisition:
-            if getattr(self.EM_driver, "is_at_EM", True):
+            if self.EM_driver.is_microscope_connected():
                 min_fw, max_fw = self.EM_driver.get_range_frame_width()
                 self.grid_search_fw_mm = np.clip(
                     self.bulk_meas_cfg.image_frame_width_um / 1000, 

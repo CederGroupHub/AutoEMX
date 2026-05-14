@@ -111,6 +111,7 @@ class EM_Sample_Finder:
         self.EM_driver = EM_driver
         if not development_mode:
             has_connect = hasattr(self.EM_driver, "connect_to_microscope")
+            has_status_check = hasattr(self.EM_driver, "is_microscope_connected")
             connect_result = None
             connect_exception = None
 
@@ -120,16 +121,23 @@ class EM_Sample_Finder:
                 except Exception as e:
                     connect_exception = e
 
-            is_at_em = bool(getattr(self.EM_driver, "is_at_EM", False))
-            if connect_exception is not None or not is_at_em:
+            is_connected = bool(connect_result is True)
+            if has_status_check:
+                try:
+                    is_connected = bool(self.EM_driver.is_microscope_connected()) or is_connected
+                except Exception:
+                    pass
+
+            if connect_exception is not None or not is_connected:
                 driver_file = getattr(self.EM_driver, "__file__", "<unknown>")
                 diagnostics = (
                     "Instrument driver diagnostics: "
                     f"microscope_ID={microscope_ID}, "
                     f"driver_module={driver_file}, "
                     f"has_connect_to_microscope={has_connect}, "
+                    f"has_is_microscope_connected={has_status_check}, "
                     f"connect_result={connect_result}, "
-                    f"is_at_EM={is_at_em}"
+                    f"is_connected={is_connected}"
                 )
                 logger.error(diagnostics)
                 # Print explicitly so diagnostics are visible even if logging is not configured.

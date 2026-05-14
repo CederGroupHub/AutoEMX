@@ -98,6 +98,11 @@ acqScanParams = None
 is_at_EM: bool = False
 
 
+def is_microscope_connected() -> bool:
+    """Return True when driver state indicates a live microscope connection."""
+    return phenom is not None and ppi is not None and acqScanParams is not None
+
+
 def connect_to_microscope(warn_if_unavailable: bool = True) -> bool:
     """Connect to the microscope API on demand.
 
@@ -108,7 +113,8 @@ def connect_to_microscope(warn_if_unavailable: bool = True) -> bool:
     """
     global ppi, phenom, acqScanParams, is_at_EM
 
-    if is_at_EM and phenom is not None and ppi is not None and acqScanParams is not None:
+    if is_microscope_connected():
+        is_at_EM = True
         logger.info("Microscope driver already connected.")
         return True
 
@@ -123,7 +129,7 @@ def connect_to_microscope(warn_if_unavailable: bool = True) -> bool:
         acqScanParams.nFrames = 1  # Limit frames to 1 to speed acquisition
         acqScanParams.hdr = False
         acqScanParams.scale = 1.0
-        is_at_EM = True
+        is_at_EM = is_microscope_connected()
         logger.info("Microscope driver connected successfully.")
         return True
     except Exception as e:
