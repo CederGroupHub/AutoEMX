@@ -128,6 +128,42 @@ logger = get_logger(__name__)
 
 parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+_PARALLEL_BACKEND_HEALTH: Dict[str, bool] = {}
+
+
+def _parallel_smoke_test_task(index: int) -> int:
+    """Trivial worker-safe function used to validate parallel backends."""
+    return index
+
+
+def _can_use_parallel_backend(backend: str, n_jobs: int) -> bool:
+    """Return True if the requested joblib backend appears healthy in this runtime."""
+    if n_jobs <= 1:
+        return False
+
+    cached = _PARALLEL_BACKEND_HEALTH.get(backend)
+    if cached is not None:
+        return cached
+
+    try:
+        Parallel(n_jobs=min(2, n_jobs), backend=backend)(
+            delayed(_parallel_smoke_test_task)(i) for i in range(2)
+        )
+        _PARALLEL_BACKEND_HEALTH[backend] = True
+    except BaseException as exc:
+        _PARALLEL_BACKEND_HEALTH[backend] = False
+        try:
+            logger.warning(
+                "⚠️ Parallel backend '%s' is unavailable (%s: %s). Falling back to serial execution.",
+                backend,
+                type(exc).__name__,
+                exc,
+            )
+        except BaseException:
+            pass
+
+    return _PARALLEL_BACKEND_HEALTH[backend]
+
 
 def _worker_is_spectrum_valid_for_fitting(
     *,
@@ -2845,17 +2881,15 @@ class EMXSp_Composition_Analyzer:
 
             available_cores = os.cpu_count() or 1
             default_cores = max(1, available_cores // 2)
-            if quantify and os.name == 'nt' and num_CPU_cores is None:
-                _n_cores = 1
-                logger.warning(
-                    "⚠️ Using serial quantification on Windows by default for runtime stability. "
-                    "Set num_CPU_cores>1 explicitly to force parallel execution."
-                )
-            else:
-                _n_cores = min(
-                    (num_CPU_cores if num_CPU_cores is not None else default_cores),
-                    available_cores,
-                )
+            _n_cores = min(
+                (num_CPU_cores if num_CPU_cores is not None else default_cores),
+                available_cores,
+            )
+
+            if _n_cores > 1:
+                desired_backend = 'loky' if quantify else 'threading'
+                if not _can_use_parallel_backend(desired_backend, _n_cores):
+                    _n_cores = 1
 
             if quantify:
                 # Always bootstrap/sync ledger before quantification cycles.
@@ -3058,13 +3092,16 @@ class EMXSp_Composition_Analyzer:
                         for idx, result, quant_record, quantification_time in completed:
                             _finalize_quant_result(idx, result, quant_record, quantification_time)
                 else:
-                    # Run in parallel for fitting-only path
-                    results_with_idx = Parallel(n_jobs=_n_cores, backend='threading')(
-                        delayed(_process_one)(i) for i in indices_to_process
-                    )
+                    if _n_cores <= 1:
+                        results_with_idx = [_process_one(i) for i in indices_to_process]
+                    else:
+                        # Run in parallel for fitting-only path
+                        results_with_idx = Parallel(n_jobs=_n_cores, backend='threading')(
+                            delayed(_process_one)(i) for i in indices_to_process
+                        )
             except KeyboardInterrupt as e:
                 logger.warning(
-                    f"⚠️ Parallel quantification was interrupted ({type(e).__name__}), falling back to sequential execution."
+                    f"⚠️ Parallel spectrum processing was interrupted ({type(e).__name__}), falling back to sequential execution."
                 )
                 if quantify:
                     for payload in quant_worker_payloads:
@@ -3074,7 +3111,7 @@ class EMXSp_Composition_Analyzer:
                     results_with_idx = [_process_one(i) for i in indices_to_process]
             except Exception as e:
                 logger.warning(
-                    f"⚠️ Parallel quantification failed ({type(e).__name__}: {e}), "
+                    f"⚠️ Parallel spectrum processing failed ({type(e).__name__}: {e}), "
                     "falling back to sequential execution."
                 )
                 if quantify:
