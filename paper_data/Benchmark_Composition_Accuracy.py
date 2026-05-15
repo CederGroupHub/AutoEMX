@@ -168,7 +168,7 @@ for sample in samples:
 
 #%% Options
 results_dir = os.path.dirname(os.path.abspath(__file__))
-save_dir = 'Quant Analysis'
+save_dir = os.path.join(results_dir, 'Quant Analysis')
 
 comp_type = 'at_fr'
 max_analytical_errors = [5] # Plots histograms of all spectra with different max analytical error values
