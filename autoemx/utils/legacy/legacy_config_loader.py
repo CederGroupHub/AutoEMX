@@ -8,9 +8,9 @@ from typing import Any, Dict, Tuple
 
 import autoemx.utils.constants as cnst
 from autoemx.config.runtime_configs import (
-    AcquisitionConfig,
     BulkMeasurementConfig,
     ExpStandardsConfig,
+    MeasurementConfig,
     PowderMeasurementConfig,
 )
 
@@ -49,40 +49,64 @@ def load_legacy_configurations_from_json(
         else:
             configs[key] = None
 
-    if configs.get(cnst.ACQUISITION_CFG_KEY) is None:
-        raw_acq_payload: Dict[str, Any] = {}
+    measurement_cfg = configs.get(cnst.MEASUREMENT_CFG_KEY)
+    if measurement_cfg is None:
+        measurement_cfg = MeasurementConfig()
 
-        raw_powder_cfg = data.get(cnst.POWDER_MEASUREMENT_CFG_KEY)
-        if isinstance(raw_powder_cfg, dict):
-            try:
-                raw_acq_payload[cnst.POWDER_MEASUREMENT_CFG_KEY] = PowderMeasurementConfig.model_validate(raw_powder_cfg)
-            except Exception:
-                raw_acq_payload[cnst.POWDER_MEASUREMENT_CFG_KEY] = None
+    if not isinstance(measurement_cfg, MeasurementConfig):
+        measurement_cfg = MeasurementConfig.model_validate(measurement_cfg)
 
-        raw_bulk_cfg = data.get(cnst.BULK_MEASUREMENT_CFG_KEY)
-        if isinstance(raw_bulk_cfg, dict):
-            try:
-                raw_acq_payload[cnst.BULK_MEASUREMENT_CFG_KEY] = BulkMeasurementConfig.model_validate(raw_bulk_cfg)
-            except Exception:
-                raw_acq_payload[cnst.BULK_MEASUREMENT_CFG_KEY] = None
+    raw_acq_payload = data.get(cnst.ACQUISITION_CFG_KEY)
+    if not isinstance(raw_acq_payload, dict):
+        raw_acq_payload = {}
 
-        raw_exp_cfg = data.get(cnst.EXP_STD_MEASUREMENT_CFG_KEY)
-        if isinstance(raw_exp_cfg, dict):
-            try:
-                raw_acq_payload[cnst.EXP_STD_MEASUREMENT_CFG_KEY] = ExpStandardsConfig.model_validate(raw_exp_cfg)
-            except Exception:
-                raw_acq_payload[cnst.EXP_STD_MEASUREMENT_CFG_KEY] = None
+    powder_cfg_obj = None
+    bulk_cfg_obj = None
+    exp_cfg_obj = None
 
+    raw_powder_cfg = data.get(cnst.POWDER_MEASUREMENT_CFG_KEY)
+    if not isinstance(raw_powder_cfg, dict):
+        raw_powder_cfg = raw_acq_payload.get(cnst.POWDER_MEASUREMENT_CFG_KEY)
+    if isinstance(raw_powder_cfg, dict):
         try:
-            configs[cnst.ACQUISITION_CFG_KEY] = AcquisitionConfig.model_validate(raw_acq_payload)
+            powder_cfg_obj = PowderMeasurementConfig.model_validate(raw_powder_cfg)
         except Exception:
-            configs[cnst.ACQUISITION_CFG_KEY] = AcquisitionConfig()
+            powder_cfg_obj = None
 
-    acquisition_cfg = configs.get(cnst.ACQUISITION_CFG_KEY)
-    if acquisition_cfg is not None:
-        configs[cnst.POWDER_MEASUREMENT_CFG_KEY] = acquisition_cfg.powder_meas_cfg
-        configs[cnst.BULK_MEASUREMENT_CFG_KEY] = acquisition_cfg.bulk_meas_cfg
-        configs[cnst.EXP_STD_MEASUREMENT_CFG_KEY] = acquisition_cfg.exp_stds_cfg
+    raw_bulk_cfg = data.get(cnst.BULK_MEASUREMENT_CFG_KEY)
+    if not isinstance(raw_bulk_cfg, dict):
+        raw_bulk_cfg = raw_acq_payload.get(cnst.BULK_MEASUREMENT_CFG_KEY)
+    if isinstance(raw_bulk_cfg, dict):
+        try:
+            bulk_cfg_obj = BulkMeasurementConfig.model_validate(raw_bulk_cfg)
+        except Exception:
+            bulk_cfg_obj = None
+
+    raw_exp_cfg = data.get(cnst.EXP_STD_MEASUREMENT_CFG_KEY)
+    if not isinstance(raw_exp_cfg, dict):
+        raw_exp_cfg = raw_acq_payload.get(cnst.EXP_STD_MEASUREMENT_CFG_KEY)
+    if isinstance(raw_exp_cfg, dict):
+        try:
+            exp_cfg_obj = ExpStandardsConfig.model_validate(raw_exp_cfg)
+        except Exception:
+            exp_cfg_obj = None
+
+    saved_images_extension = raw_acq_payload.get("saved_images_extension")
+    save_raw_images = raw_acq_payload.get("save_raw_images")
+    update_payload: Dict[str, Any] = {
+        "powder_meas_cfg": powder_cfg_obj,
+        "bulk_meas_cfg": bulk_cfg_obj,
+        "exp_stds_cfg": exp_cfg_obj,
+    }
+    if saved_images_extension is not None:
+        update_payload["saved_images_extension"] = saved_images_extension
+    if save_raw_images is not None:
+        update_payload["save_raw_images"] = save_raw_images
+
+    configs[cnst.MEASUREMENT_CFG_KEY] = measurement_cfg.model_copy(update=update_payload)
+    configs[cnst.POWDER_MEASUREMENT_CFG_KEY] = configs[cnst.MEASUREMENT_CFG_KEY].powder_meas_cfg
+    configs[cnst.BULK_MEASUREMENT_CFG_KEY] = configs[cnst.MEASUREMENT_CFG_KEY].bulk_meas_cfg
+    configs[cnst.EXP_STD_MEASUREMENT_CFG_KEY] = configs[cnst.MEASUREMENT_CFG_KEY].exp_stds_cfg
 
     # Legacy compatibility:
     # ClusteringConfig is not part of runtime config_classes_dict, but legacy

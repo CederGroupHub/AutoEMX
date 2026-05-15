@@ -50,8 +50,8 @@ from autoemx.utils.plotting_helpers import (
 from autoemx.config import config_classes_dict, load_sample_ledger
 from autoemx.config.ledger_schemas import ClusteringConfig
 from autoemx.core.composition_analysis import EMXSp_Composition_Analyzer
-from autoemx.utils.legacy.legacy_backfill import load_ledger_configs_from_legacy_json
-from autoemx.utils.legacy.ledger_bootstrap import build_legacy_import_quantification_config
+from autoemx.utils.legacy.legacy_backfill import load_ledger_configs_from_legacy_json # type: ignore
+from autoemx.utils.legacy.ledger_bootstrap import build_legacy_import_quantification_config # type: ignore
 
 # Configure logging
 logging.basicConfig(
@@ -218,26 +218,26 @@ def analyze_sample(
     if quant_cfg is None:
         quant_cfg = config_classes_dict[cnst.QUANTIFICATION_CFG_KEY]()
 
-    # On first-run legacy migration (no ledger yet), use the same robust legacy
-    # clustering reconstruction that ledger creation uses. This ensures
-    # ref_formulae are available in the very first analysis run.
-    if not os.path.exists(ledger_path):
-        legacy_ledger_cfgs = load_ledger_configs_from_legacy_json(sample_dir)
-        if legacy_ledger_cfgs is not None:
-            try:
-                legacy_quant_cfg = build_legacy_import_quantification_config(
-                    sample_result_dir=sample_dir,
-                    ledger_configs=legacy_ledger_cfgs,
-                )
-                legacy_clustering_cfg = legacy_quant_cfg.get_active_clustering_config()
-                if legacy_clustering_cfg is not None:
-                    clustering_cfg = legacy_clustering_cfg
-            except Exception as e:
-                logging.warning(
-                    "Could not load legacy clustering settings for first-run analysis: %s",
-                    e,
-                )
-    
+    # # On first-run legacy migration (no ledger yet), use the same robust legacy
+    # # clustering reconstruction that ledger creation uses. This ensures
+    # # ref_formulae are available in the very first analysis run.
+    # if not os.path.exists(ledger_path):
+    #     legacy_ledger_cfgs = load_ledger_configs_from_legacy_json(sample_dir)
+    #     if legacy_ledger_cfgs is not None:
+    #         try:
+    #             legacy_quant_cfg = build_legacy_import_quantification_config(
+    #                 sample_result_dir=sample_dir,
+    #                 ledger_configs=legacy_ledger_cfgs,
+    #             )
+    #             legacy_clustering_cfg = legacy_quant_cfg.get_active_clustering_config()
+    #             if legacy_clustering_cfg is not None:
+    #                 clustering_cfg = legacy_clustering_cfg
+    #         except Exception as e:
+    #             logging.warning(
+    #                 "Could not load legacy clustering settings for first-run analysis: %s",
+    #                 e,
+    #             )
+
     # --- Modify Clustering Configuration
     forced_key = "forced"
     allowed_k_finding_methods = ("silhouette", "calinski_harabasz", "elbow", forced_key)

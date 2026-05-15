@@ -89,7 +89,6 @@ from autoemx.utils import (
     make_unique_path,
 )
 from autoemx.config import (
-    AcquisitionConfig,
     MicroscopeConfig,
     SampleConfig,
     MeasurementConfig,
@@ -423,23 +422,6 @@ class EMXSp_Composition_Analyzer:
     """
     #TODO
     @staticmethod
-    def build_default_runtime_configs() -> Dict[str, Any]:
-        """Return default runtime config objects for non-legacy spectra-only bootstrap."""
-        acquisition_cfg = AcquisitionConfig()
-        return {
-            cnst.MICROSCOPE_CFG_KEY: MicroscopeConfig(),
-            cnst.SAMPLE_CFG_KEY: SampleConfig(elements=[]),
-            cnst.MEASUREMENT_CFG_KEY: MeasurementConfig(),
-            cnst.SAMPLESUBSTRATE_CFG_KEY: SampleSubstrateConfig(),
-            cnst.QUANTIFICATION_CFG_KEY: QuantificationOptionsConfig(),
-            cnst.ACQUISITION_CFG_KEY: acquisition_cfg,
-            cnst.POWDER_MEASUREMENT_CFG_KEY: acquisition_cfg.powder_meas_cfg,
-            cnst.BULK_MEASUREMENT_CFG_KEY: acquisition_cfg.bulk_meas_cfg,
-            cnst.EXP_STD_MEASUREMENT_CFG_KEY: acquisition_cfg.exp_stds_cfg,
-            cnst.PLOT_CFG_KEY: PlotConfig(),
-        }
-
-    @staticmethod
     def _coerce_optional_finite_float(value: Any) -> Optional[float]:
         """Return a finite float or None when the input is missing/non-finite."""
         if value is None:
@@ -539,7 +521,6 @@ class EMXSp_Composition_Analyzer:
         verbose: bool = True,
         results_dir: Optional[str] = None,
         sample_id: Optional[str] = None,
-        acquisition_cfg: Optional[AcquisitionConfig] = None,
     ):
         """
         Initialize the EMXSp_Composition_Analyzer with all configuration objects.
@@ -563,12 +544,13 @@ class EMXSp_Composition_Analyzer:
         self.is_acquisition = is_acquisition
         self.development_mode = development_mode
 
-        if acquisition_cfg is None:
-            acquisition_cfg = AcquisitionConfig(
-                powder_meas_cfg=powder_meas_cfg,
-                bulk_meas_cfg=bulk_meas_cfg,
-                exp_stds_cfg=exp_stds_cfg,
-            )
+        measurement_cfg = measurement_cfg.model_copy(
+            update={
+                "powder_meas_cfg": powder_meas_cfg if powder_meas_cfg is not None else measurement_cfg.powder_meas_cfg,
+                "bulk_meas_cfg": bulk_meas_cfg if bulk_meas_cfg is not None else measurement_cfg.bulk_meas_cfg,
+                "exp_stds_cfg": exp_stds_cfg if exp_stds_cfg is not None else measurement_cfg.exp_stds_cfg,
+            }
+        )
 
         is_XSp_measurement = measurement_cfg.type != measurement_cfg.PARTICLE_STATS_MEAS_TYPE_KEY
         
@@ -585,10 +567,9 @@ class EMXSp_Composition_Analyzer:
         
         # --- Measurement configurations
         self.measurement_cfg = measurement_cfg
-        self.acquisition_cfg = acquisition_cfg
-        self.powder_meas_cfg = self.acquisition_cfg.powder_meas_cfg or PowderMeasurementConfig()
-        self.bulk_meas_cfg = self.acquisition_cfg.bulk_meas_cfg or BulkMeasurementConfig()
-        self.exp_stds_cfg = self.acquisition_cfg.exp_stds_cfg or ExpStandardsConfig()
+        self.powder_meas_cfg = self.measurement_cfg.powder_meas_cfg or PowderMeasurementConfig()
+        self.bulk_meas_cfg = self.measurement_cfg.bulk_meas_cfg or BulkMeasurementConfig()
+        self.exp_stds_cfg = self.measurement_cfg.exp_stds_cfg or ExpStandardsConfig()
         
         if is_XSp_measurement:
             if is_acquisition:
@@ -2008,10 +1989,9 @@ class EMXSp_Composition_Analyzer:
                 self.sample_cfg = default_ledger_configs.sample_cfg
                 self.measurement_cfg = default_ledger_configs.measurement_cfg
                 self.sample_substrate_cfg = default_ledger_configs.sample_substrate_cfg
-                self.acquisition_cfg = default_ledger_configs.acquisition_cfg
-                self.powder_meas_cfg = self.acquisition_cfg.powder_meas_cfg or PowderMeasurementConfig()
-                self.bulk_meas_cfg = self.acquisition_cfg.bulk_meas_cfg or BulkMeasurementConfig()
-                self.exp_stds_cfg = self.acquisition_cfg.exp_stds_cfg or ExpStandardsConfig()
+                self.powder_meas_cfg = self.measurement_cfg.powder_meas_cfg or PowderMeasurementConfig()
+                self.bulk_meas_cfg = self.measurement_cfg.bulk_meas_cfg or BulkMeasurementConfig()
+                self.exp_stds_cfg = self.measurement_cfg.exp_stds_cfg or ExpStandardsConfig()
                 self.plot_cfg = default_ledger_configs.plot_cfg
                 if legacy_configs.get(cnst.QUANTIFICATION_CFG_KEY) is not None:
                     self.quant_cfg = legacy_configs[cnst.QUANTIFICATION_CFG_KEY]
@@ -2065,7 +2045,7 @@ class EMXSp_Composition_Analyzer:
 
     def _build_ledger_configs(self) -> LedgerConfigs:
         """Build inline ledger configs from current analyzer configuration objects."""
-        self.acquisition_cfg = self.acquisition_cfg.model_copy(
+        self.measurement_cfg = self.measurement_cfg.model_copy(
             update={
                 "powder_meas_cfg": self.powder_meas_cfg,
                 "bulk_meas_cfg": self.bulk_meas_cfg,
@@ -2077,7 +2057,6 @@ class EMXSp_Composition_Analyzer:
             sample_cfg=self.sample_cfg,
             measurement_cfg=self.measurement_cfg,
             sample_substrate_cfg=self.sample_substrate_cfg,
-            acquisition_cfg=self.acquisition_cfg,
             plot_cfg=self.plot_cfg,
         )
 
@@ -4300,7 +4279,7 @@ class EMXSp_Composition_Analyzer:
             return asdict(config_obj)
     
         # Gather configuration dataclasses as dictionaries
-        self.acquisition_cfg = self.acquisition_cfg.model_copy(
+        self.measurement_cfg = self.measurement_cfg.model_copy(
             update={
                 "powder_meas_cfg": self.powder_meas_cfg,
                 "bulk_meas_cfg": self.bulk_meas_cfg,
@@ -4312,7 +4291,6 @@ class EMXSp_Composition_Analyzer:
             cnst.MICROSCOPE_CFG_KEY: _serialize_config(self.microscope_cfg),
             cnst.MEASUREMENT_CFG_KEY: _serialize_config(self.measurement_cfg),
             cnst.SAMPLESUBSTRATE_CFG_KEY: _serialize_config(self.sample_substrate_cfg),
-            cnst.ACQUISITION_CFG_KEY: _serialize_config(self.acquisition_cfg),
         }
         
         if is_XSp_measurement:
@@ -4344,7 +4322,6 @@ class EMXSp_Composition_Analyzer:
                 cnst.SAMPLE_CFG_KEY: spectrum_collection_info[cnst.SAMPLE_CFG_KEY],
                 cnst.MEASUREMENT_CFG_KEY: spectrum_collection_info[cnst.MEASUREMENT_CFG_KEY],
                 cnst.SAMPLESUBSTRATE_CFG_KEY: spectrum_collection_info[cnst.SAMPLESUBSTRATE_CFG_KEY],
-                cnst.ACQUISITION_CFG_KEY: spectrum_collection_info[cnst.ACQUISITION_CFG_KEY],
                 cnst.PLOT_CFG_KEY: spectrum_collection_info.get(cnst.PLOT_CFG_KEY, self.plot_cfg.model_dump(mode="json")),
             })
 

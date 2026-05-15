@@ -87,7 +87,7 @@ from autoemx.config.ledger_schemas import (
 )
 from autoemx.utils.legacy.legacy_backfill import load_ledger_configs_from_legacy_json
 from autoemx.utils.legacy.ledger_bootstrap import (
-    build_legacy_import_quantification_config as build_legacy_import_quantification_config_from_data_csv,
+    build_legacy_import_quantification_config,
     convert_machine_to_pixel_coordinates,
     load_legacy_acquisition_details_by_spectrum_id,
     load_legacy_quantification_results_by_spectrum_id,
@@ -101,7 +101,7 @@ def _build_legacy_import_quantification_config(
     sample_dir: Path,
 ) -> QuantificationConfig:
     """Build the initial quantification config used for Data.csv legacy migration."""
-    return build_legacy_import_quantification_config_from_data_csv(
+    return build_legacy_import_quantification_config(
         sample_result_dir=str(sample_dir),
         ledger_configs=ledger_configs,
     )

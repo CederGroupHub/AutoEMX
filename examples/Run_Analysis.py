@@ -21,7 +21,7 @@ Created on Tue Jul 29 13:18:16 2025
 
 import os
 
-from autoemx.runners import analyze_sample # type: ignore
+from autoemx.runners.analyze_sample import analyze_sample
 
 
 # =============================================================================

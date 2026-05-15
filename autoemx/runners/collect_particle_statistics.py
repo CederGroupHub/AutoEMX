@@ -18,7 +18,6 @@ from autoemx.config import (
     MeasurementConfig,
     SampleSubstrateConfig,
     PowderMeasurementConfig,
-    AcquisitionConfig,
 )
 
 # Configure logging
@@ -107,13 +106,13 @@ def collect_particle_statistics(
     saved_images_extension : str, optional
         File extension for saved SEM images. Allowed: `'png'`, `'tif'`, `'jpg'`, `'webp'`.
         Default is `'png'` (lightweight output). Use `'tif'` for higher-resolution/larger files.
-        Default is taken from defaults (AcquisitionConfig.saved_images_extension).
+        Default is taken from defaults (MeasurementConfig.saved_images_extension).
     save_raw_images : bool, optional
         If True, also save raw (unannotated) SEM images alongside annotated frames.
         Default is `False` (saves only annotated images, lightweight output).
-        Default is taken from defaults (AcquisitionConfig.save_raw_images).
+        Default is taken from defaults (MeasurementConfig.save_raw_images).
     powder_meas_cfg_kwargs : dict, optional
-        Additional keyword arguments for PowderMeasurementConfig. Supports 'img_shift_tracking' (bool, default True) to enable/disable image shift tracking during acquisition.
+        Additional keyword arguments for PowderMeasurementConfig.
     output_filename_suffix : str, optional
         String appended to output filenames.
         Default is `''`.
@@ -151,17 +150,16 @@ def collect_particle_statistics(
     )
 
     if powder_meas_cfg_kwargs:
-        if 'img_shift_tracking' not in powder_meas_cfg_kwargs:
-            powder_meas_cfg_kwargs['img_shift_tracking'] = True
         powder_meas_cfg = PowderMeasurementConfig(**powder_meas_cfg_kwargs)
     else:
         powder_meas_cfg = PowderMeasurementConfig()
     
-    # Build AcquisitionConfig with image extension and raw image options
-    acquisition_cfg = AcquisitionConfig(
+    # Build MeasurementConfig with image extension and raw image options
+    measurement_cfg = MeasurementConfig(
+        type=MeasurementConfig.PARTICLE_STATS_MEAS_TYPE_KEY,
+        working_distance=working_distance,
+        is_manual_navigation=is_manual_navigation,
         powder_meas_cfg=powder_meas_cfg,
-        bulk_meas_cfg=None,
-        exp_stds_cfg=None,
         saved_images_extension=saved_images_extension,
         save_raw_images=save_raw_images
     )
@@ -197,7 +195,6 @@ def collect_particle_statistics(
             sample_cfg=sample_cfg,
             measurement_cfg=measurement_cfg,
             sample_substrate_cfg=sample_substrate_cfg,
-            acquisition_cfg=acquisition_cfg,
             is_acquisition = True,
             development_mode=development_mode,
             output_filename_suffix = output_filename_suffix,

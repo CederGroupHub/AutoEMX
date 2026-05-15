@@ -108,9 +108,9 @@ def load_ledger_configs_from_legacy_json(sample_result_dir: str) -> Optional[obj
     """
     import autoemx.utils.constants as cnst
     from autoemx.config.runtime_configs import (
-        AcquisitionConfig,
         BulkMeasurementConfig,
         ExpStandardsConfig,
+        MeasurementConfig,
         PlotConfig,
         PowderMeasurementConfig,
         config_classes_dict,
@@ -163,38 +163,57 @@ def load_ledger_configs_from_legacy_json(sample_result_dir: str) -> Optional[obj
     if not required.issubset(cfg_kwargs):
         return None
 
-    # Build acquisition config from either modern block or legacy split blocks.
-    acquisition_cfg = None
-    if cnst.ACQUISITION_CFG_KEY in cfg_kwargs:
-        acquisition_cfg = cfg_kwargs[cnst.ACQUISITION_CFG_KEY]
-    else:
-        raw_acq_payload: dict = {}
-
-        raw_powder_cfg = raw.get(cnst.POWDER_MEASUREMENT_CFG_KEY)
-        if isinstance(raw_powder_cfg, dict):
-            try:
-                raw_acq_payload[cnst.POWDER_MEASUREMENT_CFG_KEY] = PowderMeasurementConfig.model_validate(raw_powder_cfg)
-            except Exception:
-                raw_acq_payload[cnst.POWDER_MEASUREMENT_CFG_KEY] = None
-
-        raw_bulk_cfg = raw.get(cnst.BULK_MEASUREMENT_CFG_KEY)
-        if isinstance(raw_bulk_cfg, dict):
-            try:
-                raw_acq_payload[cnst.BULK_MEASUREMENT_CFG_KEY] = BulkMeasurementConfig.model_validate(raw_bulk_cfg)
-            except Exception:
-                raw_acq_payload[cnst.BULK_MEASUREMENT_CFG_KEY] = None
-
-        raw_exp_cfg = raw.get(cnst.EXP_STD_MEASUREMENT_CFG_KEY)
-        if isinstance(raw_exp_cfg, dict):
-            try:
-                raw_acq_payload[cnst.EXP_STD_MEASUREMENT_CFG_KEY] = ExpStandardsConfig.model_validate(raw_exp_cfg)
-            except Exception:
-                raw_acq_payload[cnst.EXP_STD_MEASUREMENT_CFG_KEY] = None
-
+    measurement_cfg = cfg_kwargs.get(cnst.MEASUREMENT_CFG_KEY)
+    if not isinstance(measurement_cfg, MeasurementConfig):
         try:
-            acquisition_cfg = AcquisitionConfig.model_validate(raw_acq_payload)
+            measurement_cfg = MeasurementConfig.model_validate(measurement_cfg) if measurement_cfg is not None else MeasurementConfig()
         except Exception:
-            acquisition_cfg = AcquisitionConfig()
+            measurement_cfg = MeasurementConfig()
+
+    raw_acq_payload = raw.get(cnst.ACQUISITION_CFG_KEY)
+    if not isinstance(raw_acq_payload, dict):
+        raw_acq_payload = {}
+
+    powder_cfg_obj = None
+    raw_powder_cfg = raw.get(cnst.POWDER_MEASUREMENT_CFG_KEY)
+    if not isinstance(raw_powder_cfg, dict):
+        raw_powder_cfg = raw_acq_payload.get(cnst.POWDER_MEASUREMENT_CFG_KEY)
+    if isinstance(raw_powder_cfg, dict):
+        try:
+            powder_cfg_obj = PowderMeasurementConfig.model_validate(raw_powder_cfg)
+        except Exception:
+            powder_cfg_obj = None
+
+    bulk_cfg_obj = None
+    raw_bulk_cfg = raw.get(cnst.BULK_MEASUREMENT_CFG_KEY)
+    if not isinstance(raw_bulk_cfg, dict):
+        raw_bulk_cfg = raw_acq_payload.get(cnst.BULK_MEASUREMENT_CFG_KEY)
+    if isinstance(raw_bulk_cfg, dict):
+        try:
+            bulk_cfg_obj = BulkMeasurementConfig.model_validate(raw_bulk_cfg)
+        except Exception:
+            bulk_cfg_obj = None
+
+    exp_cfg_obj = None
+    raw_exp_cfg = raw.get(cnst.EXP_STD_MEASUREMENT_CFG_KEY)
+    if not isinstance(raw_exp_cfg, dict):
+        raw_exp_cfg = raw_acq_payload.get(cnst.EXP_STD_MEASUREMENT_CFG_KEY)
+    if isinstance(raw_exp_cfg, dict):
+        try:
+            exp_cfg_obj = ExpStandardsConfig.model_validate(raw_exp_cfg)
+        except Exception:
+            exp_cfg_obj = None
+
+    update_payload: dict = {
+        "powder_meas_cfg": powder_cfg_obj,
+        "bulk_meas_cfg": bulk_cfg_obj,
+        "exp_stds_cfg": exp_cfg_obj,
+    }
+    if raw_acq_payload.get("saved_images_extension") is not None:
+        update_payload["saved_images_extension"] = raw_acq_payload.get("saved_images_extension")
+    if raw_acq_payload.get("save_raw_images") is not None:
+        update_payload["save_raw_images"] = raw_acq_payload.get("save_raw_images")
+    measurement_cfg = measurement_cfg.model_copy(update=update_payload)
 
     # Build LedgerConfigs, mapping constant keys to field names
     key_to_field = {
@@ -202,7 +221,6 @@ def load_ledger_configs_from_legacy_json(sample_result_dir: str) -> Optional[obj
         cnst.SAMPLE_CFG_KEY: "sample_cfg",
         cnst.MEASUREMENT_CFG_KEY: "measurement_cfg",
         cnst.SAMPLESUBSTRATE_CFG_KEY: "sample_substrate_cfg",
-        cnst.ACQUISITION_CFG_KEY: "acquisition_cfg",
         cnst.PLOT_CFG_KEY: "plot_cfg",
     }
     ledger_cfg_kwargs = {
@@ -210,7 +228,7 @@ def load_ledger_configs_from_legacy_json(sample_result_dir: str) -> Optional[obj
         for key, field in key_to_field.items()
         if key in cfg_kwargs
     }
-    ledger_cfg_kwargs["acquisition_cfg"] = acquisition_cfg
+    ledger_cfg_kwargs["measurement_cfg"] = measurement_cfg
     if "plot_cfg" not in ledger_cfg_kwargs:
         ledger_cfg_kwargs["plot_cfg"] = PlotConfig()
 

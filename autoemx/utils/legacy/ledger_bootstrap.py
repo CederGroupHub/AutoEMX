@@ -885,7 +885,6 @@ def resolve_legacy_bootstrap_configs(
             sample_cfg=legacy_configs.get(cnst.SAMPLE_CFG_KEY) or default_ledger_configs.sample_cfg,
             measurement_cfg=legacy_configs.get(cnst.MEASUREMENT_CFG_KEY) or default_ledger_configs.measurement_cfg,
             sample_substrate_cfg=legacy_configs.get(cnst.SAMPLESUBSTRATE_CFG_KEY) or default_ledger_configs.sample_substrate_cfg,
-            acquisition_cfg=legacy_configs.get(cnst.ACQUISITION_CFG_KEY) or default_ledger_configs.acquisition_cfg,
             plot_cfg=legacy_configs.get(cnst.PLOT_CFG_KEY) or default_ledger_configs.plot_cfg,
         )
         return ledger_configs, legacy_configs

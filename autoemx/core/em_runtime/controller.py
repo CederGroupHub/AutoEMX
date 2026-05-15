@@ -43,7 +43,6 @@ from typing import Any, List, Optional, Tuple, Union
 import autoemx.utils.constants as cnst
 from autoemx.utils import EMError, print_single_separator, draw_scalebar
 from autoemx.config import (
-    AcquisitionConfig,
     MicroscopeConfig,
     SampleConfig,
     MeasurementConfig,
@@ -162,16 +161,15 @@ class EM_Controller:
         sample_cfg = ledger_configs.sample_cfg
         measurement_cfg = ledger_configs.measurement_cfg
         sample_substrate_cfg = ledger_configs.sample_substrate_cfg
-        acquisition_cfg = ledger_configs.acquisition_cfg or AcquisitionConfig()
-        powder_meas_cfg = acquisition_cfg.powder_meas_cfg or PowderMeasurementConfig()
-        bulk_meas_cfg = acquisition_cfg.bulk_meas_cfg or BulkMeasurementConfig()
+        powder_meas_cfg = measurement_cfg.powder_meas_cfg or PowderMeasurementConfig()
+        bulk_meas_cfg = measurement_cfg.bulk_meas_cfg or BulkMeasurementConfig()
 
         # --- Configuration
         self.sample_cfg = sample_cfg
         self.microscope_cfg = microscope_cfg
         self.measurement_cfg = measurement_cfg
         self.sample_substrate_cfg = sample_substrate_cfg
-        self.acquisition_cfg = acquisition_cfg
+        self.acquisition_cfg = self.measurement_cfg
         self.powder_meas_cfg = powder_meas_cfg
         self.bulk_meas_cfg = bulk_meas_cfg
         self.sample_id = str(sample_id).strip() if sample_id is not None else ""
@@ -266,7 +264,6 @@ class EM_Controller:
         results_dir: Optional[str] = None,
         verbose: bool = True,
         development_mode: Optional[bool] = False,
-        acquisition_cfg: Optional[AcquisitionConfig] = None,
     ) -> "EM_Controller":
         """
         Construct an EM_Controller from individual config objects.
@@ -289,18 +286,18 @@ class EM_Controller:
         verbose : bool, optional
         development_mode : bool, optional
         """
-        resolved_acquisition_cfg = acquisition_cfg or AcquisitionConfig(
-            powder_meas_cfg=powder_meas_cfg,
-            bulk_meas_cfg=bulk_meas_cfg,
-            exp_stds_cfg=None,
+        resolved_measurement_cfg = measurement_cfg.model_copy(
+            update={
+                "powder_meas_cfg": powder_meas_cfg if powder_meas_cfg is not None else measurement_cfg.powder_meas_cfg,
+                "bulk_meas_cfg": bulk_meas_cfg if bulk_meas_cfg is not None else measurement_cfg.bulk_meas_cfg,
+            }
         )
 
         ledger_configs = LedgerConfigs(
             microscope_cfg=microscope_cfg,
             sample_cfg=sample_cfg,
-            measurement_cfg=measurement_cfg,
+            measurement_cfg=resolved_measurement_cfg,
             sample_substrate_cfg=sample_substrate_cfg,
-            acquisition_cfg=resolved_acquisition_cfg,
             plot_cfg=PlotConfig(),
         )
         return cls(
