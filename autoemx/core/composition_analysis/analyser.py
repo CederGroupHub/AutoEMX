@@ -2700,7 +2700,8 @@ class EMXSp_Composition_Analyzer:
         self,
         n_spectra_to_collect: int,
         n_tot_sp_collected: Optional[int] = None,
-        quantify: bool = True
+        quantify: bool = True,
+        particle_id_offset: int = 0,
     ) -> Tuple[int, bool]:
         """
         Acquire and optionally quantify spectra from particles.
@@ -2754,7 +2755,7 @@ class EMXSp_Composition_Analyzer:
             if not success:
                 break
             
-            self.particle_cntr = particle_cntr
+            self.particle_cntr = particle_cntr + particle_id_offset
             frame_ID = self.EM_controller.current_frame_label
             
             latest_spot_id = None # For image annotations
@@ -3489,10 +3490,34 @@ class EMXSp_Composition_Analyzer:
         - Acquisition and quantification records are persisted incrementally to the ledger to prevent data loss.
         - Prints a summary and processing times at the end.
         """
-        tot_n_spectra = 0  # Total number of collected spectra
         max_n_sp_per_iter = 10  # Max spectra to collect per iteration (for saving in between)
         tot_spectra_to_collect = self.max_n_spectra
-        n_spectra_to_collect = min(max_n_sp_per_iter, tot_spectra_to_collect, self.min_n_spectra)
+
+        # Resume from any previously acquired spectra so file names and particle IDs
+        # are always monotonically increasing across restarted acquisitions.
+        _existing_ledger = self._load_existing_ledger()
+        if _existing_ledger is not None and _existing_ledger.spectra:
+            _numeric_ids = [
+                int(e.spectrum_id)
+                for e in _existing_ledger.spectra
+                if e.spectrum_id is not None and str(e.spectrum_id).isdigit()
+            ]
+            tot_n_spectra = (max(_numeric_ids) + 1) if _numeric_ids else 0
+            _particle_ids = [
+                e.acquisition_details.particle_id
+                for e in _existing_ledger.spectra
+                if e.acquisition_details is not None
+                and e.acquisition_details.particle_id is not None
+            ]
+            try:
+                _particle_id_offset = max(int(p) for p in _particle_ids) + 1
+            except (ValueError, TypeError):
+                _particle_id_offset = 0
+        else:
+            tot_n_spectra = 0
+            _particle_id_offset = 0
+
+        n_spectra_to_collect = min(max_n_sp_per_iter, max(0, tot_spectra_to_collect - tot_n_spectra), self.min_n_spectra)
         is_converged = False
         is_analysis_successful = False
         is_acquisition_successful = True
@@ -3523,7 +3548,8 @@ class EMXSp_Composition_Analyzer:
             tot_n_spectra, is_acquisition_successful = self._collect_spectra(
                 n_spectra_to_collect,
                 n_tot_sp_collected=tot_n_spectra,
-                quantify=is_spectral_quant
+                quantify=is_spectral_quant,
+                particle_id_offset=_particle_id_offset,
             )
     
             if self.verbose:
@@ -3819,9 +3845,10 @@ class EMXSp_Composition_Analyzer:
             for peak_name in sorted(fit_results.lines.keys()):
                 peak_result = fit_results.lines[peak_name]
                 logger.info(
-                    "  %s: measured PB=%.1f (n=%d)",
+                    "  %s: measured PB=%.1f ± %.1f (n=%d)",
                     peak_name,
                     float(peak_result.measured_pb),
+                    float(peak_result.stdev_pb),
                     int(peak_result.n_spectra_used),
                 )
         else:
