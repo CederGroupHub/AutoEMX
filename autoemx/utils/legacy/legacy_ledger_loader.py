@@ -667,7 +667,8 @@ def _list_pointer_files_in_spectra_dir(sample_result_dir: str) -> List[Path]:
         return []
 
     allowed_ext = {".msa", ".msg", ".json"}
-    files = []
+    ext_priority = {".msa": 0, ".msg": 1, ".json": 2}
+    files_by_spectrum_id: Dict[str, Path] = {}
     for path in spectra_dir.iterdir():
         if not path.is_file() or path.suffix.lower() not in allowed_ext:
             continue
@@ -676,7 +677,16 @@ def _list_pointer_files_in_spectra_dir(sample_result_dir: str) -> List[Path]:
             continue
         if stem.endswith(cnst.SPECTRUM_MAN_BACKGROUND_SUFFIX):
             continue
-        files.append(path)
+        spectrum_id = stem[len(cnst.SPECTRUM_FILENAME_PREFIX):]
+        existing = files_by_spectrum_id.get(spectrum_id)
+        if existing is None:
+            files_by_spectrum_id[spectrum_id] = path
+            continue
+
+        existing_priority = ext_priority.get(existing.suffix.lower(), 99)
+        current_priority = ext_priority.get(path.suffix.lower(), 99)
+        if current_priority < existing_priority:
+            files_by_spectrum_id[spectrum_id] = path
 
     def sort_key(path: Path) -> Tuple[int, Any, str]:
         stem = path.stem
@@ -685,7 +695,7 @@ def _list_pointer_files_in_spectra_dir(sample_result_dir: str) -> List[Path]:
             return (0, int(spectrum_id), path.name)
         return (1, spectrum_id.lower(), path.name)
 
-    return sorted(files, key=sort_key)
+    return sorted(files_by_spectrum_id.values(), key=sort_key)
 
 
 def _load_existing_ledger(sample_result_dir: str) -> Optional[SampleLedger]:
@@ -800,15 +810,15 @@ def load_or_create_ledger_with_legacy_data_csv(
 
     if ledger is not None:
         # Ledger exists – Data.csv is not consulted at all.
-        existing_relpaths = {
-            spectrum.spectrum_relpath
+        existing_spectrum_ids = {
+            str(spectrum.spectrum_id)
             for spectrum in ledger.spectra
-            if spectrum.spectrum_relpath is not None
+            if spectrum.spectrum_id is not None
         }
-        sample_root = Path(sample_result_dir).resolve()
         for pointer_file in _list_pointer_files_in_spectra_dir(sample_result_dir):
-            pointer_rel = str(pointer_file.resolve().relative_to(sample_root))
-            if pointer_rel in existing_relpaths:
+            stem = pointer_file.stem
+            spectrum_id = stem[len(cnst.SPECTRUM_FILENAME_PREFIX):] if stem.startswith(cnst.SPECTRUM_FILENAME_PREFIX) else stem
+            if spectrum_id in existing_spectrum_ids:
                 continue
             ledger.spectra.append(
                 _build_spectrum_entry_from_pointer_file(
@@ -818,7 +828,7 @@ def load_or_create_ledger_with_legacy_data_csv(
                     quantification_results_by_id=None,
                 )
             )
-            existing_relpaths.add(pointer_rel)
+            existing_spectrum_ids.add(spectrum_id)
             ledger_changed = True
 
         if ledger.sample_path != os.path.abspath(sample_result_dir):

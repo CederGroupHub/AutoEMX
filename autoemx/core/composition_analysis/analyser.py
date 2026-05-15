@@ -1720,7 +1720,8 @@ class EMXSp_Composition_Analyzer:
             return []
 
         allowed_ext = {".msa", ".msg", ".json"}
-        files = []
+        ext_priority = {".msa": 0, ".msg": 1, ".json": 2}
+        files_by_spectrum_id: Dict[str, Path] = {}
         for path in spectra_dir.iterdir():
             if not path.is_file() or path.suffix.lower() not in allowed_ext:
                 continue
@@ -1729,7 +1730,16 @@ class EMXSp_Composition_Analyzer:
                 continue
             if stem.endswith(cnst.SPECTRUM_MAN_BACKGROUND_SUFFIX):
                 continue
-            files.append(path)
+            spectrum_id = stem[len(cnst.SPECTRUM_FILENAME_PREFIX):]
+            existing = files_by_spectrum_id.get(spectrum_id)
+            if existing is None:
+                files_by_spectrum_id[spectrum_id] = path
+                continue
+
+            existing_priority = ext_priority.get(existing.suffix.lower(), 99)
+            current_priority = ext_priority.get(path.suffix.lower(), 99)
+            if current_priority < existing_priority:
+                files_by_spectrum_id[spectrum_id] = path
 
         def sort_key(path: Path) -> Tuple[int, Union[int, str], str]:
             stem = path.stem
@@ -1738,7 +1748,7 @@ class EMXSp_Composition_Analyzer:
                 return (0, int(spectrum_id), path.name)
             return (1, spectrum_id.lower(), path.name)
 
-        return sorted(files, key=sort_key)
+        return sorted(files_by_spectrum_id.values(), key=sort_key)
 
 
     @staticmethod
@@ -2782,8 +2792,12 @@ class EMXSp_Composition_Analyzer:
                         active_quant=None,
                     )
                 # Check if this spectrum already exists in the ledger to prevent duplicates
-                existing_relpaths = {entry.spectrum_relpath for entry in ledger.spectra}
-                if spectrum_entry.spectrum_relpath not in existing_relpaths:
+                existing_spectrum_ids = {
+                    str(entry.spectrum_id)
+                    for entry in ledger.spectra
+                    if entry.spectrum_id not in (None, "")
+                }
+                if str(spectrum_entry.spectrum_id) not in existing_spectrum_ids:
                     ledger.spectra.append(spectrum_entry)
                     ledger.to_json_file(ledger_path)
 
