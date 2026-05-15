@@ -3511,8 +3511,10 @@ class EMXSp_Composition_Analyzer:
             ]
             try:
                 _particle_id_offset = max(int(p) for p in _particle_ids) + 1
+                self.particle_cntr = _particle_id_offset - 1  # Initialize to last particle ID from ledger
             except (ValueError, TypeError):
                 _particle_id_offset = 0
+                self.particle_cntr = -1
             logger.info(
                 "ℹ️ %d previously acquired spectrum/spectra detected. "
                 "New spectra will be appended starting from index %d. "
@@ -3526,6 +3528,7 @@ class EMXSp_Composition_Analyzer:
             _particle_id_offset = 0
 
         n_spectra_to_collect = min(max_n_sp_per_iter, max(0, tot_spectra_to_collect - tot_n_spectra), self.min_n_spectra)
+        n_spectra_collected_this_session = 0  # Track new spectra collected in this session
         is_converged = False
         is_analysis_successful = False
         is_acquisition_successful = True
@@ -3553,12 +3556,14 @@ class EMXSp_Composition_Analyzer:
                 logger.info(f"🔬 Collecting{quant_str} {n_spectra_to_collect} spectra...")
     
             # Collect the next batch of spectra (and quantify if requested)
+            n_spectra_before = tot_n_spectra
             tot_n_spectra, is_acquisition_successful = self._collect_spectra(
                 n_spectra_to_collect,
                 n_tot_sp_collected=tot_n_spectra,
                 quantify=is_spectral_quant,
                 particle_id_offset=_particle_id_offset,
             )
+            n_spectra_collected_this_session += (tot_n_spectra - n_spectra_before)
     
             if self.verbose:
                 print_single_separator()
@@ -3596,8 +3601,17 @@ class EMXSp_Composition_Analyzer:
     
         print_double_separator()
         logger.info('ℹ️ Sample ID: %s', self.sample_id)
-        par_str = f' over {self.particle_cntr} particles' if self.sample_cfg.is_particle_acquisition else ''
-        logger.info(f'✅ {tot_n_spectra} spectra were collected{par_str}.')
+        if self.sample_cfg.is_particle_acquisition:
+            if n_spectra_collected_this_session > 0:
+                par_str = f' over {self.particle_cntr} particles'
+            else:
+                par_str = ' (no new spectra collected in this session)'
+        else:
+            par_str = ''
+        if n_spectra_collected_this_session > 0:
+            logger.info(f'✅ {n_spectra_collected_this_session} new spectra collected (total: {tot_n_spectra}){par_str}.')
+        else:
+            logger.info(f'✅ {tot_n_spectra} total spectra available{par_str}.')
         process_time = (time.time() - self.start_process_time) / 60
         logger.info(f'✅ Total compositional analysis time: {process_time:.1f} min')
         print_single_separator()
