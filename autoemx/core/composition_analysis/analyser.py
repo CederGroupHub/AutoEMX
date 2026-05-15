@@ -3306,13 +3306,6 @@ class EMXSp_Composition_Analyzer:
 
                     for idx, result, quant_record, quantification_time in completed:
                         _finalize_quant_result(idx, result, quant_record, quantification_time)
-            except KeyboardInterrupt as e:
-                logger.warning(
-                    f"⚠️ Parallel spectrum processing was interrupted ({type(e).__name__}), falling back to sequential execution."
-                )
-                for payload in quant_worker_payloads:
-                    idx, result, quant_record, quantification_time = _quantify_spectrum_worker(payload)
-                    _finalize_quant_result(idx, result, quant_record, quantification_time)
             except Exception as e:
                 logger.warning(
                     f"⚠️ Parallel spectrum processing failed ({type(e).__name__}: {e}), "

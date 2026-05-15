@@ -3,11 +3,136 @@
 """Convenience I/O helpers for sample ledgers."""
 
 from pathlib import Path
-from typing import cast
+from typing import List, Optional, cast
 
 import autoemx.utils.constants as cnst
 
-from autoemx.config.ledger_schemas import LedgerConfigs, SampleLedger # type: ignore
+from autoemx.config.ledger_schemas import (  # type: ignore
+    AcquisitionDetails,
+    LedgerConfigs,
+    SampleLedger,
+    SpectrumEntry,
+)
+
+
+def _extract_spectrum_id(pointer_file: Path) -> str:
+    """Extract spectrum id from a pointer filename."""
+    stem = pointer_file.stem
+    if stem.startswith(cnst.SPECTRUM_FILENAME_PREFIX):
+        return stem[len(cnst.SPECTRUM_FILENAME_PREFIX):]
+    return stem
+
+
+def _list_spectrum_pointer_files(spectra_dir: Path) -> List[Path]:
+    """List spectrum pointer files in deterministic order."""
+    if not spectra_dir.exists():
+        return []
+
+    allowed_ext = {".msa", ".msg", ".json"}
+    ext_priority = {".msa": 0, ".msg": 1, ".json": 2}
+    selected_by_id = {}
+
+    for path in spectra_dir.iterdir():
+        if not path.is_file() or path.suffix.lower() not in allowed_ext:
+            continue
+
+        spectrum_id = _extract_spectrum_id(path)
+        existing = selected_by_id.get(spectrum_id)
+        if existing is None:
+            selected_by_id[spectrum_id] = path
+            continue
+
+        existing_priority = ext_priority.get(existing.suffix.lower(), 99)
+        current_priority = ext_priority.get(path.suffix.lower(), 99)
+        if current_priority < existing_priority:
+            selected_by_id[spectrum_id] = path
+
+    def _sort_key(path: Path):
+        spectrum_id = _extract_spectrum_id(path)
+        if spectrum_id.isdigit():
+            return (0, int(spectrum_id), path.name)
+        return (1, spectrum_id.lower(), path.name)
+
+    return sorted(selected_by_id.values(), key=_sort_key)
+
+
+def _load_realtime_from_pointer_file(pointer_path: Path) -> Optional[float]:
+    """Read REALTIME from EMSA-like headers when available."""
+    if pointer_path.suffix.lower() not in {".msa", ".msg"}:
+        return None
+
+    try:
+        with pointer_path.open("r", encoding="utf-8") as file_obj:
+            for raw_line in file_obj:
+                line = raw_line.strip()
+                if not line.startswith("#") or ":" not in line:
+                    continue
+                if line.upper().startswith("#SPECTRUM"):
+                    break
+                key, value = line[1:].split(":", maxsplit=1)
+                key_norm = key.strip().replace("_", "").replace(" ", "").upper()
+                if key_norm == "REALTIME":
+                    return float(value.strip())
+    except Exception:
+        return None
+
+    return None
+
+
+def _build_spectrum_entry(sample_root: Path, pointer_file: Path) -> SpectrumEntry:
+    """Build one minimal spectrum ledger entry from a pointer file."""
+    spectrum_id = _extract_spectrum_id(pointer_file)
+    pointer_relpath = str(pointer_file.resolve().relative_to(sample_root.resolve()).as_posix())
+
+    try:
+        counts = SampleLedger._load_counts_from_pointer_file(pointer_file.resolve())
+        total_counts = int(round(sum(float(value) for value in counts)))
+    except Exception:
+        total_counts = 0
+
+    live_time = _load_realtime_from_pointer_file(pointer_file)
+
+    return SpectrumEntry(
+        spectrum_id=spectrum_id,
+        total_counts=total_counts,
+        live_acquisition_time=live_time if live_time is not None else 1.0,
+        acquisition_details=AcquisitionDetails(frame_id=None, particle_id=None, spot_coordinates=None),
+        spectrum_relpath=pointer_relpath,
+        instrument_background_relpath=None,
+        quantification_results=[],
+    )
+
+
+def ingest_spectra(ledger: SampleLedger) -> int:
+    """Ingest newly copied spectra files into an existing ledger.
+
+    Scans ``<ledger.sample_path>/spectra`` and appends any pointer file whose
+    spectrum id is not already present in ``ledger.spectra``.
+
+    Returns
+    -------
+    int
+        Number of newly ingested spectra.
+    """
+    sample_root = Path(ledger.sample_path)
+    spectra_dir = sample_root / cnst.SPECTRA_DIR
+
+    existing_ids = {
+        str(entry.spectrum_id)
+        for entry in ledger.spectra
+        if entry.spectrum_id not in (None, "")
+    }
+
+    n_ingested = 0
+    for pointer_file in _list_spectrum_pointer_files(spectra_dir):
+        spectrum_id = _extract_spectrum_id(pointer_file)
+        if spectrum_id in existing_ids:
+            continue
+        ledger.spectra.append(_build_spectrum_entry(sample_root, pointer_file))
+        existing_ids.add(spectrum_id)
+        n_ingested += 1
+
+    return n_ingested
 
 
 def load_sample_ledger(file_path: str | Path) -> SampleLedger:
@@ -20,8 +145,22 @@ def load_sample_ledger(file_path: str | Path) -> SampleLedger:
 
     if ledger_path.exists():
         ledger = SampleLedger.from_json_file(ledger_path)
-        ledger.sample_path = str(ledger_path.parent.resolve())
-        print(f"Loaded sample ledger for sample '{ledger.sample_id}' from {ledger_path}")
+        sample_root = str(ledger_path.parent.resolve())
+        sample_path_changed = ledger.sample_path != sample_root
+        if sample_path_changed:
+            ledger.sample_path = sample_root
+
+        n_ingested = ingest_spectra(ledger)
+        if sample_path_changed or n_ingested > 0:
+            ledger.to_json_file(ledger_path)
+
+        if n_ingested > 0:
+            print(
+                f"Loaded sample ledger for sample '{ledger.sample_id}' from {ledger_path} "
+                f"and ingested {n_ingested} new spectrum file{'s' if n_ingested != 1 else ''}."
+            )
+        else:
+            print(f"Loaded sample ledger for sample '{ledger.sample_id}' from {ledger_path}")
         return ledger
 
     sample_result_dir = ledger_path.parent
