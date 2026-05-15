@@ -1771,6 +1771,30 @@ class EMXSp_Composition_Analyzer:
         return sorted(files_by_spectrum_id.values(), key=sort_key)
 
 
+    def _infer_max_particle_id_from_saved_images(self) -> Optional[int]:
+        """Infer the maximum particle id from saved acquisition image filenames."""
+        images_dir = Path(self.sample_result_dir, cnst.IMAGES_DIR)
+        if not images_dir.exists():
+            return None
+
+        max_particle_id = None
+        particle_pattern = re.compile(r"_par(\d+)_")
+        for image_path in images_dir.iterdir():
+            if not image_path.is_file():
+                continue
+            match = particle_pattern.search(image_path.name)
+            if match is None:
+                continue
+            try:
+                particle_id = int(match.group(1))
+            except (TypeError, ValueError):
+                continue
+            if max_particle_id is None or particle_id > max_particle_id:
+                max_particle_id = particle_id
+
+        return max_particle_id
+
+
     @staticmethod
     def _parse_optional_int(value: Any) -> Optional[int]:
         if value is None or pd.isna(value) or value == "":
@@ -1893,11 +1917,17 @@ class EMXSp_Composition_Analyzer:
             spectra_dir = self._get_spectra_dir()
             os.makedirs(spectra_dir, exist_ok=True)
 
+            pointer_files = self._list_pointer_files_in_spectra_dir()
+            spectra_entries = [
+                self._build_spectrum_entry_from_pointer_file(pointer_file)
+                for pointer_file in pointer_files
+            ]
+
             ledger = SampleLedger(
                 sample_id=self.sample_id,
                 sample_path=os.path.abspath(self.sample_result_dir),
                 configs=self._build_ledger_configs(),
-                spectra=[],
+                spectra=spectra_entries,
                 quantifications=[],
                 active_quant=None,
             )
@@ -3443,7 +3473,7 @@ class EMXSp_Composition_Analyzer:
 
         # Resume from any previously acquired spectra so file names and particle IDs
         # are always monotonically increasing across restarted acquisitions.
-        _existing_ledger = self._load_existing_ledger()
+        _existing_ledger = self._load_or_create_ledger()
         if _existing_ledger is not None and _existing_ledger.spectra:
             _numeric_ids = [
                 int(e.spectrum_id)
@@ -3457,11 +3487,19 @@ class EMXSp_Composition_Analyzer:
                 if e.acquisition_details is not None
                 and e.acquisition_details.particle_id is not None
             ]
+            _particle_id_offset = 0
+            self.particle_cntr = -1
             try:
-                # Controller particle counter restarts from 1 on each run.
-                # Keep offset equal to the last persisted particle id so resume starts at last+1.
-                _particle_id_offset = max(int(p) for p in _particle_ids)
-                self.particle_cntr = _particle_id_offset
+                if _particle_ids:
+                    # Controller particle counter restarts from 1 on each run.
+                    # Keep offset equal to the last persisted particle id so resume starts at last+1.
+                    _particle_id_offset = max(int(p) for p in _particle_ids)
+                    self.particle_cntr = _particle_id_offset
+                else:
+                    inferred_particle_id = self._infer_max_particle_id_from_saved_images()
+                    if inferred_particle_id is not None:
+                        _particle_id_offset = inferred_particle_id
+                        self.particle_cntr = inferred_particle_id
             except (ValueError, TypeError):
                 _particle_id_offset = 0
                 self.particle_cntr = -1
