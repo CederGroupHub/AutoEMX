@@ -52,7 +52,7 @@ els_substrate = None # ['C', 'O', 'Al']
 # =============================================================================
 # Run
 # =============================================================================
-from autoemx.runners.fit_and_quantify_spectrum_from_datacsv import fit_and_quantify_spectrum_from_ledger
+from autoemx.runners.fit_and_quantify_spectrum_from_ledger import fit_and_quantify_spectrum_from_ledger
 
 quantifier = fit_and_quantify_spectrum_from_ledger(
     sample_ID=sample_ID,

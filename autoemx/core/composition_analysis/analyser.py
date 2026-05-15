@@ -118,7 +118,9 @@ from autoemx.config.schema_models.standards import EDSStandardsFile
 from .clustering import ClusteringModule
 from autoemx.utils.legacy.ledger_bootstrap import (
     load_or_create_ledger_with_legacy_data_csv,
+    resolve_legacy_bootstrap_configs,
 )
+from autoemx.utils.legacy.legacy_config_loader import has_legacy_data_csv
 from .plotting import PlottingModule
 from .reference_matching import ReferenceMatchingModule
 from autoemx.utils.legacy.spectrum_pointer_writer import load_vendor_msa_template_lines, write_spectrum_pointer_file
@@ -421,6 +423,23 @@ class EMXSp_Composition_Analyzer:
     """
     #TODO
     @staticmethod
+    def build_default_runtime_configs() -> Dict[str, Any]:
+        """Return default runtime config objects for non-legacy spectra-only bootstrap."""
+        acquisition_cfg = AcquisitionConfig()
+        return {
+            cnst.MICROSCOPE_CFG_KEY: MicroscopeConfig(),
+            cnst.SAMPLE_CFG_KEY: SampleConfig(elements=[]),
+            cnst.MEASUREMENT_CFG_KEY: MeasurementConfig(),
+            cnst.SAMPLESUBSTRATE_CFG_KEY: SampleSubstrateConfig(),
+            cnst.QUANTIFICATION_CFG_KEY: QuantificationOptionsConfig(),
+            cnst.ACQUISITION_CFG_KEY: acquisition_cfg,
+            cnst.POWDER_MEASUREMENT_CFG_KEY: acquisition_cfg.powder_meas_cfg,
+            cnst.BULK_MEASUREMENT_CFG_KEY: acquisition_cfg.bulk_meas_cfg,
+            cnst.EXP_STD_MEASUREMENT_CFG_KEY: acquisition_cfg.exp_stds_cfg,
+            cnst.PLOT_CFG_KEY: PlotConfig(),
+        }
+
+    @staticmethod
     def _coerce_optional_finite_float(value: Any) -> Optional[float]:
         """Return a finite float or None when the input is missing/non-finite."""
         if value is None:
@@ -542,8 +561,16 @@ class EMXSp_Composition_Analyzer:
             
         # --- Define use of class instance
         self.is_acquisition = is_acquisition
-        is_XSp_measurement = measurement_cfg.type != measurement_cfg.PARTICLE_STATS_MEAS_TYPE_KEY
         self.development_mode = development_mode
+
+        if acquisition_cfg is None:
+            acquisition_cfg = AcquisitionConfig(
+                powder_meas_cfg=powder_meas_cfg,
+                bulk_meas_cfg=bulk_meas_cfg,
+                exp_stds_cfg=exp_stds_cfg,
+            )
+
+        is_XSp_measurement = measurement_cfg.type != measurement_cfg.PARTICLE_STATS_MEAS_TYPE_KEY
         
         
         # --- System characteristics
@@ -558,12 +585,6 @@ class EMXSp_Composition_Analyzer:
         
         # --- Measurement configurations
         self.measurement_cfg = measurement_cfg
-        if acquisition_cfg is None:
-            acquisition_cfg = AcquisitionConfig(
-                powder_meas_cfg=powder_meas_cfg,
-                bulk_meas_cfg=bulk_meas_cfg,
-                exp_stds_cfg=exp_stds_cfg,
-            )
         self.acquisition_cfg = acquisition_cfg
         self.powder_meas_cfg = self.acquisition_cfg.powder_meas_cfg or PowderMeasurementConfig()
         self.bulk_meas_cfg = self.acquisition_cfg.bulk_meas_cfg or BulkMeasurementConfig()
@@ -660,9 +681,9 @@ class EMXSp_Composition_Analyzer:
                 int(round(quant_cfg.spectrum_lims[1])),
             )
             # Compute values of energies corresponding to detector channels
-            if energy_zero and bin_width:
+            if energy_zero is not None and bin_width is not None and float(bin_width) != 0.0:
                 self.energy_vals = np.array([energy_zero + bin_width * i for i in range(self.sp_start, self.sp_end)])
-            elif is_acquisition and is_XSp_measurement:
+            elif is_acquisition:
                 raise ValueError("Missing detector calibration values.\n Please add detector calibration file at {calibs.calibration_files_dir}")
             # Set a threshold value below which counts are considered to be too low
             # Used to filter "bad" spectra out from clustering analysis. All spectra having less counts than this threshold are filtered out
@@ -1970,14 +1991,61 @@ class EMXSp_Composition_Analyzer:
 
             return ledger
 
-        return load_or_create_ledger_with_legacy_data_csv(
-            sample_result_dir=self.sample_result_dir,
-            sample_id=self.sample_id,
-            microscope_id=self.microscope_cfg.ID,
-            use_instrument_background=bool(self.quant_cfg.use_instrument_background),
-            default_ledger_configs=self._build_ledger_configs(),
-            resolve_or_create_spectrum_pointer=self._resolve_or_create_spectrum_pointer,
-            write_background_pointer=self._write_manufacturer_background_vector,
+        ledger = self._load_existing_ledger()
+        if ledger is not None:
+            return ledger
+
+        if has_legacy_data_csv(self.sample_result_dir):
+            default_ledger_configs = self._build_ledger_configs()
+            default_ledger_configs, legacy_configs = resolve_legacy_bootstrap_configs(
+                sample_result_dir=self.sample_result_dir,
+                default_ledger_configs=default_ledger_configs,
+            )
+
+            # Keep runtime analyzer configs aligned with recovered legacy values.
+            if legacy_configs is not None:
+                self.microscope_cfg = default_ledger_configs.microscope_cfg
+                self.sample_cfg = default_ledger_configs.sample_cfg
+                self.measurement_cfg = default_ledger_configs.measurement_cfg
+                self.sample_substrate_cfg = default_ledger_configs.sample_substrate_cfg
+                self.acquisition_cfg = default_ledger_configs.acquisition_cfg
+                self.powder_meas_cfg = self.acquisition_cfg.powder_meas_cfg or PowderMeasurementConfig()
+                self.bulk_meas_cfg = self.acquisition_cfg.bulk_meas_cfg or BulkMeasurementConfig()
+                self.exp_stds_cfg = self.acquisition_cfg.exp_stds_cfg or ExpStandardsConfig()
+                self.plot_cfg = default_ledger_configs.plot_cfg
+                if legacy_configs.get(cnst.QUANTIFICATION_CFG_KEY) is not None:
+                    self.quant_cfg = legacy_configs[cnst.QUANTIFICATION_CFG_KEY]
+                if legacy_configs.get(cnst.CLUSTERING_CFG_KEY) is not None:
+                    self.clustering_cfg = legacy_configs[cnst.CLUSTERING_CFG_KEY]
+
+                # Recompute energy axis using recovered legacy calibration values.
+                legacy_energy_zero = self._coerce_optional_finite_float(getattr(self.microscope_cfg, "energy_zero", None))
+                legacy_bin_width = self._coerce_optional_finite_float(getattr(self.microscope_cfg, "bin_width", None))
+                self.sp_start, self.sp_end = (
+                    int(round(self.quant_cfg.spectrum_lims[0])),
+                    int(round(self.quant_cfg.spectrum_lims[1])),
+                )
+                if legacy_energy_zero is not None and legacy_bin_width is not None and float(legacy_bin_width) != 0.0:
+                    self.energy_vals = np.array(
+                        [legacy_energy_zero + legacy_bin_width * i for i in range(self.sp_start, self.sp_end)]
+                    )
+                elif not hasattr(self, "energy_vals"):
+                    self.energy_vals = np.array([], dtype=float)
+
+            return load_or_create_ledger_with_legacy_data_csv(
+                sample_result_dir=self.sample_result_dir,
+                sample_id=self.sample_id,
+                microscope_id=self.microscope_cfg.ID,
+                use_instrument_background=bool(self.quant_cfg.use_instrument_background),
+                default_ledger_configs=default_ledger_configs,
+                resolve_or_create_spectrum_pointer=self._resolve_or_create_spectrum_pointer,
+                write_background_pointer=self._write_manufacturer_background_vector,
+            )
+
+        raise FileNotFoundError(
+            f"No ledger.json or Data.csv found for sample '{self.sample_id}' "
+            f"in '{self.sample_result_dir}'. Please ensure the sample directory contains "
+            "either ledger.json or Data.csv."
         )
 
 

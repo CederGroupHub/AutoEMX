@@ -41,7 +41,6 @@ from autoemx.utils import (
     print_single_separator,
     print_double_separator,
     get_sample_dir,
-    extract_spectral_data,
 )
 import autoemx.utils.constants as cnst
 from autoemx.utils.plotting_helpers import (
@@ -52,7 +51,6 @@ from autoemx.config import config_classes_dict, load_sample_ledger
 from autoemx.config.ledger_schemas import ClusteringConfig
 from autoemx.core.composition_analysis import EMXSp_Composition_Analyzer
 from autoemx.utils.legacy.legacy_backfill import load_ledger_configs_from_legacy_json
-from autoemx.utils.legacy.legacy_config_loader import load_legacy_configurations_from_json
 from autoemx.utils.legacy.ledger_bootstrap import build_legacy_import_quantification_config
 
 # Configure logging
@@ -115,8 +113,6 @@ def analyze_sample(
 ) -> Optional[EMXSp_Composition_Analyzer]:
     """
     Run clustering and analysis for a single sample.
-
-    Parameters
     ----------
     sample_ID : str
         Sample identifier.
@@ -160,52 +156,42 @@ def analyze_sample(
     
     sample_dir = get_sample_dir(results_path, sample_ID)
     ledger_path = os.path.join(sample_dir, f"{cnst.LEDGER_FILENAME}{cnst.LEDGER_FILEEXT}")
-    config_path_new = os.path.join(sample_dir, f"{cnst.CONFIG_FILENAME}.json")
-    config_path_legacy = os.path.join(sample_dir, f"{cnst.ACQUISITION_INFO_FILENAME}.json")
-    spectral_info_f_path = ledger_path if os.path.exists(ledger_path) else (
-        config_path_new if os.path.exists(config_path_new) else config_path_legacy
-    )
+    spectral_info_f_path = ledger_path
     try:
-        if os.path.exists(ledger_path):
-            ledger = load_sample_ledger(ledger_path)
-            configs = {
-                cnst.MICROSCOPE_CFG_KEY: ledger.configs.microscope_cfg,
-                cnst.SAMPLE_CFG_KEY: ledger.configs.sample_cfg,
-                cnst.MEASUREMENT_CFG_KEY: ledger.configs.measurement_cfg,
-                cnst.SAMPLESUBSTRATE_CFG_KEY: ledger.configs.sample_substrate_cfg,
-                cnst.PLOT_CFG_KEY: ledger.configs.plot_cfg,
-            }
-            if ledger.quantifications:
-                active_quant_id = ledger.active_quant
-                active_quant_config = next(
-                    (
-                        quant_config
-                        for quant_config in ledger.quantifications
-                        if quant_config.quantification_id == active_quant_id
-                    ),
-                    ledger.quantifications[-1],
-                )
-                configs[cnst.QUANTIFICATION_CFG_KEY] = config_classes_dict[cnst.QUANTIFICATION_CFG_KEY](
-                    **active_quant_config.options
-                )
-                active_clustering_analysis = active_quant_config.get_active_clustering_analysis()
-                active_clustering_config = (
-                    active_clustering_analysis.config if active_clustering_analysis is not None else None
-                )
-                if active_clustering_config is not None:
-                    configs[cnst.CLUSTERING_CFG_KEY] = active_clustering_config
-            else:
-                configs[cnst.QUANTIFICATION_CFG_KEY] = config_classes_dict[cnst.QUANTIFICATION_CFG_KEY]()
-            if ledger.configs.powder_meas_cfg is not None:
-                configs[cnst.POWDER_MEASUREMENT_CFG_KEY] = ledger.configs.powder_meas_cfg
-            if ledger.configs.bulk_meas_cfg is not None:
-                configs[cnst.BULK_MEASUREMENT_CFG_KEY] = ledger.configs.bulk_meas_cfg
-            metadata = {}
+        ledger = load_sample_ledger(ledger_path)
+        configs = {
+            cnst.MICROSCOPE_CFG_KEY: ledger.configs.microscope_cfg,
+            cnst.SAMPLE_CFG_KEY: ledger.configs.sample_cfg,
+            cnst.MEASUREMENT_CFG_KEY: ledger.configs.measurement_cfg,
+            cnst.SAMPLESUBSTRATE_CFG_KEY: ledger.configs.sample_substrate_cfg,
+            cnst.PLOT_CFG_KEY: ledger.configs.plot_cfg,
+        }
+        if ledger.quantifications:
+            active_quant_id = ledger.active_quant
+            active_quant_config = next(
+                (
+                    quant_config
+                    for quant_config in ledger.quantifications
+                    if quant_config.quantification_id == active_quant_id
+                ),
+                ledger.quantifications[-1],
+            )
+            configs[cnst.QUANTIFICATION_CFG_KEY] = config_classes_dict[cnst.QUANTIFICATION_CFG_KEY](
+                **active_quant_config.options
+            )
+            active_clustering_analysis = active_quant_config.get_active_clustering_analysis()
+            active_clustering_config = (
+                active_clustering_analysis.config if active_clustering_analysis is not None else None
+            )
+            if active_clustering_config is not None:
+                configs[cnst.CLUSTERING_CFG_KEY] = active_clustering_config
         else:
-            configs, metadata = load_legacy_configurations_from_json(spectral_info_f_path, config_classes_dict)
-    except FileNotFoundError:
-        logging.error(f"Could not find {spectral_info_f_path}. Skipping sample '{sample_ID}'.")
-        return
+            configs[cnst.QUANTIFICATION_CFG_KEY] = config_classes_dict[cnst.QUANTIFICATION_CFG_KEY]()
+        if ledger.configs.powder_meas_cfg is not None:
+            configs[cnst.POWDER_MEASUREMENT_CFG_KEY] = ledger.configs.powder_meas_cfg
+        if ledger.configs.bulk_meas_cfg is not None:
+            configs[cnst.BULK_MEASUREMENT_CFG_KEY] = ledger.configs.bulk_meas_cfg
+        metadata = {}
     except Exception as e:
         logging.error(f"Error loading {spectral_info_f_path}. Skipping sample '{sample_ID}': {e}")
         return
@@ -295,26 +281,7 @@ def analyze_sample(
         plot_cfg.els_excluded_clust_plot = els_excluded_clust_plot
     _ensure_custom_plot_file(sample_dir, plot_cfg)
 
-    # Spectral data source priority — mirrors batch_quantify_and_analyze:
-    #   1. ledger.json  → analyse_data calls _load_or_create_ledger which syncs
-    #                     spectra_quant_records automatically.
-    #   2. Data.csv     → legacy one-time migration path when no ledger exists yet;
-    #                     the first run_quantification call will create ledger.json.
-    has_ledger   = os.path.exists(ledger_path)
-    data_path    = os.path.join(sample_dir, f'{cnst.DATA_FILENAME}.csv')
-    has_data_csv = os.path.exists(data_path)
-
-    if not has_ledger:
-        if not has_data_csv:
-            logging.error(f"No Data.csv or ledger.json found for '{sample_ID}'.")
-            return
-        # No ledger yet — load CSV so run_quantification can migrate it on first call.
-        try:
-            extract_spectral_data(data_path)
-        except Exception as e:
-            logging.error(f"Could not load spectral data for '{sample_ID}': {e}")
-            return
-    
+    # Spectral source resolution is delegated to analyser._load_or_create_ledger():
     # --- Run Composition Analysis or Spectral Acquisition
     comp_analyzer = EMXSp_Composition_Analyzer(
         microscope_cfg=microscope_cfg,
@@ -337,7 +304,8 @@ def analyze_sample(
     # analyse_data calls _sync_in_memory_spectra_from_ledger / _load_or_create_ledger
     # and always hydrates spectra + quantification records from ledger-managed sources.
 
-    source_label = "Data.csv (first-run migration)" if (not has_ledger and has_data_csv) else "ledger.json"
+    has_ledger = os.path.exists(ledger_path)
+    source_label = "Data.csv (first-run migration)" if (not has_ledger) else "ledger.json"
     logging.info(f"Running analysis for '{sample_ID}' (source: {source_label}).") 
 
     # Perform analysis and print results

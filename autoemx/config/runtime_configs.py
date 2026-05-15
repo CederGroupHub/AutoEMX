@@ -564,20 +564,6 @@ class AcquisitionConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    @model_validator(mode="before")
-    @classmethod
-    def _normalize_sem_image_field_aliases(cls, data: Any) -> Any:
-        if isinstance(data, dict):
-            cleaned = dict(data)
-            if "saved_images_extension" not in cleaned and "sem_image_extension" in cleaned:
-                cleaned["saved_images_extension"] = cleaned.get("sem_image_extension")
-            if "save_raw_images" not in cleaned and "sem_save_raw_image" in cleaned:
-                cleaned["save_raw_images"] = cleaned.get("sem_save_raw_image")
-            cleaned.pop("sem_image_extension", None)
-            cleaned.pop("sem_save_raw_image", None)
-            return cleaned
-        return data
-
     @model_validator(mode="after")
     def _validate(self) -> "AcquisitionConfig":
         ext = str(self.saved_images_extension).strip().lower().lstrip(".")

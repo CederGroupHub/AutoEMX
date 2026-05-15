@@ -141,7 +141,14 @@ def load_ledger_configs_from_legacy_json(sample_result_dir: str) -> Optional[obj
         if cfg_key not in raw:
             continue
         try:
-            cfg_kwargs[cfg_key] = cfg_class.model_validate(raw[cfg_key])
+            cfg_payload = raw[cfg_key]
+            if isinstance(cfg_payload, dict):
+                cfg_payload = dict(cfg_payload)
+                # Drop legacy keys that are no longer part of strict runtime schemas.
+                cfg_payload.pop("num_CPU_cores", None)
+                if cfg_key == cnst.SAMPLE_CFG_KEY:
+                    cfg_payload.pop("ID", None)
+            cfg_kwargs[cfg_key] = cfg_class.model_validate(cfg_payload)
         except Exception:
             # Field may be missing or schema changed — skip this config block
             continue

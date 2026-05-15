@@ -34,6 +34,7 @@ from autoemx.utils.legacy.legacy_backfill import (
     backfill_spectra_from_data_csv,
     load_ledger_configs_from_legacy_json,
 )
+from autoemx.utils.legacy.legacy_config_loader import load_legacy_configurations_from_json
 
 _MIN_BACKGROUND_COMMENT_PATTERN = re.compile(
     r"([0-9]+(?:\.[0-9]+)?)\s+min\.\s+ref\.\s+bckgrnd\s+counts",
@@ -718,6 +719,65 @@ def _build_background_relpath(spectrum_id: str) -> str:
     return os.path.join(cnst.SPECTRA_DIR, filename)
 
 
+def build_legacy_json_pointer_resolver(sample_result_dir: str) -> Callable[..., str]:
+    """Build a resolver callback that writes JSON pointer files from legacy Data.csv rows.
+
+    This avoids coupling Data.csv backfill to a precomputed energy axis. Energy calibration
+    remains sourced from configs at quantification time.
+    """
+    sample_root = Path(sample_result_dir)
+    spectra_dir = sample_root / cnst.SPECTRA_DIR
+    spectra_dir.mkdir(parents=True, exist_ok=True)
+
+    def _resolve_or_create_spectrum_pointer(
+        spectrum_id: str,
+        spectrum_vals: List[float],
+        *,
+        live_time: Optional[float] = None,
+        real_time: Optional[float] = None,
+    ) -> str:
+        filename = f"{cnst.SPECTRUM_FILENAME_PREFIX}{spectrum_id}.json"
+        relpath = os.path.join(cnst.SPECTRA_DIR, filename)
+        abs_path = spectra_dir / filename
+
+        if abs_path.exists():
+            return relpath
+
+        payload: Dict[str, Any] = {"spectrum_vals": list(map(float, spectrum_vals))}
+        if live_time is not None:
+            payload["live_time"] = float(live_time)
+        if real_time is not None:
+            payload["real_time"] = float(real_time)
+
+        with abs_path.open("w", encoding="utf-8") as file_obj:
+            json.dump(payload, file_obj, indent=2, allow_nan=False)
+            file_obj.write("\n")
+
+        return relpath
+
+    return _resolve_or_create_spectrum_pointer
+
+
+def build_legacy_background_pointer_writer(sample_result_dir: str) -> Callable[..., Optional[str]]:
+    """Build a callback that writes manufacturer background vectors for legacy backfill."""
+    sample_root = Path(sample_result_dir)
+
+    def _write_background_pointer(
+        spectrum_id: str,
+        background_vals: Optional[List[float]],
+    ) -> Optional[str]:
+        if background_vals is None:
+            return None
+
+        relpath = _build_background_relpath(str(spectrum_id))
+        abs_path = sample_root / relpath
+        abs_path.parent.mkdir(parents=True, exist_ok=True)
+        np.save(abs_path, np.asarray(list(map(float, background_vals)), dtype=float))
+        return relpath
+
+    return _write_background_pointer
+
+
 def _load_realtime_from_pointer_file(pointer_path: Path) -> Optional[float]:
     """Read REALTIME from an EMSA-like header when available."""
     if pointer_path.suffix.lower() not in {".msa", ".msg"}:
@@ -789,6 +849,55 @@ def _build_spectrum_entry_from_pointer_file(
     )
 
 
+def resolve_legacy_bootstrap_configs(
+    *,
+    sample_result_dir: str,
+    default_ledger_configs: LedgerConfigs,
+) -> Tuple[LedgerConfigs, Optional[Dict[str, Any]]]:
+    """Resolve ledger/runtime configs from legacy JSON files when available.
+
+    Returns a tuple of:
+      - Ledger configs to use for legacy bootstrap.
+      - Legacy runtime configs payload (or None if unavailable).
+    """
+    config_path_new = os.path.join(sample_result_dir, f"{cnst.CONFIG_FILENAME}.json")
+    config_path_legacy = os.path.join(sample_result_dir, f"{cnst.ACQUISITION_INFO_FILENAME}.json")
+    legacy_config_path = (
+        config_path_new if os.path.exists(config_path_new)
+        else config_path_legacy if os.path.exists(config_path_legacy)
+        else None
+    )
+
+    if legacy_config_path is None:
+        return default_ledger_configs, None
+
+    try:
+        import autoemx.config as config_module
+
+        config_classes_dict = getattr(config_module, "config_classes_dict", {})
+        legacy_configs, _ = load_legacy_configurations_from_json(
+            legacy_config_path,
+            config_classes_dict,
+        )
+
+        ledger_configs = LedgerConfigs(
+            microscope_cfg=legacy_configs.get(cnst.MICROSCOPE_CFG_KEY) or default_ledger_configs.microscope_cfg,
+            sample_cfg=legacy_configs.get(cnst.SAMPLE_CFG_KEY) or default_ledger_configs.sample_cfg,
+            measurement_cfg=legacy_configs.get(cnst.MEASUREMENT_CFG_KEY) or default_ledger_configs.measurement_cfg,
+            sample_substrate_cfg=legacy_configs.get(cnst.SAMPLESUBSTRATE_CFG_KEY) or default_ledger_configs.sample_substrate_cfg,
+            acquisition_cfg=legacy_configs.get(cnst.ACQUISITION_CFG_KEY) or default_ledger_configs.acquisition_cfg,
+            plot_cfg=legacy_configs.get(cnst.PLOT_CFG_KEY) or default_ledger_configs.plot_cfg,
+        )
+        return ledger_configs, legacy_configs
+    except Exception as exc:
+        warnings.warn(
+            "Failed to load legacy configs from "
+            f"'{legacy_config_path}'; falling back to runtime defaults for ledger bootstrap: {exc}",
+            UserWarning,
+        )
+        return default_ledger_configs, None
+
+
 def load_or_create_ledger_with_legacy_data_csv(
     *,
     sample_result_dir: str,
@@ -842,6 +951,9 @@ def load_or_create_ledger_with_legacy_data_csv(
 
     # No ledger yet – bootstrap from Data.csv / legacy JSON files.
     pointer_files = _list_pointer_files_in_spectra_dir(sample_result_dir)
+    if not os.path.exists(data_csv_path):
+        raise FileNotFoundError(f"Legacy Data.csv not found at '{data_csv_path}'.")
+
     if not pointer_files:
         n_written = backfill_spectra_from_data_csv(
             data_csv_path,
@@ -867,6 +979,7 @@ def load_or_create_ledger_with_legacy_data_csv(
         microscope_id=microscope_id,
     )
     legacy_quant_results = load_legacy_quantification_results_by_spectrum_id(data_csv_path)
+
     legacy_configs = load_ledger_configs_from_legacy_json(sample_result_dir)
     ledger_configs = legacy_configs if legacy_configs is not None else default_ledger_configs
 

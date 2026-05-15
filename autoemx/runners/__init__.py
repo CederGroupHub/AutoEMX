@@ -13,8 +13,9 @@ from .batch_fit_spectra import batch_fit_spectra
 from .batch_quantify_and_analyze import batch_quantify_and_analyze
 from .collect_particle_statistics import collect_particle_statistics
 from .extract_experimental_standards_details import extract_experimental_standards_details
-from .fit_and_quantify_spectrum_from_datacsv import (
+from .fit_and_quantify_spectrum_from_ledger import (
     fit_and_quantify_spectrum_from_ledger,
+    fit_and_quantify_spectrum_from_datacsv,
     fit_and_quantify_spectrum_fromDatacsv,
 )
 from .fit_and_quantify_spectrum import fit_and_quantify_spectrum
@@ -31,6 +32,7 @@ __all__ = [
     "collect_particle_statistics",
     "extract_experimental_standards_details",
     "fit_and_quantify_spectrum_from_ledger",
+    "fit_and_quantify_spectrum_from_datacsv",
     "fit_and_quantify_spectrum_fromDatacsv",
     "fit_and_quantify_spectrum",
     "quantify_external_spectra",

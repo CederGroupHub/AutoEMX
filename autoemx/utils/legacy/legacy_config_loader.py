@@ -3,6 +3,7 @@
 """Legacy configuration JSON loader for pre-ledger project layouts."""
 
 import json
+import os
 from typing import Any, Dict, Tuple
 
 import autoemx.utils.constants as cnst
@@ -12,6 +13,16 @@ from autoemx.config.runtime_configs import (
     ExpStandardsConfig,
     PowderMeasurementConfig,
 )
+
+
+def get_legacy_data_csv_path(sample_dir: str, data_filename: str = cnst.DATA_FILENAME) -> str:
+    """Return the legacy CSV path for a sample directory and base filename."""
+    return os.path.join(sample_dir, f"{data_filename}{cnst.DATA_FILEEXT}")
+
+
+def has_legacy_data_csv(sample_dir: str, data_filename: str = cnst.DATA_FILENAME) -> bool:
+    """Return whether the legacy Data.csv-like file exists for a sample directory."""
+    return os.path.exists(get_legacy_data_csv_path(sample_dir, data_filename=data_filename))
 
 
 def load_legacy_configurations_from_json(
