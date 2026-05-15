@@ -1517,8 +1517,8 @@ class EM_Particle_Finder:
             if self._is_particle_area_ok(par_area_pixels) and not self.is_particle_at_frame_edge(stats, i):
                 # If particle is within size limits and is not at the edge, consider it in the statistics
                 par_area_um = par_area_pixels * self.EM.pixel_size_um**2
-                self.analyzed_pars.append((par_cntr, self.EM.current_frame_label, par_area_um))
-                
+                global_par_id = len(self.analyzed_pars)
+                self.analyzed_pars.append((global_par_id, self.EM.current_frame_label, par_area_um))
                 # Store stats locally to draw circles
                 par_areas.append(par_area_pixels)
                 par_centroids.append(centroids[i])
