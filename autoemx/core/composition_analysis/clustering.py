@@ -640,7 +640,3 @@ class ClusteringModule:
                 self.n_sp_too_low_counts += 1
     
         return compositions_list_at, compositions_list_w, unused_compositions_list, df_indices, n_datapts
-
-    
-    #%% Data compositional analysis
-    # =============================================================================     

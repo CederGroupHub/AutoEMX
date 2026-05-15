@@ -144,7 +144,7 @@ class ReferenceMatchingModule:
 			else:
 				is_cluster_single_phase = False
 
-			if is_cluster_single_phase:
+			if is_cluster_single_phase and not self.powder_meas_cfg.is_known_powder_mixture_meas:
 				# Cluster determined to stem from a single phase
 				pass
 			elif len(ref_formulae) > 1:
