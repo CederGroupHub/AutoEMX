@@ -292,7 +292,8 @@ powder_meas_cfg_kwargs = dict(
     is_manual_particle_selection = False,
     is_known_powder_mixture_meas = False,
     par_search_frame_width_um = None,
-    max_n_par_per_frame=np.inf,
+    # Use a large finite cap; pydantic rejects non-finite values like np.inf.
+    max_n_par_per_frame=1000000,
     max_area_par=max_area_par,
     min_area_par=min_area_par,
     par_segmentation_model = par_segmentation_model,
