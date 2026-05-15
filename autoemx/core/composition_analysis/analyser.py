@@ -3458,8 +3458,10 @@ class EMXSp_Composition_Analyzer:
                 and e.acquisition_details.particle_id is not None
             ]
             try:
-                _particle_id_offset = max(int(p) for p in _particle_ids) + 1
-                self.particle_cntr = _particle_id_offset - 1  # Initialize to last particle ID from ledger
+                # Controller particle counter restarts from 1 on each run.
+                # Keep offset equal to the last persisted particle id so resume starts at last+1.
+                _particle_id_offset = max(int(p) for p in _particle_ids)
+                self.particle_cntr = _particle_id_offset
             except (ValueError, TypeError):
                 _particle_id_offset = 0
                 self.particle_cntr = -1
