@@ -33,7 +33,7 @@ Created on Fri Jul 26 09:34:34 2024
 """
 
 import logging
-from typing import List, Dict, Tuple, Any
+from typing import List, Dict, Tuple, Any, Optional
 
 from autoemx.core.composition_analysis import EMXSp_Composition_Analyzer
 import autoemx.calibrations as calibs
@@ -41,7 +41,6 @@ import autoemx.utils.constants as cnst
 from autoemx.utils import print_double_separator
 import autoemx.config.defaults as dflt
 from autoemx.config import (
-    AcquisitionConfig,
     MicroscopeConfig,
     SampleConfig,
     MeasurementConfig,
@@ -83,30 +82,30 @@ def batch_acquire_and_analyze(
     interrupt_fits_bad_spectra: bool = True,
     max_analytical_error_percent: float = 5,
     min_bckgrnd_cnts: float = 5,
-    quant_flags_accepted: List[int] = [0, -1],
+    quant_flags_accepted: Optional[List[int]] = None,
     max_n_clusters: int = 6,
     show_unused_comps_clust: bool = True,
     is_manual_navigation: bool = False,
     is_auto_substrate_detection: bool = False,
     auto_adjust_brightness_contrast: bool = True,
-    contrast: float = 4.3877,
-    brightness: float = 0.4504,
+    contrast: Optional[float] = None,
+    brightness: Optional[float] = None,
     quantify_spectra: bool = False,
     min_n_spectra: int = 50,
     max_n_spectra: int = 100,
     target_Xsp_counts: int = 50000,
-    max_XSp_acquisition_time: float = None,
-    els_substrate: List[str] = None,
-    powder_meas_cfg_kwargs: Dict[str, Any] = None,
-    bulk_meas_cfg_kwargs: Dict[str, Any] = None,
-    standards_dict: Dict[str, float] = None,
+    max_XSp_acquisition_time: Optional[float] = None,
+    els_substrate: Optional[List[str]] = None,
+    powder_meas_cfg_kwargs: Optional[Dict[str, Any]] = None,
+    bulk_meas_cfg_kwargs: Optional[Dict[str, Any]] = None,
+    standards_dict: Optional[Dict[str, float]] = None,
     output_filename_suffix: str = '',
     saved_images_extension: str = dflt.saved_images_extension,
     save_raw_images: bool = dflt.save_raw_images,
     development_mode: bool = False,
     verbose: bool = True,
-    results_dir: str = None
-) -> None:
+    results_dir: Optional[str] = None
+) -> EMXSp_Composition_Analyzer:
     """
     Batch acquisition (and optional quantification) of X-ray spectra for a list of powder samples.
 
@@ -256,6 +255,8 @@ def batch_acquire_and_analyze(
         max_XSp_acquisition_time = target_Xsp_counts / 10000 * 5
     if els_substrate is None:
         els_substrate = ['C', 'O', 'Al']
+    if quant_flags_accepted is None:
+        quant_flags_accepted = [0, -1]
     
     # --- Configuration objects
     microscope_cfg = MicroscopeConfig(
@@ -278,7 +279,9 @@ def batch_acquire_and_analyze(
         max_acquisition_time=max_XSp_acquisition_time,
         target_acquisition_counts=target_Xsp_counts,
         min_n_spectra=min_n_spectra,
-        max_n_spectra=max_n_spectra
+        max_n_spectra=max_n_spectra,
+        saved_images_extension=saved_images_extension,
+        save_raw_images=save_raw_images
     )
 
     quant_cfg = QuantificationOptionsConfig(
@@ -297,14 +300,6 @@ def batch_acquire_and_analyze(
         bulk_meas_cfg = BulkMeasurementConfig(**bulk_meas_cfg_kwargs)
     else:
         bulk_meas_cfg = BulkMeasurementConfig()
-
-    acquisition_cfg = AcquisitionConfig(
-        powder_meas_cfg=powder_meas_cfg,
-        bulk_meas_cfg=bulk_meas_cfg,
-        exp_stds_cfg=None,
-        saved_images_extension=saved_images_extension,
-        save_raw_images=save_raw_images,
-    )
         
     sample_substrate_cfg = SampleSubstrateConfig(
         elements=els_substrate,
@@ -313,6 +308,8 @@ def batch_acquire_and_analyze(
         auto_detection=is_auto_substrate_detection,
         stub_w_mm=sample_substrate_width_mm
     )
+
+    comp_analyzer: Optional[EMXSp_Composition_Analyzer] = None
 
     for sample in samples:
         # --- Sample configuration
@@ -390,7 +387,8 @@ def batch_acquire_and_analyze(
             sample_substrate_cfg=sample_substrate_cfg,
             quant_cfg=quant_cfg,
             initial_clustering_cfg=clustering_cfg,
-            acquisition_cfg=acquisition_cfg,
+            powder_meas_cfg=powder_meas_cfg,
+            bulk_meas_cfg=bulk_meas_cfg,
             plot_cfg=PlotConfig(),
             is_acquisition=True,
             development_mode=development_mode,
@@ -401,14 +399,21 @@ def batch_acquire_and_analyze(
         )
         
         try:
-            comp_analyzer.run_collection_and_quantification(quantify=quantify_spectra)
+            comp_analyzer.run_collection_and_quantification(quantify=quantify_spectra, interrupt_fits_bad_spectra=interrupt_fits_bad_spectra)
         except Exception as e:
             logging.exception(f"Sample '{sample_ID}': acquisition/quantification failed: {e}")
             continue
     
     # Put microscope in standby after completion
-    if not development_mode and len(samples) > 1:
+    if comp_analyzer is not None and not development_mode and len(samples) > 1:
         try:
             comp_analyzer.EM_controller.standby()
         except Exception as e:
             logging.warning(f"Could not put microscope in standby: {e}")
+    elif comp_analyzer is None:
+        logging.warning("No samples were processed; skipping microscope standby.")
+    
+    if comp_analyzer is None:
+        raise ValueError("No samples were successfully processed. comp_analyzer was not initialized.")
+    
+    return comp_analyzer

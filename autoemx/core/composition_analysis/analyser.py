@@ -2838,6 +2838,7 @@ class EMXSp_Composition_Analyzer:
         n_spectra_to_collect: int,
         n_tot_sp_collected: Optional[int] = None,
         quantify: bool = True,
+        interrupt_fits_bad_spectra: bool = True,
         particle_id_offset: int = 0,
     ) -> Tuple[int, bool]:
         """
@@ -2995,7 +2996,7 @@ class EMXSp_Composition_Analyzer:
                 self.EM_controller.save_frame_image(filename, im_annotations = im_annotations)
                 
             if quantify:
-                self._fit_and_quantify_spectra()
+                self._fit_and_quantify_spectra(interrupt_fits_bad_spectra = interrupt_fits_bad_spectra)
 
             n_spectra_collected = n_tot_sp_collected - n_spectra_init
     
@@ -3526,6 +3527,7 @@ class EMXSp_Composition_Analyzer:
     def run_collection_and_quantification(
         self,
         quantify: bool = True,
+        interrupt_fits_bad_spectra: bool = True,
     ) -> Tuple[bool, bool]:
         """
         Perform iterative collection (and optional quantification) of spectra, followed by phase analysis and convergence check.
@@ -3661,6 +3663,7 @@ class EMXSp_Composition_Analyzer:
                 n_tot_sp_collected=tot_n_spectra,
                 quantify=is_spectral_quant,
                 particle_id_offset=_particle_id_offset,
+                interrupt_fits_bad_spectra=interrupt_fits_bad_spectra
             )
             n_spectra_collected_this_session += (tot_n_spectra - n_spectra_before)
     
