@@ -87,6 +87,8 @@ beam_energy = 15  # keV
 auto_adjust_brightness_contrast = True
 contrast = None # 4.3877  # Used if auto_adjust_brightness_contrast = False
 brightness = None # 0.4504  # Used if auto_adjust_brightness_contrast = False
+saved_images_extension = 'tif' # e.g. 'png' for lighter files
+save_raw_images = True # If False, only annotated image is saved
 
 n_target_spectra = 5
 max_n_spectra = 10
@@ -162,6 +164,8 @@ exp_std_maker = batch_acquire_experimental_stds(
     auto_adjust_brightness_contrast=auto_adjust_brightness_contrast,
     contrast=contrast,
     brightness=brightness,
+    saved_images_extension=saved_images_extension,
+    save_raw_images=save_raw_images,
     min_n_spectra=n_target_spectra,
     max_n_spectra=max_n_spectra,
     target_Xsp_counts=target_Xsp_counts,

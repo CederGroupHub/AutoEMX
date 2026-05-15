@@ -35,6 +35,12 @@ use_instrument_background : bool
 RAW_SPECTRUM_EXT : str
     File extension used when writing per-spectrum raw data pointer files.
     Default is `'.msa'` (EMSA/MAS format).
+saved_images_extension : str
+    Image extension used when saving SEM frames.
+    Default is `'tif'`.
+save_raw_images : bool
+    Whether to persist the non-annotated SEM image alongside the annotated one.
+    Default is `True`.
 
 Created on Sun Dec 21 18:59:50 2025
 
@@ -58,4 +64,8 @@ spectrum_lims: Tuple[int, int] = (14, 1100)
 use_instrument_background: bool = False
 
 RAW_SPECTRUM_EXT: str = '.msa'
+
+saved_images_extension: str = 'tif'
+
+save_raw_images: bool = True
 

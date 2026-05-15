@@ -41,6 +41,7 @@ import autoemx.utils.constants as cnst
 from autoemx.utils import print_double_separator
 import autoemx.config.defaults as dflt
 from autoemx.config import (
+    AcquisitionConfig,
     MicroscopeConfig,
     SampleConfig,
     MeasurementConfig,
@@ -100,6 +101,8 @@ def batch_acquire_and_analyze(
     bulk_meas_cfg_kwargs: Dict[str, Any] = None,
     standards_dict: Dict[str, float] = None,
     output_filename_suffix: str = '',
+    saved_images_extension: str = dflt.saved_images_extension,
+    save_raw_images: bool = dflt.save_raw_images,
     development_mode: bool = False,
     verbose: bool = True,
     results_dir: str = None
@@ -227,6 +230,12 @@ def batch_acquire_and_analyze(
     output_filename_suffix : str, optional
         String appended to output filenames.
         Default is `''`.
+    saved_images_extension : str, optional
+        Extension used for SEM image files saved during acquisition.
+        Default is `'tif'`.
+    save_raw_images : bool, optional
+        Whether to save non-annotated raw SEM images in addition to annotated images.
+        Default is `True`.
     development_mode : bool, optional
         If True, enables development/debug features.
         Default is `False`.
@@ -288,6 +297,14 @@ def batch_acquire_and_analyze(
         bulk_meas_cfg = BulkMeasurementConfig(**bulk_meas_cfg_kwargs)
     else:
         bulk_meas_cfg = BulkMeasurementConfig()
+
+    acquisition_cfg = AcquisitionConfig(
+        powder_meas_cfg=powder_meas_cfg,
+        bulk_meas_cfg=bulk_meas_cfg,
+        exp_stds_cfg=None,
+        saved_images_extension=saved_images_extension,
+        save_raw_images=save_raw_images,
+    )
         
     sample_substrate_cfg = SampleSubstrateConfig(
         elements=els_substrate,
@@ -373,8 +390,7 @@ def batch_acquire_and_analyze(
             sample_substrate_cfg=sample_substrate_cfg,
             quant_cfg=quant_cfg,
             initial_clustering_cfg=clustering_cfg,
-            powder_meas_cfg=powder_meas_cfg,
-            bulk_meas_cfg=bulk_meas_cfg,
+            acquisition_cfg=acquisition_cfg,
             plot_cfg=PlotConfig(),
             is_acquisition=True,
             development_mode=development_mode,

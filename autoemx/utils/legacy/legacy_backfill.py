@@ -107,7 +107,14 @@ def load_ledger_configs_from_legacy_json(sample_result_dir: str) -> Optional[obj
     Imports are deferred to avoid circular dependencies.
     """
     import autoemx.utils.constants as cnst
-    from autoemx.config.runtime_configs import config_classes_dict
+    from autoemx.config.runtime_configs import (
+        AcquisitionConfig,
+        BulkMeasurementConfig,
+        ExpStandardsConfig,
+        PlotConfig,
+        PowderMeasurementConfig,
+        config_classes_dict,
+    )
     from autoemx.config.ledger_schemas import LedgerConfigs
 
     candidate_files = [
@@ -149,23 +156,56 @@ def load_ledger_configs_from_legacy_json(sample_result_dir: str) -> Optional[obj
     if not required.issubset(cfg_kwargs):
         return None
 
+    # Build acquisition config from either modern block or legacy split blocks.
+    acquisition_cfg = None
+    if cnst.ACQUISITION_CFG_KEY in cfg_kwargs:
+        acquisition_cfg = cfg_kwargs[cnst.ACQUISITION_CFG_KEY]
+    else:
+        raw_acq_payload: dict = {}
+
+        raw_powder_cfg = raw.get(cnst.POWDER_MEASUREMENT_CFG_KEY)
+        if isinstance(raw_powder_cfg, dict):
+            try:
+                raw_acq_payload[cnst.POWDER_MEASUREMENT_CFG_KEY] = PowderMeasurementConfig.model_validate(raw_powder_cfg)
+            except Exception:
+                raw_acq_payload[cnst.POWDER_MEASUREMENT_CFG_KEY] = None
+
+        raw_bulk_cfg = raw.get(cnst.BULK_MEASUREMENT_CFG_KEY)
+        if isinstance(raw_bulk_cfg, dict):
+            try:
+                raw_acq_payload[cnst.BULK_MEASUREMENT_CFG_KEY] = BulkMeasurementConfig.model_validate(raw_bulk_cfg)
+            except Exception:
+                raw_acq_payload[cnst.BULK_MEASUREMENT_CFG_KEY] = None
+
+        raw_exp_cfg = raw.get(cnst.EXP_STD_MEASUREMENT_CFG_KEY)
+        if isinstance(raw_exp_cfg, dict):
+            try:
+                raw_acq_payload[cnst.EXP_STD_MEASUREMENT_CFG_KEY] = ExpStandardsConfig.model_validate(raw_exp_cfg)
+            except Exception:
+                raw_acq_payload[cnst.EXP_STD_MEASUREMENT_CFG_KEY] = None
+
+        try:
+            acquisition_cfg = AcquisitionConfig.model_validate(raw_acq_payload)
+        except Exception:
+            acquisition_cfg = AcquisitionConfig()
+
     # Build LedgerConfigs, mapping constant keys to field names
     key_to_field = {
         cnst.MICROSCOPE_CFG_KEY: "microscope_cfg",
         cnst.SAMPLE_CFG_KEY: "sample_cfg",
         cnst.MEASUREMENT_CFG_KEY: "measurement_cfg",
         cnst.SAMPLESUBSTRATE_CFG_KEY: "sample_substrate_cfg",
-        cnst.QUANTIFICATION_CFG_KEY: "quant_cfg",
+        cnst.ACQUISITION_CFG_KEY: "acquisition_cfg",
         cnst.PLOT_CFG_KEY: "plot_cfg",
-        cnst.POWDER_MEASUREMENT_CFG_KEY: "powder_meas_cfg",
-        cnst.BULK_MEASUREMENT_CFG_KEY: "bulk_meas_cfg",
-        cnst.EXP_STD_MEASUREMENT_CFG_KEY: "exp_stds_cfg",
     }
     ledger_cfg_kwargs = {
         field: cfg_kwargs[key]
         for key, field in key_to_field.items()
         if key in cfg_kwargs
     }
+    ledger_cfg_kwargs["acquisition_cfg"] = acquisition_cfg
+    if "plot_cfg" not in ledger_cfg_kwargs:
+        ledger_cfg_kwargs["plot_cfg"] = PlotConfig()
 
     try:
         return LedgerConfigs(**ledger_cfg_kwargs)

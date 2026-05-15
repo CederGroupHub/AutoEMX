@@ -18,6 +18,7 @@ Configurations:
 - SampleSubstrateConfig: Specifies the substrate composition and geometry supporting the sample.
 - MeasurementConfig: Controls measurement type, beam parameters, and acquisition settings.
 - QuantificationOptionsConfig: Runtime options for spectral fitting and quantification.
+- AcquisitionConfig: Bundles acquisition-related options, including sample-mode settings and SEM image save behavior.
 - PowderMeasurementConfig: Settings for analyzing powder samples and particle selection.
 - BulkMeasurementConfig: Settings for analyzing non-powder samples.
 - PlotConfig: Options for saving, displaying, and customizing plots.
@@ -532,6 +533,62 @@ class ExpStandardsConfig(BaseModel):
         return self
 
 
+class AcquisitionConfig(BaseModel):
+    """
+    Configuration bundle for acquisition-related options.
+
+    Attributes:
+        powder_meas_cfg (Optional[PowderMeasurementConfig]): Powder acquisition settings.
+        bulk_meas_cfg (Optional[BulkMeasurementConfig]): Bulk/grid acquisition settings.
+        exp_stds_cfg (Optional[ExpStandardsConfig]): Experimental standards settings.
+            This is optional and only used for standard measurements.
+        saved_images_extension (str): Extension used when saving SEM frame images.
+        save_raw_images (bool): Whether to save the non-annotated SEM image.
+    """
+
+    powder_meas_cfg: Optional[PowderMeasurementConfig] = Field(default_factory=PowderMeasurementConfig)
+    bulk_meas_cfg: Optional[BulkMeasurementConfig] = Field(default_factory=BulkMeasurementConfig)
+    exp_stds_cfg: Optional[ExpStandardsConfig] = None
+    saved_images_extension: str = dflt.saved_images_extension
+    save_raw_images: bool = dflt.save_raw_images
+
+    ALLOWED_IMAGE_EXTENSIONS: ClassVar[Tuple[str, ...]] = (
+        "tif",
+        "tiff",
+        "png",
+        "jpg",
+        "jpeg",
+        "webp",
+        "bmp",
+    )
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_sem_image_field_aliases(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            cleaned = dict(data)
+            if "saved_images_extension" not in cleaned and "sem_image_extension" in cleaned:
+                cleaned["saved_images_extension"] = cleaned.get("sem_image_extension")
+            if "save_raw_images" not in cleaned and "sem_save_raw_image" in cleaned:
+                cleaned["save_raw_images"] = cleaned.get("sem_save_raw_image")
+            cleaned.pop("sem_image_extension", None)
+            cleaned.pop("sem_save_raw_image", None)
+            return cleaned
+        return data
+
+    @model_validator(mode="after")
+    def _validate(self) -> "AcquisitionConfig":
+        ext = str(self.saved_images_extension).strip().lower().lstrip(".")
+        if ext not in self.ALLOWED_IMAGE_EXTENSIONS:
+            raise ValueError(
+                f"saved_images_extension must be one of {self.ALLOWED_IMAGE_EXTENSIONS}, got '{self.saved_images_extension}'."
+            )
+        self.saved_images_extension = ext
+        return self
+
+
 class PlotConfig(BaseModel):
     """
     Configuration for plotting.
@@ -564,6 +621,7 @@ config_classes_dict = {
     cnst.MEASUREMENT_CFG_KEY: MeasurementConfig,
     cnst.SAMPLESUBSTRATE_CFG_KEY: SampleSubstrateConfig,
     cnst.QUANTIFICATION_CFG_KEY: QuantificationOptionsConfig,
+    cnst.ACQUISITION_CFG_KEY: AcquisitionConfig,
     cnst.PLOT_CFG_KEY: PlotConfig,
     cnst.POWDER_MEASUREMENT_CFG_KEY: PowderMeasurementConfig,
     cnst.BULK_MEASUREMENT_CFG_KEY: BulkMeasurementConfig,

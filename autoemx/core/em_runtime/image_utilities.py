@@ -105,10 +105,13 @@ def convert_XS_coords_to_pixels(xy_coords, im_width, im_height, EM_driver):
 
 def save_frame_image(frame_image, pixel_size_um, im_width, im_height,
                      sample_id, microscope_cfg, filename, results_dir,
-                     im_annotations=None, scalebar=True, EM_driver=None, 
+                     im_annotations=None, scalebar=True,
+                     image_extension: str = "tif",
+                     save_raw_image: bool = True,
+                     EM_driver=None,
                      auto_adjust_bc=True):
     """
-    Save an annotated and raw electron microscopy (EM) frame as a multi-page TIFF.
+    Save an annotated and optional raw electron microscopy (EM) frame.
     
     Generates a raw grayscale EM image and an annotated RGB version with optional 
     markers and scale bar. Both are saved into a single multi-page TIFF file.
@@ -200,8 +203,12 @@ def save_frame_image(frame_image, pixel_size_um, im_width, im_height,
     if scalebar:
         color_image = draw_scalebar(color_image, pixel_size_um)
     
-    # Prepare save path
-    save_path = os.path.join(results_dir, f"{filename}.tif")
+    # Normalize extension and prepare paths.
+    ext = str(image_extension).strip().lower().lstrip('.')
+    if ext == "jpg":
+        ext = "jpeg"
+
+    save_path = os.path.join(results_dir, f"{filename}.{ext}")
     
     # Ensure dtype consistency (convert to uint8 if needed)
     if frame_image.dtype != np.uint8:
@@ -227,25 +234,34 @@ def save_frame_image(frame_image, pixel_size_um, im_width, im_height,
     
     desc_str = json.dumps(image_description_d, ensure_ascii=True)
     
-    # Convert numpy arrays to Pillow Image objects
+    # Convert numpy arrays to Pillow Image objects.
     if scalebar or im_annotations:
         im1 = Image.fromarray(color_image.astype('uint8'), mode='RGB')
     else:
         im1 = None
     im2 = Image.fromarray(frame_image_uint8.astype('uint8'), mode='RGB')
-    
-    # Save as multi-page TIFF
-    if im1 is None:
-        im2.save(save_path, format="TIFF", description=desc_str)
-    else:
-        im1.save(
-            save_path,
-            format='TIFF',
-            description=desc_str,
-            save_all=True,
-            append_images=[im2],
-            compression=None
-        )
+
+    annotated_image = im1 if im1 is not None else im2
+
+    # TIFF supports multi-page saves. For non-TIFF formats, save raw in a sidecar file.
+    if ext in {"tif", "tiff"}:
+        if save_raw_image and im1 is not None:
+            im1.save(
+                save_path,
+                format='TIFF',
+                description=desc_str,
+                save_all=True,
+                append_images=[im2],
+                compression=None,
+            )
+        else:
+            annotated_image.save(save_path, format='TIFF', description=desc_str)
+        return
+
+    annotated_image.save(save_path, format=ext.upper())
+    if save_raw_image:
+        raw_path = os.path.join(results_dir, f"{filename}_raw.{ext}")
+        im2.save(raw_path, format=ext.upper())
 
 
 def normalise_img(img: np.ndarray, target_brightness: float = 128.0) -> np.ndarray:

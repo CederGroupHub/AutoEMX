@@ -57,6 +57,8 @@ is_auto_substrate_detection = True # Whether to activate automated detection of 
 auto_adjust_brightness_contrast = True # Use automatic adjustments of brightness and contrast
 contrast = 4.3877  # Used if auto_adjust_brightness_contrast = False
 brightness = 0.4504  # Used if auto_adjust_brightness_contrast = False
+saved_images_extension = 'tif' # e.g. 'png' for lighter files
+save_raw_images = True # If False, only annotated image is saved
 
 min_n_spectra = 50 # Min number of spectra after which AutoEMX checks for convergence. Only useful if quantify_spectra = True
 max_n_spectra = 100 # Number of spectra collected if quantify_spectra = False. If quantify_spectra = True, this indicates the max number of spectra collected when convergence is not achieved.
@@ -138,6 +140,8 @@ comp_analyzer = batch_acquire_and_analyze(
     auto_adjust_brightness_contrast=auto_adjust_brightness_contrast,
     contrast=contrast,
     brightness=brightness,
+    saved_images_extension=saved_images_extension,
+    save_raw_images=save_raw_images,
     quantify_spectra=quantify_spectra,
     min_n_spectra=min_n_spectra,
     max_n_spectra=max_n_spectra,

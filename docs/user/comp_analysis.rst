@@ -269,7 +269,37 @@ For each sample, ``AutoEMX`` creates a folder named after ``ID`` containing:
 
 
 
-Step 8 - Optional: (re)quantify spectra
+Step 8 - Optional: (re)acquire spectra
+--------------------------------------
+
+Restarting acquisition (important)
+----------------------------------
+
+You can safely restart an interrupted acquisition for the same sample folder.
+This is useful if you realize that you need more spectra after inspecting the
+first results.
+
+At startup, ``AutoEMX`` now resolves the resume point from existing data and:
+
+- If a ledger already exists, it resumes from the next available spectrum/particle IDs.
+- If the ledger is missing but spectra are present in ``spectra/``, it creates a new
+  ledger and ingests the existing spectra before resuming acquisition.
+
+This allows selective cleanup of undesired data:
+
+- You may delete the ledger file and also delete a few undesired spectra from
+  ``spectra/``.
+- On restart, existing spectra that are still present are ingested into the new
+  ledger, and missing/deleted spectra can be reacquired as acquisition continues
+  from the next available IDs.
+
+.. warning::
+
+   If you want a truly fresh acquisition, delete the entire sample folder.
+   Deleting only the ledger file is not a reset: spectra still present in
+   ``spectra/`` will be reingested when acquisition restarts.
+
+Step 9 - Optional: (re)quantify spectra
 ----------------------------------------
 
 This step allows you to quantify spectra after acquisition. It is performed automatically if
@@ -308,7 +338,7 @@ The quantification step updates the ``Data.csv`` file with the following columns
 - ``Comments``: For reliable spectra, reports the lowest counts fitted below a reference peak. For unreliable spectra, typically explains the reason for unreliability.
 
 
-Step 9 - Optional: (re)analyse spectra
+Step 10 - Optional: (re)analyse spectra
 ----------------------------------------
 
 This step is performed automatically if:

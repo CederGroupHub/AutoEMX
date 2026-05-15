@@ -43,6 +43,7 @@ from typing import Any, List, Optional, Tuple, Union
 import autoemx.utils.constants as cnst
 from autoemx.utils import EMError, print_single_separator, draw_scalebar
 from autoemx.config import (
+    AcquisitionConfig,
     MicroscopeConfig,
     SampleConfig,
     MeasurementConfig,
@@ -161,14 +162,16 @@ class EM_Controller:
         sample_cfg = ledger_configs.sample_cfg
         measurement_cfg = ledger_configs.measurement_cfg
         sample_substrate_cfg = ledger_configs.sample_substrate_cfg
-        powder_meas_cfg = ledger_configs.powder_meas_cfg or PowderMeasurementConfig()
-        bulk_meas_cfg = ledger_configs.bulk_meas_cfg or BulkMeasurementConfig()
+        acquisition_cfg = ledger_configs.acquisition_cfg or AcquisitionConfig()
+        powder_meas_cfg = acquisition_cfg.powder_meas_cfg or PowderMeasurementConfig()
+        bulk_meas_cfg = acquisition_cfg.bulk_meas_cfg or BulkMeasurementConfig()
 
         # --- Configuration
         self.sample_cfg = sample_cfg
         self.microscope_cfg = microscope_cfg
         self.measurement_cfg = measurement_cfg
         self.sample_substrate_cfg = sample_substrate_cfg
+        self.acquisition_cfg = acquisition_cfg
         self.powder_meas_cfg = powder_meas_cfg
         self.bulk_meas_cfg = bulk_meas_cfg
         self.sample_id = str(sample_id).strip() if sample_id is not None else ""
@@ -263,6 +266,7 @@ class EM_Controller:
         results_dir: Optional[str] = None,
         verbose: bool = True,
         development_mode: Optional[bool] = False,
+        acquisition_cfg: Optional[AcquisitionConfig] = None,
     ) -> "EM_Controller":
         """
         Construct an EM_Controller from individual config objects.
@@ -285,14 +289,19 @@ class EM_Controller:
         verbose : bool, optional
         development_mode : bool, optional
         """
+        resolved_acquisition_cfg = acquisition_cfg or AcquisitionConfig(
+            powder_meas_cfg=powder_meas_cfg,
+            bulk_meas_cfg=bulk_meas_cfg,
+            exp_stds_cfg=None,
+        )
+
         ledger_configs = LedgerConfigs(
             microscope_cfg=microscope_cfg,
             sample_cfg=sample_cfg,
             measurement_cfg=measurement_cfg,
             sample_substrate_cfg=sample_substrate_cfg,
+            acquisition_cfg=resolved_acquisition_cfg,
             plot_cfg=PlotConfig(),
-            powder_meas_cfg=powder_meas_cfg,
-            bulk_meas_cfg=bulk_meas_cfg,
         )
         return cls(
             ledger_configs=ledger_configs,
@@ -585,14 +594,14 @@ class EM_Controller:
     def save_frame_image(self, filename, im_annotations=None, scalebar=True, 
                          frame_image=None, save_dir=None):
         """
-        Save an annotated and raw EM frame as multi-page TIFF.
+        Save an annotated EM frame and optionally the raw frame.
         
         Delegates to image_utilities module.
         
         Parameters
         ----------
         filename : str
-            Name used for saved .tif image file.
+            Base name used for saved image file(s).
         im_annotations : dict | list(dict) | None, optional
             Dictionary with annotations ('text', 'circle' keys).
         scalebar : bool, optional
@@ -600,7 +609,7 @@ class EM_Controller:
         frame_image : np.ndarray | None, optional
             Frame image to save. Acquires current if not provided.
         save_dir : str, optional
-            Directory to save the TIFF file.
+            Directory to save image file(s).
         """
         if not save_dir:
             save_dir = self.results_dir
@@ -616,6 +625,8 @@ class EM_Controller:
             results_dir=save_dir,
             im_annotations=im_annotations,
             scalebar=scalebar,
+            image_extension=self.acquisition_cfg.saved_images_extension,
+            save_raw_image=self.acquisition_cfg.save_raw_images,
             EM_driver=self.EM_driver,
             auto_adjust_bc=self.microscope_cfg.is_auto_BC
         )

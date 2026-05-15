@@ -41,6 +41,7 @@ import autoemx.config.defaults as dflts
 import autoemx.utils.constants as cnst
 from autoemx.utils import print_double_separator
 from autoemx.config import (
+    AcquisitionConfig,
     MicroscopeConfig,
     SampleConfig,
     MeasurementConfig,
@@ -91,6 +92,8 @@ def batch_acquire_experimental_stds(
     bulk_meas_cfg_kwargs: Dict[str, Any] = None,
     exp_stds_meas_cfg_kwargs: Dict[str, Any] = None,
     output_filename_suffix: str = '',
+    saved_images_extension: str = dflts.saved_images_extension,
+    save_raw_images: bool = dflts.save_raw_images,
     development_mode: bool = False,
     verbose: bool = True,
     exp_std_dir: str = None,
@@ -193,6 +196,12 @@ def batch_acquire_experimental_stds(
     output_filename_suffix : str, optional
         String appended to output filenames.  
         Default is `''`.
+    saved_images_extension : str, optional
+        Extension used for SEM image files saved during acquisition.
+        Default is `'tif'`.
+    save_raw_images : bool, optional
+        Whether to save non-annotated raw SEM images in addition to annotated images.
+        Default is `True`.
     development_mode : bool, optional
         If True, enables development/debug features.  
         Default is `False`.
@@ -323,6 +332,14 @@ def batch_acquire_experimental_stds(
 
 
         # --- Run Composition Analyzer
+        acquisition_cfg = AcquisitionConfig(
+            powder_meas_cfg=powder_meas_cfg,
+            bulk_meas_cfg=bulk_meas_cfg,
+            exp_stds_cfg=exp_stds_cfg,
+            saved_images_extension=saved_images_extension,
+            save_raw_images=save_raw_images,
+        )
+
         comp_analyzer = EMXSp_Composition_Analyzer(
             microscope_cfg=microscope_cfg,
             sample_id=sample_ID,
@@ -331,9 +348,7 @@ def batch_acquire_experimental_stds(
             sample_substrate_cfg=sample_substrate_cfg,
             quant_cfg=quant_cfg,
             initial_clustering_cfg=clustering_cfg,
-            powder_meas_cfg=powder_meas_cfg,
-            bulk_meas_cfg=bulk_meas_cfg,
-            exp_stds_cfg=exp_stds_cfg,
+            acquisition_cfg=acquisition_cfg,
             is_acquisition=True,
             development_mode=development_mode,
             output_filename_suffix=output_filename_suffix,

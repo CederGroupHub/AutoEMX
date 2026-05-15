@@ -6,6 +6,12 @@ import json
 from typing import Any, Dict, Tuple
 
 import autoemx.utils.constants as cnst
+from autoemx.config.runtime_configs import (
+    AcquisitionConfig,
+    BulkMeasurementConfig,
+    ExpStandardsConfig,
+    PowderMeasurementConfig,
+)
 
 
 def load_legacy_configurations_from_json(
@@ -31,6 +37,41 @@ def load_legacy_configurations_from_json(
             configs[key] = cls(**data[key])
         else:
             configs[key] = None
+
+    if configs.get(cnst.ACQUISITION_CFG_KEY) is None:
+        raw_acq_payload: Dict[str, Any] = {}
+
+        raw_powder_cfg = data.get(cnst.POWDER_MEASUREMENT_CFG_KEY)
+        if isinstance(raw_powder_cfg, dict):
+            try:
+                raw_acq_payload[cnst.POWDER_MEASUREMENT_CFG_KEY] = PowderMeasurementConfig.model_validate(raw_powder_cfg)
+            except Exception:
+                raw_acq_payload[cnst.POWDER_MEASUREMENT_CFG_KEY] = None
+
+        raw_bulk_cfg = data.get(cnst.BULK_MEASUREMENT_CFG_KEY)
+        if isinstance(raw_bulk_cfg, dict):
+            try:
+                raw_acq_payload[cnst.BULK_MEASUREMENT_CFG_KEY] = BulkMeasurementConfig.model_validate(raw_bulk_cfg)
+            except Exception:
+                raw_acq_payload[cnst.BULK_MEASUREMENT_CFG_KEY] = None
+
+        raw_exp_cfg = data.get(cnst.EXP_STD_MEASUREMENT_CFG_KEY)
+        if isinstance(raw_exp_cfg, dict):
+            try:
+                raw_acq_payload[cnst.EXP_STD_MEASUREMENT_CFG_KEY] = ExpStandardsConfig.model_validate(raw_exp_cfg)
+            except Exception:
+                raw_acq_payload[cnst.EXP_STD_MEASUREMENT_CFG_KEY] = None
+
+        try:
+            configs[cnst.ACQUISITION_CFG_KEY] = AcquisitionConfig.model_validate(raw_acq_payload)
+        except Exception:
+            configs[cnst.ACQUISITION_CFG_KEY] = AcquisitionConfig()
+
+    acquisition_cfg = configs.get(cnst.ACQUISITION_CFG_KEY)
+    if acquisition_cfg is not None:
+        configs[cnst.POWDER_MEASUREMENT_CFG_KEY] = acquisition_cfg.powder_meas_cfg
+        configs[cnst.BULK_MEASUREMENT_CFG_KEY] = acquisition_cfg.bulk_meas_cfg
+        configs[cnst.EXP_STD_MEASUREMENT_CFG_KEY] = acquisition_cfg.exp_stds_cfg
 
     # Legacy compatibility:
     # ClusteringConfig is not part of runtime config_classes_dict, but legacy

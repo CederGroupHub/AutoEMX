@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from autoemx.config.runtime_configs import (
+    AcquisitionConfig,
     BulkMeasurementConfig,
     ExpStandardsConfig,
     MeasurementConfig,
@@ -30,10 +31,8 @@ class LedgerConfigs(BaseModel):
     sample_cfg: SampleConfig
     measurement_cfg: MeasurementConfig
     sample_substrate_cfg: SampleSubstrateConfig
+    acquisition_cfg: AcquisitionConfig = Field(default_factory=AcquisitionConfig)
     plot_cfg: PlotConfig
-    powder_meas_cfg: Optional[PowderMeasurementConfig] = None
-    bulk_meas_cfg: Optional[BulkMeasurementConfig] = None
-    exp_stds_cfg: Optional[ExpStandardsConfig] = None
 
     model_config = ConfigDict(extra="forbid")
 
@@ -43,8 +42,29 @@ class LedgerConfigs(BaseModel):
         if isinstance(data, dict):
             cleaned = dict(data)
             cleaned.pop("quant_cfg", None)
+            powder_cfg = cleaned.pop("powder_meas_cfg", None)
+            bulk_cfg = cleaned.pop("bulk_meas_cfg", None)
+            exp_cfg = cleaned.pop("exp_stds_cfg", None)
+            if "acquisition_cfg" not in cleaned:
+                cleaned["acquisition_cfg"] = {
+                    "powder_meas_cfg": powder_cfg,
+                    "bulk_meas_cfg": bulk_cfg,
+                    "exp_stds_cfg": exp_cfg,
+                }
             return cleaned
         return data
+
+    @property
+    def powder_meas_cfg(self) -> Optional[PowderMeasurementConfig]:
+        return self.acquisition_cfg.powder_meas_cfg
+
+    @property
+    def bulk_meas_cfg(self) -> Optional[BulkMeasurementConfig]:
+        return self.acquisition_cfg.bulk_meas_cfg
+
+    @property
+    def exp_stds_cfg(self) -> Optional[ExpStandardsConfig]:
+        return self.acquisition_cfg.exp_stds_cfg
 
 
 class SampleLedger(BaseModel):
