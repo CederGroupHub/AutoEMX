@@ -115,7 +115,7 @@ from autoemx.config.ledger_schemas import (
 from autoemx.config.schema_models.clustering import ClusteringAnalysis, ClusteringResult
 from autoemx.config.schema_models.standards import EDSStandardsFile
 from .clustering import ClusteringModule
-from autoemx.utils.legacy.legacy_ledger_loader import (
+from autoemx.utils.legacy.ledger_bootstrap import (
     load_or_create_ledger_with_legacy_data_csv,
 )
 from .plotting import PlottingModule
@@ -1884,7 +1884,26 @@ class EMXSp_Composition_Analyzer:
 
 
     def _load_or_create_ledger(self) -> SampleLedger:
-        """Load ledger and apply only Data.csv-without-ledger legacy bootstrap compatibility."""
+        """Load a ledger, using legacy Data.csv bootstrap only for non-acquisition workflows."""
+        if self.is_acquisition:
+            ledger = self._load_existing_ledger()
+            if ledger is not None:
+                return ledger
+
+            spectra_dir = self._get_spectra_dir()
+            os.makedirs(spectra_dir, exist_ok=True)
+
+            ledger = SampleLedger(
+                sample_id=self.sample_id,
+                sample_path=os.path.abspath(self.sample_result_dir),
+                configs=self._build_ledger_configs(),
+                spectra=[],
+                quantifications=[],
+                active_quant=None,
+            )
+            ledger.to_json_file(self._get_ledger_path())
+            return ledger
+
         return load_or_create_ledger_with_legacy_data_csv(
             sample_result_dir=self.sample_result_dir,
             sample_id=self.sample_id,
@@ -3296,7 +3315,7 @@ class EMXSp_Composition_Analyzer:
         else:
             max_analytical_error = max_analytical_error_percent
         (compositions_list_at, compositions_list_w, unused_compositions_list,
-         df_indices, n_datapts) = self._select_good_compositions(max_analytical_error)
+         df_indices, n_datapts) = ClusteringModule._select_good_compositions(self, max_analytical_error)
         n_datapts_used = len(compositions_list_at)
     
         if n_datapts_used < 5:
@@ -3383,77 +3402,6 @@ class EMXSp_Composition_Analyzer:
         return True, max_cl_rmsdist, min_conf
     
     
-    def _select_good_compositions(self, max_analytical_error):
-        """
-        Select compositions for clustering, filtering out those with high analytical error or bad quantification flags.
-    
-        Returns
-        -------
-        compositions_list_at : list
-            List of atomic fractions for good spectra.
-        compositions_list_w : list
-            List of mass fractions for good spectra.
-        unused_compositions_list : list
-            List of compositions not used for clustering (for plotting).
-        df_indices : list
-            Indices of rows used for phase identification.
-        n_datapts : int
-            Total number of spectra considered.
-        """
-        # Initialise counters for spectra filtered out
-        self.n_sp_too_low_counts = 0
-        self.n_sp_too_high_an_err = 0
-        self.n_sp_bad_quant = 0
-    
-        compositions_list_at = []
-        compositions_list_w = []
-        unused_compositions_list = []
-        df_indices = []
-        n_datapts = len(self.spectra_quant_records)
-    
-        for i in range(n_datapts):
-            record = self.spectra_quant_records[i]
-            if record is not None and record.composition_atomic_fractions is not None:
-                is_comp_ok = True
-                spectrum_quant_result_at = dict(record.composition_atomic_fractions)
-                spectrum_quant_result_w = dict(record.composition_weight_fractions)
-                analytical_error = float(record.analytical_error)
-                quant_flag = record.quant_flag
-
-                # Check if composition was flagged as bad during quantification
-                if quant_flag not in self.clustering_cfg.quant_flags_accepted:
-                    is_comp_ok = False
-                    self.n_sp_bad_quant += 1
-    
-                elif max_analytical_error is None:
-                    # Analytical error check is disabled
-                    is_comp_ok = True
-                    pass
-    
-                # Check if analytical error is too high
-                elif analytical_error < - (max_analytical_error + self.undetectable_an_er) or analytical_error > max_analytical_error:
-                    is_comp_ok = False
-                    self.n_sp_too_high_an_err += 1
-    
-                # Append composition to list of used or unused datapoints
-                if is_comp_ok:
-                    df_indices.append(i)
-                    # Construct dictionary that includes all elements that are supposed to be in the sample.
-                    comp_at = {el: spectrum_quant_result_at.get(el, 0) for el in self.all_els_sample}
-                    compositions_list_at.append(comp_at)
-                    comp_w = {el: spectrum_quant_result_w.get(el, 0) for el in self.all_els_sample}
-                    compositions_list_w.append(comp_w)
-                else:
-                    # Collect unused data points to show them in the clustering plot
-                    if self.clustering_cfg.features == cnst.AT_FR_CL_FEAT:
-                        comp = [spectrum_quant_result_at.get(el, 0) for el in self.all_els_sample]
-                    elif self.clustering_cfg.features == cnst.W_FR_CL_FEAT:
-                        comp = [spectrum_quant_result_w.get(el, 0) for el in self.all_els_sample]
-                    unused_compositions_list.append(comp)
-            else:
-                self.n_sp_too_low_counts += 1
-    
-        return compositions_list_at, compositions_list_w, unused_compositions_list, df_indices, n_datapts
 
     #%% Run algorithms
     # =============================================================================     

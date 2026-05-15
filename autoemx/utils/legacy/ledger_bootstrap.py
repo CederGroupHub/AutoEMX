@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Legacy Data.csv loaders used while bootstrapping ledger creation."""
+"""Ledger bootstrap helpers with optional legacy Data.csv compatibility."""
 
 import importlib
 import json
