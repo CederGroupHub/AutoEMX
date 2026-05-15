@@ -177,10 +177,12 @@ class StandardsModule:
 
     def _fit_stds_and_save_results(
         self: Any,
+        run_fitting: bool = True,
     ) -> Optional[StandardsFitResults]:
         fit_results = None
 
-        self._fit_and_quantify_spectra(quantify=False)
+        if run_fitting:
+            self._fit_and_quantify_spectra(quantify=False)
         StandardsModule._save_std_measurements_from_records(self)
 
         std_ref_lines = StandardsModule._assemble_std_PB_data_from_records(self)

@@ -2932,6 +2932,7 @@ class EMXSp_Composition_Analyzer:
                 self._ensure_current_quantification_run(force_new=force_requantification)
                 self._persist_current_quantification_config()
                 self._ensure_quant_tracking_length(tot_spectra_collected)
+                self._sync_existing_quantification_from_ledger()
                 if force_requantification:
                     indices_to_process = list(range(tot_spectra_collected))
                 else:
@@ -3769,8 +3770,12 @@ class EMXSp_Composition_Analyzer:
         self._th_peak_energies = {} # Initialise
         self.run_collection_and_quantification(quantify=fit_during_collection)
         
-        # Fit standards and save results
-        fit_results = StandardsModule._fit_stds_and_save_results(self)
+        # Save standards fit outputs. If fitting already happened during collection,
+        # only aggregate/save from existing records and do not rerun spectrum fitting.
+        fit_results = StandardsModule._fit_stds_and_save_results(
+            self,
+            run_fitting=not fit_during_collection,
+        )
         
         # Update the standards library with the new results if requested
         if update_std_library and fit_results is not None and fit_results.lines:
