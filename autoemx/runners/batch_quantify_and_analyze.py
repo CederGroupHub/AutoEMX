@@ -198,10 +198,10 @@ def batch_quantify_and_analyze(
                     configs[cnst.CLUSTERING_CFG_KEY] = active_clustering_config
             else:
                 configs[cnst.QUANTIFICATION_CFG_KEY] = config_classes_dict[cnst.QUANTIFICATION_CFG_KEY]()
-            if ledger.configs.powder_meas_cfg is not None:
-                configs[cnst.POWDER_MEASUREMENT_CFG_KEY] = ledger.configs.powder_meas_cfg
-            if ledger.configs.bulk_meas_cfg is not None:
-                configs[cnst.BULK_MEASUREMENT_CFG_KEY] = ledger.configs.bulk_meas_cfg
+            if ledger.configs.measurement_cfg.powder_meas_cfg is not None:
+                configs[cnst.POWDER_MEASUREMENT_CFG_KEY] = ledger.configs.measurement_cfg.powder_meas_cfg
+            if ledger.configs.measurement_cfg.bulk_meas_cfg is not None:
+                configs[cnst.BULK_MEASUREMENT_CFG_KEY] = ledger.configs.measurement_cfg.bulk_meas_cfg
             metadata = {}
         except FileNotFoundError:
             logging.warning(f"Could not find {spectral_info_f_path}. Skipping sample '{sample_ID}'.")
@@ -211,7 +211,7 @@ def batch_quantify_and_analyze(
             continue
 
         sample_processing_time_start = time.time()
-
+    
         # Retrieve configuration objects for this sample
         try:
             microscope_cfg      = configs[cnst.MICROSCOPE_CFG_KEY]
@@ -238,10 +238,12 @@ def batch_quantify_and_analyze(
             quant_cfg.method = quantification_method
         if use_project_specific_std_dict is not None:
             quant_cfg.use_project_specific_std_dict = use_project_specific_std_dict
+        if use_instrument_background is not None:
+            quant_cfg.use_instrument_background = use_instrument_background
 
         # Change is_known_precursor_mixture if provided
         if is_known_precursor_mixture is not None and powder_meas_cfg is not None:
-            powder_meas_cfg.is_known_precursor_mixture = is_known_precursor_mixture
+            powder_meas_cfg.is_known_powder_mixture_meas = is_known_precursor_mixture
 
         # --- Run Composition Analysis or Spectral Acquisition
         comp_analyzer = EMXSp_Composition_Analyzer(

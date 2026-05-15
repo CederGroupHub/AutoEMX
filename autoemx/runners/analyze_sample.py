@@ -185,10 +185,10 @@ def analyze_sample(
                 configs[cnst.CLUSTERING_CFG_KEY] = active_clustering_config
         else:
             configs[cnst.QUANTIFICATION_CFG_KEY] = config_classes_dict[cnst.QUANTIFICATION_CFG_KEY]()
-        if ledger.configs.powder_meas_cfg is not None:
-            configs[cnst.POWDER_MEASUREMENT_CFG_KEY] = ledger.configs.powder_meas_cfg
-        if ledger.configs.bulk_meas_cfg is not None:
-            configs[cnst.BULK_MEASUREMENT_CFG_KEY] = ledger.configs.bulk_meas_cfg
+        if ledger.configs.measurement_cfg.powder_meas_cfg is not None:
+            configs[cnst.POWDER_MEASUREMENT_CFG_KEY] = ledger.configs.measurement_cfg.powder_meas_cfg
+        if ledger.configs.measurement_cfg.bulk_meas_cfg is not None:
+            configs[cnst.BULK_MEASUREMENT_CFG_KEY] = ledger.configs.measurement_cfg.bulk_meas_cfg
         metadata = {}
     except Exception as e:
         logging.error(f"Error loading {spectral_info_f_path}. Skipping sample '{sample_ID}': {e}")

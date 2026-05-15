@@ -17,7 +17,7 @@ Created on April 24, 2026
 
 import os
 
-from autoemx.runners import fit_and_quantify_spectrum_from_ledger
+from autoemx.runners.fit_and_quantify_spectrum_from_ledger import fit_and_quantify_spectrum_from_ledger
 
 # =============================================================================
 # Sample and spectrum to process

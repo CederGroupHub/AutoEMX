@@ -19,9 +19,6 @@ Created on Tue Jul 29 13:18:16 2025
 @author: Andrea
 """
 
-from autoemx.runners import analyze_sample
-
-
 # =============================================================================
 # Paper data (Download data from github repository:
 #       https://github.com/CederGroupHub/AutoEMX/tree/main/paper_data)   
@@ -32,7 +29,7 @@ from autoemx.runners import analyze_sample
 # sample_ID = 'Anhydrite_mineral'
 # sample_ID = 'Anorthite_mineral'
 # sample_ID = 'Benitoite_mineral'
-# sample_ID = 'Bornite_mineral'
+sample_ID = 'Bornite_mineral'
 # sample_ID = 'Chalcopyrite_mineral'
 # sample_ID = 'CoOlivine_mineral'
 # sample_ID = 'FeOlivine_mineral'
@@ -115,8 +112,8 @@ from autoemx.runners import analyze_sample
 # sample_ID = 'Nepheline+LMNO mixture'
 # sample_ID = 'NASICON synthetic mixture'
 
-
-results_path = "" # Looks in default Results folder if left unspecified
+import os
+results_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # =============================================================================
 # Clustering options
@@ -127,13 +124,17 @@ clustering_features = None # 'w_fr', 'at_fr'. Uses default value if variable is 
 # If None, the number of clusters will be determined automatically.
 k_forced: int | None = None  
 
-# Method used to determine the number of clusters (see ClusteringConfig.ALLOWED_K_FINDING_METHODS).
+# Method used to determine the number of clusters.
+# Allowed methods are "silhouette", "calinski_harabasz", "elbow".
 # Only applied if `k_forced` is None. Forces re-computation of the optimal k value.
 k_finding_method: str | None = None  
 
 # Behavior:
 # - If both `k_finding_method` and `k_forced` are None, clustering configurations
 #   are loaded directly from the saved `Comp_analysis_configs.json` file.
+
+# Whether to compute matrix decomposition for intermixed phases. Slow if many candidate phases are provided.
+do_matrix_decomposition = True
 
 # =============================================================================
 # Spectral Filtering options
@@ -148,13 +149,15 @@ ref_formulae = None # List of candidate compositions. If the first entry is "" o
                     # list loaded from Comp_analysis_configs.json; otherwise, the provided list replaces it.
                     # Uses values loaded from Comp_analysis_configs.json if ref_formulae = None.
 els_excluded_clust_plot = None # List of elements to exclude from the 3D clustering plot. Uses default values if variable is set to None
-plot_custom_plots = False
+plot_custom_plots = False # If True, auto-creates sample_folder/custom_plot.py (first run) and uses it for plotting.
 show_unused_compositions_cluster_plot = True
 output_filename_suffix = ''
 
 # =============================================================================
 # Run
 # =============================================================================
+from autoemx.runners.analyze_sample import analyze_sample
+
 comp_analyzer = analyze_sample(
     sample_ID=sample_ID,
     results_path=results_path,
@@ -163,6 +166,7 @@ comp_analyzer = analyze_sample(
     clustering_features = clustering_features,
     els_excluded_clust_plot=els_excluded_clust_plot,
     k_finding_method = k_finding_method,
+    do_matrix_decomposition = do_matrix_decomposition,
     max_analytical_error_percent=max_analytical_error_percent,
     quant_flags_accepted=quant_flags_accepted,
     plot_custom_plots=plot_custom_plots,

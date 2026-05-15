@@ -17,19 +17,16 @@ Created on Tue Jul 29 13:18:16 2025
 @author: Andrea
 """
 
-from autoemx.runners import fit_and_quantify_spectrum
-
 # =============================================================================
 # Sample and spectrum to process
 # =============================================================================
-sample_ID = 'Wulfenite_example'
-sample_ID = 'K-412_NISTstd_example'
-sample_ID = 'Benitoite_mineral'
+sample_ID = 'Wulfenite_mineral'
+# sample_ID = 'Benitoite_mineral'
 
-spectrum_ID = 1  # Value reported in 'Spectrum #' column in Data.csv
+spectrum_ID = 1  # Value reported in 'Spectrum #' metadata for the sample ledger or in Compositions.csv inside the analysis folder
 
-results_path = '' # Looks in default Results folder if left unspecified
-
+import os
+results_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # =============================================================================
 # Options
 # =============================================================================
@@ -51,7 +48,13 @@ interrupt_fits_bad_spectra = False
 spectrum_lims = None # (80, 1100)
 els_substrate = None # ['C', 'O', 'Al']
 
-quantifier = fit_and_quantify_spectrum(
+
+# =============================================================================
+# Run
+# =============================================================================
+from autoemx.runners.fit_and_quantify_spectrum_from_ledger import fit_and_quantify_spectrum_from_ledger
+
+quantifier = fit_and_quantify_spectrum_from_ledger(
     sample_ID=sample_ID,
     spectrum_ID=spectrum_ID,
     is_standard = is_standard,
@@ -71,7 +74,11 @@ quantifier = fit_and_quantify_spectrum(
 )
 
 #%% Optionally print atomic and mass fractions of reference compound
-# from autoemx.tools.utils import print_element_fractions_table
+# from autoemx.utils import print_element_fractions_table
 
 # This uses the elements from the loaded sample config
 # print_element_fractions_table('ZnF2')  # Or use: print_element_fractions_table(''.join(sample_cfg.elements))
+
+
+
+
