@@ -113,7 +113,7 @@ def collect_particle_statistics(
         Default is `False` (saves only annotated images, lightweight output).
         Default is taken from defaults (AcquisitionConfig.save_raw_images).
     powder_meas_cfg_kwargs : dict, optional
-        Additional keyword arguments for PowderMeasurementConfig.
+        Additional keyword arguments for PowderMeasurementConfig. Supports 'img_shift_tracking' (bool, default True) to enable/disable image shift tracking during acquisition.
     output_filename_suffix : str, optional
         String appended to output filenames.
         Default is `''`.
@@ -151,6 +151,8 @@ def collect_particle_statistics(
     )
 
     if powder_meas_cfg_kwargs:
+        if 'img_shift_tracking' not in powder_meas_cfg_kwargs:
+            powder_meas_cfg_kwargs['img_shift_tracking'] = True
         powder_meas_cfg = PowderMeasurementConfig(**powder_meas_cfg_kwargs)
     else:
         powder_meas_cfg = PowderMeasurementConfig()

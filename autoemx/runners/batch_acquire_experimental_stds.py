@@ -33,7 +33,7 @@ Created on Fri Aug 20 09:34:34 2025
 
 import logging
 from pathlib import Path
-from typing import List, Dict, Tuple, Any
+from typing import List, Dict, Tuple, Any, Optional
 
 from autoemx.core.composition_analysis import EMXSp_Composition_Analyzer
 import autoemx.calibrations as calibs
@@ -81,12 +81,12 @@ def batch_acquire_experimental_stds(
     update_std_library = True,
     is_auto_substrate_detection: bool = False,
     auto_adjust_brightness_contrast: bool = True,
-    contrast: float = 4.3877,
-    brightness: float = 0.4504,
+    contrast: Optional[float] = None,
+    brightness: Optional[float] = None,
     min_n_spectra: int = 50,
     max_n_spectra: int = 100,
     target_Xsp_counts: int = 250000,
-    max_XSp_acquisition_time: float = None,
+    max_XSp_acquisition_time: Optional[float] = None,
     els_substrate: List[str] = None,
     powder_meas_cfg_kwargs: Dict[str, Any] = None,
     bulk_meas_cfg_kwargs: Dict[str, Any] = None,
@@ -96,7 +96,7 @@ def batch_acquire_experimental_stds(
     save_raw_images: bool = dflts.save_raw_images,
     development_mode: bool = False,
     verbose: bool = True,
-    exp_std_dir: str = None,
+    exp_std_dir: Optional[str] = None,
 ) -> None:
     """
     Batch acquisition (and optional quantification) of X-ray spectra for a list of powder samples.

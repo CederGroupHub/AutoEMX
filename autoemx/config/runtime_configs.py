@@ -333,6 +333,7 @@ class PowderMeasurementConfig(BaseModel):
     Attributes:
         is_manual_particle_selection (bool): Whether to manually navigate sample to select particles to analyse (Default = False).
         is_known_powder_mixture_meas (bool): Whether sample is a known binary mixture of powders. Used to characterize precursor extent of intermixing (Default = False).
+        img_shift_tracking (bool): Whether to use image shift tracking during acquisition (Default = True).
         par_search_frame_width_um (float, optional): Frame width used when searching for particles, in um.
             Default: min(20*max_par_radius, 500 um)
         max_n_par_per_frame (int): Maximum number of particles analyzed in a single frame. 
@@ -355,6 +356,7 @@ class PowderMeasurementConfig(BaseModel):
 
     is_manual_particle_selection: bool = False
     is_known_powder_mixture_meas: bool = False
+    img_shift_tracking: bool = True
     par_search_frame_width_um: Optional[float] = None
     max_n_par_per_frame: int = 30
     max_spectra_per_par: int = 3
@@ -525,7 +527,7 @@ class ExpStandardsConfig(BaseModel):
             try:
                 comp = Composition(self.formula)
                 try:
-                    self.w_frs = {el: float(w) for el, w in comp.as_weight_dict.items()}
+                    self.w_frs = {el: float(w) for el, w in comp.as_weight_dict.items()} # type: ignore
                 except Exception:
                     self.w_frs = {el: float(w) for el, w in comp.to_weight_dict.items()}
             except Exception as e:

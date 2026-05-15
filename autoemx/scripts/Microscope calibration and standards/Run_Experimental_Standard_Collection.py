@@ -83,6 +83,7 @@ els_substrate = ['C', 'O', 'Al']  # Contaminants that may be present in the spec
 powder_meas_cfg_kwargs = dict(
     is_manual_particle_selection = False,
     is_known_powder_mixture_meas = False,
+    img_shift_tracking = True,
     max_n_par_per_frame=30,
     max_spectra_per_par=3,
     max_area_par=10000.0,
