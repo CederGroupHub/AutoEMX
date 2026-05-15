@@ -7,7 +7,7 @@ Created on Thu Oct  9 10:14:12 2025
 """
 
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from autoemx.core.composition_analysis import EMXSp_Composition_Analyzer
 from autoemx.utils import print_double_separator
@@ -18,6 +18,7 @@ from autoemx.config import (
     MeasurementConfig,
     SampleSubstrateConfig,
     PowderMeasurementConfig,
+    AcquisitionConfig,
 )
 
 # Configure logging
@@ -45,11 +46,13 @@ def collect_particle_statistics(
     auto_adjust_brightness_contrast: bool = True,
     contrast: float = 4.3877,
     brightness: float = 0.4504,
-    powder_meas_cfg_kwargs: Dict[str, Any] = None,
+    saved_images_extension: str = dflt.saved_images_extension,
+    save_raw_images: bool = dflt.save_raw_images,
+    powder_meas_cfg_kwargs: Optional[Dict[str, Any]] = None,
     output_filename_suffix: str = '',
     development_mode: bool = False,
     verbose: bool = True,
-    results_dir: str = None
+    results_dir: Optional[str] = None
 ) -> None:
     """
     Batch acquisition (and optional quantification) of X-ray spectra for a list of powder samples.
@@ -101,6 +104,14 @@ def collect_particle_statistics(
     brightness : float, optional
         Manual brightness setting (required if auto_adjust_brightness_contrast is False).
         Default is `0.4504` (MicroscopeConfig.brightness).
+    saved_images_extension : str, optional
+        File extension for saved SEM images. Allowed: `'png'`, `'tif'`, `'jpg'`, `'webp'`.
+        Default is `'png'` (lightweight output). Use `'tif'` for higher-resolution/larger files.
+        Default is taken from defaults (AcquisitionConfig.saved_images_extension).
+    save_raw_images : bool, optional
+        If True, also save raw (unannotated) SEM images alongside annotated frames.
+        Default is `False` (saves only annotated images, lightweight output).
+        Default is taken from defaults (AcquisitionConfig.save_raw_images).
     powder_meas_cfg_kwargs : dict, optional
         Additional keyword arguments for PowderMeasurementConfig.
     output_filename_suffix : str, optional
@@ -143,6 +154,15 @@ def collect_particle_statistics(
         powder_meas_cfg = PowderMeasurementConfig(**powder_meas_cfg_kwargs)
     else:
         powder_meas_cfg = PowderMeasurementConfig()
+    
+    # Build AcquisitionConfig with image extension and raw image options
+    acquisition_cfg = AcquisitionConfig(
+        powder_meas_cfg=powder_meas_cfg,
+        bulk_meas_cfg=None,
+        exp_stds_cfg=None,
+        saved_images_extension=saved_images_extension,
+        save_raw_images=save_raw_images
+    )
         
     sample_substrate_cfg = SampleSubstrateConfig(
         type=sample_substrate_type,
@@ -150,6 +170,8 @@ def collect_particle_statistics(
         auto_detection=is_auto_substrate_detection,
         stub_w_mm=sample_substrate_width_mm
     )
+    
+    EM_analyzer = None
 
     for sample in samples:
         # --- Sample configuration
@@ -173,7 +195,7 @@ def collect_particle_statistics(
             sample_cfg=sample_cfg,
             measurement_cfg=measurement_cfg,
             sample_substrate_cfg=sample_substrate_cfg,
-            powder_meas_cfg=powder_meas_cfg,
+            acquisition_cfg=acquisition_cfg,
             is_acquisition = True,
             development_mode=development_mode,
             output_filename_suffix = output_filename_suffix,
@@ -183,13 +205,14 @@ def collect_particle_statistics(
         
         
         try:
-            EM_analyzer.EM_controller.particle_finder.get_particle_stats(n_par_target)
+            if EM_analyzer and EM_analyzer.EM_controller and EM_analyzer.EM_controller.particle_finder:
+                EM_analyzer.EM_controller.particle_finder.get_particle_stats(n_par_target)
         except Exception as e:
             logging.exception(f"Sample '{sample_ID}': particle stats collection failed: {e}")
             continue
     
     # Put microscope in standby after completion
-    if not development_mode and len(samples) > 1:
+    if not development_mode and EM_analyzer and len(samples) > 1:
         try:
             EM_analyzer.EM_controller.standby()
         except Exception as e:

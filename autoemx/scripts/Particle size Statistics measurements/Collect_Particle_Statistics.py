@@ -283,6 +283,7 @@ microscope_type = 'SEM'
 sample_substrate_type = 'Ctape'
 sample_substrate_shape = 'circle'
 sample_substrate_width_mm = 12 # Al stub
+saved_images_extension = 'tif' # High-resolution output.
 
 # =============================================================================
 # Powder sample options
@@ -314,6 +315,7 @@ collect_particle_statistics(
     auto_adjust_brightness_contrast = auto_contrast_brightness,
     contrast = contrast,
     brightness = brightness,
+    saved_images_extension = saved_images_extension,
     powder_meas_cfg_kwargs = powder_meas_cfg_kwargs,
     development_mode = False,
     verbose = True,
