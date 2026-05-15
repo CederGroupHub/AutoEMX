@@ -357,40 +357,33 @@ def batch_acquire_experimental_stds(
         except Exception as e:
             logging.warning(f"Could not put microscope in standby: {e}")
 
-    # Generate a standards-coverage report after collection so users can
-    # immediately inspect available standards by voltage/current/peak.
-    try:
-        from autoemx.runners.extract_experimental_standards_details import extract_experimental_standards_details  # type: ignore
+    # Generate a standards-coverage report only when standards library was updated.
+    if update_std_library:
+        try:
+            from autoemx.runners.extract_experimental_standards_details import extract_experimental_standards_details  # type: ignore
 
-        if exp_std_dir is not None:
-            standards_dir = Path(exp_std_dir).expanduser().resolve()
-        else:
-            standards_dir = Path(__file__).resolve().parents[1] / cnst.CALIBS_DIR / microscope_ID
+            if exp_std_dir is not None:
+                standards_dir = Path(exp_std_dir).expanduser().resolve()
+            else:
+                standards_dir = Path(__file__).resolve().parents[1] / cnst.CALIBS_DIR / microscope_ID
 
-        standards_json_filename = f"{measurement_type}_{cnst.STD_FILENAME}_{int(beam_energy):d}keV.json"
-        standards_json_path = standards_dir / standards_json_filename
+            standards_json_filename = f"{measurement_type}_{cnst.STD_FILENAME}_{int(beam_energy):d}keV.json"
+            standards_json_path = standards_dir / standards_json_filename
 
-        if standards_json_path.exists():
-            report_path = extract_experimental_standards_details(
-                microscope_ID=microscope_ID,
-                voltage=beam_energy,
-                standards_json_path=str(standards_json_path),
-                report_output_dir=str(standards_dir),
-                print_report=True,
-                print_per_peak=False,
-            )
+            report_kwargs = {
+                "microscope_ID": microscope_ID,
+                "voltage": beam_energy,
+                "report_output_dir": str(standards_dir),
+                "print_report": True,
+                "print_per_peak": False,
+            }
+            if standards_json_path.exists():
+                report_kwargs["standards_json_path"] = str(standards_json_path)
+
+            report_path = extract_experimental_standards_details(**report_kwargs)
             logging.info("Standards details report generated at: %s", report_path)
-        else:
-            report_path = extract_experimental_standards_details(
-                microscope_ID=microscope_ID,
-                voltage=beam_energy,
-                report_output_dir=str(standards_dir),
-                print_report=True,
-                print_per_peak=False,
-            )
-            logging.info("Standards details report generated at: %s", report_path)
-    except Exception as e:
-        logging.warning("Could not generate standards details report after collection: %s", e)
+        except Exception as e:
+            logging.warning("Could not generate standards details report after collection: %s", e)
     
     return results
     

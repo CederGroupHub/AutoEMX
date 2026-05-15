@@ -500,3 +500,16 @@ class StandardsModule:
                 line_payload.reference_mean = None
 
         standards.to_json_file(stds_filepath, indent=2)
+        if stds_filepath:
+            logger.info(
+                "✅ Standards library updated successfully for sample '%s' (%d peaks): %s",
+                self.sample_id,
+                len(fit_results.lines),
+                stds_filepath,
+            )
+        else:
+            logger.info(
+                "✅ Standards library updated successfully for sample '%s' (%d peaks).",
+                self.sample_id,
+                len(fit_results.lines),
+            )

@@ -3057,6 +3057,8 @@ class EMXSp_Composition_Analyzer:
             def _finalize_quant_result(idx, result, quant_record, quantification_time):
                 quant_flag = quant_record.quant_flag
                 comment = quant_record.comment
+                fit_result = getattr(quant_record, 'fit_result', None)
+                fit_was_not_run = (not quantify and fit_result is None)
                 had_prior_record = self.spectra_quant_records[idx] is not None
                 was_interrupted = (
                     had_prior_record
@@ -3066,16 +3068,18 @@ class EMXSp_Composition_Analyzer:
                 self.spectra_quant_records[idx] = quant_record
                 if self.verbose:
                     lines = [f" Spectrum #{idx}/{tot_spectra_collected - 1}:"]
+                    if fit_was_not_run:
+                        if comment:
+                            lines.append(f"  {comment}")
                     if quantify and result is None:
                         if comment:
                             lines.append(f"  {comment}")
-                    else:
+                    elif not fit_was_not_run:
                         if quantify:
                             for el, at_fr in result[cnst.COMP_AT_FR_KEY].items():
                                 lines.append(f"  {el} at%: {at_fr * 100:.2f}%")
                             lines.append(f"  Analytical error: {result[cnst.AN_ER_KEY] * 100:.2f}%")
                         else:
-                            fit_result = getattr(quant_record, 'fit_result', None)
                             fitted_peaks = getattr(fit_result, 'fitted_peaks', None)
                             standard_elements = set(getattr(getattr(self, 'exp_stds_cfg', None), 'w_frs', {}) or {})
                             ref_line_priority = {
@@ -3790,6 +3794,19 @@ class EMXSp_Composition_Analyzer:
             self,
             run_fitting=not fit_during_collection,
         )
+
+        if fit_results is not None and fit_results.lines:
+            logger.info("📈 Measured PB summary for sample '%s':", self.sample_id)
+            for peak_name in sorted(fit_results.lines.keys()):
+                peak_result = fit_results.lines[peak_name]
+                logger.info(
+                    "  %s: measured PB=%.1f (n=%d)",
+                    peak_name,
+                    float(peak_result.measured_pb),
+                    int(peak_result.n_spectra_used),
+                )
+        else:
+            logger.info("⚠️ No valid fitted peaks were produced for sample '%s'.", self.sample_id)
         
         # Update the standards library with the new results if requested
         if update_std_library and fit_results is not None and fit_results.lines:

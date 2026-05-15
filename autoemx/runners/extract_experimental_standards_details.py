@@ -352,6 +352,7 @@ def extract_experimental_standards_details(
             "No standards data matched the requested voltage filter in the selected standards source."
         )
 
+    summary_report_lines = list(report_lines)
     report_lines.append("")
     report_lines.extend(per_file_sections)
     report_text = "\n".join(report_lines).rstrip() + "\n"
@@ -365,11 +366,7 @@ def extract_experimental_standards_details(
         if print_per_peak:
             print(report_text)
         else:
-            summary_lines = list(report_lines)
-            summary_lines.append("")
-            summary_lines.append("Per-peak standards list not printed to terminal.")
-            summary_lines.append(f"See full details in: {out_path}")
-            summary_text = "\n".join(summary_lines).rstrip() + "\n"
+            summary_text = "\n".join(summary_report_lines).rstrip() + "\n"
             print(summary_text)
     logging.info("Saved report to: %s", out_path)
     return str(out_path)
