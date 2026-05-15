@@ -1708,6 +1708,26 @@ class EMXSp_Composition_Analyzer:
             return None
 
 
+    def _get_ingested_spectrum_ids(self) -> set[str]:
+        """Return the spectrum ids already ingested for the current sample directory."""
+        cached_sample_dir = getattr(self, "_ingested_spectrum_ids_sample_result_dir", None)
+        ingested_spectrum_ids = getattr(self, "_ingested_spectrum_ids", None)
+
+        if ingested_spectrum_ids is None or cached_sample_dir != self.sample_result_dir:
+            ingested_spectrum_ids = set()
+            ledger = self._load_existing_ledger()
+            if ledger is not None:
+                ingested_spectrum_ids.update(
+                    str(entry.spectrum_id)
+                    for entry in ledger.spectra
+                    if entry.spectrum_id not in (None, "")
+                )
+            self._ingested_spectrum_ids = ingested_spectrum_ids
+            self._ingested_spectrum_ids_sample_result_dir = self.sample_result_dir
+
+        return ingested_spectrum_ids
+
+
     def _get_spectra_dir(self) -> str:
         """Return the absolute path to the spectra pointer directory."""
         return os.path.join(self.sample_result_dir, cnst.SPECTRA_DIR)
@@ -2711,6 +2731,7 @@ class EMXSp_Composition_Analyzer:
         - If `quantify` is True, quantification occurs immediately after each collection.
         """
         success = False
+        ingested_spectrum_ids = self._get_ingested_spectrum_ids()
 
         # Auto-detect next available spectrum ID if not provided
         if n_tot_sp_collected is None:
@@ -2740,12 +2761,16 @@ class EMXSp_Composition_Analyzer:
             for i, (x, y) in enumerate(spots_xy_list):
                 latest_spot_id = i
                 xy_center = (int(x), int(y))
+                current_spectrum_id = str(n_tot_sp_collected)
+
+                if current_spectrum_id in ingested_spectrum_ids:
+                    n_tot_sp_collected += 1
+                    continue
 
                 if self.verbose:
                     print_single_separator()
                     logger.info(f'🔬 Acquiring spectrum #{n_tot_sp_collected}...')
 
-                current_spectrum_id = str(n_tot_sp_collected)
                 spectrum_relpath = self._build_spectrum_relpath(current_spectrum_id)
                 manufacturer_msa_path = os.path.join(self.sample_result_dir, spectrum_relpath)
                 os.makedirs(os.path.dirname(manufacturer_msa_path), exist_ok=True)
@@ -2791,15 +2816,9 @@ class EMXSp_Composition_Analyzer:
                         quantifications=[],
                         active_quant=None,
                     )
-                # Check if this spectrum already exists in the ledger to prevent duplicates
-                existing_spectrum_ids = {
-                    str(entry.spectrum_id)
-                    for entry in ledger.spectra
-                    if entry.spectrum_id not in (None, "")
-                }
-                if str(spectrum_entry.spectrum_id) not in existing_spectrum_ids:
-                    ledger.spectra.append(spectrum_entry)
-                    ledger.to_json_file(ledger_path)
+                ledger.spectra.append(spectrum_entry)
+                ledger.to_json_file(ledger_path)
+                ingested_spectrum_ids.add(str(spectrum_entry.spectrum_id))
 
                 # Contamination check: skip quantification if counts are too low (only at first measurement spot)
                 if i==0 and self.sample_cfg.is_particle_acquisition:
