@@ -3513,6 +3513,14 @@ class EMXSp_Composition_Analyzer:
                 _particle_id_offset = max(int(p) for p in _particle_ids) + 1
             except (ValueError, TypeError):
                 _particle_id_offset = 0
+            logger.info(
+                "ℹ️ %d previously acquired spectrum/spectra detected. "
+                "New spectra will be appended starting from index %d. "
+                "Delete the sample folder before starting if a fresh acquisition is desired: %s",
+                tot_n_spectra,
+                tot_n_spectra,
+                self.sample_result_dir,
+            )
         else:
             tot_n_spectra = 0
             _particle_id_offset = 0
