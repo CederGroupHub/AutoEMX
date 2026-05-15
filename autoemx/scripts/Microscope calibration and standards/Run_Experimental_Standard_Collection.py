@@ -65,8 +65,8 @@ beam_energy = 15  # keV
 auto_adjust_brightness_contrast = True
 contrast = None # 4.3877  # Used if auto_adjust_brightness_contrast = False
 brightness = None # 0.4504  # Used if auto_adjust_brightness_contrast = False
-saved_images_extension = 'tif' # e.g. 'png' for lighter files
-save_raw_images = True # If False, only annotated image is saved
+saved_images_extension = 'png' # Default lightweight output. Set 'tif' for higher-resolution/larger files.
+save_raw_images = False # Default saves only the annotated image. Set True to also save raw images.
 
 n_target_spectra = 15
 max_n_spectra = 200

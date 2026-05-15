@@ -37,10 +37,10 @@ RAW_SPECTRUM_EXT : str
     Default is `'.msa'` (EMSA/MAS format).
 saved_images_extension : str
     Image extension used when saving SEM frames.
-    Default is `'tif'`.
+    Default is `'png'`.
 save_raw_images : bool
     Whether to persist the non-annotated SEM image alongside the annotated one.
-    Default is `True`.
+    Default is `False`.
 
 Created on Sun Dec 21 18:59:50 2025
 
@@ -65,7 +65,7 @@ use_instrument_background: bool = False
 
 RAW_SPECTRUM_EXT: str = '.msa'
 
-saved_images_extension: str = 'tif'
+saved_images_extension: str = 'png'
 
-save_raw_images: bool = True
+save_raw_images: bool = False
 
