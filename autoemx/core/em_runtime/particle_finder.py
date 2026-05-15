@@ -1560,8 +1560,8 @@ class EM_Particle_Finder:
                 os.remove(mask_img_path)
             return False
         else:
-            if not self.EM.measurement_cfg.is_manual_navigation and (time.time() - self.EM._last_EM_adjustment_time > self.EM.refresh_time):
+            if not self.EM.measurement_cfg.is_manual_navigation and (time.time() - self.EM.microscope_ctrl._last_EM_adjustment_time > self.EM.microscope_ctrl.refresh_time):
                 # Adjust EM focus, contrast and brightness, but only if a particle is actually present
-                    self.EM.adjust_BCF()
+                self.EM.adjust_BCF()
             return True
         

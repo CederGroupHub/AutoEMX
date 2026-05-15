@@ -120,6 +120,12 @@ class EM_Controller:
     development_mode (bool)
         Whether class is used for testing without real-time acquisition.
     """
+    @property
+    def _last_EM_adjustment_time(self):
+        """
+        Proxy for the last EM adjustment time, always reflecting the value in MicroscopeController.
+        """
+        return self.microscope_ctrl._last_EM_adjustment_time
     
     def __init__(
         self,
@@ -128,7 +134,7 @@ class EM_Controller:
         init_fw: float = 0.5,
         results_dir: Optional[str] = None,
         verbose: bool = True,
-        development_mode: Optional[bool] = False,
+        development_mode: bool = False,
     ):
         """
         Initialize an EM_Controller object from a ``LedgerConfigs`` bundle.
@@ -202,13 +208,15 @@ class EM_Controller:
         
         # --- General options
         self.development_mode = development_mode
-        self.results_dir = results_dir
+        self.results_dir = results_dir if results_dir is not None else "./results"
         self.verbose = verbose
         
         # --- Variable initializations
         self.is_initialized = False
         self.pixel_size_um: Optional[float] = None
         self.grid_search_fw_mm = init_fw
+
+        # --- Runtime state variables for EM adjustment
         
         # --- Initialize component modules
         self.microscope_ctrl = MicroscopeController(
@@ -357,7 +365,7 @@ class EM_Controller:
     
     #%% X-ray spectra acquisition
     # =============================================================================
-    def initialise_XS_analyzer(self, beam_voltage: float = None) -> None:
+    def initialise_XS_analyzer(self, beam_voltage: Optional[float] = None) -> None:
         """
         Initialize the EDS analyzer.
         
