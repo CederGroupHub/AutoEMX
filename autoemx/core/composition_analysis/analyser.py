@@ -820,26 +820,25 @@ class EMXSp_Composition_Analyzer:
             )
 
     def _initialise_acquisition_ledger(self) -> None:
-        """Create the sample ledger with configs at acquisition start, before any spectra are collected.
+        """Initialize acquisition ledger and reconcile any existing spectra pointers.
 
-        Does nothing if a ledger already exists (resume scenario).
-        The ledger is created with an empty spectra list; entries are populated from
-        the written .msa pointer files when quantification is later launched.
+        This guarantees that if a ledger is missing but spectra files already exist
+        under ``spectra/``, those spectra are ingested into the newly created ledger
+        before acquisition restarts.
         """
-        spectra_dir = self._get_spectra_dir()
-        os.makedirs(spectra_dir, exist_ok=True)
-        ledger_path = self._get_ledger_path()
-        if os.path.exists(ledger_path):
-            return
-        ledger = SampleLedger(
-            sample_id=self.sample_id,
-            sample_path=os.path.abspath(self.sample_result_dir),
-            configs=self._build_ledger_configs(),
-            spectra=[],
-            quantifications=[],
-            active_quant=None,
-        )
-        ledger.to_json_file(ledger_path)
+        ledger = self._load_or_create_ledger()
+        if (
+            self.verbose
+            and getattr(self, "_last_acq_ledger_created", False)
+            and getattr(self, "_last_acq_ledger_ingested_spectra_count", 0) > 0
+            and ledger is not None
+        ):
+            logger.info(
+                "ℹ️ No ledger was found, but %d pre-existing spectrum file/s were detected in spectra/. "
+                "These spectra were ingested into a newly created ledger, assuming they were acquired "
+                "with the same configurations as the current run.",
+                getattr(self, "_last_acq_ledger_ingested_spectra_count", 0),
+            )
 
     #%% Other initializations
     # =============================================================================
@@ -1910,28 +1909,56 @@ class EMXSp_Composition_Analyzer:
     def _load_or_create_ledger(self) -> SampleLedger:
         """Load a ledger, using legacy Data.csv bootstrap only for non-acquisition workflows."""
         if self.is_acquisition:
-            ledger = self._load_existing_ledger()
-            if ledger is not None:
-                return ledger
+            self._last_acq_ledger_created = False
+            self._last_acq_ledger_ingested_spectra_count = 0
 
             spectra_dir = self._get_spectra_dir()
             os.makedirs(spectra_dir, exist_ok=True)
-
             pointer_files = self._list_pointer_files_in_spectra_dir()
-            spectra_entries = [
-                self._build_spectrum_entry_from_pointer_file(pointer_file)
-                for pointer_file in pointer_files
-            ]
 
-            ledger = SampleLedger(
-                sample_id=self.sample_id,
-                sample_path=os.path.abspath(self.sample_result_dir),
-                configs=self._build_ledger_configs(),
-                spectra=spectra_entries,
-                quantifications=[],
-                active_quant=None,
-            )
-            ledger.to_json_file(self._get_ledger_path())
+            ledger = self._load_existing_ledger()
+            ledger_changed = False
+            if ledger is None:
+                ledger = SampleLedger(
+                    sample_id=self.sample_id,
+                    sample_path=os.path.abspath(self.sample_result_dir),
+                    configs=self._build_ledger_configs(),
+                    spectra=[],
+                    quantifications=[],
+                    active_quant=None,
+                )
+                self._last_acq_ledger_created = True
+                ledger_changed = True
+
+            existing_spectrum_ids = {
+                str(spectrum.spectrum_id)
+                for spectrum in ledger.spectra
+                if spectrum.spectrum_id is not None
+            }
+            for pointer_file in pointer_files:
+                stem = pointer_file.stem
+                spectrum_id = (
+                    stem[len(cnst.SPECTRUM_FILENAME_PREFIX):]
+                    if stem.startswith(cnst.SPECTRUM_FILENAME_PREFIX)
+                    else stem
+                )
+                if spectrum_id in existing_spectrum_ids:
+                    continue
+
+                ledger.spectra.append(
+                    self._build_spectrum_entry_from_pointer_file(pointer_file)
+                )
+                existing_spectrum_ids.add(spectrum_id)
+                self._last_acq_ledger_ingested_spectra_count += 1
+                ledger_changed = True
+
+            if ledger.sample_path != os.path.abspath(self.sample_result_dir):
+                ledger.sample_path = os.path.abspath(self.sample_result_dir)
+                ledger_changed = True
+
+            if ledger_changed:
+                ledger.to_json_file(self._get_ledger_path())
+
             return ledger
 
         return load_or_create_ledger_with_legacy_data_csv(
@@ -3473,6 +3500,7 @@ class EMXSp_Composition_Analyzer:
 
         # Resume from any previously acquired spectra so file names and particle IDs
         # are always monotonically increasing across restarted acquisitions.
+        _had_ledger_before = self._load_existing_ledger() is not None
         _existing_ledger = self._load_or_create_ledger()
         if _existing_ledger is not None and _existing_ledger.spectra:
             _numeric_ids = [
@@ -3503,6 +3531,21 @@ class EMXSp_Composition_Analyzer:
             except (ValueError, TypeError):
                 _particle_id_offset = 0
                 self.particle_cntr = -1
+            if self.verbose:
+                if (
+                    not _had_ledger_before
+                    and getattr(self, "_last_acq_ledger_created", False)
+                    and getattr(self, "_last_acq_ledger_ingested_spectra_count", 0) > 0
+                ):
+                    logger.info(
+                        "ℹ️ Restart detected %d pre-existing spectrum file/s and ingested them into a new ledger "
+                        "(assuming the same acquisition configurations).",
+                        getattr(self, "_last_acq_ledger_ingested_spectra_count", 0),
+                    )
+                elif _had_ledger_before:
+                    logger.info(
+                        "ℹ️ Existing ledger detected; acquisition will resume from the next available spectrum and particle IDs."
+                    )
             logger.info(
                 "ℹ️ %d previously acquired spectrum/spectra detected. "
                 "New spectra will be appended starting from index %d. "
@@ -3514,6 +3557,13 @@ class EMXSp_Composition_Analyzer:
         else:
             tot_n_spectra = 0
             _particle_id_offset = 0
+
+        next_particle_id = _particle_id_offset + 1 if self.sample_cfg.is_particle_acquisition else "n/a"
+        logger.info(
+            "ℹ️ Resume point resolved: next spectrum ID=%d, next particle ID=%s.",
+            tot_n_spectra,
+            next_particle_id,
+        )
 
         n_spectra_to_collect = min(max_n_sp_per_iter, max(0, tot_spectra_to_collect - tot_n_spectra), self.min_n_spectra)
         n_spectra_collected_this_session = 0  # Track new spectra collected in this session
