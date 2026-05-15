@@ -86,7 +86,7 @@ from autoemx.config.ledger_schemas import (
     SpotCoordinates,
 )
 from autoemx.utils.legacy.legacy_backfill import load_ledger_configs_from_legacy_json
-from autoemx.utils.legacy.legacy_ledger_loader import (
+from autoemx.utils.legacy.ledger_bootstrap import (
     build_legacy_import_quantification_config as build_legacy_import_quantification_config_from_data_csv,
     convert_machine_to_pixel_coordinates,
     load_legacy_acquisition_details_by_spectrum_id,

@@ -53,7 +53,7 @@ from autoemx.config.ledger_schemas import ClusteringConfig
 from autoemx.core.composition_analysis import EMXSp_Composition_Analyzer
 from autoemx.utils.legacy.legacy_backfill import load_ledger_configs_from_legacy_json
 from autoemx.utils.legacy.legacy_config_loader import load_legacy_configurations_from_json
-from autoemx.utils.legacy.legacy_ledger_loader import build_legacy_import_quantification_config
+from autoemx.utils.legacy.ledger_bootstrap import build_legacy_import_quantification_config
 
 # Configure logging
 logging.basicConfig(
