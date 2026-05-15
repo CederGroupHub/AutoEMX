@@ -41,7 +41,6 @@ import autoemx.config.defaults as dflts
 import autoemx.utils.constants as cnst
 from autoemx.utils import print_double_separator
 from autoemx.config import (
-    AcquisitionConfig,
     MicroscopeConfig,
     SampleConfig,
     MeasurementConfig,
@@ -87,17 +86,17 @@ def batch_acquire_experimental_stds(
     max_n_spectra: int = 100,
     target_Xsp_counts: int = 250000,
     max_XSp_acquisition_time: Optional[float] = None,
-    els_substrate: List[str] = None,
-    powder_meas_cfg_kwargs: Dict[str, Any] = None,
-    bulk_meas_cfg_kwargs: Dict[str, Any] = None,
-    exp_stds_meas_cfg_kwargs: Dict[str, Any] = None,
+    els_substrate: Optional[List[str]] = None,
+    powder_meas_cfg_kwargs: Optional[Dict[str, Any]] = None,
+    bulk_meas_cfg_kwargs: Optional[Dict[str, Any]] = None,
+    exp_stds_meas_cfg_kwargs: Optional[Dict[str, Any]] = None,
     output_filename_suffix: str = '',
     saved_images_extension: str = dflts.saved_images_extension,
     save_raw_images: bool = dflts.save_raw_images,
     development_mode: bool = False,
     verbose: bool = True,
     exp_std_dir: Optional[str] = None,
-) -> None:
+) -> List[Optional[EMXSp_Composition_Analyzer]]:
     """
     Batch acquisition (and optional quantification) of X-ray spectra for a list of powder samples.
 
@@ -259,7 +258,8 @@ def batch_acquire_experimental_stds(
         auto_detection=is_auto_substrate_detection
     )
     
-    results = []
+    results: List[Optional[EMXSp_Composition_Analyzer]] = []
+    comp_analyzer: Optional[EMXSp_Composition_Analyzer] = None
     
     for std_sample in stds:
         # --- Sample configuration
@@ -287,10 +287,16 @@ def batch_acquire_experimental_stds(
             max_acquisition_time=max_XSp_acquisition_time,
             target_acquisition_counts=target_Xsp_counts,
             min_n_spectra=min_n_spectra,
-            max_n_spectra=max_n_spectra
+            max_n_spectra=max_n_spectra,
+            saved_images_extension=saved_images_extension,
+            save_raw_images=save_raw_images
         )
         
         
+        if exp_stds_cfg.w_frs is None:
+            raise ValueError(
+                f"Experimental standards configuration for '{sample_ID}' is missing 'w_frs'."
+            )
         elements = list(exp_stds_cfg.w_frs.keys())
         sample_cfg = SampleConfig(
             elements=elements,
@@ -330,16 +336,7 @@ def batch_acquire_experimental_stds(
         #     # ... other parameters ...
         # )
 
-
         # --- Run Composition Analyzer
-        acquisition_cfg = AcquisitionConfig(
-            powder_meas_cfg=powder_meas_cfg,
-            bulk_meas_cfg=bulk_meas_cfg,
-            exp_stds_cfg=exp_stds_cfg,
-            saved_images_extension=saved_images_extension,
-            save_raw_images=save_raw_images,
-        )
-
         comp_analyzer = EMXSp_Composition_Analyzer(
             microscope_cfg=microscope_cfg,
             sample_id=sample_ID,
@@ -348,7 +345,9 @@ def batch_acquire_experimental_stds(
             sample_substrate_cfg=sample_substrate_cfg,
             quant_cfg=quant_cfg,
             initial_clustering_cfg=clustering_cfg,
-            acquisition_cfg=acquisition_cfg,
+            powder_meas_cfg=powder_meas_cfg,
+            bulk_meas_cfg=bulk_meas_cfg,
+            exp_stds_cfg=exp_stds_cfg,
             is_acquisition=True,
             development_mode=development_mode,
             output_filename_suffix=output_filename_suffix,
@@ -366,7 +365,7 @@ def batch_acquire_experimental_stds(
         
     
     # Put microscope in standby after completion
-    if not development_mode and len(stds) > 1:
+    if comp_analyzer is not None and not development_mode and len(stds) > 1:
         try:
             comp_analyzer.EM_controller.standby()
         except Exception as e:
