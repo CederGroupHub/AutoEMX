@@ -2781,8 +2781,11 @@ class EMXSp_Composition_Analyzer:
                         quantifications=[],
                         active_quant=None,
                     )
-                ledger.spectra.append(spectrum_entry)
-                ledger.to_json_file(ledger_path)
+                # Check if this spectrum already exists in the ledger to prevent duplicates
+                existing_relpaths = {entry.spectrum_relpath for entry in ledger.spectra}
+                if spectrum_entry.spectrum_relpath not in existing_relpaths:
+                    ledger.spectra.append(spectrum_entry)
+                    ledger.to_json_file(ledger_path)
 
                 # Contamination check: skip quantification if counts are too low (only at first measurement spot)
                 if i==0 and self.sample_cfg.is_particle_acquisition:
@@ -3089,7 +3092,7 @@ class EMXSp_Composition_Analyzer:
                                 lines.append("  Measured PB:")
                                 sorted_peaks = sorted(pb_by_peak.values(), key=lambda x: (x[0], x[1]))
                                 for _, peak_label, pb_ratio in sorted_peaks:
-                                    lines.append(f"  {peak_label}: {pb_ratio:.4f}")
+                                    lines.append(f"  {peak_label}: {pb_ratio:.1f}")
                             else:
                                 lines.append("  Fit completed")
                         if quant_flag not in (None, 0) and comment:
@@ -3715,8 +3718,8 @@ class EMXSp_Composition_Analyzer:
     
     def run_exp_std_collection(
         self,
-        fit_during_collection: bool,
-        update_std_library: bool
+        fit_during_collection: bool = True,
+        update_std_library: bool = True
     ) -> None:
         """
         Collect, fit, and optionally update the library of experimental standards.
@@ -3769,7 +3772,7 @@ class EMXSp_Composition_Analyzer:
         # Fit standards and save results
         fit_results = StandardsModule._fit_stds_and_save_results(self)
         
-        # Optionally update the standards library with the new results
+        # Update the standards library with the new results if requested
         if update_std_library and fit_results is not None and fit_results.lines:
             StandardsModule._update_standard_library(self, fit_results)
         

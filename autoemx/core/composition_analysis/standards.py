@@ -46,12 +46,6 @@ class StandardsModule:
         if n_spectra < 1:
             return None
 
-        exp_std_comp_d = dict(self.exp_stds_cfg.w_frs)
-        std_els = list(exp_std_comp_d.keys())
-        std_w_frs = list(exp_std_comp_d.values())
-        std_at_frs = weight_to_atomic_fr(std_w_frs, std_els, verbose=False)
-        atomic_comp_default = {el + cnst.AT_FR_DF_KEY: round(fr * 100, 2) for el, fr in zip(std_els, std_at_frs)}
-        weight_comp_default = {el + cnst.W_FR_DF_KEY: round(fr * 100, 2) for el, fr in exp_std_comp_d.items()}
         ref_lines = set(XSp_Quantifier.xray_quant_ref_lines)
 
         rows: List[Dict[str, Any]] = []
@@ -69,28 +63,7 @@ class StandardsModule:
                     if peak.line in ref_lines:
                         fit_pb_data[peak_key] = float(peak.pb_ratio)
 
-            comp_at = (
-                dict(record.composition_atomic_fractions)
-                if record is not None and record.composition_atomic_fractions is not None
-                else {el: float(fr) for el, fr in zip(std_els, std_at_frs)}
-            )
-            comp_w = (
-                dict(record.composition_weight_fractions)
-                if record is not None and record.composition_weight_fractions is not None
-                else {el: float(fr) for el, fr in exp_std_comp_d.items()}
-            )
-            analytical_error = (
-                float(record.analytical_error)
-                if record is not None and record.analytical_error is not None
-                else float("nan")
-            )
-
             data_row.update(fit_pb_data)
-            data_row.update(atomic_comp_default)
-            data_row.update(weight_comp_default)
-            data_row[cnst.COMP_AT_FR_KEY] = comp_at
-            data_row[cnst.COMP_W_FR_KEY] = comp_w
-            data_row[cnst.AN_ER_KEY] = analytical_error
 
             if record is not None and record.fit_result is not None:
                 if record.fit_result.r_squared is not None:
@@ -362,6 +335,8 @@ class StandardsModule:
 
         means_pb = []
         stdevs_pb = []
+        at_percent_values = []
+        w_percent_values = []
         n_spectra_per_line = []
         corrected_pb_values = []
         rel_errors_percent = []
@@ -370,10 +345,20 @@ class StandardsModule:
         if len(pb_corrected) != len(line_keys):
             raise ValueError("Length of pb_corrected does not match number of reference lines.")
 
+        std_w_frs = {el: float(w) for el, w in dict(self.exp_stds_cfg.w_frs).items()}
+        std_elements = list(std_w_frs.keys())
+        std_w_fr_list = [std_w_frs[el] for el in std_elements]
+        std_at_fr_list = weight_to_atomic_fr(std_w_fr_list, std_elements, verbose=False)
+        at_percent_by_el = {el: float(at_fr) * 100 for el, at_fr in zip(std_elements, std_at_fr_list)}
+        w_percent_by_el = {el: float(w_fr) * 100 for el, w_fr in std_w_frs.items()}
+
         for index, el_line in enumerate(line_keys):
             line_result = std_ref_lines[el_line]
             means_pb.append(float(line_result.measured_pb))
             stdevs_pb.append(float(line_result.stdev_pb))
+            el = el_line.split('_')[0]
+            at_percent_values.append(at_percent_by_el.get(el, float("nan")))
+            w_percent_values.append(w_percent_by_el.get(el, float("nan")))
             pb_ratios = line_result.pb_ratios
             n_spectra_used = sum((x is not None) and (not (isinstance(x, float) and np.isnan(x))) for x in pb_ratios)
             n_spectra_per_line.append(n_spectra_used)
@@ -396,6 +381,8 @@ class StandardsModule:
             })
 
         results_df = pd.DataFrame({
+            "at%": at_percent_values,
+            "w%": w_percent_values,
             cnst.MEAS_PB_DF_KEY: means_pb,
             cnst.STDEV_PB_DF_KEY: stdevs_pb,
             cnst.COR_PB_DF_KEY: corrected_pb_values,
@@ -406,7 +393,7 @@ class StandardsModule:
         suffix = self.output_filename_suffix if isinstance(self.output_filename_suffix, str) else ""
         filename = f"{cnst.STDS_RESULT_FILENAME}" + suffix
         results_path = os.path.join(StandardsModule._get_std_exports_dir(self), filename + cnst.DATA_FILEEXT)
-        results_df.to_csv(results_path, index=True, header=True)
+        results_df.to_csv(results_path, index=True, index_label="peak", header=True)
 
         mean_z_payload = StandardsModule._serialize_standard_mean_z(z_sample)
         mean_z = StandardMeanZ.model_validate(mean_z_payload) if mean_z_payload is not None else None

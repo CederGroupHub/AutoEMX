@@ -47,11 +47,14 @@ std_list = [
 sample_substrate_type = 'Ctape'
 # =============================================================================
 # Acquisition Options and Sample description
-working_distance = 5.7 #mm
+working_distance = 8.5 #mm
 is_auto_substrate_detection = False
 
 fit_during_collection= True
 update_std_library = True
+# If True, writes fitted corrected PB reference values into EDS_Stds_{voltage}keV.json.
+# If False, acquisition/fitting still runs and CSV outputs are saved, but the standards
+# dictionary JSON is left unchanged.
 
 sample_substrate_shape = 'circle'
 sample_halfwidth = 3  # mm

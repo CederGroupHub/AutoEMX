@@ -77,7 +77,7 @@ def batch_acquire_experimental_stds(
     use_instrument_background: bool = dflts.use_instrument_background,
     min_bckgrnd_cnts: float = 5,
     fit_during_collection= True,
-    update_std_library = False,
+    update_std_library = True,
     is_auto_substrate_detection: bool = False,
     auto_adjust_brightness_contrast: bool = True,
     contrast: float = 4.3877,
