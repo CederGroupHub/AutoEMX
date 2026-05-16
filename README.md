@@ -109,21 +109,18 @@ Here’s what’s planned for future releases of **AutoEMX**:
 ---
 
 ## 📂 Project Structure
-
 The repository is organized as follows:
 
 ```text
 AutoEMX/
 ├── autoemx/                 # Main package source code
-│   ├── custom_plot_template.py # Template copied to sample_folder/custom_plot.py when custom plots are enabled
 │   ├── config/                 # Configuration files, including default values to employ during measurements.
 │   ├── core/                   # Core objects and source code
 │   ├── data/                   # Libraries of X-ray data
-│   ├── EM_driver/              # Electron Microscope driver (⚠️ adapt to your own instrument)
-│   └── Results/                # Example acquired data (used for unit tests)
+│   ├── microscope_drivers/              # Electron Microscope driver (⚠️ adapt to your own instrument)
 │   ├── runners/                # Runner functions calling on core objects
 │   ├── scripts/                # Scripts to run acquisition, quantification, etc. (see full list below)
-│   ├── XSp_calibs/             # X-ray spectral calibrations (⚠️ adapt to your own instrument)
+│   ├── calibrations/             # X-ray spectral calibrations (⚠️ adapt to your own instrument)
 │   ├── utils/                  # Utility functions and strings employed by the program
 │
 ├── examples/                  # Example scripts for fitting, quantification and compositional analysis of example data
@@ -140,19 +137,19 @@ AutoEMX/
 
 ## 📁 Scripts
 
-This repository includes a collection of scripts that streamline the use of **AutoEMX**.  
-Each script is tailored for a specific task in spectral acquisition, calibration, quantification, or analysis.
+This repository includes a collection of scripts that streamline the use of **AutoEMX**. Each script is tailored for a specific task in spectral acquisition, calibration, quantification, or analysis. Below are the main scripts available in `autoemx/scripts/` and their purposes:
 
 ### 🔬 Acquisition, Quantification & Analysis
-- **run_acquisition_quant_analysis.py** — Acquire X-ray spectra and optionally perform quantification and composition analysis.  
-- **run_quantification_analysis.py** — Quantify acquired spectra (single or multiple samples) and perform machine-learning analysis.  
-- **run_analysis.py** — Launch customized machine-learning analysis on previously quantified data. 
-- **fit_quant_single_autoemx_spectrum.py** — Fit and optionally quantify a single spectrum measured with AutoEMX. Prints fitting parameters and plots fitted spectrum for detailed inspection of model performance.  
-- **fit_quant_single_msa_spectrum.py** — Fit and optionally quantify a single spectrum exported by proprietary software. 
+- **Run_Acquisition.py** — Acquire X-ray spectra from the microscope (supports automated and manual modes).
+- **Run_Quantification.py** — Quantify acquired spectra (single or multiple samples) and perform machine-learning analysis.
+- **Run_Analysis.py** — Launch customized machine-learning analysis on previously quantified data.
+- **Fit_Quant_Single_AutoEMX_Spectrum.py** — Fit and optionally quantify a single spectrum measured with AutoEMX. Prints fitting parameters and plots fitted spectrum for detailed inspection of model performance.
+- **Fit_Quant_Single_MSA_Spectrum.py** — Fit and optionally quantify a single spectrum exported by proprietary software.
+- **Quantify_External_Spectra.py** — Quantify spectra acquired outside AutoEMX (e.g., from other SEM-EDS systems).
 
 ### 📊 Particle Size Distribution Measurements
 - **collect_particle_statistics.py** - Analyse sample, collecting particle size statistics and distribution.
-- **process_particle_stats_files.py** - Process acquired aprticle size data and recompute.
+- **process_particle_stats_files.py** - Process acquired particle size data and recompute.
 
 ### 🛠️ Miscellaneous
 - **run_experimental_standard_collection.py** — Acquire and fit experimental standards.  
@@ -162,7 +159,7 @@ Each script is tailored for a specific task in spectral acquisition, calibration
 *(see [Chem. Mater. 2025, 37, 6807−6822](https://pubs.acs.org/doi/10.1021/acs.chemmater.5c01573) for example)*  
 Use the same scripts as regular composition characterization, as described in the docs Tutorial.
 
-👉 All scripts can be executed directly from the command line or imported into a Python environment, making them accessible from anywhere on your system.  
+👉 All scripts can be executed directly from the command line or imported into a Python environment, making them accessible from anywhere on your system.
 
 ---
 
