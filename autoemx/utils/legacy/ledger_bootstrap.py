@@ -35,6 +35,7 @@ from autoemx.utils.legacy.legacy_backfill import (
     load_ledger_configs_from_legacy_json,
 )
 from autoemx.utils.legacy.legacy_config_loader import load_legacy_configurations_from_json
+from autoemx.utils.legacy.spectrum_pointer_writer import write_spectrum_pointer_file
 
 _MIN_BACKGROUND_COMMENT_PATTERN = re.compile(
     r"([0-9]+(?:\.[0-9]+)?)\s+min\.\s+ref\.\s+bckgrnd\s+counts",
@@ -719,12 +720,8 @@ def _build_background_relpath(spectrum_id: str) -> str:
     return os.path.join(cnst.SPECTRA_DIR, filename)
 
 
-def build_legacy_json_pointer_resolver(sample_result_dir: str) -> Callable[..., str]:
-    """Build a resolver callback that writes JSON pointer files from legacy Data.csv rows.
-
-    This avoids coupling Data.csv backfill to a precomputed energy axis. Energy calibration
-    remains sourced from configs at quantification time.
-    """
+def build_legacy_msa_pointer_writer(sample_result_dir: str, xperchan: float, offset: float) -> Callable[..., str]:
+    """Build a resolver callback that writes .msa pointer files from legacy Data.csv rows."""
     sample_root = Path(sample_result_dir)
     spectra_dir = sample_root / cnst.SPECTRA_DIR
     spectra_dir.mkdir(parents=True, exist_ok=True)
@@ -736,23 +733,22 @@ def build_legacy_json_pointer_resolver(sample_result_dir: str) -> Callable[..., 
         live_time: Optional[float] = None,
         real_time: Optional[float] = None,
     ) -> str:
-        filename = f"{cnst.SPECTRUM_FILENAME_PREFIX}{spectrum_id}.json"
+        filename = f"{cnst.SPECTRUM_FILENAME_PREFIX}{spectrum_id}.msa"
         relpath = os.path.join(cnst.SPECTRA_DIR, filename)
         abs_path = spectra_dir / filename
 
         if abs_path.exists():
             return relpath
 
-        payload: Dict[str, Any] = {"spectrum_vals": list(map(float, spectrum_vals))}
-        if live_time is not None:
-            payload["live_time"] = float(live_time)
-        if real_time is not None:
-            payload["real_time"] = float(real_time)
-
-        with abs_path.open("w", encoding="utf-8") as file_obj:
-            json.dump(payload, file_obj, indent=2, allow_nan=False)
-            file_obj.write("\n")
-
+        write_spectrum_pointer_file(
+            str(abs_path),
+            spectrum_vals,
+            xperchan=xperchan,
+            offset=offset,
+            live_time=live_time,
+            real_time=real_time,
+            sample_result_dir = sample_root,
+        )
         return relpath
 
     return _resolve_or_create_spectrum_pointer

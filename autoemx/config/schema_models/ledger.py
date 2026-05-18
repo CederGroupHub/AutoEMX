@@ -161,7 +161,8 @@ class SampleLedger(BaseModel):
                         line = raw_line.strip()
                         if not line:
                             continue
-                        if line.startswith("#SPECTRUM"):
+                        # Accept both '#SPECTRUM' and '##SPECTRUM' as start of data
+                        if line.startswith("#SPECTRUM") or line.startswith("##SPECTRUM"):
                             in_data_section = True
                             continue
                         if line.startswith("#"):
@@ -169,9 +170,10 @@ class SampleLedger(BaseModel):
                         if not in_data_section:
                             continue
 
+                        # Accept only counts (no index). Reject lines with commas.
                         token = line.rstrip(",")
                         if "," in token:
-                            token = token.split(",", maxsplit=1)[-1].strip()
+                            raise ValueError(f"Pointer file '{file_path}' contains invalid spectrum data line with comma: '{line}'")
                         try:
                             counts.append(float(token))
                         except ValueError:

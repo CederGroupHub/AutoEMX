@@ -3,6 +3,7 @@
 """Helpers to write per-spectrum pointer files with optional vendor template patching."""
 
 import os
+import traceback
 from typing import List, Optional, Sequence
 
 
@@ -16,6 +17,7 @@ def load_vendor_msa_template_lines(sample_result_dir: str, template_filename: st
         with open(template_path, "r", encoding="utf-8") as f:
             return f.readlines()
     except Exception:
+        traceback.print_exc()
         return None
 
 
@@ -30,8 +32,9 @@ def _replace_msa_header_value(line: str, value: str) -> str:
 def _write_minimal_spectrum_pointer_file(
     pointer_path: str,
     spectrum_vals: List[float],
-    energy_vals: Sequence[float],
     *,
+    xperchan: float,
+    offset: float,
     live_time: Optional[float] = None,
     real_time: Optional[float] = None,
 ) -> None:
@@ -41,45 +44,68 @@ def _write_minimal_spectrum_pointer_file(
     if n_points == 0:
         raise ValueError("Cannot write an empty spectrum pointer file")
 
-    offset = float(energy_vals[0]) if len(energy_vals) > 0 else 0.0
-    if len(energy_vals) > 1:
-        xperchan = float(energy_vals[1] - energy_vals[0])
-    else:
-        xperchan = 1.0
-
     with open(pointer_path, "w", encoding="utf-8") as f:
         f.write("#FORMAT      : EMSA/MAS Spectral Data File\n")
         f.write("#VERSION     : 1.0\n")
-        f.write("#NPOINTS     : %d\n" % n_points)
+        f.write(f"#NPOINTS     : {n_points}\n")
         if live_time is not None:
-            f.write("#LIVETIME    : %.8f\n" % float(live_time))
+            f.write(f"#LIVETIME    : {float(live_time):.8f}\n")
         if real_time is not None:
-            f.write("#REALTIME    : %.8f\n" % float(real_time))
-        f.write("#OFFSET      : %.8f\n" % offset)
-        f.write("#XPERCHAN    : %.8f\n" % xperchan)
+            f.write(f"#REALTIME    : {float(real_time):.8f}\n")
+        f.write(f"#OFFSET      : {offset:.3f}\n")
+        f.write(f"#XPERCHAN    : {xperchan:.3f}\n")
         f.write("#SPECTRUM\n")
         for i, count in enumerate(spectrum_vals):
-            f.write("%d,%.10f\n" % (i, float(count)))
+            f.write(f"{i},{float(count):.10f}\n")
 
 
 def write_spectrum_pointer_file(
     pointer_path: str,
     spectrum_vals: List[float],
-    energy_vals: Sequence[float],
     *,
-    template_lines: Optional[List[str]] = None,
+    xperchan: float,
+    offset: float,
+    sample_result_dir: str = None,
+    template_filename: str = "EM_metadata.msa",
     live_time: Optional[float] = None,
     real_time: Optional[float] = None,
 ) -> None:
-    """Write a spectrum pointer file, preferring vendor template when available."""
+    """Write a spectrum pointer file (.msa), using vendor template if available, otherwise minimal header. Calibration is always explicit. No index in spectrum data."""
+    template_lines = None
+    if sample_result_dir is not None and template_filename:
+        template_lines = load_vendor_msa_template_lines(sample_result_dir, template_filename)
     if not template_lines:
-        _write_minimal_spectrum_pointer_file(
-            pointer_path,
-            spectrum_vals,
-            energy_vals,
-            live_time=live_time,
-            real_time=real_time,
-        )
+        # Write minimal EMSA-like spectrum file with explicit calibration
+        os.makedirs(os.path.dirname(pointer_path), exist_ok=True)
+        n_points = len(spectrum_vals)
+        if n_points == 0:
+            raise ValueError("Cannot write an empty spectrum pointer file")
+        with open(pointer_path, "w", encoding="utf-8") as f:
+            f.write("#FORMAT      : EMSA/MAS Spectral Data File\n")
+            f.write("#TITLE       : EDS Spectrum\n")
+            f.write("#VERSION     : 1.0\n")
+            f.write("#OWNER       : Thermo Fisher Scientific Inc.\n")
+            f.write(f"#NPOINTS     : {n_points}\n")
+            f.write("#NCOLUMNS    : 1\n")
+            f.write("#XUNITS      : eV\n")
+            f.write("#YUNITS      : Counts\n")
+            f.write("#DATATYPE    : Y\n")
+            f.write(f"#OFFSET      : {offset:.3f}\n")
+            f.write(f"#XPERCHAN    : {xperchan:.3f}\n")
+            f.write("#XLABEL      : Energy\n")
+            f.write("#YLABEL      : Counts\n")
+            f.write("#SIGNALTYPE  : EDS\n")
+            f.write("#BEAMKV   -kV: 15.000\n")
+            f.write("#AZIMANGLE-dg: 0.0\n")
+            f.write("#ELEVANGLE-dg: 28.5\n")
+            if live_time is not None:
+                f.write(f"#LIVETIME    : {float(live_time):.8f}\n")
+            if real_time is not None:
+                f.write(f"#REALTIME    : {float(real_time):.8f}\n")
+            f.write("#EDSDET      : SDUTW\n")
+            f.write("##SPECTRUM    : Spectral Data Starts Here\n")
+            for count in spectrum_vals:
+                f.write(f"{float(count):.1f}\n")
         return
 
     os.makedirs(os.path.dirname(pointer_path), exist_ok=True)
@@ -91,6 +117,7 @@ def write_spectrum_pointer_file(
     spectrum_section_replaced = False
     preserving_tail = False
 
+
     for raw_line in template_lines:
         line = raw_line if raw_line.endswith("\n") else raw_line + "\n"
         stripped = line.strip()
@@ -98,8 +125,8 @@ def write_spectrum_pointer_file(
 
         if not spectrum_section_replaced and upper.startswith("#SPECTRUM"):
             output_lines.append("#SPECTRUM\n")
-            for i, count in enumerate(spectrum_vals):
-                output_lines.append("%d,%.10f\n" % (i, float(count)))
+            for count in spectrum_vals:
+                output_lines.append(f"{float(count):.1f}\n")
             spectrum_section_replaced = True
             continue
 
@@ -135,7 +162,8 @@ def write_spectrum_pointer_file(
         _write_minimal_spectrum_pointer_file(
             pointer_path,
             spectrum_vals,
-            energy_vals,
+            xperchan=xperchan,
+            offset=offset,
             live_time=live_time,
             real_time=real_time,
         )

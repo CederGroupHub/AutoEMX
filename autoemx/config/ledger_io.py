@@ -169,7 +169,7 @@ def load_sample_ledger(file_path: str | Path) -> SampleLedger:
     from autoemx.utils.legacy.ledger_bootstrap import ( # type: ignore
         build_legacy_background_pointer_writer, # type: ignore
         build_legacy_import_quantification_config, # type: ignore
-        build_legacy_json_pointer_resolver, # type: ignore
+        build_legacy_msa_pointer_writer, # type: ignore
         load_or_create_ledger_with_legacy_data_csv, # type: ignore
     )
 
@@ -195,7 +195,9 @@ def load_sample_ledger(file_path: str | Path) -> SampleLedger:
             sample_result_dir=str(sample_result_dir),
             ledger_configs=legacy_ledger_configs,
         )
-        resolve_or_create_spectrum_pointer = build_legacy_json_pointer_resolver(str(sample_result_dir))
+        xperchan = legacy_ledger_configs.microscope_cfg.bin_width *1000
+        offset = legacy_ledger_configs.microscope_cfg.energy_zero  *1000
+        resolve_or_create_spectrum_pointer = build_legacy_msa_pointer_writer(str(sample_result_dir), xperchan=xperchan, offset=offset)
         write_background_pointer = build_legacy_background_pointer_writer(str(sample_result_dir))
 
         ledger = load_or_create_ledger_with_legacy_data_csv(
