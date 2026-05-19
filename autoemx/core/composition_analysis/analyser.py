@@ -2512,10 +2512,19 @@ class EMXSp_Composition_Analyzer:
 
 
     def _upsert_current_quantification_config_on_ledger(self, ledger: SampleLedger) -> None:
-        """Insert or replace the current quantification config inside the provided ledger."""
+        """Insert or replace the current quantification config inside the provided ledger, checking for true scientific equivalence using fingerprint."""
         if self.current_quant_config is None:
             return
 
+        # Check if an equivalent quantification config already exists in the ledger
+        for config in ledger.quantifications:
+            if self._quantification_configs_match(config, self.current_quant_config):
+                # Equivalent config found, set current_quantification_id to its id
+                self.current_quantification_id = config.quantification_id
+                ledger.active_quant = config.quantification_id
+                return
+
+        # Otherwise, upsert by quantification_id as before
         existing_index = next(
             (
                 i
@@ -2529,6 +2538,7 @@ class EMXSp_Composition_Analyzer:
             ledger.append_quantification_config(self.current_quant_config)
         else:
             ledger.quantifications[existing_index] = self.current_quant_config
+        ledger.active_quant = self.current_quant_config.quantification_id
 
 
     def _persist_current_quantification_config(self) -> None:

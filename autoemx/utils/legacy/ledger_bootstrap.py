@@ -946,9 +946,6 @@ def load_or_create_ledger_with_legacy_data_csv(
 
     # No ledger yet – bootstrap from Data.csv / legacy JSON files.
     pointer_files = _list_pointer_files_in_spectra_dir(sample_result_dir)
-    import time
-    start_time = time.time()
-    print(f"[LEGACY TIMING] START legacy ledger creation: {time.strftime('%Y-%m-%d %H:%M:%S')} ({time.time():.2f}s)")
  
     if not os.path.exists(data_csv_path):
         raise FileNotFoundError(f"Legacy Data.csv not found at '{data_csv_path}'.")
