@@ -43,7 +43,6 @@ report_output_dir = str(Path(__file__).resolve().parent)
 
 from autoemx.runners.extract_experimental_standards_details import extract_experimental_standards_details  # type: ignore
 
-
 report_path = extract_experimental_standards_details(
     microscope_ID=microscope_ID,
     voltage=voltage,
