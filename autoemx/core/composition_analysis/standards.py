@@ -264,7 +264,13 @@ class StandardsModule:
         if fit_results is not None and fit_results.lines:
             is_fit_successful = True
             num_valid_spectra = int(np.min([line.n_spectra_used for line in fit_results.lines.values()]))
+            logger.info(f"📈 Acquired {num_valid_spectra} valid spectra out of {tot_n_spectra} requested")
             is_converged = num_valid_spectra >= self.min_n_spectra
+            if is_converged:
+                logger.info(f"✅ Convergence reached, acquisition completed.")
+            else:
+                n_remaining = self.min_n_spectra - num_valid_spectra
+                logger.info(f"⏳ {n_remaining} more valid spectra needed.")
 
         return is_fit_successful, is_converged
 
