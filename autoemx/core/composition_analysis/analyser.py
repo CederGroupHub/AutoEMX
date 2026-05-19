@@ -3660,7 +3660,7 @@ class EMXSp_Composition_Analyzer:
             print_double_separator()
             logger.info(f"▶️ Starting collection{quant_str} of {tot_spectra_to_collect} spectra.")
         
-        while tot_n_spectra < tot_spectra_to_collect:
+        while tot_n_spectra < self.max_n_spectra:
             if self.verbose:
                 print_double_separator()
                 logger.info(f"🔬 Collecting{quant_str} {n_spectra_to_collect} spectra...")
