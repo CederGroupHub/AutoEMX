@@ -128,6 +128,7 @@ class StandardsModule:
         ref_formulae = self.clustering_cfg.ref_formulae
 
         filtered_std_dict = {}
+
         for el in self.detectable_els_sample:
             for line in ref_lines:
                 el_line = f"{el}_{line}"
@@ -147,9 +148,10 @@ class StandardsModule:
                     except Exception:
                         pass
 
-                mean_payload = line_payload.reference_mean
-                std_mean_value = mean_payload.corrected_pb if mean_payload is not None else None
+                mean_payload = getattr(line_payload, "reference_mean", None)
+                std_mean_value = mean_payload.corrected_pb if (mean_payload is not None and hasattr(mean_payload, "corrected_pb")) else None
 
+                # Only use mean if it exists
                 if len(ref_entries) < 1 and not self.exp_stds_cfg.is_exp_std_measurement:
                     if std_mean_value is None:
                         continue

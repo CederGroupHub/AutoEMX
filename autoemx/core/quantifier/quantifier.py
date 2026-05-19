@@ -1372,7 +1372,7 @@ class XSp_Quantifier:
             # ---------------------------------------------------------------
             
             # Only use the standard where Std == 'Mean'
-            mean_std = next((std for std in std_vals_list if std[cnst.STD_ID_KEY] == cnst.STD_MEAN_ID_KEY), None)
+            mean_std = next((std for std in std_vals_list if std.get(cnst.STD_ID_KEY) == cnst.STD_MEAN_ID_KEY and cnst.COR_PB_DF_KEY in std and std[cnst.COR_PB_DF_KEY] is not None), None)
             if mean_std is not None:
                 std_PB_ratio = mean_std[cnst.COR_PB_DF_KEY]
                 if std_PB_ratio <= 0:
@@ -1384,9 +1384,8 @@ class XSp_Quantifier:
                 k_ratios.append(k_ratio_val)
             else:
                 raise EDSError(
-                    f"No standard with '{cnst.STD_ID_KEY}' == '{cnst.STD_MEAN_ID_KEY}' found for {el_line} in the standards database."
+                    f"No valid standard with '{cnst.STD_ID_KEY}' == '{cnst.STD_MEAN_ID_KEY}' found for {el_line} in the standards database."
                 )
-    
         return k_ratios
 
 

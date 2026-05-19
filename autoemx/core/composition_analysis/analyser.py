@@ -3674,7 +3674,7 @@ class EMXSp_Composition_Analyzer:
     
             if self.verbose:
                 print_single_separator()
-                logger.info(f"✅ {tot_n_spectra}/{tot_spectra_to_collect} spectra collected.")
+                logger.info(f"✅ {tot_n_spectra} total spectra collected.")
             
             if quantify and tot_n_spectra > 0:
                 if is_exp_std_measurement:
