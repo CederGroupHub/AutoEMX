@@ -252,10 +252,11 @@ class StandardsModule:
 
         return std_ref_lines
 
-    def _evaluate_exp_std_fit(self: Any, tot_n_spectra: int) -> Tuple[bool, bool]:
+    def _evaluate_exp_std_fit(self: Any, tot_n_spectra: int) -> Tuple[int, bool, bool]:
         is_fit_successful = False
         is_converged = False
-
+        num_valid_spectra = 0
+        
         if self.verbose:
             print_double_separator()
             logger.info(f"🔬 Fitting after collection of {tot_n_spectra} spectra...")
@@ -273,7 +274,7 @@ class StandardsModule:
                 n_remaining = self.min_n_spectra - num_valid_spectra
                 logger.info(f"⏳ {n_remaining} more valid spectra required.")
 
-        return is_fit_successful, is_converged
+        return num_valid_spectra, is_fit_successful, is_converged
 
     def _assemble_std_PB_data(
         self: Any,

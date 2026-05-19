@@ -3654,7 +3654,7 @@ class EMXSp_Composition_Analyzer:
         
         if self.verbose:
             print_double_separator()
-            logger.info(f"▶️ Starting collection{quant_str} of {tot_spectra_to_collect} spectra.")
+            logger.info(f"▶️ Starting acquisition{quant_str} of {tot_spectra_to_collect} spectra.")
         
         while tot_n_spectra < self.max_n_spectra:
             if self.verbose:
@@ -3675,25 +3675,19 @@ class EMXSp_Composition_Analyzer:
             if self.verbose:
                 print_single_separator()
                 logger.info(f"✅ {tot_n_spectra}/{tot_spectra_to_collect} spectra collected.")
-                
-            # Collect additional spectra in next iteration
-            n_spectra_to_collect = min(
-                max_n_sp_per_iter,
-                tot_spectra_to_collect - tot_n_spectra,
-                self.min_n_spectra
-            )
             
             if quantify and tot_n_spectra > 0:
                 if is_exp_std_measurement:
                     # Fit spectra and check if target number of good spectra has been collected
-                    is_analysis_successful, is_converged = StandardsModule._evaluate_exp_std_fit(self, tot_n_spectra)
+                    n_valid_spectra_collected, is_analysis_successful, is_converged = StandardsModule._evaluate_exp_std_fit(self, tot_n_spectra)
                 else:
                     # Perform clustering analysis and check for convergence
-                    is_analysis_successful, is_converged = self._evaluate_clustering_convergence(tot_n_spectra, n_spectra_to_collect)
+                    n_valid_spectra_collected, is_analysis_successful, is_converged = self._evaluate_clustering_convergence(tot_n_spectra, n_spectra_to_collect)
                     
                 if is_converged:
                     break
-                
+            else:
+                n_valid_spectra_collected = tot_n_spectra
                 
             # Stop if no more particles are available on the sample
             if not is_acquisition_successful:
@@ -3705,6 +3699,13 @@ class EMXSp_Composition_Analyzer:
                         logger.warning(f'⚠️ The specified spectrum spacing did not allow to collect all {tot_spectra_to_collect} spectra.\n'
                               "Change spacing in bulk_meas_cfg to collect more spectra.")
                 break
+
+                # Collect additional spectra in next iteration
+            n_spectra_to_collect = min(
+                max_n_sp_per_iter,
+                tot_spectra_to_collect - n_valid_spectra_collected,
+                self.min_n_spectra
+            )
     
         print_double_separator()
         logger.info('ℹ️ Sample ID: %s', self.sample_id)
@@ -3748,7 +3749,7 @@ class EMXSp_Composition_Analyzer:
         self,
         tot_n_spectra: int,
         n_spectra_to_collect: int
-    ) -> Tuple[bool, bool]:
+    ) -> Tuple[int, bool, bool]:
         """
         Evaluate whether compositional clustering analysis has converged.
     
@@ -3805,7 +3806,7 @@ class EMXSp_Composition_Analyzer:
     
             if tot_n_spectra >= self.min_n_spectra:
                 if is_converged:
-                    return is_analysis_successful, is_converged
+                    return tot_n_spectra, is_analysis_successful, is_converged
                 elif self.verbose and n_spectra_to_collect > 0:
                     logger.warning("⚠️ Compositional analysis did not converge, more spectra will be collected.")
             elif tot_n_spectra >= self.max_n_spectra:
@@ -3819,7 +3820,7 @@ class EMXSp_Composition_Analyzer:
             if n_spectra_to_collect > 0:
                 logger.info("ℹ️ More spectra will be collected.")
     
-        return is_analysis_successful, is_converged
+        return tot_n_spectra, is_analysis_successful, is_converged
     
     
     def _is_comp_analysis_converged(
