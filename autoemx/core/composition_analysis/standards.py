@@ -23,7 +23,7 @@ from autoemx.config.schema_models import (
     StandardMeanZ,  # type: ignore
 )
 from autoemx.core.quantifier import Quant_Corrections, XSp_Quantifier
-from autoemx.utils import print_double_separator, weight_to_atomic_fr
+from autoemx.utils import print_double_separator, print_single_separator, weight_to_atomic_fr
 
 from autoemx._logging import get_logger  # type: ignore
 logger = get_logger(__name__)
@@ -264,6 +264,7 @@ class StandardsModule:
         if fit_results is not None and fit_results.lines:
             is_fit_successful = True
             num_valid_spectra = int(np.min([line.n_spectra_used for line in fit_results.lines.values()]))
+            print_single_separator()
             logger.info(f"📈 Acquired {num_valid_spectra} valid spectra out of {tot_n_spectra} requested")
             is_converged = num_valid_spectra >= self.min_n_spectra
             if is_converged:
