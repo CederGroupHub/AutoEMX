@@ -61,6 +61,8 @@ quantification_method: str = 'PB'
 
 spectrum_lims: Tuple[int, int] = (14, 1100)
 
+substrate_els = ['C', 'O', 'Al']
+
 use_instrument_background: bool = False
 
 RAW_SPECTRUM_EXT: str = '.msa'

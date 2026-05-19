@@ -219,7 +219,7 @@ def batch_acquire_experimental_stds(
     if max_XSp_acquisition_time is None:
         max_XSp_acquisition_time = target_Xsp_counts / 10000 * 5
     if els_substrate is None:
-        els_substrate = ['C', 'O', 'Al']
+        els_substrate = dflts.substrate_els
     
     # --- Configuration objects
     microscope_cfg = MicroscopeConfig(
@@ -268,6 +268,7 @@ def batch_acquire_experimental_stds(
         center_pos = std_sample['pos']
         sample_type = std_sample['sample_type']
         is_manual_meas = std_sample['is_manual_meas']
+        els_excluded_stds = getattr(std_sample, 'els_excluded_stds', None)
         
         print_double_separator()
         logging.info(f"Sample '{sample_ID}'")
