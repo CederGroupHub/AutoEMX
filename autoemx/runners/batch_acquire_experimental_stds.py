@@ -281,6 +281,7 @@ def batch_acquire_experimental_stds(
         exp_stds_kwargs = dict(exp_stds_meas_cfg_kwargs) if exp_stds_meas_cfg_kwargs else {}
         if els_to_use_for_mean_PB_calc is not None:
             exp_stds_kwargs['els_to_use_for_mean_PB_calc'] = els_to_use_for_mean_PB_calc
+        print(exp_stds_kwargs)
         exp_stds_cfg = ExpStandardsConfig(is_exp_std_measurement=True, formula=formula, **exp_stds_kwargs)
         
         measurement_cfg = MeasurementConfig(
