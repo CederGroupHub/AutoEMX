@@ -552,7 +552,6 @@ class ExpStandardsConfig(BaseModel):
     def _validate(self) -> "ExpStandardsConfig":
         # Normalize els_to_use_for_mean_PB_calc
         v = self.els_to_use_for_mean_PB_calc
-        print("[DEBUG] ExpStandardsConfig validator: incoming els_to_use_for_mean_PB_calc:", v)
         if v is None or v == [] or v == ["none"] or v == ["None"]:
             self.els_to_use_for_mean_PB_calc = None
         elif v == ["all"] or v == ["All"]:
@@ -566,7 +565,6 @@ class ExpStandardsConfig(BaseModel):
                     Element(el)
                 except Exception:
                     raise ValueError(f"Element symbol '{el}' in els_to_use_for_mean_PB_calc is not a recognized element.")
-        print("[DEBUG] ExpStandardsConfig validator: normalized els_to_use_for_mean_PB_calc:", self.els_to_use_for_mean_PB_calc)
         if self.is_exp_std_measurement:
             if not self.formula:
                 raise ValueError("Formula must be provided when is_exp_std_measurement is True.")
