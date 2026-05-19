@@ -573,7 +573,10 @@ class ExpStandardsConfig(BaseModel):
                 try:
                     self.w_frs = {el: float(w) for el, w in comp.as_weight_dict.items()} # type: ignore
                 except Exception:
-                    self.w_frs = {el: float(w) for el, w in comp.to_weight_dict.items()}
+                    import warnings
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", category=FutureWarning)
+                        self.w_frs = {el: float(w) for el, w in comp.to_weight_dict.items()}
             except Exception as e:
                 raise ValueError(f"Invalid chemical formula '{self.formula}': {e}")
         return self
