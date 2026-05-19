@@ -343,6 +343,10 @@ def batch_acquire_experimental_stds(
         # )
 
         # --- Run Composition Analyzer
+        print_double_separator()
+        print("ATTENTION: Measurement configuration:")
+        print(exp_stds_cfg)
+        print_double_separator()
         comp_analyzer = EMXSp_Composition_Analyzer(
             microscope_cfg=microscope_cfg,
             sample_id=sample_ID,

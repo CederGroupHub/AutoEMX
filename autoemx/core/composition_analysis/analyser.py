@@ -551,10 +551,6 @@ class EMXSp_Composition_Analyzer:
                 "exp_stds_cfg": exp_stds_cfg if exp_stds_cfg is not None else measurement_cfg.exp_stds_cfg,
             }
         )
-        print_double_separator()
-        print("ATTENTION: Measurement configuration:")
-        print(exp_stds_cfg)
-        print_double_separator()
         is_XSp_measurement = measurement_cfg.type != measurement_cfg.PARTICLE_STATS_MEAS_TYPE_KEY
         
         
