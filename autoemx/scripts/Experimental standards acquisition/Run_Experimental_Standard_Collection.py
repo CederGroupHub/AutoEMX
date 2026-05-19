@@ -117,7 +117,7 @@ bulk_meas_cfg_kwargs = dict(
 exp_stds_meas_cfg_kwargs = dict(
     min_acceptable_PB_ratio = 10,
     quant_flags_accepted = [0],
-    els_to_use_for_mean_PB_calc = ["all"] if not powder_meas_cfg_kwargs["is_known_powder_mixture_meas"] else None,
+    els_to_use_for_mean_PB_calc = ["all"] if not powder_meas_cfg_kwargs["is_known_powder_mixture_meas"] else ["none"],
     generate_separate_std_dict = powder_meas_cfg_kwargs["is_known_powder_mixture_meas"]
 )
 
