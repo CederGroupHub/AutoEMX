@@ -482,11 +482,11 @@ class ExpStandardsConfig(BaseModel):
             Chemical formula of the experimental standard. Required if `is_exp_std_measurement` is True.
             Must be parseable by `pymatgen.core.Composition`.
 
-        use_for_mean_PB_calc (bool):
-            Whether the acquired experimental standards should be used to calculate the average PB, which is the
-            reference standard value employed generally during spectral quantification (Default = True).
-            This should be set to False when collecting powder standards for quantifying the extent of intermixing
-            in powder standards.
+        els_to_use_for_mean_PB_calc (Optional[List[str]]):
+            List of element symbols (e.g., ["Fe", "O"]) to use for mean PB calculation.
+            Special values:
+                ["all"] or ["All"]: use all elements/lines as standards (default)
+                None, [], ["none"], or ["None"]: use no elements/lines
 
         generate_separate_std_dict (bool):
             Whether the acquired reference standard values are added to the current reference dictionary. If True,
@@ -525,7 +525,7 @@ class ExpStandardsConfig(BaseModel):
 
     is_exp_std_measurement: bool = False
     formula: str = ''
-    use_for_mean_PB_calc: bool = True
+    els_to_use_for_mean_PB_calc: Optional[List[str]] = ["all"]
     generate_separate_std_dict: bool = False
     min_acceptable_PB_ratio: float = 10
     quant_flags_accepted: List[int] = Field(default_factory=lambda: [0])
@@ -533,8 +533,38 @@ class ExpStandardsConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_legacy_els_to_use(cls, data: Any) -> Any:
+        # Legacy compatibility: convert bool to list or None
+        if isinstance(data, dict):
+            val = data.get("use_for_mean_PB_calc", None)
+            if isinstance(val, bool):
+                if val:
+                    data["els_to_use_for_mean_PB_calc"] = ["all"]
+                else:
+                    data["els_to_use_for_mean_PB_calc"] = None
+            # Remove legacy key if present
+            data.pop("use_for_mean_PB_calc", None)
+        return data
+
     @model_validator(mode="after")
     def _validate(self) -> "ExpStandardsConfig":
+        # Normalize els_to_use_for_mean_PB_calc
+        v = self.els_to_use_for_mean_PB_calc
+        if v is None or v == [] or v == ["none"] or v == ["None"]:
+            self.els_to_use_for_mean_PB_calc = None
+        elif v == ["all"] or v == ["All"]:
+            self.els_to_use_for_mean_PB_calc = ["all"]
+        elif not isinstance(v, list):
+            raise ValueError("els_to_use_for_mean_PB_calc must be a list of element symbols, ['all'], or None.")
+        # Validate elements if not special values
+        if self.els_to_use_for_mean_PB_calc not in (None, ["all"]):
+            for el in self.els_to_use_for_mean_PB_calc:
+                try:
+                    Element(el)
+                except Exception:
+                    raise ValueError(f"Element symbol '{el}' in els_to_use_for_mean_PB_calc is not a recognized element.")
         if self.is_exp_std_measurement:
             if not self.formula:
                 raise ValueError("Formula must be provided when is_exp_std_measurement is True.")

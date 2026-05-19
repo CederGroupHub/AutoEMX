@@ -466,24 +466,36 @@ class StandardsModule:
 
         now = datetime.now()
         std_mean_z = fit_results.mean_z
+
+        # Determine which elements/lines should be used for mean PB calculation
+        els_to_use = self.exp_stds_cfg.els_to_use_for_mean_PB_calc
+        def _should_use_for_mean(el_line):
+            if els_to_use is None:
+                return False
+            if els_to_use == ["all"]:
+                return True
+            el = el_line.split("_")[0]
+            return el in els_to_use
+
         for el_line, line_result in fit_results.lines.items():
             if el_line not in std_lib:
                 std_lib[el_line] = StandardLine()
 
+            use_for_mean_calc = _should_use_for_mean(el_line)
             line_payload = std_lib[el_line]
             line_payload.entries.append(line_result.to_standard_entry(
                 standard_id=self.sample_id,
                 datetime=now.strftime("%Y-%m-%d %H:%M:%S"),
                 formula=self.exp_stds_cfg.formula,
                 std_type=self.sample_cfg.type,
-                use_for_mean_calc=self.exp_stds_cfg.use_for_mean_PB_calc,
+                use_for_mean_calc=use_for_mean_calc,
                 mean_z=std_mean_z,
             ))
 
             list_pb_for_mean = [
                 entry.corrected_pb
                 for entry in line_payload.entries
-                if bool(entry.use_for_mean_calc)
+                if getattr(entry, "use_for_mean_calc", False)
             ]
             if len(list_pb_for_mean) > 0:
                 mean_pb = float(np.mean(list_pb_for_mean))

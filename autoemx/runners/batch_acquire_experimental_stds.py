@@ -263,20 +263,21 @@ def batch_acquire_experimental_stds(
     
     for std_sample in stds:
         # --- Sample configuration
+
         sample_ID = std_sample['ID']
         formula = std_sample['formula']
         center_pos = std_sample['pos']
         sample_type = std_sample['sample_type']
         is_manual_meas = std_sample['is_manual_meas']
-        els_excluded_stds = getattr(std_sample, 'els_excluded_stds', None)
-        
+        els_to_use_for_mean_PB_calc = std_sample.get('els_to_use_for_mean_PB_calc', None)
+
         print_double_separator()
         logging.info(f"Sample '{sample_ID}'")
-        
-        if exp_stds_meas_cfg_kwargs:
-            exp_stds_cfg = ExpStandardsConfig(is_exp_std_measurement = True, formula = formula, **exp_stds_meas_cfg_kwargs)
-        else:
-            exp_stds_cfg = ExpStandardsConfig(is_exp_std_measurement = True, formula = formula)
+
+        exp_stds_kwargs = dict(exp_stds_meas_cfg_kwargs) if exp_stds_meas_cfg_kwargs else {}
+        if els_to_use_for_mean_PB_calc is not None:
+            exp_stds_kwargs['els_to_use_for_mean_PB_calc'] = els_to_use_for_mean_PB_calc
+        exp_stds_cfg = ExpStandardsConfig(is_exp_std_measurement=True, formula=formula, **exp_stds_kwargs)
         
         measurement_cfg = MeasurementConfig(
             type=measurement_type,

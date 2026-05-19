@@ -42,8 +42,10 @@ exp_std_dir = None # Defines directory where measurements are saved. If None, us
 std_list = [
     {'ID': 'Al','formula': 'Al', 'pos': (26.263,-21.261), 'sample_type': 'bulk', 'is_manual_meas' : False},
     # {'ID': 'Al2O3_prec_BM','formula': 'Al2O3', 'pos': (-38.829, 40.011), 'sample_type': 'powder', 'is_manual_meas' : False},
-
+    {'ID': 'Pt','formula': 'Pt0.99 O0.1', 'pos': (), 'sample_type': 'bulk', 'els_to_use_for_mean_PB_calc' : ['all'],'is_manual_meas' : False},
 ]
+# els_to_use_for_mean_PB_calc: elements to include as standards; default is ["all"] if sample is "bulk", None otherwise. (all elements/lines). Use ["Fe", "O"] for specific elements, []/["none"] for none.
+
 sample_substrate_type = 'Ctape'
 # =============================================================================
 # Acquisition Options and Sample description
@@ -113,7 +115,7 @@ bulk_meas_cfg_kwargs = dict(
 exp_stds_meas_cfg_kwargs = dict(
     min_acceptable_PB_ratio = 10,
     quant_flags_accepted = [0],
-    use_for_mean_PB_calc = not powder_meas_cfg_kwargs["is_known_powder_mixture_meas"],
+    els_to_use_for_mean_PB_calc = ["all"] if not powder_meas_cfg_kwargs["is_known_powder_mixture_meas"] else None,
     generate_separate_std_dict = powder_meas_cfg_kwargs["is_known_powder_mixture_meas"]
 )
 
