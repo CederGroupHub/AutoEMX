@@ -235,7 +235,6 @@ def batch_acquire_experimental_stds(
     # Load microscope calibrations for this instrument and mode
     calibs.load_microscope_calibrations(microscope_ID, measurement_mode)
 
-
     quant_cfg = QuantificationOptionsConfig(
         spectrum_lims=spectrum_lims,
         use_instrument_background=use_instrument_background,
@@ -266,14 +265,16 @@ def batch_acquire_experimental_stds(
     
     for std_sample in stds:
         # --- Sample configuration
-
-
         sample_ID = std_sample['ID']
         formula = std_sample['formula']
         center_pos = std_sample['pos']
         sample_type = std_sample['sample_type']
         is_manual_meas = std_sample.get('is_manual_meas', is_manual_meas)
         els_to_use_for_mean_PB_calc = std_sample.get('els_to_use_for_mean_PB_calc', None)
+
+        print("\n \n")
+        print_double_separator()
+        print_double_separator()
         logging.info(f"Sample '{sample_ID}'")
 
         exp_stds_kwargs = dict(exp_stds_meas_cfg_kwargs) if exp_stds_meas_cfg_kwargs else {}
