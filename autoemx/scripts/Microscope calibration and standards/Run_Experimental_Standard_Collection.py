@@ -40,9 +40,9 @@ exp_std_dir = None # Defines directory where measurements are saved. If None, us
 # =============================================================================
 
 std_list = [
-    {'ID': 'Al','formula': 'Al', 'pos': (26.263,-21.261), 'sample_type': 'bulk', 'is_manual_meas' : False},
+    {'ID': 'Al','formula': 'Al', 'pos': (26.263,-21.261), 'sample_type': 'bulk'},
     # {'ID': 'Al2O3_prec_BM','formula': 'Al2O3', 'pos': (-38.829, 40.011), 'sample_type': 'powder', 'is_manual_meas' : False},
-    {'ID': 'Pt','formula': 'Pt0.99 O0.1', 'pos': (), 'sample_type': 'bulk', 'els_to_use_for_mean_PB_calc' : ['all'],'is_manual_meas' : False},
+    {'ID': 'Pt','formula': 'Pt0.99 O0.1', 'pos': (), 'sample_type': 'bulk', 'els_to_use_for_mean_PB_calc' : ['all'],'is_manual_meas' : True},
 ]
 # els_to_use_for_mean_PB_calc: elements to include as standards; default is ["all"] if sample is "bulk", None otherwise. (all elements/lines). Use ["Fe", "O"] for specific elements, []/["none"] for none.
 
@@ -51,6 +51,8 @@ sample_substrate_type = 'Ctape'
 # Acquisition Options and Sample description
 working_distance = 8.5 #mm
 is_auto_substrate_detection = False
+
+is_manual_meas = False # If True, all samples are measured in manual navigation mode. Set to False to use automatic navigation for all samples. This can be overridden on a per-sample basis by setting 'is_manual_meas' in the sample dict.
 
 fit_during_collection= True
 update_std_library = True
@@ -138,6 +140,7 @@ exp_std_maker = batch_acquire_experimental_stds(
     spectrum_lims=spectrum_lims,
     use_instrument_background=use_instrument_background,
     min_bckgrnd_cnts=min_bckgrnd_cnts,
+    is_manual_meas=is_manual_meas,
     fit_during_collection= fit_during_collection,
     update_std_library = update_std_library,
     is_auto_substrate_detection=is_auto_substrate_detection,

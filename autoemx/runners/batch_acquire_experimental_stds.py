@@ -96,6 +96,7 @@ def batch_acquire_experimental_stds(
     development_mode: bool = False,
     verbose: bool = True,
     exp_std_dir: Optional[str] = None,
+    is_manual_meas: bool = False,
 ) -> List[Optional[EMXSp_Composition_Analyzer]]:
     """
     Batch acquisition (and optional quantification) of X-ray spectra for a list of powder samples.
@@ -210,7 +211,9 @@ def batch_acquire_experimental_stds(
     exp_std_dir : str, optional
         Directory where experimental standard results are saved.  
         Default is `None`.
-            
+    is_manual_meas : bool, optional
+        If True, all samples are measured in manual navigation mode unless overridden by 'is_manual_meas' in the sample dict. Default is False.
+
     Returns
     -------
     results : list(EMXSp_Composition_Analyzer)
@@ -264,11 +267,12 @@ def batch_acquire_experimental_stds(
     for std_sample in stds:
         # --- Sample configuration
 
+
         sample_ID = std_sample['ID']
         formula = std_sample['formula']
         center_pos = std_sample['pos']
         sample_type = std_sample['sample_type']
-        is_manual_meas = std_sample['is_manual_meas']
+        is_manual_meas = std_sample.get('is_manual_meas', is_manual_meas)
         els_to_use_for_mean_PB_calc = std_sample.get('els_to_use_for_mean_PB_calc', None)
 
         print_double_separator()
