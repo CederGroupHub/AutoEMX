@@ -458,6 +458,7 @@ class StandardsModule:
         self: Any,
         fit_results: StandardsFitResults,
     ) -> None:
+        from pymatgen.core.periodic_table import Element as PymatgenElement
         meas_mode = self.measurement_cfg.mode
         if self.standards is not None:
             self.standards = None
@@ -484,7 +485,24 @@ class StandardsModule:
             el = el_line.split("_")[0]
             return el in els_to_use
 
-        for el_line, line_result in fit_results.lines.items():
+        # --- Sorting logic ---
+        def el_line_sort_key(el_line):
+            el, *rest = el_line.split("_")
+            try:
+                z = PymatgenElement(el).Z
+            except Exception:
+                z = 999  # Unknown elements go last
+            # Line priority: Ka < La < Ma < Mz < others
+            line = rest[0] if rest else ""
+            line_priority = {"Ka": 0, "La": 1, "Ma": 2, "Mz": 3}
+            line_rank = line_priority.get(line, 99)
+            return (z, line_rank, line)
+
+        # Sort el_lines for fit_results
+        sorted_el_lines = sorted(fit_results.lines.keys(), key=el_line_sort_key)
+
+        for el_line in sorted_el_lines:
+            line_result = fit_results.lines[el_line]
             if el_line not in std_lib:
                 std_lib[el_line] = StandardLine()
 
