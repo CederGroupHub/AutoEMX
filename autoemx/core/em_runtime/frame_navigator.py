@@ -274,27 +274,34 @@ class FrameNavigator:
         half_n_frames_x = int(self._sample_hw_mm / horizontal_spacing_mm) + 1
         half_n_frames_y = int(self._sample_hw_mm / (horizontal_spacing_mm * im_h_to_w_ratio)) + 1
         
-        frame_centers = []
-        frame_labels = []
+        frames = []
         alphabet_mapper = AlphabetMapper()
-        
         for i in range(-half_n_frames_x, half_n_frames_x + 1):
             label_letter = alphabet_mapper.get_letter(i + half_n_frames_x)
             for j in range(-half_n_frames_y, half_n_frames_y + 1):
                 label = label_letter + str(j + half_n_frames_y)
                 x = cx + i * horizontal_spacing_mm
                 y = cy + j * horizontal_spacing_mm * im_h_to_w_ratio
-                
                 if is_inside_region(x, y):
-                    frame_centers.append((x, y))
-                    frame_labels.append(label)
-        
-        # Randomize frame order if requested
+                    # Compute distance and angle for spiral ordering
+                    dist = np.hypot(x - cx, y - cy)
+                    angle = np.arctan2(y - cy, x - cx)
+                    frames.append(((x, y), label, dist, angle))
+
+        # Spiral order: sort by distance from center, then by angle
+        if frames:
+            frames.sort(key=lambda tup: (tup[2], tup[3]))
+            frame_centers, frame_labels = zip(*[(f[0], f[1]) for f in frames])
+        else:
+            frame_centers, frame_labels = [], []
+
+        # If randomize_frames is requested, override spiral with random
         if randomize_frames and frame_centers:
-            frames = list(zip(frame_centers, frame_labels))
-            np.random.shuffle(frames)
-            frame_centers, frame_labels = zip(*frames)
-        
+            import random
+            zipped = list(zip(frame_centers, frame_labels))
+            random.shuffle(zipped)
+            frame_centers, frame_labels = zip(*zipped)
+
         self.frame_pos_mm = list(frame_centers)
         self.frame_labels = list(frame_labels)
         self.num_frames = len(frame_centers)
