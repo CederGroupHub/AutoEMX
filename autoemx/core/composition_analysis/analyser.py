@@ -2903,7 +2903,10 @@ class EMXSp_Composition_Analyzer:
             if not success:
                 break
             
-            self.particle_cntr = particle_cntr + particle_id_offset
+            if particle_cntr:
+                self.particle_cntr = particle_cntr + particle_id_offset
+            else:
+                self.particle_cntr = None
             frame_ID = self.EM_controller.current_frame_label
             
             latest_spot_id = None # For image annotations
