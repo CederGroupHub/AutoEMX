@@ -946,6 +946,10 @@ def load_or_create_ledger_with_legacy_data_csv(
 
     # No ledger yet – bootstrap from Data.csv / legacy JSON files.
     pointer_files = _list_pointer_files_in_spectra_dir(sample_result_dir)
+    import time
+    start_time = time.time()
+    print(f"[LEGACY TIMING] START legacy ledger creation: {time.strftime('%Y-%m-%d %H:%M:%S')} ({time.time():.2f}s)")
+ 
     if not os.path.exists(data_csv_path):
         raise FileNotFoundError(f"Legacy Data.csv not found at '{data_csv_path}'.")
 
@@ -973,10 +977,17 @@ def load_or_create_ledger_with_legacy_data_csv(
         sample_result_dir=sample_result_dir,
         microscope_id=microscope_id,
     )
+
     legacy_quant_results = load_legacy_quantification_results_by_spectrum_id(data_csv_path)
+    if not legacy_quant_results or all(len(v) == 0 for v in legacy_quant_results.values()):
+        warnings.warn(
+            "No compositions found in legacy Data.csv. Proceeding to create spectra pointer files and ledger with no QuantResult.",
+            UserWarning,
+        )
 
     legacy_configs = load_ledger_configs_from_legacy_json(sample_result_dir)
     ledger_configs = legacy_configs if legacy_configs is not None else default_ledger_configs
+
 
     if pointer_files:
         spectra_entries = [
@@ -984,7 +995,7 @@ def load_or_create_ledger_with_legacy_data_csv(
                 sample_result_dir=sample_result_dir,
                 pointer_file=pointer_file,
                 acquisition_details_by_id=legacy_acq_details,
-                quantification_results_by_id=legacy_quant_results,
+                quantification_results_by_id=legacy_quant_results if legacy_quant_results else None,
             )
             for pointer_file in pointer_files
         ]
@@ -998,8 +1009,8 @@ def load_or_create_ledger_with_legacy_data_csv(
                     sample_result_dir=sample_result_dir,
                     ledger_configs=ledger_configs,
                 )
-            ],
-            active_quant=0,
+            ] if legacy_quant_results else [],
+            active_quant=0 if legacy_quant_results else None,
         )
         ledger_changed = True
     else:
