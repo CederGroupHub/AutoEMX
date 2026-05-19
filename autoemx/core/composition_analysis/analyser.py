@@ -3567,9 +3567,6 @@ class EMXSp_Composition_Analyzer:
         - Acquisition and quantification records are persisted incrementally to the ledger to prevent data loss.
         - Prints a summary and processing times at the end.
         """
-        max_n_sp_per_iter = 10  # Max spectra to collect per iteration (for saving in between)
-        tot_spectra_to_collect = self.max_n_spectra
-
         # Resume from any previously acquired spectra so file names and particle IDs
         # are always monotonically increasing across restarted acquisitions.
         _had_ledger_before = self._load_existing_ledger() is not None
@@ -3637,13 +3634,16 @@ class EMXSp_Composition_Analyzer:
             next_particle_id,
         )
 
-        n_spectra_to_collect = min(max_n_sp_per_iter, max(0, tot_spectra_to_collect - tot_n_spectra), self.min_n_spectra)
+        max_n_sp_per_iter = 10  # Max spectra to collect per iteration (for saving in between)
         n_spectra_collected_this_session = 0  # Track new spectra collected in this session
         is_converged = False
         is_analysis_successful = False
         is_acquisition_successful = True
         is_exp_std_measurement = self.exp_stds_cfg.is_exp_std_measurement
         is_spectral_quant = quantify and not is_exp_std_measurement
+        tot_spectra_to_collect = self.max_n_spectra if not is_exp_std_measurement else self.min_n_spectra
+        n_spectra_to_collect = min(max_n_sp_per_iter, max(0, tot_spectra_to_collect - tot_n_spectra), self.min_n_spectra)
+
         if is_spectral_quant:
             self._initialise_std_dict() # Initialise dictionary of standards to (optionally) pass onto XSp_Quantifier. Only used with known powder mixtures
         
