@@ -282,7 +282,11 @@ def batch_acquire_experimental_stds(
         if els_to_use_for_mean_PB_calc is not None:
             exp_stds_kwargs['els_to_use_for_mean_PB_calc'] = els_to_use_for_mean_PB_calc
         exp_stds_cfg = ExpStandardsConfig(is_exp_std_measurement=True, formula=formula, **exp_stds_kwargs)
-        
+        print_double_separator()
+        print("ATTENTION: Measurement configuration:")
+        print(exp_stds_kwargs)
+        print(exp_stds_cfg)
+        print_double_separator()
         measurement_cfg = MeasurementConfig(
             type=measurement_type,
             mode=measurement_mode,
@@ -343,10 +347,6 @@ def batch_acquire_experimental_stds(
         # )
 
         # --- Run Composition Analyzer
-        print_double_separator()
-        print("ATTENTION: Measurement configuration:")
-        print(exp_stds_cfg)
-        print_double_separator()
         comp_analyzer = EMXSp_Composition_Analyzer(
             microscope_cfg=microscope_cfg,
             sample_id=sample_ID,
