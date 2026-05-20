@@ -20,7 +20,6 @@ Created on Tue May 19 2026
 @author: Andrea
 """
 
-from pathlib import Path
 import json
 import numpy as np
 
@@ -43,7 +42,7 @@ def _build_lookup(list_of_dicts):
     return lookup
 
 
-def update_standards_file(
+def modify_standards_file(
     file_path,
     delete_std_lines=None,
     exclude_std_lines_from_mean_calc=None
@@ -163,9 +162,27 @@ def update_standards_file(
                     if el not in all_el_lines:
                         not_found_exclusions.add(f"{id_}:{el}")
 
-    # Write back
-    with open(file_path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=2)
+    # Validate and serialize using EDSStandardsFile to enforce schema
+    import autoemx.utils.helper
+    from autoemx.config.schema_models.standards import EDSStandardsFile
+    # Extract required fields for model
+    schema_version = data.get("schema_version", 1)
+    measurement_type = data["measurement_type"]
+    beam_energy_keV = data["beam_energy_keV"]
+    standards_by_mode = data["standards_by_mode"]
+    # Build and validate model
+    model = EDSStandardsFile.from_payload(
+        payload={
+            "schema_version": schema_version,
+            "measurement_type": measurement_type,
+            "beam_energy_keV": beam_energy_keV,
+            "standards_by_mode": standards_by_mode,
+        },
+        meas_type=measurement_type,
+        beam_energy_keV=beam_energy_keV,
+    )
+    # Write back using model's to_json_file (handles sorting and aliases)
+    model.to_json_file(file_path, indent=2)
 
     # Print summary
     has_stds_file_changed = False
