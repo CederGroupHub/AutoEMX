@@ -223,5 +223,19 @@ def modify_standards_file(
             print(f"  - {el_line}")
     print("--- End of Summary ---\n")
 
+    # After modifying standards, call extract_experimental_standards_details and save report in same folder
+    try:
+        from autoemx.runners.extract_experimental_standards_details import extract_experimental_standards_details
+        from pathlib import Path
+        standards_dir = str(Path(file_path).parent)
+        extract_experimental_standards_details(
+            standards_json_path=file_path,
+            report_output_dir=standards_dir,
+            print_report=False
+        )
+        print(f"Experimental standards details report saved in: {standards_dir}")
+    except Exception as e:
+        print(f"[Warning] Could not generate standards details report: {e}")
+
     if has_stds_file_changed:
         print(f"Updated standards file: {file_path}")

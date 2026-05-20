@@ -261,17 +261,21 @@ def extract_experimental_standards_details(
             report_lines.append("  - No modes found in standards file.")
             continue
 
-        for mode, lines_by_peak_raw in sorted(standards_by_mode_raw.items()):
+        for mode, lines_by_peak_raw in standards_by_mode_raw.items():
             if not isinstance(lines_by_peak_raw, dict):
                 continue
             current_txt = _format_current(mode, detector_params)
 
-            unique_elements = {
-                str(peak_name).split("_", maxsplit=1)[0]
-                for peak_name in lines_by_peak_raw.keys()
-            }
-            elements_sorted = _sort_elements_by_atomic_number(list(unique_elements))
-            elements_txt = ", ".join(elements_sorted) if elements_sorted else "none"
+
+            # Extract unique element symbols in order of first appearance
+            seen = set()
+            unique_elements = []
+            for peak_name in lines_by_peak_raw.keys():
+                el = str(peak_name).split("_", maxsplit=1)[0]
+                if el not in seen:
+                    seen.add(el)
+                    unique_elements.append(el)
+            elements_txt = ", ".join(unique_elements) if unique_elements else "none"
 
             report_lines.append(
                 "  - "
@@ -288,7 +292,7 @@ def extract_experimental_standards_details(
 
         section_lines.append(f"Measurement type: {measurement_type}")
 
-        for mode, lines_by_peak_raw in sorted(standards_by_mode_raw.items()):
+        for mode, lines_by_peak_raw in standards_by_mode_raw.items():
             if not isinstance(lines_by_peak_raw, dict):
                 continue
             current_txt = _format_current(mode, detector_params)
@@ -299,7 +303,7 @@ def extract_experimental_standards_details(
                 section_lines.append("")
                 continue
 
-            for peak_name, line_payload in sorted(lines_by_peak_raw.items()):
+            for peak_name, line_payload in lines_by_peak_raw.items():
                 entries, reference_mean = _normalize_line_payload(line_payload)
 
                 entry_ids_and_pb: List[Tuple[str, float]] = []
