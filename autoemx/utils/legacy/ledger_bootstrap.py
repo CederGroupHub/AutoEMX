@@ -250,6 +250,17 @@ def _resolve_frame_dimensions(
     images_dir = Path(sample_result_dir, cnst.IMAGES_DIR)
     allowed_suffixes = {".tif", ".tiff", ".png", ".jpg", ".jpeg", ".bmp"}
 
+    # import time (removed debug)
+    # Try to get dimensions from EM_driver first (like EM_controller)
+    if em_driver is not None:
+        driver_w = _parse_optional_int(getattr(em_driver, "im_width", None))
+        driver_h = _parse_optional_int(getattr(em_driver, "im_height", None))
+        if driver_w is not None and driver_h is not None and driver_w > 0 and driver_h > 0:
+            dims = (driver_w, driver_h)
+            cache[cache_key] = dims
+            cache.setdefault("__default__", dims)
+            return dims
+
     if images_dir.exists():
         candidate_paths: List[Path] = []
         frame_token = None
@@ -272,23 +283,18 @@ def _resolve_frame_dimensions(
                 if path.is_file() and path.suffix.lower() in allowed_suffixes
             ]
 
+        # Only read the first valid image, then cache and return immediately
         for image_path in sorted(candidate_paths):
             image = cv2.imread(str(image_path), cv2.IMREAD_UNCHANGED)
-            if image is None or len(getattr(image, "shape", ())) < 2:
-                continue
-            dims = (int(image.shape[1]), int(image.shape[0]))
-            cache[cache_key] = dims
-            cache.setdefault("__default__", dims)
-            return dims
+            if image is not None and len(getattr(image, "shape", ())) >= 2:
+                dims = (int(image.shape[1]), int(image.shape[0]))
+                cache[cache_key] = dims
+                cache.setdefault("__default__", dims)
+                return dims
+        # If no valid image found, cache as None
+        cache[cache_key] = None
 
-    if em_driver is not None:
-        driver_w = _parse_optional_int(getattr(em_driver, "im_width", None))
-        driver_h = _parse_optional_int(getattr(em_driver, "im_height", None))
-        if driver_w is not None and driver_h is not None and driver_w > 0 and driver_h > 0:
-            dims = (driver_w, driver_h)
-            cache[cache_key] = dims
-            cache.setdefault("__default__", dims)
-            return dims
+
 
     cache[cache_key] = None
     return None
