@@ -293,7 +293,29 @@ class EDSStandardsFile(BaseModel):
         }
 
     def to_json_file(self, file_path: str | Path, indent: int = 2) -> None:
+        """
+        Write the standards file to JSON, sorting el_line keys in each mode using el_line_sort_key logic.
+        """
+        from pymatgen.core.periodic_table import Element as PymatgenElement
+        def el_line_sort_key(el_line):
+            el, *rest = el_line.split("_")
+            try:
+                z = PymatgenElement(el).Z
+            except Exception:
+                z = 999  # Unknown elements go last
+            line = rest[0] if rest else ""
+            line_priority = {"Ka": 0, "La": 1, "Ma": 2, "Mz": 3}
+            line_rank = line_priority.get(line, 99)
+            return (z, line_rank, line)
+
         path = Path(file_path)
+        payload = self.to_payload()
+        # Sort el_line keys in standards_by_mode for each mode using el_line_sort_key
+        if "standards_by_mode" in payload:
+            for mode, lines in payload["standards_by_mode"].items():
+                sorted_keys = sorted(lines, key=el_line_sort_key)
+                sorted_lines = {k: lines[k] for k in sorted_keys}
+                payload["standards_by_mode"][mode] = sorted_lines
         with path.open("w", encoding="utf-8") as file:
-            json.dump(self.to_payload(), file, indent=indent, allow_nan=False)
+            json.dump(payload, file, indent=indent, allow_nan=False)
             file.write("\n")
