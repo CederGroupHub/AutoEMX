@@ -2337,6 +2337,7 @@
         ],
         "fit_tolerance": 0.0001,
         "use_instrument_background": false,
+        "min_total_counts_fraction": 0.9,
         "is_particle": false,
         "beam_energy_keV": 15.0,
         "emergence_angle": 28.5,

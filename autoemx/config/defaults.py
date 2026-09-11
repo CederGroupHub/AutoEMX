@@ -32,6 +32,9 @@ use_instrument_background : bool
     Whether to use instrument background files during fitting.
     If False, background is computed during fitting.
     Default is `False` (QuantificationOptionsConfig.use_instrument_background).
+min_total_counts_fraction : float
+    Minimum accepted total spectrum counts as a fraction of ``target_acquisition_counts``.
+    Default is `0.9` (QuantificationOptionsConfig.min_total_counts_fraction).
 RAW_SPECTRUM_EXT : str
     File extension used when writing per-spectrum raw data pointer files.
     Default is `'.msa'` (EMSA/MAS format).
@@ -64,6 +67,8 @@ spectrum_lims: Tuple[int, int] = (14, 1100)
 substrate_els = ['C', 'O', 'Al']
 
 use_instrument_background: bool = False
+
+min_total_counts_fraction: float = 0.9
 
 RAW_SPECTRUM_EXT: str = '.msa'
 

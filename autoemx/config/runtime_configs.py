@@ -306,12 +306,19 @@ class QuantificationOptionsConfig(BaseModel):
             If False, AutoEMX computes the background while fitting.
         use_project_specific_std_dict (bool): If True, tries to load the dictionary of reference standards from the project folder.
             If not found, uses the default file "EDS_Stds_{beamenergy}keV.json" at XSp_calibs/Microscopes/your_microscope.
+        min_total_counts_fraction (float): Minimum accepted total spectrum counts as a fraction of
+            ``target_acquisition_counts``. Spectra below this threshold are flagged
+            ``quant_flag = 2`` ("Total counts too low"). Default is ``0.9`` (90%).
+            Lower this to quantify shorter acquisitions; ``0`` disables the check.
     """
+    DEFAULT_MIN_TOTAL_COUNTS_FRACTION: ClassVar[float] = dflt.min_total_counts_fraction
+
     method: str = dflt.quantification_method
     spectrum_lims: Tuple[float, float] = dflt.spectrum_lims
     fit_tolerance: float = 1e-4
     use_instrument_background: bool = dflt.use_instrument_background
     use_project_specific_std_dict: bool = False
+    min_total_counts_fraction: float = dflt.min_total_counts_fraction
 
     ALLOWED_METHODS: ClassVar[List[str]] = ['PB']
 
@@ -339,6 +346,10 @@ class QuantificationOptionsConfig(BaseModel):
                 f"Quantification method must be one of {self.ALLOWED_METHODS}, got '{self.method}'."
                 "Currently no other method is implemented."
             )
+        fraction = float(self.min_total_counts_fraction)
+        if not np.isfinite(fraction) or fraction < 0 or fraction > 1:
+            raise ValueError("min_total_counts_fraction must be a finite value in [0, 1]")
+        self.min_total_counts_fraction = fraction
         return self
 
 

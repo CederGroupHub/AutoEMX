@@ -152,6 +152,10 @@ but require re-quantification:
 
 - ``interrupt_fits_bad_spectra``: Interrupt quantification for spectra expected
   to lead to large errors. Typically ``True`` to speed up quantifications.
+- ``min_total_counts_fraction``: Minimum accepted total spectrum counts as a
+  fraction of ``target_acquisition_counts`` (default ``0.9`` = 90%). Spectra
+  below this threshold are flagged (``quant_flag = 2``). Lower this to quantify
+  shorter acquisitions; ``0`` disables the check.
 - ``min_bckgrnd_cnts``: Minimum counts required under a reference peak for acceptance.
 
   - Spectra failing this criterion are flagged (``quant_flag = 8``).
@@ -320,9 +324,11 @@ script, and have been previously decribed. Additional parameters are:
 - ``quantify_only_unquantified_spectra``: If ``True``, quantifies only the previously unquantified spectra, for example after modifying ``min_bckgrnd_cnts``. If ``False``, all spectra are quantified regardless.
 - ``interrupt_fits_bad_spectra``: If ``True``, saves time by interrupting the quantification of spectra likely leading to large quantification errors, including:
 
+  - Spectra with total counts below ``min_total_counts_fraction`` of the target (default 90%)
   - Spectra that cannot be properly fitted, usually occurring due to missing elements and unassigned peaks
   - Excessive absorption detected in the low-energy portion of the spectrum
   - Excessive analytical error > 50w%, usually occurring due to missing elements and unassigned peaks
+- ``min_total_counts_fraction``: Minimum accepted total spectrum counts as a fraction of ``target_acquisition_counts`` (default ``0.9``). Lower this to quantify shorter acquisitions; ``0`` disables the check.
 
 Output
 ^^^^^^

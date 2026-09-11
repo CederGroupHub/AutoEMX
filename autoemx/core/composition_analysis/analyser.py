@@ -156,6 +156,11 @@ def _resolve_parallel_mode(requested_cores: int) -> tuple[int, Optional[str], bo
     return n_cores, backend, use_parallel
 
 
+def _format_min_total_counts_percent(fraction: float) -> str:
+    """Format a total-counts fraction as a compact percentage string."""
+    return f"{float(fraction) * 100:.4g}%"
+
+
 def _detect_prefit_spectrum_issues(
     *,
     spectrum: Optional[np.ndarray],
@@ -164,12 +169,13 @@ def _detect_prefit_spectrum_issues(
     sp_end: int,
     target_acquisition_counts: int,
     min_bckgrnd_cnts: Optional[float],
+    min_total_counts_fraction: float = QuantificationOptionsConfig.DEFAULT_MIN_TOTAL_COUNTS_FRACTION,
 ) -> tuple[Optional[int], Optional[str]]:
     """Detect pre-fit spectrum quality issues that map to quant flags 1-3."""
     if spectrum is None or len(spectrum) == 0:
         return 1, "No spectral data present"
 
-    if np.sum(spectrum) < 0.9 * target_acquisition_counts:
+    if np.sum(spectrum) < min_total_counts_fraction * target_acquisition_counts:
         return 2, "Total counts too low"
 
     n_vals_considered = 20
@@ -316,6 +322,12 @@ def _quantify_spectrum_worker(worker_payload: Dict[str, Any]) -> tuple[int, Opti
         sp_end=int(worker_payload['sp_end']),
         target_acquisition_counts=int(worker_payload['target_acquisition_counts']),
         min_bckgrnd_cnts=worker_payload['min_bckgrnd_cnts'],
+        min_total_counts_fraction=float(
+            worker_payload.get(
+                'min_total_counts_fraction',
+                QuantificationOptionsConfig.DEFAULT_MIN_TOTAL_COUNTS_FRACTION,
+            )
+        ),
     )
     if _should_interrupt_prefit_issue(prefit_quant_flag, interrupt_fits_bad_spectra):
         quant_record = QuantificationResult(
@@ -1132,6 +1144,20 @@ class EMXSp_Composition_Analyzer:
         lines.append(f"  Instrument background: {'yes' if use_instr_background_used else 'no'}")
         lines.append(f"  Project std dict     : {'yes' if use_proj_std_dict_used else 'no'}")
         lines.append(f"  Particle corrections : {'yes' if is_particle_used else 'no'}")
+        min_total_counts_fraction_used = float(
+            active_options.get(
+                "min_total_counts_fraction",
+                getattr(
+                    q,
+                    "min_total_counts_fraction",
+                    QuantificationOptionsConfig.DEFAULT_MIN_TOTAL_COUNTS_FRACTION,
+                ),
+            )
+        )
+        lines.append(
+            "  Min total counts     : "
+            f"{_format_min_total_counts_percent(min_total_counts_fraction_used)} of target"
+        )
         lines.append(f"  Beam energy (keV)    : {beam_energy_used:.4f}")
         lines.append(
             f"  Emergence angle (deg): {emergence_angle_used:.4f}"
@@ -2547,7 +2573,7 @@ class EMXSp_Composition_Analyzer:
 
     def _build_quantification_options(self) -> Dict[str, Any]:
         """Build the subset of quantification options that defines result reuse."""
-        return {
+        options: Dict[str, Any] = {
             "method": self.quant_cfg.method,
             "spectrum_lims": [
                 float(self.quant_cfg.spectrum_lims[0]),
@@ -2561,7 +2587,9 @@ class EMXSp_Composition_Analyzer:
             "emergence_angle": float(self.measurement_cfg.emergence_angle),
             "det_ch_offset": float(self.det_ch_offset),
             "det_ch_width": float(self.det_ch_width),
+            "min_total_counts_fraction": self._min_total_counts_fraction(),
         }
+        return options
 
 
     def _get_reference_values_by_el_line(
@@ -3131,6 +3159,16 @@ class EMXSp_Composition_Analyzer:
         
         return quant_flag, comment
         
+    def _min_total_counts_fraction(self) -> float:
+        """Return the configured minimum total-counts fraction for pre-fit flag 2."""
+        return float(
+            getattr(
+                self.quant_cfg,
+                "min_total_counts_fraction",
+                QuantificationOptionsConfig.DEFAULT_MIN_TOTAL_COUNTS_FRACTION,
+            )
+        )
+
     def _detect_prefit_spectrum_issues(
         self,
         spectrum: Optional[np.ndarray],
@@ -3145,6 +3183,7 @@ class EMXSp_Composition_Analyzer:
             sp_end=self.sp_end,
             target_acquisition_counts=int(self.measurement_cfg.target_acquisition_counts),
             min_bckgrnd_cnts=self.clustering_cfg.min_bckgrnd_cnts,
+            min_total_counts_fraction=self._min_total_counts_fraction(),
         )
 
     def _resolve_prefit_spectrum_gate(
@@ -3167,14 +3206,17 @@ class EMXSp_Composition_Analyzer:
         if prefit_quant_flag == 1 and self.verbose:
             logger.error("❌ Error during spectrum collection. No quantification was done.")
         elif prefit_quant_flag == 2 and self.verbose:
+            counts_percent = _format_min_total_counts_percent(self._min_total_counts_fraction())
             if _should_interrupt_prefit_issue(prefit_quant_flag, interrupt_fits_bad_spectra):
                 logger.info(
-                    "⏭️ Quantification skipped due to spectrum counts lower than 90% of the "
-                    f"target counts of {self.measurement_cfg.target_acquisition_counts}"
+                    "⏭️ Quantification skipped due to spectrum counts lower than "
+                    f"{counts_percent} of the target counts of "
+                    f"{self.measurement_cfg.target_acquisition_counts}"
                 )
             else:
                 logger.info(
-                    "⚠️ Spectrum counts are lower than 90% of the target counts of "
+                    "⚠️ Spectrum counts are lower than "
+                    f"{counts_percent} of the target counts of "
                     f"{self.measurement_cfg.target_acquisition_counts}; proceeding with "
                     "quantification because interrupt_fits_bad_spectra=False."
                 )
@@ -3649,6 +3691,7 @@ class EMXSp_Composition_Analyzer:
                         'sp_end': int(self.sp_end),
                         'target_acquisition_counts': int(self.measurement_cfg.target_acquisition_counts),
                         'min_bckgrnd_cnts': self.clustering_cfg.min_bckgrnd_cnts,
+                        'min_total_counts_fraction': self._min_total_counts_fraction(),
                         'microscope_id': self.microscope_cfg.ID,
                         'measurement_type': self.measurement_cfg.type,
                         'measurement_mode': self.measurement_cfg.mode,
@@ -3713,6 +3756,7 @@ class EMXSp_Composition_Analyzer:
                         'sp_end': int(self.sp_end),
                         'target_acquisition_counts': int(self.measurement_cfg.target_acquisition_counts),
                         'min_bckgrnd_cnts': self.clustering_cfg.min_bckgrnd_cnts,
+                        'min_total_counts_fraction': self._min_total_counts_fraction(),
                         'microscope_id': self.microscope_cfg.ID,
                         'measurement_type': self.measurement_cfg.type,
                         'measurement_mode': self.measurement_cfg.mode,
@@ -4906,7 +4950,7 @@ class EMXSp_Composition_Analyzer:
             0: Quantification is ok, although it may be affected by large analytical error
            -1: As above, but quantification did not converge within 30 steps
             1: Error during EDS acquisition. No fit executed
-            2: Total number of counts is lower than 90% of target counts, likely due to wrong segmentation. Fit interrupted if interrupt_fits_bad_spectra=True
+            2: Total number of counts is lower than min_total_counts_fraction of target counts (default 90%), likely due to wrong segmentation. Fit interrupted if interrupt_fits_bad_spectra=True
             3: Spectrum has too low signal in its low-energy portion, leading to poor quantification in this region. Fit interrupted if interrupt_fits_bad_spectra=True
             4: Poor fit. Fit interrupted if interrupt_fits_bad_spectra=True
             5: Too high analytical error (>50%) indicating a missing element or other major sources of error. Fit interrupted if interrupt_fits_bad_spectra=True

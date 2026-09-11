@@ -37,6 +37,7 @@ results_path = os.path.join(os.path.dirname(__file__), 'Results')
 # =============================================================================
 max_analytical_error = 5 # w%
 min_bckgrnd_cnts = 5
+min_total_counts_fraction = 0.9 # Fraction of target_acquisition_counts required (0.9 = 90%). Lower this to quantify shorter acquisitions; 0 disables the check.
 
 num_CPU_cores = None # If None, selects automatically half the available cores
 interrupt_fits_bad_spectra = True # Interrupts the fit and quantification of spectra when it finds they will lead to large quantification errors. Used to speed up computations. If False, previously interrupted spectra are re-quantified without interruption.
@@ -54,6 +55,7 @@ comp_analyzer = batch_quantify_and_analyze(
     sample_IDs=sample_IDs,
     quantification_method = 'PB',
     min_bckgrnd_cnts = min_bckgrnd_cnts,
+    min_total_counts_fraction=min_total_counts_fraction,
     results_path=results_path,
     output_filename_suffix=output_filename_suffix,
     max_analytical_error=max_analytical_error,

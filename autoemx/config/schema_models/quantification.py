@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional, Sequence
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+import autoemx.config.defaults as dflt
 from .fitting import FitResult
 from .clustering import ClusteringAnalysis, ClusteringResult # type: ignore
 
@@ -232,6 +233,16 @@ class QuantificationConfig(BaseModel):
             normalized["det_ch_offset"] = float(normalized["det_ch_offset"])
         if "det_ch_width" in normalized:
             normalized["det_ch_width"] = float(normalized["det_ch_width"])
+        if "min_total_counts_fraction" in normalized:
+            fraction = float(normalized["min_total_counts_fraction"])
+        else:
+            # Old ledgers predate this option; treat them as the historical 90% gate.
+            fraction = float(dflt.min_total_counts_fraction)
+        if not np.isfinite(fraction) or fraction < 0 or fraction > 1:
+            raise ValueError(
+                "options['min_total_counts_fraction'] must be a finite value in [0, 1]"
+            )
+        normalized["min_total_counts_fraction"] = fraction
 
         for float_key in (
             "beam_energy_keV",

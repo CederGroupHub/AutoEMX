@@ -26,8 +26,9 @@ Flag    Meaning
 ``-1``  Same as ``0``, but quantification did not converge within the iteration
         limit.
 ``1``   Error during EDS acquisition / no spectral data. No fit executed.
-``2``   Total counts below 90% of the target acquisition counts (often bad
-        segmentation or a truncated acquisition). Fitting is skipped when
+``2``   Total counts below ``min_total_counts_fraction`` of the target
+        acquisition counts (default 90%; often bad segmentation or a truncated
+        acquisition). Fitting is skipped when
         ``interrupt_fits_bad_spectra=True``.
 ``3``   Too little low-energy signal (background under ~2 keV too low), which
         compromises P/B ratios. Fitting is skipped when
@@ -59,6 +60,6 @@ How to use them
   ``interrupt_fits_bad_spectra=True``. Flags ``2`` and ``3`` can still be
   written on a completed quantification if fitting was allowed to proceed.
 
-Related parameters: ``interrupt_fits_bad_spectra``, ``min_bckgrnd_cnts``, and
-``max_analytical_error_percent``. See :ref:`comp_analysis_tutorial` and
-:ref:`quantify_external_spectra_tutorial`.
+Related parameters: ``interrupt_fits_bad_spectra``, ``min_total_counts_fraction``,
+``min_bckgrnd_cnts``, and ``max_analytical_error_percent``. See
+:ref:`comp_analysis_tutorial` and :ref:`quantify_external_spectra_tutorial`.

@@ -152,6 +152,7 @@
         "method": "PB",
         "fit_tolerance": 0.001,
         "use_instrument_background": false,
+        "min_total_counts_fraction": 0.9,
         "spectrum_lims": [
           14,
           1100

@@ -40,6 +40,7 @@ min_bckgrnd_cnts = 5 # Minimum value of background counts that a reference peak 
     # Spectra not satisfying this are flagged (quant_flag = 8) and not quantified if interrupt_fits_bad_spectra = True. If False, they are still quantified, and filtered out later in the clustering stage
     # If too many spectra end up being flagged, decrease min_bckgrnd_cnts or increase the spectra target total counts
     # If you change min_bckgrnd_cnts, you can requantify the previously-interrupted spectra by setting interrupt_fits_bad_spectra = False
+min_total_counts_fraction = 0.9 # Minimum accepted total spectrum counts as a fraction of target_acquisition_counts (default 0.9 = 90%). Spectra below this are flagged (quant_flag = 2). Lower this to quantify shorter acquisitions; 0 disables the check.
 
 
 num_CPU_cores = None # Number of cores used during fitting and quantification. If None, selects automatically half the available cores
@@ -58,6 +59,7 @@ comp_analyzer = batch_quantify_and_analyze(
     sample_IDs=sample_IDs,
     quantification_method = 'PB',
     min_bckgrnd_cnts = min_bckgrnd_cnts,
+    min_total_counts_fraction=min_total_counts_fraction,
     results_path=results_dir,
     output_filename_suffix=output_filename_suffix,
     max_analytical_error=max_analytical_error,

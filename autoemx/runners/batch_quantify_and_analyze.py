@@ -78,6 +78,7 @@ def batch_quantify_and_analyze(
     quantification_method: Optional[str] = None,
     results_path: Optional[str] = None,
     min_bckgrnd_cnts: Optional[float] = None,
+    min_total_counts_fraction: Optional[float] = None,
     output_filename_suffix: str = "",
     use_instrument_background: bool = dflt.use_instrument_background,
     max_analytical_error: float = 5,
@@ -116,6 +117,11 @@ def batch_quantify_and_analyze(
     min_bckgrnd_cnts : float, optional
         Minimum number of background counts underneath reference peaks below which spectra are flagged.
         If None, leaves it unchanged. Default: None
+    min_total_counts_fraction : float, optional
+        Minimum accepted total spectrum counts as a fraction of ``target_acquisition_counts``.
+        Spectra below this threshold are flagged ``quant_flag = 2`` ("Total counts too low").
+        If None, uses the value already on the quantification config (default ``0.9``).
+        Lower this to quantify shorter acquisitions; ``0`` disables the check.
     output_filename_suffix : str, optional
         Suffix to append to output filenames.
     use_instrument_background : bool, optional
@@ -138,7 +144,7 @@ def batch_quantify_and_analyze(
         - Reduced chi-squared exceeds 20 % of total spectrum counts (poor fit, flag 4).
         - Analytical error exceeds 50 w% (flag 5).
         - Excessive X-ray absorption around reference peaks (flag 6).
-        - Total counts below 90 % of target (flag 2).
+        - Total counts below ``min_total_counts_fraction`` of target (flag 2; default 90%).
         - Low-energy background counts below threshold (flag 3).
 
         The aborted spectrum is stored with ``QuantificationDiagnostics.interrupted=True``
@@ -280,6 +286,8 @@ def batch_quantify_and_analyze(
         
         if min_bckgrnd_cnts is not None:
             clustering_cfg.min_bckgrnd_cnts = min_bckgrnd_cnts
+        if min_total_counts_fraction is not None:
+            quant_cfg.min_total_counts_fraction = min_total_counts_fraction
         if quantification_method is not None:
             quant_cfg.method = quantification_method
         if spectrum_lims is not None:
