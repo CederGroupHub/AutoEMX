@@ -144,7 +144,7 @@ def main() -> None:
         "**Citation.** If you use this demo or AutoEMX in your research, please cite: "
         "A. Giunto *et al.*, *Accurate SEM‑EDS Quantification, Automation, and "
         "Machine Learning Enable High‑Throughput Compositional Characterization of Powders*, "
-        "Nature Communications (2026), in press. "
+        "*Nature Communications* **17**, 9735 (2026). "
         "DOI: [https://doi.org/10.1038/s41467-026-76633-x]"
         "(https://doi.org/10.1038/s41467-026-76633-x)."
     )

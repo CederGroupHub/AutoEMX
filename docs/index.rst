@@ -26,7 +26,7 @@ measurements** based on SEM imaging.
 This work is described in:
     A. Giunto *et al.*, *Accurate SEM‑EDS Quantification, Automation, and
     Machine Learning Enable High‑Throughput Compositional Characterization
-    of Powders*, Nature Communications (2026), in press.
+    of Powders*, *Nature Communications* **17**, 9735 (2026).
     DOI: https://doi.org/10.1038/s41467-026-76633-x
     
 Please cite this work if you use ``AutoEMX``.
