@@ -7,7 +7,7 @@ This tutorial shows how to run the automated workflow for EDS compositional
 analysis using the ``run_acquisition_quant_analysis.py`` script.
 
 This script initiates the fully automated workflow described in Giunto *et al.*,
-Nature Communications (2026), in press
+*Nature Communications* **17**, 9735 (2026)
 (https://doi.org/10.1038/s41467-026-76633-x), which includes:
 
 - Acquisition of EDS spectra from powder or bulk samples

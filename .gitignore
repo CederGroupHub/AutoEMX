@@ -58,6 +58,7 @@ coverage.xml
 # IDEs / editors
 .vscode/
 .cursor/
+.claude/
 .idea/
 *.sublime-project
 *.sublime-workspace

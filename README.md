@@ -23,7 +23,7 @@ AutoEMX is a **fully automated framework** for SEM-EDS workflows — from spectr
 🧪 **Try quantification now:** upload a `.msa` or `.emsa` spectrum at https://autoemx-singlespectrum.streamlit.app
 
 📖 This work is described in:  
-A. Giunto *et al.*, *Accurate SEM‑EDS Quantification, Automation, and Machine Learning Enable High‑Throughput Compositional Characterization of Powders*, Nature Communications (2026), in press.  
+A. Giunto *et al.*, *Accurate SEM‑EDS Quantification, Automation, and Machine Learning Enable High‑Throughput Compositional Characterization of Powders*, *Nature Communications* **17**, 9735 (2026).  
 DOI: [https://doi.org/10.1038/s41467-026-76633-x](https://doi.org/10.1038/s41467-026-76633-x)
 
 ### ✨ Key Features
@@ -196,8 +196,9 @@ This project is licensed under a NON-COMMERCIAL USE ONLY license — see the [LI
 
 If you use **AutoEMX** in your research, please cite the following publication:
 
-> A. Giunto, Y. Fei, P. Nevatia, B. Rendy, N. Szymanski and G. Ceder;
-> *Accurate SEM‑EDS Quantification, Automation, and Machine Learning Enable High‑Throughput Compositional Characterization of Powders*, Nature Communications (2026), in press.  
+> A. Giunto, Y. Fei, P. Nevatia, B. Rendy, N. J. Szymanski & G. Ceder,
+> *Accurate SEM‑EDS Quantification, Automation, and Machine Learning Enable High‑Throughput Compositional Characterization of Powders*,
+> *Nature Communications* **17**, 9735 (2026).
 > DOI: [https://doi.org/10.1038/s41467-026-76633-x](https://doi.org/10.1038/s41467-026-76633-x)
 
 ### BibTeX
@@ -206,10 +207,11 @@ If you use **AutoEMX** in your research, please cite the following publication:
   author  = {Giunto, Andrea and Fei, Yuxing and Nevatia, Pragnay and Rendy, Bernardus and Szymanski, Nathan J. and Ceder, Gerbrand},
   title   = {Accurate SEM‑EDS Quantification, Automation, and Machine Learning Enable High‑Throughput Compositional Characterization of Powders},
   journal = {Nature Communications},
+  volume  = {17},
+  pages   = {9735},
   year    = {2026},
   doi     = {10.1038/s41467-026-76633-x},
   url     = {https://doi.org/10.1038/s41467-026-76633-x},
-  note    = {in press}
 }
 ```
 

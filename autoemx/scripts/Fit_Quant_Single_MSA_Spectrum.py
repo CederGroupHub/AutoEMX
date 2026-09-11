@@ -10,6 +10,14 @@ Run this module directly to process a spectrum with the defined configuration op
 Created on Thu Jan 15 15:49:51 2026
 
 @author: Andrea
+
+Citation
+--------
+If you use this package, please cite:
+A. Giunto et al., Accurate SEM-EDS Quantification, Automation, and Machine Learning Enable
+High-Throughput Compositional Characterization of Powders,
+Nature Communications 17, 9735 (2026).
+https://doi.org/10.1038/s41467-026-76633-x
 """
 import os
 

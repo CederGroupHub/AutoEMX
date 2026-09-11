@@ -15,6 +15,14 @@ Notes
 Created on Tue Jul 29 13:18:16 2025
 
 @author: Andrea
+
+Citation
+--------
+If you use this package, please cite:
+A. Giunto et al., Accurate SEM-EDS Quantification, Automation, and Machine Learning Enable
+High-Throughput Compositional Characterization of Powders,
+Nature Communications 17, 9735 (2026).
+https://doi.org/10.1038/s41467-026-76633-x
 """
 
 # =============================================================================
