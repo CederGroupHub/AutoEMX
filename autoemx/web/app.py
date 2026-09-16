@@ -18,6 +18,7 @@ os.environ.setdefault("MPLBACKEND", "Agg")
 
 import numpy as np
 import streamlit as st
+from pymatviz import ptable_heatmap
 
 from autoemx.web.exports import (
     figure_to_png_bytes,
@@ -27,11 +28,13 @@ from autoemx.web.exports import (
 )
 from autoemx.web.pipeline import (
     QUANT_BEAM_KV,
+    QUANTIFIABLE_ELEMENTS,
     SUPPORTED_UPLOAD_EXTENSIONS,
     SpectrumFitResult,
     beam_energy_supports_quantification,
     fit_uploaded_spectrum,
     parse_elements,
+    validate_elements_quantifiable,
 )
 from autoemx.web.reader_report import (
     GITHUB_NEW_ISSUE_URL,
@@ -87,6 +90,31 @@ def _failed_result(
         error_stage=error_stage,
         reader_report=reader_report,
     )
+
+
+def _render_quantifiable_elements_section() -> None:
+    """Render an expandable periodic table showing which elements can be quantified."""
+    with st.expander("Supported elements for quantification", expanded=True):
+        st.caption(
+            f"Elements highlighted below have peak-to-background standards available "
+            f"at {QUANT_BEAM_KV:.0f} kV and can be quantified. "
+            f"All other elements are shown in grey."
+        )
+        if QUANTIFIABLE_ELEMENTS:
+            values = {el: 1 for el in QUANTIFIABLE_ELEMENTS}
+            fig = ptable_heatmap(
+                values,
+                colorscale=[[0, "#d0e8ff"], [1, "#1a6bb5"]],
+                show_scale=False,
+                show_values=False,
+                nan_color="#e8e8e8",
+                fmt=lambda _: "",
+                hover_props=["name", "atomic_number"],
+            )
+            fig.update_layout(margin={"t": 20, "b": 10, "l": 0, "r": 0}, height=340)
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Standards file could not be read; supported element list unavailable.")
 
 
 def _results_table(result: SpectrumFitResult):
@@ -192,6 +220,7 @@ def main() -> None:
             "composition to be accurate. An example file is "
             "`autoemx/scripts/input/Example_spectrum.msa` (Bi–Fe–O on carbon tape, 15 kV)."
         )
+        _render_quantifiable_elements_section()
         return
 
     if not run:
@@ -208,6 +237,13 @@ def main() -> None:
 
     if not els_sample:
         st.error("Enter at least one sample element.")
+        return
+
+    try:
+        validate_elements_quantifiable(els_sample)
+    except ValueError as exc:
+        st.error(str(exc))
+        _render_quantifiable_elements_section()
         return
 
     overlap = sorted(set(els_sample) & set(els_substrate))

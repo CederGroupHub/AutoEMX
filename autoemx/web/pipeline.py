@@ -4,9 +4,10 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, FrozenSet, List, Optional, Sequence, Tuple
 
 import numpy as np
 from pymatgen.core import Element
@@ -25,6 +26,46 @@ _DEFAULT_LIVETIME_S = 10.0
 # Shipped P/B standards are Phenom XL at 15 kV. Compositions are not valid otherwise.
 QUANT_BEAM_KV = 15.0
 _QUANT_BEAM_KV_TOLERANCE = 0.25
+
+# ---------------------------------------------------------------------------
+# Quantifiable elements – derived from the shipped 15 kV EDS standards file.
+# ---------------------------------------------------------------------------
+_STANDARDS_JSON = (
+    Path(__file__).resolve().parents[2]
+    / "autoemx"
+    / "calibrations"
+    / dflt.microscope_ID
+    / f"{dflt.measurement_type}_{cnst.STD_FILENAME}_{int(QUANT_BEAM_KV):d}keV.json"
+)
+
+
+def _load_quantifiable_elements() -> FrozenSet[str]:
+    """Return element symbols that have at least one P/B standard entry."""
+    try:
+        with _STANDARDS_JSON.open("r", encoding="utf-8") as fh:
+            payload = json.load(fh)
+        modes = payload.get("standards_by_mode", payload)
+        point = modes.get(dflt.measurement_mode, next(iter(modes.values()), {}))
+        return frozenset(key.split("_")[0] for key in point)
+    except Exception:
+        return frozenset()
+
+
+QUANTIFIABLE_ELEMENTS: FrozenSet[str] = _load_quantifiable_elements()
+
+
+def validate_elements_quantifiable(elements: Sequence[str]) -> None:
+    """Raise ``ValueError`` listing any elements that lack P/B standards."""
+    if not QUANTIFIABLE_ELEMENTS:
+        return
+    unsupported = [el for el in elements if el not in QUANTIFIABLE_ELEMENTS]
+    if unsupported:
+        raise ValueError(
+            f"The following element(s) cannot be quantified because no "
+            f"peak-to-background standard is available at {QUANT_BEAM_KV:.0f} kV: "
+            f"{', '.join(unsupported)}. "
+            f"Supported elements: {', '.join(sorted(QUANTIFIABLE_ELEMENTS))}."
+        )
 
 
 def beam_energy_supports_quantification(beam_energy_kV: Optional[float]) -> bool:
