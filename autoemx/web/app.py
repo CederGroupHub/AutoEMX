@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import io
 import os
 import sys
 import tempfile
@@ -16,9 +17,10 @@ if str(_REPO_ROOT) not in sys.path:
 
 os.environ.setdefault("MPLBACKEND", "Agg")
 
+import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
-from pymatviz import ptable_heatmap
 
 from autoemx.web.exports import (
     figure_to_png_bytes,
@@ -46,6 +48,30 @@ from autoemx.web.reader_report import (
 _DEMO_FILE_CAP = 2
 _ACCEPT = sorted(SUPPORTED_UPLOAD_EXTENSIONS)
 _LICENSE_CONTACT = "IPO@lbl.gov"
+
+# (row, col) positions in the standard 18-column periodic table layout.
+# Lanthanides and actinides are placed in rows 9 and 10 (with a gap after row 7).
+_PT_POSITIONS: dict[str, tuple[int, int]] = {
+    "H": (1, 1), "He": (1, 18),
+    "Li": (2, 1), "Be": (2, 2), "B": (2, 13), "C": (2, 14), "N": (2, 15), "O": (2, 16), "F": (2, 17), "Ne": (2, 18),
+    "Na": (3, 1), "Mg": (3, 2), "Al": (3, 13), "Si": (3, 14), "P": (3, 15), "S": (3, 16), "Cl": (3, 17), "Ar": (3, 18),
+    "K": (4, 1), "Ca": (4, 2), "Sc": (4, 3), "Ti": (4, 4), "V": (4, 5), "Cr": (4, 6), "Mn": (4, 7), "Fe": (4, 8), "Co": (4, 9), "Ni": (4, 10), "Cu": (4, 11), "Zn": (4, 12), "Ga": (4, 13), "Ge": (4, 14), "As": (4, 15), "Se": (4, 16), "Br": (4, 17), "Kr": (4, 18),
+    "Rb": (5, 1), "Sr": (5, 2), "Y": (5, 3), "Zr": (5, 4), "Nb": (5, 5), "Mo": (5, 6), "Tc": (5, 7), "Ru": (5, 8), "Rh": (5, 9), "Pd": (5, 10), "Ag": (5, 11), "Cd": (5, 12), "In": (5, 13), "Sn": (5, 14), "Sb": (5, 15), "Te": (5, 16), "I": (5, 17), "Xe": (5, 18),
+    "Cs": (6, 1), "Ba": (6, 2), "La": (6, 3), "Hf": (6, 4), "Ta": (6, 5), "W": (6, 6), "Re": (6, 7), "Os": (6, 8), "Ir": (6, 9), "Pt": (6, 10), "Au": (6, 11), "Hg": (6, 12), "Tl": (6, 13), "Pb": (6, 14), "Bi": (6, 15), "Po": (6, 16), "At": (6, 17), "Rn": (6, 18),
+    "Fr": (7, 1), "Ra": (7, 2), "Ac": (7, 3), "Rf": (7, 4), "Db": (7, 5), "Sg": (7, 6), "Bh": (7, 7), "Hs": (7, 8), "Mt": (7, 9), "Ds": (7, 10), "Rg": (7, 11), "Cn": (7, 12), "Nh": (7, 13), "Fl": (7, 14), "Mc": (7, 15), "Lv": (7, 16), "Ts": (7, 17), "Og": (7, 18),
+    # Lanthanides (row 9, gap after row 7)
+    "Ce": (9, 4), "Pr": (9, 5), "Nd": (9, 6), "Pm": (9, 7), "Sm": (9, 8), "Eu": (9, 9), "Gd": (9, 10), "Tb": (9, 11), "Dy": (9, 12), "Ho": (9, 13), "Er": (9, 14), "Tm": (9, 15), "Yb": (9, 16), "Lu": (9, 17),
+    # Actinides (row 10)
+    "Th": (10, 4), "Pa": (10, 5), "U": (10, 6), "Np": (10, 7), "Pu": (10, 8), "Am": (10, 9), "Cm": (10, 10), "Bk": (10, 11), "Cf": (10, 12), "Es": (10, 13), "Fm": (10, 14), "Md": (10, 15), "No": (10, 16), "Lr": (10, 17),
+}
+# Periodic table is drawn at 1 figure inch = _PT_PX_PER_INCH screen px, so text
+# sizes can be set in px and match the st.caption text above it (14px Source
+# Sans). Matplotlib's DejaVu Sans has taller capitals (cap height 0.73 em vs
+# 0.66 em), so scale it down to the same visual size.
+_PT_CELL_PX = 36
+_PT_FONT_PX = 14 * 0.66 / 0.73
+_PT_PX_PER_INCH = 100
+_PT_WIDTH_PX = 18 * _PT_CELL_PX
 
 
 def _is_hosted_demo() -> bool:
@@ -92,27 +118,57 @@ def _failed_result(
     )
 
 
+def _periodic_table_figure(quantifiable: frozenset) -> plt.Figure:
+    color_on, color_off = "#1a6bb5", "#d8d8d8"
+    text_on, text_off = "white", "#888888"
+    pad = 0.08
+
+    cell_in = _PT_CELL_PX / _PT_PX_PER_INCH
+    fig = plt.figure(figsize=(18 * cell_in, 10 * cell_in))
+    ax = fig.add_axes((0, 0, 1, 1))
+    ax.set_xlim(0.5, 18.5)
+    ax.set_ylim(10.5, 0.5)
+    ax.axis("off")
+    fig.patch.set_alpha(0)
+
+    for symbol, (row, col) in _PT_POSITIONS.items():
+        is_q = symbol in quantifiable
+        rect = mpatches.FancyBboxPatch(
+            (col - 0.5 + pad, row - 0.5 + pad),
+            1 - 2 * pad,
+            1 - 2 * pad,
+            boxstyle="round,pad=0.05",
+            linewidth=0,
+            facecolor=color_on if is_q else color_off,
+        )
+        ax.add_patch(rect)
+        ax.text(
+            col, row, symbol,
+            ha="center", va="center",
+            fontsize=_PT_FONT_PX * 72 / _PT_PX_PER_INCH,
+            color=text_on if is_q else text_off,
+            fontweight="bold" if is_q else "normal",
+        )
+
+    return fig
+
+
 def _render_quantifiable_elements_section() -> None:
     """Render an expandable periodic table showing which elements can be quantified."""
     with st.expander("Supported elements for quantification", expanded=True):
         st.caption(
-            f"Elements highlighted below have peak-to-background standards available "
+            f"Elements highlighted in blue have peak-to-background standards available "
             f"at {QUANT_BEAM_KV:.0f} kV and can be quantified. "
-            f"All other elements are shown in grey."
+            f"Grey elements are not supported."
         )
         if QUANTIFIABLE_ELEMENTS:
-            values = {el: 1 for el in QUANTIFIABLE_ELEMENTS}
-            fig = ptable_heatmap(
-                values,
-                colorscale=[[0, "#d0e8ff"], [1, "#1a6bb5"]],
-                show_scale=False,
-                show_values=False,
-                nan_color="#e8e8e8",
-                fmt=lambda _: "",
-                hover_props=["name", "atomic_number"],
-            )
-            fig.update_layout(margin={"t": 20, "b": 10, "l": 0, "r": 0}, height=340)
-            st.plotly_chart(fig, use_container_width=True)
+            fig = _periodic_table_figure(QUANTIFIABLE_ELEMENTS)
+            # Rendered at 2x for sharpness, shown at fixed width so it isn't
+            # stretched to the (wide-layout) container.
+            buffer = io.BytesIO()
+            fig.savefig(buffer, format="png", dpi=2 * _PT_PX_PER_INCH)
+            plt.close(fig)
+            st.image(buffer.getvalue(), width=_PT_WIDTH_PX)
         else:
             st.info("Standards file could not be read; supported element list unavailable.")
 
