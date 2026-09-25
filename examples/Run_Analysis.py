@@ -59,7 +59,7 @@ k_finding_method: str | None = None
 
 # Behavior:
 # - If both `k_finding_method` and `k_forced` are None, clustering configurations
-#   are loaded directly from the saved `Comp_analysis_configs.json` file.
+#   are loaded directly from the sample's `ledger.json`.
 
 # =============================================================================
 # Spectral Filtering options
@@ -71,8 +71,8 @@ quant_flags_accepted = [0, -1] #8 #, 4, 5, 6, 7, 8]  # See docs: Quantification 
 # Plotting options
 # =============================================================================
 ref_formulae = None # List of candidate compositions. If the first entry is "" or None, the rest are appended to the 
-                    # list loaded from Comp_analysis_configs.json; otherwise, the provided list replaces it.
-                    # Uses values loaded from Comp_analysis_configs.json if ref_formulae = None.
+                    # list loaded from ledger.json; otherwise, the provided list replaces it.
+                    # Uses values loaded from ledger.json if ref_formulae = None.
 els_excluded_clust_plot = None # List of elements to exclude from the 3D clustering plot. Uses default values if variable is set to None
 els_to_plot = None # List of elements forced onto the clustering plot axes (opposite of els_excluded_clust_plot).
                    # With 2 or 3 entries, those become the axes. With 1 entry, remaining axes are filled from

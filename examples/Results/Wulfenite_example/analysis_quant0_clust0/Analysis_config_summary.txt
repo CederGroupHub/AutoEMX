@@ -1,0 +1,34 @@
+============================================================
+QUANTIFICATION CONFIGURATIONS
+============================================================
+  Quantification ID    : 0
+  Label                : Legacy import
+  Sample elements      : Pb, Mo, O
+  Substrate elements   : C, O, Al
+  Method               : PB
+  Spectrum limits      : 14 - 1100 channels
+  Fit tolerance        : 1.00e-03
+  Instrument background: no
+  Project std dict     : no
+  Particle corrections : yes
+  Min total counts     : 90% of target
+  Beam energy (keV)    : 15.0000
+  Emergence angle (deg): 28.5000
+  Detector offset      : -0.034245
+  Detector width       : 0.009972
+  Reference lines      : Mo_La1, O_Ka1, Pb_La1
+
+============================================================
+CLUSTERING CONFIGURATIONS
+============================================================
+  Clustering ID        : 0
+  Method               : kmeans
+  Features             : at_fr
+  k finding method     : silhouette
+  Max k                : 6
+  Max analytical error : 5.0 w%
+  Min background counts: 5.0
+  Accepted quant flags : [0, -1]
+  Matrix decomposition : yes
+  Reference formulae   :
+    - PbMoO4

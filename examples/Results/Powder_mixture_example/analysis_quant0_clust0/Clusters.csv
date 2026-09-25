@@ -1,0 +1,22 @@
+Metric,Cluster_0
+n_points,64
+Mg_at%,20.92
+Al_at%,23.27
+O_at%,55.81
+Mg_std_at%,14.17
+Al_std_at%,11.6
+O_std_at%,2.94
+Mg_w%,24.79
+Al_w%,30.77
+O_w%,43.67
+Mg_std_w%,16.8
+Al_std_w%,15.53
+O_std_w%,2.7
+RMS_dist_at%,18.4
+RMS_dist_w%,22.86
+wcss_at%,21669.98
+Mix1,"Al2O3, MgO"
+CS_mix1,0.97
+Mol_Ratio1,0.76
+X1_mean1,0.43
+X1_stdev1,0.3

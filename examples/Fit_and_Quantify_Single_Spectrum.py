@@ -6,9 +6,8 @@ Fitting and quantification of a single X-ray spectrum from the ledger.
 Example: Fit and quantify spectrum #1 from the Wulfenite sample.
 
 This example demonstrates the ledger-native single-spectrum runner,
-which loads spectra and configurations from the ledger.json (or migrates
-from legacy Data.csv if no ledger exists yet), then quantifies a
-single requested spectrum.
+which loads spectra and configurations from the sample's ledger.json
+and spectra/ folder, then quantifies a single requested spectrum.
 
 Created on April 24, 2026
 

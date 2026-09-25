@@ -90,8 +90,3 @@ tests/outputs/
 tests/inputs/**/analysis*/
 tests/inputs/**/Analysis*/
 autoemxsp.egg-info/
-# Generated outputs under bundled example samples (legacy fixtures stay tracked)
-examples/Results/**/ledger.json
-examples/Results/**/spectra/
-examples/Results/**/Analysis*/
-examples/Results/**/analysis*/
