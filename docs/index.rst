@@ -133,17 +133,17 @@ Requirements
 Scope of the Documentation
 --------------------------
 
-This documentation is intended for **both standard and advanced users** of the
+This documentation is intended for **both users and maintainers** of the
 AutoEMX package.
 
-- **Standard users**
+- **Users**
 
   You run predefined scripts without any prior knowledge of the internal code
   structure. The documentation provides **step-by-step instructions** to help
   you get started quickly.
 
 
-- **Advanced users**
+- **Maintainers**
 
   You interact with AutoEMX beyond simple script execution (workflows setup,
   EDS detector calibration, etc...).
@@ -160,6 +160,6 @@ AutoEMX package.
    
 .. toctree::
    :maxdepth: 2
-   :caption: Advanced User Documentation:
+   :caption: Maintainer Documentation:
 
    advanced_user/index

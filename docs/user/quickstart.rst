@@ -11,7 +11,7 @@ This guide introduces how to use ``AutoEMX`` for typical workflows:
 
 .. warning::
 
-   If this is the first time `AutoEMX` is run on your microscope, note that there are a few steps required to set it up before `AutoEMX` can be properly run. Refer to :ref:`Advanced User <advanced_user_index>` docs.
+   If this is the first time `AutoEMX` is run on your microscope, note that there are a few steps required to set it up before `AutoEMX` can be properly run. Refer to :ref:`Maintainer <advanced_user_index>` docs.
 
 .. warning::
 

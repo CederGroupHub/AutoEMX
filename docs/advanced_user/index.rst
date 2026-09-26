@@ -1,10 +1,12 @@
 .. _advanced_user_index:
 
-Advanced User Documentation
-===========================
+Maintainer Documentation
+========================
 
-Welcome to the AutoEMX user documentation.  
-Here you will find installation instructions, a quickstart guide, and the public API.
+Welcome to the AutoEMX maintainer documentation.
+Here you will find how to set up AutoEMX on a new microscope (detector
+calibration, experimental standards, detector and microscope drivers) and the
+advanced API.
 
 .. toctree::
    :maxdepth: 3

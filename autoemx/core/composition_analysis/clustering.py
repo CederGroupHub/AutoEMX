@@ -470,7 +470,8 @@ class ClusteringModule:
     @staticmethod
     def _is_single_cluster(
         compositions_df: 'pd.DataFrame',
-        verbose: bool = False
+        verbose: bool = False,
+        rms_threshold: float = 0.03
     ) -> bool:
         """
         Determine if the data effectively forms a single cluster using k-means and silhouette analysis.
@@ -487,6 +488,8 @@ class ClusteringModule:
             DataFrame of samples (rows) and features (columns) to analyze.
         verbose : bool, optional
             If True, print detailed output of the clustering metrics.
+        rms_threshold : float, optional
+            RMS distance to the k=1 centroid below which the data is a single cluster (default 0.03).
     
         Returns
         -------
@@ -534,9 +537,9 @@ class ClusteringModule:
             logger.info(f"📊 Silhouette Score for k=2: {best_silhouette_score_2:.2f}")
     
         # Empirical decision logic
-        if rms_distance_1 < 0.03:
+        if rms_distance_1 < rms_threshold:
             is_single_cluster = True
-            reason_str = 'd_rms < 3%'
+            reason_str = f'd_rms < {rms_threshold * 100:g}%'
         elif best_silhouette_score_2 < 0.5:
             is_single_cluster = True
             reason_str = 's < 0.5'

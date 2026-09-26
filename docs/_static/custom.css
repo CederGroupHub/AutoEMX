@@ -1,0 +1,4 @@
+/* Keep the User Documentation section (first sidebar caption) always expanded */
+.wy-menu-vertical p.caption:first-of-type + ul > li.toctree-l1 > ul {
+    display: block;
+}
