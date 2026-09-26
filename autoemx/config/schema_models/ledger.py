@@ -283,7 +283,9 @@ class SampleLedger(BaseModel):
         path = Path(file_path)
         payload = self.to_dict(config_key_style=config_key_style, include_configs=include_configs)
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_path = path.with_suffix(path.suffix + ".tmp")
+        # Per-process temporary file, so concurrent writers never share it. Atomic replace avoids
+        # partial reads if another process opens the ledger mid-write.
+        tmp_path = path.with_name(f"{path.name}.{os.getpid()}.tmp")
         try:
             with tmp_path.open("w", encoding="utf-8") as f:
                 json.dump(payload, f, indent=indent, allow_nan=False)

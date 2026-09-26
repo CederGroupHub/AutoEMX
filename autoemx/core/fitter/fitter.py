@@ -350,7 +350,8 @@ class XSp_Fitter:
                         el_lines_weight_refs_dict[pileup_peak_str] = el_ref_line
     
         ref_lines = [el_line for el_line in el_lines_list if any(ref in el_line for ref in self.xray_quant_ref_lines)]
-        other_lines = list(set(el_lines_list) - set(ref_lines))
+        # Order-preserving (a set would make the line order depend on Python's hash seed)
+        other_lines = [el_line for el_line in dict.fromkeys(el_lines_list) if el_line not in ref_lines]
     
         self.el_lines_list = ref_lines + other_lines
         self.el_lines_weight_refs_dict = el_lines_weight_refs_dict
@@ -400,7 +401,7 @@ class XSp_Fitter:
             trace_els = [el for el in elements if el not in self.els_w_fr]
             
             if len(trace_els) > 0:
-                elements = list(set(trace_els) | set(self.els_w_fr))
+                elements = list(dict.fromkeys([*trace_els, *self.els_w_fr]))  # Order-preserving union
             else:
                 elements = list(self.els_w_fr)
     

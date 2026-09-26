@@ -290,6 +290,8 @@ class Background_Model:
             Background_Model.prev_x = x
             Background_Model.prev_rhoz_limit = rhoz_lim
             Background_Model.prev_w_frs = w_frs
+            Background_Model.prev_rhoz_par_offset = rhoz_par_offset
+            Background_Model.prev_rhoz_par_slope = rhoz_par_slope
             Background_Model.rhoz_values = np.linspace(0, rhoz_lim, 10**3)
             recalc_den = True
             recalc_num = True

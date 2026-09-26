@@ -153,7 +153,7 @@ class Peaks_Model:
         if xray_weight_refs_dict is None:
             xray_weight_refs_dict = {}
         self.xray_weight_refs_dict = xray_weight_refs_dict
-        self.xray_weight_refs_lines = list(set(self.xray_weight_refs_dict.values()))
+        self.xray_weight_refs_lines = list(dict.fromkeys(self.xray_weight_refs_dict.values()))
 
         # Elements/lines whose area is fitted freely (for weight calibration)
         if free_area_el_lines is None:
@@ -687,13 +687,14 @@ class Peaks_Model:
                 peak_prefix = pname[:-(len(self.center_key) + 1)]
                 free_peaks[peak_prefix] = params[pname].value
     
-        peaks_to_fix = set()
+        # List rather than set: the order in which pairs are fixed determines which peak is the reference
+        peaks_to_fix = []
         for peak1, peak2 in combinations(free_peaks, 2):
             center1 = free_peaks[peak1]
             center2 = free_peaks[peak2]
             sigma1 = DetectorResponseFunction._det_sigma(center1)
             if abs(center1 - center2) < sigma1 * 3:
-                peaks_to_fix.add((peak1, peak2))
+                peaks_to_fix.append((peak1, peak2))
     
         if not hasattr(self, 'fixed_peaks_dict'):
             self.fixed_peaks_dict = {}
