@@ -14,9 +14,16 @@ from autoemx.core.composition_analysis.clustering import ClusteringModule
 # --- Config model -----------------------------------------------------------
 def test_dbscan_params_defaults():
     params = DBSCANParams()
-    assert params.eps > 0
+    assert params.eps is None
+    assert params.resolved_eps("euclidean") == 0.05
+    assert params.resolved_eps("aitchison") == 0.3
     assert params.min_samples >= 1
     assert params.metric == "euclidean"
+
+
+def test_dbscan_explicit_eps_is_used_in_any_geometry():
+    params = DBSCANParams(eps=0.1)
+    assert params.resolved_eps("euclidean") == params.resolved_eps("aitchison") == 0.1
 
 
 @pytest.mark.parametrize("bad_eps", [0, -0.1, float("nan"), float("inf")])

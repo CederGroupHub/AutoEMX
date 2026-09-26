@@ -133,6 +133,8 @@ def load_legacy_configurations_from_json(
                 for key, value in normalized_payload.items()
                 if key in allowed_fields
             }
+            # Legacy data was clustered in Euclidean geometry
+            normalized_payload.setdefault("geometry", ClusteringConfig.LEGACY_GEOMETRY)
 
             try:
                 configs[cnst.CLUSTERING_CFG_KEY] = ClusteringConfig.model_validate(normalized_payload)

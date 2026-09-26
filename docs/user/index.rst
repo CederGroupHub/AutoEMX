@@ -10,4 +10,5 @@ Here you will find installation instructions, a quickstart guide, and the releva
    installation
    quickstart
    tutorials
+   topic_guides/index
    api

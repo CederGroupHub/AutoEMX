@@ -155,7 +155,7 @@ def _periodic_table_figure(quantifiable: frozenset) -> plt.Figure:
 
 def _render_quantifiable_elements_section() -> None:
     """Render an expandable periodic table showing which elements can be quantified."""
-    with st.expander("Supported elements for quantification", expanded=True):
+    with st.expander("Elements supported for quantification", expanded=True):
         st.caption(
             f"Elements highlighted in blue have peak-to-background standards available "
             f"at {QUANT_BEAM_KV:.0f} kV and can be quantified. "

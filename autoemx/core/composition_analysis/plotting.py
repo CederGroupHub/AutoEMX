@@ -145,14 +145,17 @@ class PlottingModule:
         centroids: 'np.ndarray',
         labels: 'np.ndarray',
         els_std_dev_per_cluster: list,
-        unused_compositions_list: list
+        unused_compositions_list: list,
+        silhouette_df: 'Optional[pd.DataFrame]' = None
     ) -> None:
         # Silhouette plot (only if more than one cluster). The Yellowbrick
         # visualizer requires a fitted KMeans model, so it is skipped for methods
-        # (e.g. DBSCAN) that do not provide one.
+        # (e.g. DBSCAN) that do not provide one. It refits the model, so it must use
+        # the features clustering operated on (silhouette_df, e.g. CLR coordinates).
         if kmeans is not None and len(centroids) > 1:
             PlottingModule._save_silhouette_plot(
-                kmeans, compositions_df, self.analysis_dir, show_plot=self.plot_cfg.show_plots
+                kmeans, compositions_df if silhouette_df is None else silhouette_df,
+                self.analysis_dir, show_plot=self.plot_cfg.show_plots
             )
 
         can_plot_clustering = True

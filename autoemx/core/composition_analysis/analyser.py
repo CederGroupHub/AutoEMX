@@ -2835,6 +2835,8 @@ class EMXSp_Composition_Analyzer:
             min_bckgrnd_cnts=self.clustering_cfg.min_bckgrnd_cnts,
             quant_flags_accepted=list(self.clustering_cfg.quant_flags_accepted),
             dbscan=self.clustering_cfg.dbscan.model_copy(deep=True),
+            geometry=self.clustering_cfg.geometry,
+            aitchison=self.clustering_cfg.aitchison.model_copy(deep=True),
         )
 
 
@@ -4062,6 +4064,14 @@ class EMXSp_Composition_Analyzer:
 
         # 3. Prepare DataFrames for clustering
         compositions_df, compositions_df_other_fr = ClusteringModule._prepare_composition_dataframes(self, compositions_list_at, compositions_list_w)
+        # Features clustering operates on (CLR coordinates in Aitchison geometry). Centroids and
+        # cluster statistics are always reported in fraction space (compositions_df).
+        # With geometry='auto', the geometry is selected here from the measured compositions.
+        self.resolved_clustering_geometry = ClusteringModule._resolve_geometry(self, compositions_df)
+        clustering_df = ClusteringModule._get_clustering_features(
+            self, compositions_df, self.resolved_clustering_geometry
+        )
+        is_aitchison = self.resolved_clustering_geometry == 'aitchison'
 
         # 4. Perform clustering
         if k is None:
@@ -4073,22 +4083,31 @@ class EMXSp_Composition_Analyzer:
                 # Recompute k for non-forced methods on each analysis run.
                 k = None
         if self.clustering_cfg.method == 'kmeans':
-            k = ClusteringModule._find_optimal_k(self, compositions_df, k, compute_k_only_once)
+            k = ClusteringModule._find_optimal_k(self, compositions_df, k, compute_k_only_once, clustering_df=clustering_df)
             self._persist_resolved_k_on_active_clustering_config(k)
-            kmeans, labels, sil_score = ClusteringModule._run_kmeans_clustering(self, k, compositions_df)
-            centroids = kmeans.cluster_centers_
-            wcss = kmeans.inertia_
+            kmeans, labels, sil_score = ClusteringModule._run_kmeans_clustering(self, k, clustering_df)
+            if is_aitchison:
+                # k-means centers live in CLR space; report arithmetic means in fraction space.
+                centroids, wcss = ClusteringModule._centroids_and_wcss_from_labels(
+                    compositions_df.to_numpy(), labels, k
+                )
+            else:
+                centroids = kmeans.cluster_centers_
+                wcss = kmeans.inertia_
         elif self.clustering_cfg.method == 'dbscan':
             # DBSCAN determines the number of clusters from data density; k_forced/k_finding
             # settings are ignored. No KMeans model exists, so plotting must handle kmeans=None.
             kmeans = None
-            labels, centroids, k, sil_score, wcss = ClusteringModule._run_dbscan_clustering(self, compositions_df)
+            labels, centroids, k, sil_score, wcss = ClusteringModule._run_dbscan_clustering(
+                self, compositions_df, clustering_df=clustering_df, geometry=self.resolved_clustering_geometry
+            )
             self._persist_resolved_k_on_active_clustering_config(k)
             if k < 1:
                 print_single_separator()
                 logger.warning(
-                    "⚠️ DBSCAN found no clusters (all points classified as noise). "
-                    "Try increasing 'eps' or lowering 'min_samples'."
+                    "⚠️ DBSCAN found no clusters (all points classified as noise) with "
+                    f"eps={self.clustering_cfg.dbscan.resolved_eps(self.resolved_clustering_geometry):g} "
+                    f"({self.resolved_clustering_geometry} geometry). Try increasing 'eps' or lowering 'min_samples'."
                 )
                 self._save_analysis_summary(None, None)
                 return False, 0, 0  # zeroes are placeholders
@@ -4143,7 +4162,10 @@ class EMXSp_Composition_Analyzer:
     
         # 9. Save plots
         if self.plot_cfg.save_plots:
-            PlottingModule._save_plots(self, kmeans, compositions_df, centroids, labels, els_std_dev_per_cluster, unused_compositions_list)
+            PlottingModule._save_plots(
+                self, kmeans, compositions_df, centroids, labels, els_std_dev_per_cluster, unused_compositions_list,
+                silhouette_df=clustering_df,
+            )
     
         return True, max_cl_rmsdist, min_conf
     
@@ -5034,6 +5056,11 @@ class EMXSp_Composition_Analyzer:
         print_single_separator()
         try:
             logger.info('  Clustering method: %s', self.clustering_cfg.method)
+            geometry = self.clustering_cfg.geometry
+            resolved = getattr(self, 'resolved_clustering_geometry', None)
+            if geometry == 'auto' and resolved is not None:
+                geometry = f'auto -> {resolved}'
+            logger.info('  Clustering geometry: %s', geometry)
             logger.info('  Clustering features: %s', self.clustering_cfg.features)
             logger.info('  k finding method: %s', self.clustering_cfg.k_finding_method)
             logger.info('  Number of clusters: %d', self.clustering_info[cnst.N_CLUST_KEY])

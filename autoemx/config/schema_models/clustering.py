@@ -64,9 +64,15 @@ class DBSCANParams(BaseModel):
     Only relevant when :attr:`ClusteringConfig.method` is ``"dbscan"``. Grouped in
     a dedicated sub-model so method-specific knobs do not pollute the top-level
     clustering config and remain individually typed and validated.
+
+    ``eps`` is a distance in the clustering geometry, whose scale differs by roughly an
+    order of magnitude between fractions (Euclidean) and CLR coordinates (Aitchison).
+    When left as ``None``, the geometry-specific default in ``DEFAULT_EPS`` is used.
     """
 
-    eps: float = 0.05
+    DEFAULT_EPS: ClassVar[Dict[str, float]] = {"euclidean": 0.05, "aitchison": 0.3}
+
+    eps: Optional[float] = None
     min_samples: int = 3
     metric: str = "euclidean"
 
@@ -74,10 +80,16 @@ class DBSCANParams(BaseModel):
 
     @field_validator("eps")
     @classmethod
-    def validate_eps(cls, value: float) -> float:
+    def validate_eps(cls, value: Optional[float]) -> Optional[float]:
+        if value is None:
+            return None
         if not np.isfinite(value) or value <= 0:
             raise ValueError("DBSCAN eps must be a positive, finite number")
         return float(value)
+
+    def resolved_eps(self, geometry: str) -> float:
+        """Return ``eps`` if set, otherwise the default for ``geometry`` ("euclidean" or "aitchison")."""
+        return self.eps if self.eps is not None else self.DEFAULT_EPS[geometry]
 
     @field_validator("min_samples")
     @classmethod
@@ -95,13 +107,74 @@ class DBSCANParams(BaseModel):
         return normalized
 
 
+class AitchisonParams(BaseModel):
+    """Parameters for clustering in Aitchison geometry.
+
+    Only relevant when :attr:`ClusteringConfig.geometry` is ``"aitchison"`` or ``"auto"``.
+    Before the CLR transform, compositions are closed and low values are replaced
+    multiplicatively (Martín-Fernández et al., 2003) with 0.65 x ``detection_limit_percent``:
+
+    - exact zeros of every element (a measured zero means "below detection");
+    - all values below the detection limit of *trace* elements, i.e. elements whose
+      median fraction across the clustered compositions is below 2 x the detection limit.
+
+    Measured sub-detection-limit values of major elements are kept. This prevents noisy
+    trace elements from dominating log-ratio distances without collapsing real low
+    concentrations of major elements.
+
+    With ``geometry="auto"``, Euclidean geometry is used instead of Aitchison when either
+    condition below holds on the clustered compositions, since log-ratios then tend to
+    amplify noise or over-split:
+
+    - at most two elements are present (log-ratio space is one-dimensional);
+    - in at least ``auto_max_near_zero_fraction`` of the spectra, some major element
+      (median >= 2 x the detection limit) is below ``auto_near_zero_percent``, e.g. phases
+      with largely disjoint elements, or mixture lines reaching an end-member.
+    """
+
+    detection_limit_percent: float = 0.5
+    auto_near_zero_percent: float = 1.0
+    auto_max_near_zero_fraction: float = 0.10
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("detection_limit_percent")
+    @classmethod
+    def validate_detection_limit_percent(cls, value: float) -> float:
+        if not np.isfinite(value) or value <= 0 or value >= 100:
+            raise ValueError("Aitchison detection_limit_percent must be a finite number in (0, 100)")
+        return float(value)
+
+    @field_validator("auto_near_zero_percent")
+    @classmethod
+    def validate_auto_near_zero_percent(cls, value: float) -> float:
+        if not np.isfinite(value) or value <= 0 or value >= 100:
+            raise ValueError("Aitchison auto_near_zero_percent must be a finite number in (0, 100)")
+        return float(value)
+
+    @field_validator("auto_max_near_zero_fraction")
+    @classmethod
+    def validate_auto_max_near_zero_fraction(cls, value: float) -> float:
+        if not np.isfinite(value) or value <= 0 or value > 1:
+            raise ValueError("Aitchison auto_max_near_zero_fraction must be a finite number in (0, 1]")
+        return float(value)
+
+
 class ClusteringConfig(BaseModel):
     """Configuration for clustering of compositions and their filtering."""
 
     ALLOWED_METHODS: ClassVar[Tuple[str, ...]] = ("kmeans", "dbscan")
+    ALLOWED_GEOMETRIES: ClassVar[Tuple[str, ...]] = ("euclidean", "aitchison", "auto")
+    LEGACY_GEOMETRY: ClassVar[str] = "euclidean"
 
     clustering_id: int = 0
     method: str = "kmeans"
+    # Geometry in which clustering distances are computed. "aitchison" clusters
+    # CLR-transformed compositions; reported centroids/statistics stay in fraction space.
+    # "auto" picks euclidean or aitchison from the measured compositions (see AitchisonParams).
+    # New configs default to "auto"; configs saved before this field existed and configs
+    # created from legacy data are "euclidean" (LEGACY_GEOMETRY), preserving their results.
+    geometry: str = "auto"
     features: str = "at_fr"
     k_forced: Optional[int] = None
     k_resolved: Optional[int] = None
@@ -119,6 +192,7 @@ class ClusteringConfig(BaseModel):
         ),
     )
     dbscan: DBSCANParams = Field(default_factory=DBSCANParams)
+    aitchison: AitchisonParams = Field(default_factory=AitchisonParams)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -151,6 +225,16 @@ class ClusteringConfig(BaseModel):
         if normalized not in cls.ALLOWED_METHODS:
             raise ValueError(
                 f"Clustering method must be one of {cls.ALLOWED_METHODS}, got '{value}'."
+            )
+        return normalized
+
+    @field_validator("geometry")
+    @classmethod
+    def validate_geometry(cls, value: str) -> str:
+        normalized = str(value).strip().lower()
+        if normalized not in cls.ALLOWED_GEOMETRIES:
+            raise ValueError(
+                f"Clustering geometry must be one of {cls.ALLOWED_GEOMETRIES}, got '{value}'."
             )
         return normalized
 
@@ -234,6 +318,9 @@ class ClusteringConfig(BaseModel):
         # actually in use, so existing k-means configs keep their current hash.
         if self.method == "dbscan":
             payload["dbscan"] = self.dbscan.model_dump()
+        if self.geometry != "euclidean":
+            payload["geometry"] = self.geometry
+            payload["aitchison"] = self.aitchison.model_dump()
         return payload
 
     def fingerprint(self) -> str:
@@ -282,3 +369,11 @@ class ClusteringAnalysis(BaseModel):
     result: Optional[ClusteringResult] = None
 
     model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="before")
+    @classmethod
+    def backfill_legacy_geometry(cls, data: Any) -> Any:
+        """Configs saved before ``geometry`` existed were clustered in Euclidean geometry."""
+        if isinstance(data, dict) and isinstance(data.get("config"), dict) and "geometry" not in data["config"]:
+            data = {**data, "config": {**data["config"], "geometry": ClusteringConfig.LEGACY_GEOMETRY}}
+        return data

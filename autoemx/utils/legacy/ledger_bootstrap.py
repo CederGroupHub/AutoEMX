@@ -216,6 +216,8 @@ def _load_legacy_clustering_cfg(sample_result_dir: str) -> Optional[ClusteringCo
                 for key, value in normalized_payload.items()
                 if key in allowed_fields
             }
+            # Legacy data was clustered in Euclidean geometry
+            normalized_payload.setdefault("geometry", ClusteringConfig.LEGACY_GEOMETRY)
 
             return ClusteringConfig.model_validate(normalized_payload)
         except Exception:
@@ -532,7 +534,9 @@ def build_legacy_import_quantification_config(
     if quant_cfg is None:
         quant_cfg = _load_legacy_quant_cfg(sample_result_dir)
 
-    legacy_clustering_cfg = _load_legacy_clustering_cfg(sample_result_dir) or ClusteringConfig()
+    legacy_clustering_cfg = _load_legacy_clustering_cfg(sample_result_dir) or ClusteringConfig(
+        geometry=ClusteringConfig.LEGACY_GEOMETRY
+    )
 
     method = str(getattr(quant_cfg, "method", "PB") or "PB").strip() or "PB"
     fit_tolerance = float(getattr(quant_cfg, "fit_tolerance", 1e-4) or 1e-4)
@@ -649,6 +653,8 @@ def build_legacy_import_quantification_config(
                 config=ClusteringConfig(
                     clustering_id=0,
                     method=str(getattr(legacy_clustering_cfg, "method", "kmeans")),
+                    # Legacy data was clustered in Euclidean geometry
+                    geometry=ClusteringConfig.LEGACY_GEOMETRY,
                     features=str(getattr(legacy_clustering_cfg, "features", "")),
                     k_forced=getattr(
                         legacy_clustering_cfg,

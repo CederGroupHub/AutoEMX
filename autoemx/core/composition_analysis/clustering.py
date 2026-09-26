@@ -21,15 +21,213 @@ logger = get_logger(__name__)
 
 
 class ClusteringModule:
-    def _find_optimal_k(self, compositions_df, k, compute_k_only_once = False):
+    #%% Aitchison geometry
+    # =============================================================================
+    # A part is treated as a trace element if its median fraction is below this multiple of the detection limit
+    TRACE_MEDIAN_FACTOR = 2
+
+    @staticmethod
+    def _multiplicative_replacement(X: 'np.ndarray', detection_limit: float) -> 'np.ndarray':
+        """
+        Close compositions and replace zero / below-detection-limit parts multiplicatively
+        (Martín-Fernández et al., 2003).
+
+        Each row is closed to 1, then parts are set to ``0.65 * detection_limit`` when they are:
+
+        - exactly zero (for any element: a measured zero means "below detection"), or
+        - below ``detection_limit`` for trace elements, i.e. columns whose median fraction is
+          below ``TRACE_MEDIAN_FACTOR * detection_limit``. Near-zero values of trace elements are
+          dominated by noise and would otherwise produce large spurious log-ratio distances.
+
+        Measured sub-detection-limit values of major elements are kept, so real low concentrations
+        (e.g. the Sn-poor end of a CaO-SnO2 mixture line) are not collapsed onto a single value.
+        The remaining parts are rescaled so the row stays closed and their mutual ratios are preserved.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Non-negative compositions, shape ``(n_samples, n_parts)``.
+        detection_limit : float
+            Detection limit as a fraction (e.g. 0.005 for 0.5%).
+
+        Returns
+        -------
+        np.ndarray
+            Closed compositions with strictly positive parts.
+        """
+        X = np.clip(np.asarray(X, dtype=float), 0, None)
+        row_sums = X.sum(axis=1, keepdims=True)
+        if np.any(row_sums <= 0):
+            raise ValueError("Cannot apply Aitchison geometry to compositions with all-zero parts.")
+        X = X / row_sums
+        is_trace = np.median(X, axis=0) < ClusteringModule.TRACE_MEDIAN_FACTOR * detection_limit
+        replace_mask = (X <= 0) | (is_trace & (X < detection_limit))
+        replacement = 0.65 * detection_limit
+        replaced_total = replace_mask.sum(axis=1, keepdims=True) * replacement
+        kept_total = np.where(replace_mask, 0.0, X).sum(axis=1, keepdims=True)
+        if np.any(replaced_total >= 1) or np.any(kept_total <= 0):
+            raise ValueError(
+                "Replacement value is too large: every part of a composition would be replaced. "
+                "Lower the Aitchison detection_limit_percent."
+            )
+        return np.where(replace_mask, replacement, X * (1 - replaced_total) / kept_total)
+
+
+    @staticmethod
+    def _clr_transform(compositions_df: 'pd.DataFrame', detection_limit: float) -> 'pd.DataFrame':
+        """
+        Centered log-ratio (CLR) transform of compositions, after zero / detection-limit replacement.
+
+        Euclidean distances between CLR vectors equal Aitchison distances between compositions.
+        Parts that are zero in every composition (e.g. undetectable elements such as Li) are
+        dropped first: after zero replacement they would become a constant part that biases
+        the log-ratio distances without carrying information.
+
+        Parameters
+        ----------
+        compositions_df : pd.DataFrame
+            Compositions (rows) with element fractions (columns).
+        detection_limit : float
+            Detection limit as a fraction, see ``_multiplicative_replacement``.
+
+        Returns
+        -------
+        pd.DataFrame
+            CLR coordinates with the same index, and the columns that are non-zero in at least one row.
+        """
+        compositions_df = compositions_df.loc[:, (compositions_df > 0).any(axis=0)]
+        X = ClusteringModule._multiplicative_replacement(compositions_df.to_numpy(), detection_limit)
+        log_X = np.log(X)
+        clr = log_X - log_X.mean(axis=1, keepdims=True)
+        return pd.DataFrame(clr, index=compositions_df.index, columns=compositions_df.columns)
+
+
+    @staticmethod
+    def _auto_geometry_indicators(
+        compositions_df: 'pd.DataFrame',
+        detection_limit_percent: float,
+        near_zero_percent: float
+    ) -> Tuple[int, float]:
+        """
+        Compute the indicators used by ``geometry="auto"``.
+
+        Returns
+        -------
+        n_elements : int
+            Number of elements that are non-zero in at least one composition.
+        near_zero_fraction : float
+            Fraction of compositions in which at least one major element (median at least
+            ``TRACE_MEDIAN_FACTOR`` x the detection limit) is below ``near_zero_percent``.
+        """
+        present = compositions_df.loc[:, (compositions_df > 0).any(axis=0)]
+        X = present.to_numpy(dtype=float)
+        X = 100 * X / X.sum(axis=1, keepdims=True)
+        is_major = np.median(X, axis=0) >= ClusteringModule.TRACE_MEDIAN_FACTOR * detection_limit_percent
+        if not np.any(is_major):
+            return present.shape[1], 0.0
+        near_zero_fraction = float(np.mean((X[:, is_major] < near_zero_percent).any(axis=1)))
+        return present.shape[1], near_zero_fraction
+
+
+    def _resolve_geometry(self, compositions_df: 'pd.DataFrame') -> str:
+        """
+        Return the geometry clustering is performed in: ``"euclidean"`` or ``"aitchison"``.
+
+        For ``geometry="auto"``, Euclidean is chosen when at most two elements are present, or when
+        a major element is near zero in at least ``auto_max_near_zero_fraction`` of the compositions
+        (log-ratios would amplify noise or over-split); Aitchison otherwise. See ``AitchisonParams``.
+        """
+        geometry = self.clustering_cfg.geometry
+        if geometry != 'auto':
+            return geometry
+
+        cfg = self.clustering_cfg.aitchison
+        n_elements, near_zero_fraction = ClusteringModule._auto_geometry_indicators(
+            compositions_df, cfg.detection_limit_percent, cfg.auto_near_zero_percent
+        )
+        if n_elements <= 2:
+            resolved, reason = 'euclidean', f"only {n_elements} elements present"
+        elif near_zero_fraction >= cfg.auto_max_near_zero_fraction:
+            resolved, reason = 'euclidean', (
+                f"a major element is < {cfg.auto_near_zero_percent:g}% in {near_zero_fraction:.0%} of spectra "
+                f"(threshold {cfg.auto_max_near_zero_fraction:.0%})"
+            )
+        else:
+            resolved, reason = 'aitchison', (
+                f"{n_elements} elements, major elements near zero in {near_zero_fraction:.0%} of spectra "
+                f"(threshold {cfg.auto_max_near_zero_fraction:.0%})"
+            )
+        if self.verbose:
+            print_single_separator()
+            logger.info(f"ℹ️ Automatic geometry selection: {resolved} ({reason}).")
+        if self.clustering_cfg.method == 'dbscan' and self.clustering_cfg.dbscan.eps is not None:
+            logger.warning(
+                f"⚠️ geometry='auto' with DBSCAN and an explicit eps={self.clustering_cfg.dbscan.eps:g}: eps is "
+                f"interpreted in the selected geometry ({resolved}). Leave eps unset to use the "
+                "geometry-specific default."
+            )
+        return resolved
+
+
+    def _get_clustering_features(self, compositions_df: 'pd.DataFrame', geometry: str = None) -> 'pd.DataFrame':
+        """
+        Return the feature matrix clustering is performed on.
+
+        Euclidean geometry uses the fractions directly; Aitchison geometry uses their CLR transform.
+        ``geometry`` defaults to the one resolved from ``clustering_cfg.geometry``.
+        """
+        if geometry is None:
+            geometry = ClusteringModule._resolve_geometry(self, compositions_df)
+        if geometry == 'aitchison':
+            if self.verbose:
+                print_single_separator()
+                logger.info("ℹ️ Clustering in Aitchison geometry (CLR-transformed compositions).")
+            return ClusteringModule._clr_transform(
+                compositions_df, self.clustering_cfg.aitchison.detection_limit_percent / 100
+            )
+        return compositions_df
+
+
+    @staticmethod
+    def _centroids_and_wcss_from_labels(
+        X: 'np.ndarray',
+        labels: 'np.ndarray',
+        k: int
+    ) -> Tuple['np.ndarray', float]:
+        """
+        Compute arithmetic-mean centroids and within-cluster sum of squares from cluster labels.
+
+        Points labeled ``-1`` (noise) are ignored.
+        """
+        if k > 0:
+            centroids = np.array([X[labels == i].mean(axis=0) for i in range(k)])
+        else:
+            centroids = np.empty((0, X.shape[1]))
+
+        wcss = 0.0
+        for i in range(k):
+            cluster_points = X[labels == i]
+            wcss += float(np.sum((cluster_points - centroids[i]) ** 2))
+        return centroids, wcss
+
+
+    #%% Number of clusters
+    # =============================================================================
+    def _find_optimal_k(self, compositions_df, k, compute_k_only_once = False, clustering_df = None):
         """
         Determine the optimal number of clusters for k-means.
-    
+
+        The single-cluster check always runs on ``compositions_df`` (fraction space), since
+        its thresholds are calibrated there. The k search runs on ``clustering_df``
+        (e.g. CLR coordinates in Aitchison geometry), defaulting to ``compositions_df``.
+
         Returns
         -------
         k : int
             Optimal number of clusters.
         """
+        if clustering_df is None:
+            clustering_df = compositions_df
         if not k:
             # Check if there is only one single cluster, or no clusters
             is_single_cluster = ClusteringModule._is_single_cluster(compositions_df, verbose=self.verbose)
@@ -39,13 +237,13 @@ class ClusteringModule:
                 # Get number of clusters (k) and optionally save the plot
                 results_dir = self.analysis_dir if self.plot_cfg.save_plots else None
                 k = ClusteringModule._get_k(
-                    compositions_df, self.clustering_cfg.max_k, self.clustering_cfg.k_finding_method,
+                    clustering_df, self.clustering_cfg.max_k, self.clustering_cfg.k_finding_method,
                     show_plot=self.plot_cfg.show_plots, results_dir=results_dir
                 )
             else:
                 # Calculate most frequent number of clusters (k) with elbow method. Does not save the plot
                 k = ClusteringModule._get_most_freq_k(
-                    compositions_df, self.clustering_cfg.max_k, self.clustering_cfg.k_finding_method,
+                    clustering_df, self.clustering_cfg.max_k, self.clustering_cfg.k_finding_method,
                     verbose=self.verbose
                 )
         elif self.verbose:
@@ -467,7 +665,8 @@ class ClusteringModule:
     
     def _get_clustering_dbscan(
         self,
-        compositions_df: 'pd.DataFrame'
+        compositions_df: 'pd.DataFrame',
+        geometry: str = 'euclidean'
     ) -> Tuple['np.ndarray', int]:
         """
         Perform DBSCAN clustering on the given compositions.
@@ -476,6 +675,9 @@ class ClusteringModule:
         ----------
         compositions_df : pd.DataFrame
             DataFrame of samples (rows) and features (columns) to cluster.
+        geometry : str, optional
+            Geometry of ``compositions_df`` ("euclidean" or "aitchison"), used to pick the
+            default ``eps`` when none is set.
 
         Returns
         -------
@@ -491,13 +693,14 @@ class ClusteringModule:
 
         Notes
         -----
-        - eps, min_samples and metric are read from ``self.clustering_cfg.dbscan``.
+        - eps, min_samples and metric are read from ``self.clustering_cfg.dbscan``; an unset
+          eps falls back to the geometry-specific default (``DBSCANParams.DEFAULT_EPS``).
         - The number of clusters excludes noise points (label -1).
         """
         dbscan_cfg = self.clustering_cfg.dbscan
         try:
             dbscan = DBSCAN(
-                eps=dbscan_cfg.eps,
+                eps=dbscan_cfg.resolved_eps(geometry),
                 min_samples=dbscan_cfg.min_samples,
                 metric=dbscan_cfg.metric,
             )
@@ -539,7 +742,9 @@ class ClusteringModule:
 
     def _run_dbscan_clustering(
         self,
-        compositions_df: 'pd.DataFrame'
+        compositions_df: 'pd.DataFrame',
+        clustering_df: 'pd.DataFrame' = None,
+        geometry: str = None
     ) -> Tuple['np.ndarray', 'np.ndarray', int, float, float]:
         """
         Run DBSCAN clustering and derive k-means-compatible artifacts.
@@ -551,7 +756,14 @@ class ClusteringModule:
         Parameters
         ----------
         compositions_df : pd.DataFrame
-            DataFrame of samples (rows) and features (columns) to cluster.
+            DataFrame of compositions (rows) and element fractions (columns). Centroids
+            and WCSS are computed in this space.
+        clustering_df : pd.DataFrame, optional
+            Features DBSCAN and the silhouette score operate on (e.g. CLR coordinates in
+            Aitchison geometry). Defaults to ``compositions_df``.
+        geometry : str, optional
+            Geometry of ``clustering_df`` ("euclidean" or "aitchison"). Defaults to the configured
+            geometry when explicit, otherwise "euclidean".
 
         Returns
         -------
@@ -566,26 +778,23 @@ class ClusteringModule:
         wcss : float
             Within-cluster sum of squares (analogous to k-means inertia).
         """
-        labels_raw, _ = ClusteringModule._get_clustering_dbscan(self, compositions_df)
+        if clustering_df is None:
+            clustering_df = compositions_df
+        if geometry is None:
+            configured = getattr(self.clustering_cfg, 'geometry', 'euclidean')
+            geometry = configured if configured in ('euclidean', 'aitchison') else 'euclidean'
+        labels_raw, _ = ClusteringModule._get_clustering_dbscan(self, clustering_df, geometry)
         labels = ClusteringModule._normalize_dbscan_labels(labels_raw)
 
-        X = compositions_df.to_numpy()
         k = len({int(lbl) for lbl in labels if lbl != -1})
-
-        if k > 0:
-            centroids = np.array([X[labels == i].mean(axis=0) for i in range(k)])
-        else:
-            centroids = np.empty((0, X.shape[1]))
-
-        wcss = 0.0
-        for i in range(k):
-            cluster_points = X[labels == i]
-            wcss += float(np.sum((cluster_points - centroids[i]) ** 2))
+        centroids, wcss = ClusteringModule._centroids_and_wcss_from_labels(
+            compositions_df.to_numpy(), labels, k
+        )
 
         # Silhouette is only defined for 2+ clusters; restrict to non-noise points.
         non_noise_mask = labels != -1
         if k >= 2 and int(np.sum(non_noise_mask)) > k:
-            sil_score = float(silhouette_score(compositions_df[non_noise_mask], labels[non_noise_mask]))
+            sil_score = float(silhouette_score(clustering_df[non_noise_mask], labels[non_noise_mask]))
         else:
             sil_score = np.nan
 

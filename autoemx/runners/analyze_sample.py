@@ -44,7 +44,7 @@ from autoemx.utils.plotting_helpers import (
     refresh_custom_plot_template_file,
 )
 from autoemx.config import config_classes_dict, load_sample_ledger
-from autoemx.config.ledger_schemas import ClusteringConfig, DBSCANParams
+from autoemx.config.ledger_schemas import AitchisonParams, ClusteringConfig, DBSCANParams
 from autoemx.core.composition_analysis import EMXSp_Composition_Analyzer
 
 # Configure logging
@@ -100,6 +100,8 @@ def analyze_sample(
     clustering_features: Optional[str] = None,
     clustering_method: Optional[str] = None,
     dbscan_params: Optional[dict] = None,
+    clustering_geometry: Optional[str] = None,
+    aitchison_params: Optional[dict] = None,
     k_finding_method: Optional[str] = None,
     k_forced: Optional[Union[int, bool]] = None,
     do_matrix_decomposition: bool = True,
@@ -136,7 +138,22 @@ def analyze_sample(
     dbscan_params : dict, optional
         Overrides for DBSCAN parameters (only used when ``clustering_method="dbscan"``).
         Recognized keys: ``eps`` (float), ``min_samples`` (int), ``metric`` (str).
+        If ``eps`` is not set, it defaults to 0.05 in Euclidean and 0.3 in Aitchison geometry.
         Unspecified keys keep their existing/default values.
+    clustering_geometry : str, optional
+        Geometry in which clustering distances are computed. One of ``"euclidean"``,
+        ``"aitchison"`` (clusters CLR-transformed compositions; applies to both k-means and
+        DBSCAN, and DBSCAN ``eps`` is then in CLR units, default 0.3) or ``"auto"`` (Euclidean when at most
+        two elements are present or a major element is near zero in many spectra, Aitchison
+        otherwise; see ``AitchisonParams``). Reported centroids and cluster statistics remain
+        in fraction space. If None, the saved value is kept.
+    aitchison_params : dict, optional
+        Overrides for Aitchison parameters (used when ``clustering_geometry`` is ``"aitchison"`` or ``"auto"``).
+        Recognized keys: ``detection_limit_percent`` (float > 0, default 0.5). Before the log-ratio
+        transform, exact zeros, and all values below the limit for trace elements (median below
+        2x the limit), are set to 0.65 x the limit.
+        ``auto_near_zero_percent`` (default 1.0) and ``auto_max_near_zero_fraction`` (default 0.10)
+        set the near-zero criterion used by ``"auto"``.
     k_finding_method : str, optional
         Method for determining optimal number of clusters. Set to "forced" if a value of 'k' is specified manually.
             Allowed methods are "silhouette", "calinski_harabasz", "elbow".
@@ -256,6 +273,11 @@ def analyze_sample(
         # bypasses field validators in pydantic v2).
         merged_dbscan = {**clustering_cfg.dbscan.model_dump(), **dbscan_params}
         clustering_cfg.dbscan = DBSCANParams.model_validate(merged_dbscan)
+    if clustering_geometry is not None:
+        clustering_cfg.geometry = ClusteringConfig.validate_geometry(clustering_geometry)
+    if aitchison_params is not None:
+        merged_aitchison = {**clustering_cfg.aitchison.model_dump(), **aitchison_params}
+        clustering_cfg.aitchison = AitchisonParams.model_validate(merged_aitchison)
     if k_forced is False:
         # Force recomputation of the optimal number of clusters, discarding any
         # previously saved forced k. Prefer an explicitly provided finding method,

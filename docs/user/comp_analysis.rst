@@ -371,6 +371,14 @@ options are available:
 - ``clustering_features`` : Choose whether to use atomic fractions
   (``'at_fr'``) or mass fractions (``'w_fr'``) as features for clustering.
   Default is used if set to ``None``.
+- ``clustering_method`` : Clustering algorithm, ``'kmeans'`` or ``'dbscan'``,
+  with DBSCAN options in ``dbscan_params``.
+- ``clustering_geometry`` : How distances between compositions are measured:
+  ``'euclidean'``, ``'aitchison'`` (log-ratios) or ``'auto'`` (chosen from the
+  measured compositions; default for new samples), with options in
+  ``aitchison_params``.
+
+  See :ref:`clustering_modes` for how these options work and when to use them.
 - ``k_forced`` : Force the number of clusters to a specific integer. If set
   to ``None``, the number of clusters is loaded from ``Comp_analysis_configs.json``:
   

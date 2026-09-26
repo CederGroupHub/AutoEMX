@@ -45,8 +45,25 @@ clustering_method: str | None = None
 
 # DBSCAN parameters (only used when clustering_method == 'dbscan').
 # Recognized keys: 'eps' (float), 'min_samples' (int), 'metric' (str).
+# If 'eps' is not set, it defaults to 0.05 in Euclidean geometry and 0.3 in Aitchison geometry.
 # Unspecified keys keep their existing/default values. Ignored for k-means.
 dbscan_params: dict | None = None  # e.g. {'eps': 0.04, 'min_samples': 4}
+
+# Clustering geometry: 'euclidean', 'aitchison' or 'auto'. Uses the saved value if set to None.
+# 'aitchison' clusters CLR-transformed compositions (log-ratios), which weighs relative
+# differences in minor elements more fairly. Applies to both k-means and DBSCAN; with DBSCAN,
+# 'eps' is then in CLR units (default 0.3 if unset). Reported centroids remain in fractions.
+# 'auto' uses Euclidean when at most 2 elements are present or when a major element is near zero
+# (< 1%) in at least 10% of the spectra, and Aitchison otherwise.
+clustering_geometry: str | None = None
+
+# Aitchison parameters (only used when clustering_geometry is 'aitchison' or 'auto').
+# Recognized keys: 'detection_limit_percent' (float > 0, default 0.5). Before the log-ratio transform,
+#   exact zeros, and all values below this limit for trace elements (median < 2x the limit), are set to
+#   0.65 x the limit, so noisy trace elements do not dominate the clustering.
+#   'auto_near_zero_percent' (default 1.0) and 'auto_max_near_zero_fraction' (default 0.10): thresholds
+#   used by 'auto' to decide when major elements are too often near zero for log-ratios.
+aitchison_params: dict | None = None  # e.g. {'detection_limit_percent': 0.5}
 
 # Number of clusters to use, if manually specified (k-means only).
 # If None, the number of clusters will be determined automatically.
@@ -95,6 +112,8 @@ comp_analyzer = analyze_sample(
     k_forced = k_forced,
     clustering_method = clustering_method,
     dbscan_params = dbscan_params,
+    clustering_geometry = clustering_geometry,
+    aitchison_params = aitchison_params,
     clustering_features = clustering_features,
     els_excluded_clust_plot=els_excluded_clust_plot,
     els_to_plot=els_to_plot,
