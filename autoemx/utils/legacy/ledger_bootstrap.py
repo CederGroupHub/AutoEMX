@@ -833,6 +833,8 @@ def _build_spectrum_entry_from_pointer_file(
         acquisition_details = acquisition_details_by_id.get(spectrum_id, acquisition_details)
 
     realtime_from_header = _parse_optional_float(_load_realtime_from_pointer_file(pointer_abs))
+    if realtime_from_header is not None and not (np.isfinite(realtime_from_header) and realtime_from_header > 0):
+        realtime_from_header = None
     background_relpath = None
     candidate_background = Path(sample_result_dir, _build_background_relpath(spectrum_id))
     if candidate_background.exists():

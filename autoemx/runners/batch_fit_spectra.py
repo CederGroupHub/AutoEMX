@@ -35,7 +35,8 @@ from typing import List, Optional
 import autoemx.utils.constants as cnst
 import autoemx.config.defaults as dflt
 from autoemx.utils import get_sample_dir, print_double_separator
-from autoemx.runners.fit_and_quantify_spectrum_from_ledger import fit_and_quantify_spectrum_fromDatacsv
+from autoemx.config.ledger_io import load_sample_ledger
+from autoemx.runners.fit_and_quantify_spectrum_from_ledger import fit_and_quantify_spectrum_from_ledger
 
 # Configure logging (same style as fit_and_quantify_spectrum)
 logging.basicConfig(
@@ -74,7 +75,7 @@ def batch_fit_spectra(sample_IDs,
     sample_IDs : list of str
         List of sample identifiers.
     spectrum_IDs : list of int or str
-        List of spectrum IDs to process (values reported in 'Spectrum #' column in Data.csv),
+        List of spectrum IDs to process (spectrum IDs stored in the sample ledger),
         or 'all' to process all spectra in each sample.
     is_standard : bool
         Defines whether measurement is of a standard (i.e., well defined composition) or not
@@ -133,26 +134,21 @@ def batch_fit_spectra(sample_IDs,
         except Exception as e:
             logging.warning("Failed to get sample directory for %s: %s", sample_ID, e)
             continue
-        data_filename = cnst.STDS_MEAS_FILENAME if is_standard else cnst.DATA_FILENAME
-        data_path = os.path.join(sample_dir, f"{data_filename}.csv")
+        ledger_path = os.path.join(sample_dir, f"{cnst.LEDGER_FILENAME}{cnst.LEDGER_FILEEXT}")
 
-        if not os.path.exists(data_path):
-            logging.warning(f"Data file not found for sample '{sample_ID}'. Skipping.")
-            continue
-
+        # Legacy samples (Data.csv, no ledger) are converted automatically on load.
         try:
-            df = pd.read_csv(data_path)
+            ledger = load_sample_ledger(ledger_path)
         except Exception as e:
-            logging.warning(f"Could not read {data_path} for sample '{sample_ID}': {e}")
-            continue
-
-        if cnst.SP_ID_DF_KEY not in df.columns:
-            logging.warning(f"Column '{cnst.SP_ID_DF_KEY}' not found in {data_path}. Skipping sample '{sample_ID}'.")
+            logging.warning(f"Could not load ledger for sample '{sample_ID}': {e}. Skipping.")
             continue
 
         # Determine spectra to process
         if spectrum_IDs == 'all' or (isinstance(spectrum_IDs, list) and len(spectrum_IDs) == 1 and spectrum_IDs[0] == 'all'):
-            spectra_to_process = df[cnst.SP_ID_DF_KEY].unique()
+            spectra_to_process = [
+                spectrum.spectrum_id if spectrum.spectrum_id not in (None, "") else str(idx)
+                for idx, spectrum in enumerate(ledger.spectra)
+            ]
             logging.info(f"Found {len(spectra_to_process)} spectra for sample '{sample_ID}'.")
         else:
             spectra_to_process = spectrum_IDs
@@ -163,7 +159,7 @@ def batch_fit_spectra(sample_IDs,
             print_double_separator()
             logging.info(f"Fitting Sample '{sample_ID}', Spectrum {sp_id} (fit only, no quantification)")
             try:
-                quantifier = fit_and_quantify_spectrum_fromDatacsv(
+                quantifier = fit_and_quantify_spectrum_from_ledger(
                     sample_ID=sample_ID,
                     spectrum_ID=sp_id,
                     is_standard = is_standard,
@@ -182,13 +178,14 @@ def batch_fit_spectra(sample_IDs,
                     interrupt_fits_bad_spectra = interrupt_fits_bad_spectra,
                     print_results=print_results,
                     quant_verbose = quant_verbose,
-                    fitting_verbose = fitting_verbose
+                    fitting_verbose = fitting_verbose,
+                    ledger = ledger
                 )
             except Exception as e:
                 logging.exception(f"Error fitting spectrum {sp_id} for sample '{sample_ID}': {e}")
                 sample_fit_results.append(None)
             else:
-                if fit_params_vals_to_extract and quantifier.bad_quant_flag is None:
+                if fit_params_vals_to_extract and quantifier is not None and quantifier.bad_quant_flag is None:
                     params = quantifier.fit_result.params
                     extracted_vals = {}
                     for param_name in fit_params_vals_to_extract:

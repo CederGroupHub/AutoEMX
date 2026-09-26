@@ -62,8 +62,9 @@ def backfill_spectra_from_data_csv(
 
         live_time = row.get(live_time_key)
         real_time = row.get(real_time_key)
-        live_time = None if pd.isna(live_time) else float(live_time)
-        real_time = None if pd.isna(real_time) else float(real_time)
+        # Some legacy Data.csv files store 0 when the time was not recorded; treat as missing.
+        live_time = None if pd.isna(live_time) or float(live_time) <= 0 else float(live_time)
+        real_time = None if pd.isna(real_time) or float(real_time) <= 0 else float(real_time)
         # Legacy Data.csv files may only carry real_time; treat it as collection time.
         collection_time = live_time if live_time is not None else real_time
 
