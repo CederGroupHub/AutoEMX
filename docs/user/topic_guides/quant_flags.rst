@@ -55,7 +55,8 @@ How to use them
 - Prefer keeping ``[0, -1]`` for phase identification unless you intentionally want
   to inspect poorer spectra.
 - To include borderline spectra in clustering, add their flags to
-  ``quant_flags_accepted`` (for example, you may consider including ``8``, which is often quite accurate anyways (see Fig. 4 in the paper)).
+  ``quant_flags_accepted`` (for example, you may consider including ``8``, which is often quite accurate anyways; see Fig. 4 in
+  `Giunto et al., Nature Communications (2026) <https://doi.org/10.1038/s41467-026-76633-x>`_).
 - Prefit issues (``1``, ``2``, ``3``) can stop fitting early when
   ``interrupt_fits_bad_spectra=True``. Flags ``2`` and ``3`` can still be
   written on a completed quantification if fitting was allowed to proceed.

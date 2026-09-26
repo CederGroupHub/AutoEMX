@@ -11,17 +11,19 @@ Two settings control this:
   ``'euclidean'``, ``'aitchison'``, or ``'auto'`` (chosen from the data; default
   for new samples).
 
-The geometry only decides **which spectra are grouped together**. Reported
-cluster compositions are always averages of the element fractions, so results
-from different settings can be compared directly.
+Together, these two settings decide **which spectra are grouped together**.
+They do not change how a cluster's composition is reported: it is always the
+average of the element fractions of its spectra (even in Aitchison geometry, no
+log-ratio averaging is used). Results from different settings can therefore be
+compared directly.
 
 .. contents:: On this page
    :local:
    :depth: 1
 
 
-Algorithms
-----------
+Clustering algorithms
+---------------------
 
 **k-means** assigns every composition to one of ``k`` clusters. ``k`` is either
 forced (``k_forced``) or found automatically: AutoEMX first checks whether the
