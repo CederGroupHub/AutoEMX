@@ -675,67 +675,74 @@ class Peaks_Model:
     # Fix parameters of overlapping peaks
     # =============================================================================
     def _fix_overlapping_ref_peaks(self):
-        """Identify and constrain overlapping reference peaks."""
-    
+        """
+        Identify groups of overlapping reference peaks and constrain each group to a common energy shift.
+
+        Two free reference peaks overlap if their centers are closer than
+        3 / sqrt(2) * sqrt(sigma1^2 + sigma2^2), i.e. 3 sigma for peaks of equal width.
+        Overlapping peaks are grouped transitively, so that chains of overlapping peaks form one group.
+        """
         params = self.fitting_params
-    
+
         center_params = [pname for pname in params if self.center_key in pname]
-    
+
         free_peaks = {}
         for pname in center_params:
             if params[pname].vary:
                 peak_prefix = pname[:-(len(self.center_key) + 1)]
                 free_peaks[peak_prefix] = params[pname].value
-    
-        # List rather than set: the order in which pairs are fixed determines which peak is the reference
-        peaks_to_fix = []
+
+        sigmas = {peak: DetectorResponseFunction._det_sigma(center) for peak, center in free_peaks.items()}
+
+        # Overlap graph between free peaks
+        neighbours = {peak: [] for peak in free_peaks}
         for peak1, peak2 in combinations(free_peaks, 2):
-            center1 = free_peaks[peak1]
-            center2 = free_peaks[peak2]
-            sigma1 = DetectorResponseFunction._det_sigma(center1)
-            if abs(center1 - center2) < sigma1 * 3:
-                peaks_to_fix.append((peak1, peak2))
-    
+            max_separation = 3 / np.sqrt(2) * np.sqrt(sigmas[peak1] ** 2 + sigmas[peak2] ** 2)
+            if abs(free_peaks[peak1] - free_peaks[peak2]) < max_separation:
+                neighbours[peak1].append(peak2)
+                neighbours[peak2].append(peak1)
+
         if not hasattr(self, 'fixed_peaks_dict'):
             self.fixed_peaks_dict = {}
-    
-        for peak1, peak2 in peaks_to_fix:
-            fixed_peaks = list(self.fixed_peaks_dict.keys())
-            if peak1 not in fixed_peaks and peak2 not in fixed_peaks:
-                params = self._fix_center_sigma_peak(params, peak1, peak2)
-            elif peak1 in fixed_peaks and peak2 in fixed_peaks:
+
+        # Groups of overlapping peaks (connected components), in order of first appearance
+        grouped_peaks = set()
+        for peak in free_peaks:
+            if peak in grouped_peaks or not neighbours[peak]:
                 continue
-            else:
-                if peak1 in fixed_peaks:
-                    fixed_peak = peak1
-                    dep_peak = peak2
-                else:
-                    fixed_peak = peak2
-                    dep_peak = peak1
-                if self.fixed_peaks_dict[fixed_peak] == '':
-                    params = self._fix_center_sigma_peak(params, fixed_peak, dep_peak)
-                else:
-                    params = self._fix_center_sigma_peak(params, self.fixed_peaks_dict[fixed_peak], dep_peak)
-    
+            group_members = set()
+            to_visit = [peak]
+            while to_visit:
+                member = to_visit.pop()
+                if member not in group_members:
+                    group_members.add(member)
+                    to_visit.extend(neighbours[member])
+            group = [p for p in free_peaks if p in group_members]
+            grouped_peaks.update(group)
+            params = self._fix_overlapping_peak_group(params, group)
+
         self.fitting_params = params
-    
-    
-    def _fix_center_sigma_peak(self, params, ref_peak, dep_peak):
-        """Tie the center and sigma of a dependent peak to those of a reference (independent) peak."""
-    
-        dep_peak_center = params[f"{dep_peak}_{self.center_key}"].value
-    
-        ref_peak_offset = params[f"{ref_peak}_{self.center_offset_key}"].name
-        center_expr = f"{dep_peak_center} - {ref_peak_offset}"
-        params[f"{dep_peak}_{self.center_key}"].expr = center_expr
-    
-        params[f"{ref_peak}_{self.sigma_key}"].vary = False
-        params[f"{dep_peak}_{self.sigma_key}"].vary = False
-    
-        params[f"{ref_peak}_{self.area_key}"].value /= 2
-        params[f"{dep_peak}_{self.area_key}"].value /= 2
-    
-        self.fixed_peaks_dict[ref_peak] = ''
-        self.fixed_peaks_dict[dep_peak] = ref_peak
-    
+
+
+    def _fix_overlapping_peak_group(self, params, group):
+        """
+        Tie the centers of a group of overlapping peaks to the energy shift of the group's anchor peak.
+
+        The anchor is the peak with the largest estimated area, whose position is best determined by the
+        data. Sigmas of all peaks in the group are fixed, and initial areas are split among the group.
+        """
+        anchor_peak = max(group, key=lambda peak: params[f"{peak}_{self.area_key}"].value)
+        anchor_offset = params[f"{anchor_peak}_{self.center_offset_key}"].name
+
+        for peak in group:
+            params[f"{peak}_{self.sigma_key}"].vary = False
+            params[f"{peak}_{self.area_key}"].value /= len(group)
+
+            if peak == anchor_peak:
+                self.fixed_peaks_dict[peak] = ''
+            else:
+                peak_center = params[f"{peak}_{self.center_key}"].value
+                params[f"{peak}_{self.center_key}"].expr = f"{peak_center} - {anchor_offset}"
+                self.fixed_peaks_dict[peak] = anchor_peak
+
         return params
