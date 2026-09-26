@@ -169,6 +169,7 @@ from autoemx.data.mean_ionization_potentials import J_df
 from .detector_response import DetectorResponseFunction
 from .peaks import Peaks_Model
 from .background import Background_Model
+from .fast_model_eval import with_fast_eval
 
 from autoemx._logging import get_logger
 logger = get_logger(__name__)
@@ -305,6 +306,7 @@ class XSp_Fitter:
         # Reset detector response function for each spectrum
         DetectorResponseFunction.det_res_conv_matrix = None
         DetectorResponseFunction.icc_conv_matrix = None
+        DetectorResponseFunction.det_response_op = None
         DetectorResponseFunction.setup_detector_response_vars(
             det_ch_offset, det_ch_width, spectrum_lims, microscope_ID, verbose=True
         )
@@ -668,7 +670,8 @@ class XSp_Fitter:
         else:
             self.background_mod = None
     
-        self.spectrum_mod = spectrum_mod
+        # Same model, with faster evaluation of its many components (identical results)
+        self.spectrum_mod = with_fast_eval(spectrum_mod)
         self.spectrum_pars = spectrum_pars
         self.fitted_els = fitted_elements
     
@@ -794,21 +797,21 @@ class XSp_Fitter:
             gen_bckgrnd_param_name = [s for s in components.keys() if '_generated_bckgrnd' in s][0]
             det_eff_par_name = '_det_efficiency'
             bcksctr_corr_par_name = '_backscattering_correction'
-            stop_power_par_name = '_stopping_power'
+            # stop_power_par_name = '_stopping_power'  # Stopping power correction currently disabled
             det_zero_peak_par_name = 'det_zero_peak_'
     
             gen_background = components[gen_bckgrnd_param_name]
             abs_attenuation = components[abs_att_param_name]
             det_efficiency = components[det_eff_par_name]
             bcksctr_corr = components[bcksctr_corr_par_name]
-            stopping_power = components[stop_power_par_name]
+            # stopping_power = components[stop_power_par_name]
             det_zero_peak = components[det_zero_peak_par_name]
             total_background_component = gen_background * abs_attenuation * det_efficiency * bcksctr_corr
     
             plt.plot(self.energy_vals, gen_background, 'y--', label='Generated Background')
             plt.plot(self.energy_vals, abs_attenuation * 100, 'r--', label='Absorption (x100)')
             plt.plot(self.energy_vals, det_efficiency * 100, 'b--', label='Detector efficiency (x100)')
-            plt.plot(self.energy_vals, stopping_power * 100, 'c--', label='Stopping power (x100)')
+            # plt.plot(self.energy_vals, stopping_power * 100, 'c--', label='Stopping power (x100)')
             plt.plot(self.energy_vals, bcksctr_corr * 100, 'm--', label='Backscatter corr. (x100)')
             plt.plot(self.energy_vals, det_zero_peak, 'y--', label='Detector zero peak')
             plt.plot(self.energy_vals, total_background_component, 'k--', label='Tot. background')

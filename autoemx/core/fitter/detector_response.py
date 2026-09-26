@@ -18,8 +18,8 @@ import time
 import warnings
 import numpy as np
 from pathlib import Path
+from scipy import sparse
 from scipy.integrate import quad, trapezoid
-from scipy.optimize import root_scalar
 from pydantic import BaseModel
 
 from autoemx.utils.helper import load_msa
@@ -82,6 +82,8 @@ class DetectorResponseFunction:
         Detector resolution convolution matrix (cropped to spectrum limits).
     icc_conv_matrix : np.ndarray or None
         ICC convolution matrix (cropped to spectrum limits).
+    det_response_op : scipy.sparse.csr_matrix or None
+        Sparse product icc_conv_matrix @ det_res_conv_matrix, applied in _apply_det_response_fncts.
     det_eff_energy_vals : np.ndarray
         Energy values for detector efficiency curve.
     det_eff_vals : np.ndarray
@@ -92,6 +94,7 @@ class DetectorResponseFunction:
     
     det_res_conv_matrix = None
     icc_conv_matrix = None
+    det_response_op = None
     energy_vals_padding = 30  # Padding added to energy_vals to ensure correct functioning of convolution operation
     conv_zero_tol = 1e-14
 
@@ -352,6 +355,8 @@ class DetectorResponseFunction:
         high_l = spectrum_lims[1] + cls.energy_vals_padding // 2 + cls.energy_vals_padding - 1
         cls.det_res_conv_matrix = np.array(det_res_conv_matrix)[low_l:high_l, low_l:high_l]
         cls.icc_conv_matrix = np.array(icc_conv_matrix)[low_l:high_l, low_l:high_l] 
+        # Combined (ICC ∘ resolution) operator, stored sparse since both matrices are banded
+        cls.det_response_op = sparse.csr_matrix(cls.icc_conv_matrix @ cls.det_res_conv_matrix)
 
     # =============================================================================
     # Convolution of signal with detector response function
@@ -441,11 +446,9 @@ class DetectorResponseFunction:
         # Pad the signal at both ends using linear fit/extrapolation
         padded_signal = cls._apply_padding_with_fit(signal)
     
-        # First, convolve with the detector resolution matrix
-        model = np.sum(cls.det_res_conv_matrix * padded_signal, axis=1)
-    
-        # Then, convolve with the ICC convolution matrix
-        model = np.sum(cls.icc_conv_matrix * model, axis=1)
+        # Convolve with the detector resolution matrix, then with the ICC matrix,
+        # using the precomputed combined operator
+        model = cls.det_response_op @ padded_signal
     
         # Remove padding from the result to return only the original signal region
         processed_model = model[cls.energy_vals_padding // 2 - 1 : -cls.energy_vals_padding + 1]
@@ -640,59 +643,34 @@ class DetectorResponseFunction:
     
         V_tot = 4 * np.pi / 3 * (R_e) ** 3
     
-        def V_1(z):
-            return np.pi / 3 * (R_e - z) ** 2 * (2 * R_e + z)
-    
-        def Q(z):
-            return (V_tot - F_loss * V_1(z)) / V_tot
-    
         def dQ_dz(z):
             return -np.pi * F_loss / V_tot * (z ** 2 - R_e ** 2)
-    
-        def N(z):
-            return 1 - np.exp(-alpha * z)
     
         def dN_dz(z):
             return alpha * np.exp(-alpha * z)
     
-        def get_z(Q_val, z_min=0.0):
-            Q_val_rnd = np.clip(Q_val, Q_min, 1)
-            solution = root_scalar(lambda z: Q(z) - Q_val_rnd, method='brentq', bracket=[z_min, R_e])
-            return solution.root
-    
-        def n(x, z_min=0.0):
-            Q_val = x / line_en
-            z_val = get_z(Q_val, z_min=z_min)
-            n_val = dN_dz(z_val) * dQ_dz(z_val) ** -1 / line_en
-            return n_val, z_val
-    
-        def get_n_at_line_en(integral_rest, last_E, last_n):
-            def n_fnct(n_):
-                n_ = np.float64(n_)
-                res = np.trapz([last_n, n_], [last_E, line_en])
-                return res
-            guess = (1 - integral_rest) / (line_en - last_E)
-            guess_2 = guess * 2
-            solution = root_scalar(lambda n_: n_fnct(n_) - (1 - integral_rest), x0=guess, x1=guess_2, method='secant')
-            return solution.root
-    
-        # Calculate left boundary of ICC smearing function
-        Q_min = Q(0)
+        # Calculate left boundary of ICC smearing function. Q(0) = 1 - F_loss / 2, since V_1(0) = V_tot / 2
+        Q_min = 1 - F_loss / 2
         E_min = line_en * Q_min
     
-        e_vals = list(np.linspace(E_min, line_en, 1000))
-        e_vals.pop()  # Remove last energy value corresponding to line_en
-        n_vals = []
-        prev_z = 0.0
-        for en in e_vals:
-            n_val, prev_z = n(en, z_min=prev_z)
-            n_vals.append(n_val)
+        e_vals = np.linspace(E_min, line_en, 1000)[:-1]  # Remove last energy value corresponding to line_en
+    
+        # Invert Q(z) = E / line_en analytically, with Q(z) = (V_tot - F_loss * V_1(z)) / V_tot and
+        # V_1(z) = pi / 3 * (R_e - z)^2 * (2 * R_e + z). With u = z / R_e, Q(z) = q reduces to the cubic
+        # u^3 - 3u + (2 - c) = 0, with c = 4 * (1 - q) / F_loss, whose root in [0, 1] is given below
+        Q_vals = np.clip(e_vals / line_en, Q_min, 1)
+        c = 4 * (1 - Q_vals) / F_loss
+        u = 2 * np.cos(np.arccos(np.clip((c - 2) / 2, -1, 1)) / 3 - 2 * np.pi / 3)
+        z_vals = u * R_e
+        n_vals = dN_dz(z_vals) * dQ_dz(z_vals) ** -1 / line_en
+    
+        # Value at line_en such that the trapezoid over the last interval brings the total integral to 1
         signal_integral = trapezoid(n_vals, e_vals)
-        n_val_at_E = get_n_at_line_en(signal_integral, e_vals[-1], n_vals[-1])
+        n_val_at_E = 2 * (1 - signal_integral) / (line_en - e_vals[-1]) - n_vals[-1]
     
         # Update lists with values at line_en
-        e_vals.append(line_en)
-        n_vals.append(n_val_at_E)
+        e_vals = list(e_vals) + [line_en]
+        n_vals = list(n_vals) + [n_val_at_E]
     
         return e_vals, n_vals
 

@@ -172,9 +172,14 @@ class XSp_Quantifier:
     ----------------
     xray_quant_ref_lines : list(str)
         List of X-ray lines used as reference
+    initial_fit_tol : float
+        Fit tolerance of the first iteration when quantifying iteratively
     """
     #  Reference lines for quantification
     xray_quant_ref_lines = ['Ka1', 'La1', 'Ma1', 'Mz1']
+
+    # Tolerance of the first fit in iterative quantification, when elemental fractions are still free
+    initial_fit_tol = 1e-2
     
     def __init__(
         self,
@@ -620,7 +625,8 @@ class XSp_Quantifier:
         abs_att_param_name = [s for s in fit_components.keys() if '_abs_att' in s][0]
         gen_bckgrnd_param_name = [s for s in fit_components.keys() if '_generated_b' in s][0]
         bcksctr_param_name = [s for s in fit_components.keys() if '_backscattering_corr' in s][0]
-        sp_param_name = [s for s in fit_components.keys() if '_stopping_p' in s][0]
+        # Stopping power correction currently disabled. Uncomment here and below to re-enable
+        # sp_param_name = [s for s in fit_components.keys() if '_stopping_p' in s][0]
         det_eff_param_name = '_det_efficiency'
         
         # Store background values evaluated on the original energy grid
@@ -629,7 +635,7 @@ class XSp_Quantifier:
             * fit_components[abs_att_param_name]
             * fit_components[det_eff_param_name]
             * fit_components[bcksctr_param_name]
-            * fit_components[sp_param_name]
+            # * fit_components[sp_param_name]
         )
     
         # Define a finer energy grid (0.5 eV step)
@@ -651,7 +657,7 @@ class XSp_Quantifier:
             * fit_components_wo_det_response[abs_att_param_name]
             * fit_components_wo_det_response[det_eff_param_name]
             * fit_components_wo_det_response[bcksctr_param_name]
-            * fit_components_wo_det_response[sp_param_name]
+            # * fit_components_wo_det_response[sp_param_name]
         )
 
 
@@ -985,7 +991,7 @@ class XSp_Quantifier:
     
         # Set fit tolerance
         if fit_iteratively:
-            initial_fit_tolerance = 1e-2  # Quick fit: elemental fractions are likely far off during the first iteration, so fitting with high precision is unnecessary        else:
+            initial_fit_tolerance = self.initial_fit_tol  # Quick fit: elemental fractions are likely far off during the first iteration, so fitting with high precision is unnecessary        else:
         else:
             initial_fit_tolerance = self.fit_tol # Single-iteration fitting
         
@@ -1011,7 +1017,12 @@ class XSp_Quantifier:
 
             # Normalize mass fractions
             prev_weight_fractions = self._normalise_mass_fractions(weight_fractions)
-    
+
+            # Relaxation of the mass fraction update (see below)
+            relax = 1.0
+            min_relax = 0.3
+            prev_residual = None
+
             while iter_counter < max_iterations and diff_mass_fractions > w_fr_change_convergence:
                 iter_counter += 1
                 # Fix elemental fractions to values from previous iteration (normalized)
@@ -1062,10 +1073,24 @@ class XSp_Quantifier:
     
                 # Check convergence of mass fractions
                 norm_mass_fractions = self._normalise_mass_fractions(weight_fractions)
-                diff_mass_fractions = np.max(np.abs(prev_weight_fractions - norm_mass_fractions))
-    
-                # Update for next iteration
-                prev_weight_fractions = norm_mass_fractions
+                residual = norm_mass_fractions - prev_weight_fractions
+                diff_mass_fractions = np.max(np.abs(residual))
+
+                # Adaptive relaxation of the fixed-point update. The quantified fractions tend to
+                # overshoot (successive residuals alternate in sign), which can make the iteration
+                # converge very slowly or not at all. Along the dominant mode, the residual shrinks by
+                # rho = 1 + relax * (lambda - 1) per step, so lambda is estimated from the last two
+                # residuals and the next relaxation factor is set to cancel it: 1 / (1 - lambda).
+                if prev_residual is not None:
+                    rho = np.dot(residual, prev_residual) / np.dot(prev_residual, prev_residual)
+                    lambda_est = 1 + (rho - 1) / relax
+                    relax = float(np.clip(1 / (1 - lambda_est), min_relax, 1)) if lambda_est < 1 else 1.0
+                    if self.verbose:
+                        logger.debug(f"  Estimated update gain: {lambda_est:.2f}. Relaxation factor: {relax:.2f}")
+                prev_residual = residual
+
+                # Update for next iteration (convex combination, so normalization constraints still hold)
+                prev_weight_fractions = prev_weight_fractions + relax * residual
 
             converged = diff_mass_fractions <= w_fr_change_convergence
     

@@ -198,8 +198,6 @@ class Background_Model:
         if adr_sp == 1:
             S_vals = DetectorResponseFunction._apply_det_response_fncts(S_vals)
         
-        S_vals = np.ones(len(x))
-        
         return S_vals
     
     
@@ -742,7 +740,8 @@ class Background_Model:
         gen_bckgrnd_mod, gen_bckgrnd_pars = self.get_generated_background_mod_pars(fr_pars, model='DuncumbMod')
         abs_att_mod, abs_att_pars = self.get_abs_attenuation_mod_pars(model='phirho')
         bs_cor_mod, bs_cor_pars = self.get_backscattering_correction_mod_pars()
-        stopping_p_mod, stopping_p_pars = self.get_stopping_power_mod_pars()
+        # Stopping power correction currently disabled. Uncomment here and below to re-enable
+        # stopping_p_mod, stopping_p_pars = self.get_stopping_power_mod_pars()
         det_eff_mod, det_eff_pars = self.get_detector_efficiency_mod_pars()
     
         if self.sp_collection_time is not None and self.sp_collection_time > 0:
@@ -756,7 +755,7 @@ class Background_Model:
             * abs_att_mod
             * det_eff_mod
             * bs_cor_mod
-            * stopping_p_mod
+            # * stopping_p_mod
             + det_zero_peak_mod
         )
     
@@ -765,7 +764,7 @@ class Background_Model:
         background_pars.update(abs_att_pars)
         background_pars.update(det_eff_pars)
         background_pars.update(bs_cor_pars)
-        background_pars.update(stopping_p_pars)
+        # background_pars.update(stopping_p_pars)
         background_pars.update(det_zero_peak_par)
     
         return background_mod, background_pars
