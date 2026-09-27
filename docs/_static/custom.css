@@ -2,3 +2,15 @@
 .wy-menu-vertical p.caption:first-of-type + ul > li.toctree-l1 > ul {
     display: block;
 }
+
+/* The theme styles sub-items for a light background (used only on the current
+   branch); when shown on the dark sidebar, use the light text of top-level items */
+.wy-menu-vertical p.caption:first-of-type + ul > li.toctree-l1:not(.current) li > a {
+    color: #d9d9d9;
+    background: transparent;
+    border: none;
+}
+
+.wy-menu-vertical p.caption:first-of-type + ul > li.toctree-l1:not(.current) li > a:hover {
+    background: #4e4a4a;
+}
