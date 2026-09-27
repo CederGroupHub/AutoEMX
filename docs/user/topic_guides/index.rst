@@ -10,6 +10,6 @@ not step-by-step instructions.
 .. toctree::
    :maxdepth: 1
 
+   quant_flags
    clustering_modes
    number_of_clusters
-   quant_flags
