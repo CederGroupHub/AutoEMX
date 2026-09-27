@@ -213,13 +213,47 @@ class ClusteringModule:
 
     #%% Number of clusters
     # =============================================================================
-    def _find_optimal_k(self, compositions_df, k, compute_k_only_once = False, clustering_df = None):
+    # RMS distance to the centroid below which compositions form a single cluster, in normalized fractions
+    SINGLE_CLUSTER_RMS_THRESHOLD = 0.03
+    # Cap on the analytical-total scatter when no max analytical error is set for filtering
+    DEFAULT_TOTAL_SCATTER_CAP = 0.10
+
+    @staticmethod
+    def _single_cluster_rms_threshold(
+        compositions_df: 'pd.DataFrame',
+        max_analytical_error: float = None
+    ) -> float:
+        """
+        RMS-distance threshold of the single-cluster check, adapted to the scatter of the analytical totals.
+
+        Unnormalized fractions (e.g. weight fractions) do not sum to 1: the total of each composition
+        varies with its analytical error, which spreads compositions of a single phase apart. This
+        scatter, sigma_total (standard deviation of the per-composition totals, i.e. of the analytical
+        errors), is added in quadrature to the composition tolerance:
+        ``sqrt(SINGLE_CLUSTER_RMS_THRESHOLD**2 + sigma_total**2)``.
+        For normalized fractions (e.g. atomic fractions) sigma_total is 0 and the base threshold is used.
+
+        sigma_total is capped at ``max_analytical_error`` (the filtering threshold, as a fraction;
+        ``DEFAULT_TOTAL_SCATTER_CAP`` if None). Spectra within the filter window cannot scatter more than
+        that; larger scatter (possible through the extra allowance for undetectable elements) likely
+        reflects real differences between phases, which must not loosen the check.
+        """
+        sigma_total = float(np.std(compositions_df.to_numpy(dtype=float).sum(axis=1)))
+        cap = ClusteringModule.DEFAULT_TOTAL_SCATTER_CAP if max_analytical_error is None else max_analytical_error
+        sigma_total = min(sigma_total, cap)
+        return float(np.sqrt(ClusteringModule.SINGLE_CLUSTER_RMS_THRESHOLD ** 2 + sigma_total ** 2))
+
+
+    def _find_optimal_k(self, compositions_df, k, compute_k_only_once = False, clustering_df = None,
+                        max_analytical_error = None):
         """
         Determine the optimal number of clusters for k-means.
 
         The single-cluster check always runs on ``compositions_df`` (fraction space), since
         its thresholds are calibrated there. The k search runs on ``clustering_df``
         (e.g. CLR coordinates in Aitchison geometry), defaulting to ``compositions_df``.
+        ``max_analytical_error`` (fraction) is the filtering threshold, used to cap the analytical-total
+        scatter allowed by the single-cluster check (see ``_single_cluster_rms_threshold``).
 
         Returns
         -------
@@ -230,7 +264,10 @@ class ClusteringModule:
             clustering_df = compositions_df
         if not k:
             # Check if there is only one single cluster, or no clusters
-            is_single_cluster = ClusteringModule._is_single_cluster(compositions_df, verbose=self.verbose)
+            is_single_cluster = ClusteringModule._is_single_cluster(
+                compositions_df, verbose=self.verbose,
+                rms_threshold=ClusteringModule._single_cluster_rms_threshold(compositions_df, max_analytical_error),
+            )
             if is_single_cluster or self.clustering_cfg.max_k <= 1:
                 k = 1
             elif compute_k_only_once:
@@ -471,7 +508,7 @@ class ClusteringModule:
     def _is_single_cluster(
         compositions_df: 'pd.DataFrame',
         verbose: bool = False,
-        rms_threshold: float = 0.03
+        rms_threshold: float = SINGLE_CLUSTER_RMS_THRESHOLD
     ) -> bool:
         """
         Determine if the data effectively forms a single cluster using k-means and silhouette analysis.
@@ -490,6 +527,8 @@ class ClusteringModule:
             If True, print detailed output of the clustering metrics.
         rms_threshold : float, optional
             RMS distance to the k=1 centroid below which the data is a single cluster (default 0.03).
+            ``_find_optimal_k`` adapts it to the scatter of the analytical totals, see
+            ``_single_cluster_rms_threshold``.
     
         Returns
         -------
@@ -530,7 +569,7 @@ class ClusteringModule:
         ratio_inertias = inertia_1 / best_inertia_2 if best_inertia_2 else float('inf')
     
         if verbose:
-            logger.info(f"📊 RMS distance for k=1: {rms_distance_1*100:.1f}%")
+            logger.info(f"📊 RMS distance for k=1: {rms_distance_1*100:.1f}% (single-cluster threshold: {rms_threshold*100:.1f}%)")
             logger.info(f"📊 Inertia for k=1: {inertia_1:.3f}")
             logger.info(f"📊 Inertia for k=2: {best_inertia_2:.3f}")
             logger.info(f"📊 Ratio of inertia for k=1 over k=2: {ratio_inertias:.2f}")
@@ -539,7 +578,7 @@ class ClusteringModule:
         # Empirical decision logic
         if rms_distance_1 < rms_threshold:
             is_single_cluster = True
-            reason_str = f'd_rms < {rms_threshold * 100:g}%'
+            reason_str = f'd_rms < {rms_threshold * 100:.1f}%'
         elif best_silhouette_score_2 < 0.5:
             is_single_cluster = True
             reason_str = 's < 0.5'

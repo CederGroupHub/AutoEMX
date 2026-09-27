@@ -4083,7 +4083,10 @@ class EMXSp_Composition_Analyzer:
                 # Recompute k for non-forced methods on each analysis run.
                 k = None
         if self.clustering_cfg.method == 'kmeans':
-            k = ClusteringModule._find_optimal_k(self, compositions_df, k, compute_k_only_once, clustering_df=clustering_df)
+            k = ClusteringModule._find_optimal_k(
+                self, compositions_df, k, compute_k_only_once, clustering_df=clustering_df,
+                max_analytical_error=max_analytical_error,
+            )
             self._persist_resolved_k_on_active_clustering_config(k)
             kmeans, labels, sil_score = ClusteringModule._run_kmeans_clustering(self, k, clustering_df)
             if is_aitchison:

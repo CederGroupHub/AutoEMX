@@ -218,7 +218,7 @@ def test_find_optimal_k_runs_single_cluster_check_on_fractions(monkeypatch):
     clr = ClusteringModule._clr_transform(df, 0.005)
     seen = {}
 
-    def fake_is_single(compositions_df, verbose=False):
+    def fake_is_single(compositions_df, verbose=False, rms_threshold=0.03):
         seen["single"] = compositions_df
         return False
 
@@ -282,3 +282,34 @@ def test_get_clustering_features_uses_resolved_auto_geometry():
 def test_aitchison_params_rejects_invalid_auto_thresholds(field, bad):
     with pytest.raises(ValueError):
         AitchisonParams(**{field: bad})
+
+
+# --- Single-cluster threshold adapted to analytical-total scatter -----------
+def test_single_cluster_threshold_is_base_for_normalized_fractions():
+    rng = np.random.default_rng(0)
+    x = rng.normal(0.3, 0.02, size=50)
+    df = pd.DataFrame({"A": x, "O": 1 - x})  # rows sum to 1 (e.g. atomic fractions)
+    assert ClusteringModule._single_cluster_rms_threshold(df) == pytest.approx(0.03)
+
+
+def test_single_cluster_threshold_adds_total_scatter_in_quadrature():
+    rng = np.random.default_rng(1)
+    comp = np.column_stack([np.full(200, 0.78), np.full(200, 0.22)])
+    totals = rng.normal(1.0, 0.05, size=200)  # unnormalized fractions (e.g. weight fractions)
+    df = pd.DataFrame(comp * totals[:, None], columns=["Ta", "O"])
+    sigma = totals.std()
+    assert ClusteringModule._single_cluster_rms_threshold(df) == pytest.approx(np.sqrt(0.03**2 + sigma**2))
+    # A single phase with noisy totals is recognized as a single cluster
+    assert ClusteringModule._is_single_cluster(df, rms_threshold=ClusteringModule._single_cluster_rms_threshold(df))
+
+
+def test_single_cluster_threshold_caps_total_scatter_at_max_analytical_error():
+    rng = np.random.default_rng(2)
+    comp = np.column_stack([np.full(300, 0.78), np.full(300, 0.22)])
+    totals = rng.normal(0.9, 0.2, size=300)  # scatter far beyond noise (e.g. varying undetectable content)
+    df = pd.DataFrame(comp * totals[:, None], columns=["W", "O"])
+    assert ClusteringModule._single_cluster_rms_threshold(df, 0.10) == pytest.approx(np.sqrt(0.03**2 + 0.10**2))
+    assert ClusteringModule._single_cluster_rms_threshold(df, 0.05) == pytest.approx(np.sqrt(0.03**2 + 0.05**2))
+    # No filter set -> default cap
+    assert ClusteringModule._single_cluster_rms_threshold(df) == pytest.approx(
+        np.sqrt(0.03**2 + ClusteringModule.DEFAULT_TOTAL_SCATTER_CAP**2))
