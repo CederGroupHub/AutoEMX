@@ -39,10 +39,10 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
-html_css_files = ['custom.css']
+html_js_files = ['expand_user_docs.js']
 
-# Render the full navigation tree on every page, so custom.css can keep the
-# User Documentation section expanded
+# Render the full navigation tree on every page (with expand/collapse buttons),
+# so expand_user_docs.js can open the User Documentation section by default
 html_theme_options = {
     'collapse_navigation': False,
 }
