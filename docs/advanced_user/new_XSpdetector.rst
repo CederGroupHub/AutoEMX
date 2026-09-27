@@ -12,3 +12,9 @@ Hence, for accurate EDS spectral fitting and quantification, a few calibration s
 This guide does not discuss standard Silicon Drift Detector (SDD) calibration of energy zero and gain. You'll find this information at `EDS Detector Calibration <../user/sdd_calib.html>`_.
 
 **Coming Soon**
+
+.. note::
+
+   This guide is not available yet. If you need it, please ask for it in the
+   `AutoEMX GitHub Discussions <https://github.com/CederGroupHub/AutoEMX/discussions>`_:
+   requests help us decide which guides and features to prioritize.

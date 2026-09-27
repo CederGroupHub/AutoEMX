@@ -116,6 +116,8 @@ Installation instructions, usage examples, and workflow descriptions are availab
 Here’s what’s planned for future releases of **AutoEMX**:
 - 📏 New scripts for **spectral parameter calibration** to extend the `XSp_calibs` library to your own instrument.
 
+Need one of these sooner, or a feature or guide that is not listed? Please ask for it in the [GitHub Discussions](https://github.com/CederGroupHub/AutoEMX/discussions): requests help us prioritize.
+
 ---
 
 ## 📂 Project Structure

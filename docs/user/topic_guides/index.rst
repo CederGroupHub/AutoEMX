@@ -11,4 +11,5 @@ not step-by-step instructions.
    :maxdepth: 1
 
    clustering_modes
+   number_of_clusters
    quant_flags

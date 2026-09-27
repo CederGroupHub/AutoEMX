@@ -17,6 +17,18 @@ average of the element fractions of its spectra (even in Aitchison geometry, no
 log-ratio averaging is used). Results from different settings can therefore be
 compared directly.
 
+.. admonition:: Defaults: change them only if unsatisfied with the results
+
+   By default AutoEMX uses **k-means** with **automatic geometry selection**
+   (``geometry='auto'``) and chooses the **number of clusters automatically**
+   (see :ref:`number_of_clusters`). These defaults were extensively tested on
+   standards, commercial precursors and synthesized multi-phase samples, and work
+   well in most cases.
+
+   Change them only if the results are unsatisfactory, e.g. if the clusters do
+   not match the groups of compositions visible in the clustering plot. The rest
+   of this page explains what each option does, to help you decide what to try.
+
 .. contents:: On this page
    :local:
    :depth: 1
@@ -29,7 +41,7 @@ Clustering algorithms
 forced (``k_forced``) or found automatically: AutoEMX first checks whether the
 sample looks single-phase, and otherwise picks the best ``k`` up to ``max_k``
 (by silhouette score by default), preferring fewer clusters when several values
-are equally good.
+are equally good. See :ref:`number_of_clusters` for details.
 
 **DBSCAN** finds dense groups of compositions and labels isolated ones as
 *noise*. The number of clusters follows from the data, so ``k_forced`` is
@@ -162,12 +174,14 @@ The same options are available in
 Which setting to use
 --------------------
 
+Start with the defaults. If you are not satisfied with the result:
+
 .. list-table::
    :header-rows: 1
 
    * - Situation
      - Suggested setting
-   * - Not sure
+   * - Default, first try
      - ``'auto'``
    * - Phases with the same elements in different ratios
      - ``'aitchison'``
