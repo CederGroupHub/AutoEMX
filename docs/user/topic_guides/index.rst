@@ -13,3 +13,4 @@ not step-by-step instructions.
    quant_flags
    clustering_modes
    number_of_clusters
+   mixture_decomposition

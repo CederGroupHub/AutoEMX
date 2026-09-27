@@ -44,7 +44,7 @@ from autoemx.utils.plotting_helpers import (
     refresh_custom_plot_template_file,
 )
 from autoemx.config import config_classes_dict, load_sample_ledger
-from autoemx.config.ledger_schemas import AitchisonParams, ClusteringConfig, DBSCANParams
+from autoemx.config.ledger_schemas import AitchisonParams, ClusteringConfig, DBSCANParams, MixtureParams
 from autoemx.core.composition_analysis import EMXSp_Composition_Analyzer
 
 # Configure logging
@@ -105,6 +105,7 @@ def analyze_sample(
     k_finding_method: Optional[str] = None,
     k_forced: Optional[Union[int, bool]] = None,
     do_matrix_decomposition: bool = True,
+    mixture_params: Optional[dict] = None,
     max_analytical_error_percent: float = 5,
     quant_flags_accepted: Optional[List[int]] = None,
     show_plots: bool = True,
@@ -166,6 +167,14 @@ def analyze_sample(
             - ``None`` (default): reuse the clustering settings saved in the ledger.
     do_matrix_decomposition : bool, optional
         Whether to compute matrix decomposition for intermixed phases. Slow if many candidate phases are provided. Default: True..
+    mixture_params : dict, optional
+        Overrides for the decomposition of clusters into mixtures of candidate phases (see ``MixtureParams``).
+        Main keys: ``max_n_phases`` (int >= 2, default 4) and ``max_recon_error`` (float, default 0.4).
+        Pairs of candidate phases are always tested; combinations of more phases are only tested when no
+        combination with fewer phases reconstructs the cluster with an error below ``max_recon_error``.
+        Use ``{'max_n_phases': 2}`` to only consider binary mixtures. Other keys (reconstruction error and
+        confidence definitions, single-phase and free-NMF criteria) are described in ``MixtureParams``.
+        Unspecified keys keep their existing/default values.
     max_analytical_error_percent : float, optional
         Maximum analytical error allowed for clustering.
     quant_flags_accepted : list of int, optional
@@ -312,6 +321,9 @@ def analyze_sample(
     
     if do_matrix_decomposition is not None:
         clustering_cfg.do_matrix_decomposition = do_matrix_decomposition
+    if mixture_params is not None:
+        merged_mixture = {**clustering_cfg.mixture.model_dump(), **mixture_params}
+        clustering_cfg.mixture = MixtureParams.model_validate(merged_mixture)
     
     # --- Modify Plot Configuration
     plot_cfg.show_plots = show_plots # show plots by default, but can be turned off for batch processing

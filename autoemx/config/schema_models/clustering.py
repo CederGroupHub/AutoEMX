@@ -160,6 +160,113 @@ class AitchisonParams(BaseModel):
         return float(value)
 
 
+class MixtureParams(BaseModel):
+    """Parameters for decomposing clusters into mixtures of candidate phases (``ref_formulae``).
+
+    Clusters are fitted as non-negative combinations of candidate phases (NNLS), scored by the
+    exponential reconstruction error ``mean(exp(recon_error_alpha * |X - WH|) - 1)``, which is
+    mapped to a confidence score ``exp(-error^2 / (2 * conf_sigma^2))``.
+
+    Adding phases always lowers the reconstruction error, so only the fewest phases that the
+    shape of the cluster requires are used: a binary mixture spreads along a line between two
+    phases (with a width set by measurement noise), a ternary one over a plane.
+    Pairs of candidate phases are always tested, and listed when their error is below
+    ``max_recon_error_binary`` (1, confidence ~0.14; only pairs below ``max_recon_error``
+    explain the cluster, weaker pairs are listed for inspection). Combinations of 3 up to ``max_n_phases`` phases are only tested
+    when no combination with fewer phases reaches an error below ``max_recon_error``, stopping
+    at the first number of phases that does. ``max_n_phases = 2`` restricts the analysis to
+    binary mixtures. The default ``max_recon_error`` (0.4, confidence ~0.73) separates
+    single-phase standards, known binary mixtures and ternary mixtures measured on a Phenom XL.
+
+    Combinations whose reconstruction errors differ by less than ``equivalent_recon_error_tol``
+    explain the cluster equally well, e.g. collinear candidate phases such as CaO and Ca4Ta2O9
+    in a CaO-Ta2O5 mixture. Among these, the combination with fewer phases and then with the
+    phases closest to each other in composition space (smallest sum of pairwise distances) is
+    ranked first.
+
+    All mixtures are saved in the ledger. ``Clusters.csv`` shows a mixture only if its confidence
+    is at least ``min_reported_conf_ratio`` of the best one in the cluster, and it is among the
+    first ``max_reported_mixtures`` or its confidence is within ``report_within_conf_ratio`` of the
+    best one. A note in ``Clusters.csv`` gives the number of mixtures only saved in the ledger. With
+    ``collapse_equivalent_mixtures``, mixtures whose phases span the same mixing line or plane as a
+    better-ranked mixture (within ``equivalent_span_tol``, in fractions) are equivalent decompositions
+    and are not shown either, e.g. pairs of Sr-Ta oxides that all lie on the SrO-Ta2O5 line.
+
+    Clusters are not decomposed if they are considered single-phase: their RMS distance from the
+    centroid is below ``single_phase_max_rms_dist`` and they match a candidate phase with
+    confidence above ``single_phase_min_ref_conf``. If no mixture of candidate phases reaches a
+    confidence of ``nmf_min_mixture_conf``, the cluster is also decomposed into two phases of
+    unknown composition with free NMF.
+    """
+
+    max_n_phases: int = 4
+    max_recon_error: float = 0.4
+    max_recon_error_binary: float = 1.0
+    recon_error_alpha: float = 15.0
+    conf_sigma: float = 0.5
+    single_phase_max_rms_dist: float = 0.03
+    single_phase_min_ref_conf: float = 0.5
+    nmf_min_mixture_conf: float = 0.5
+    equivalent_recon_error_tol: float = 0.01
+    max_reported_mixtures: int = 5
+    report_within_conf_ratio: float = 0.9
+    min_reported_conf_ratio: float = 0.5
+    collapse_equivalent_mixtures: bool = True
+    equivalent_span_tol: float = 0.005
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("max_n_phases")
+    @classmethod
+    def validate_max_n_phases(cls, value: int) -> int:
+        if value < 2:
+            raise ValueError("Mixture max_n_phases must be >= 2")
+        return int(value)
+
+    @field_validator("max_recon_error", "max_recon_error_binary", "recon_error_alpha", "conf_sigma",
+                     "single_phase_max_rms_dist")
+    @classmethod
+    def validate_positive(cls, value: float) -> float:
+        if not np.isfinite(value) or value <= 0:
+            raise ValueError("Mixture parameters must be positive, finite numbers")
+        return float(value)
+
+    @field_validator("max_reported_mixtures")
+    @classmethod
+    def validate_max_reported_mixtures(cls, value: int) -> int:
+        if value < 1:
+            raise ValueError("Mixture max_reported_mixtures must be >= 1")
+        return int(value)
+
+    @field_validator("report_within_conf_ratio", "min_reported_conf_ratio")
+    @classmethod
+    def validate_conf_ratio(cls, value: float) -> float:
+        if not np.isfinite(value) or value <= 0 or value > 1:
+            raise ValueError("Mixture confidence ratios must be in (0, 1]")
+        return float(value)
+
+    @field_validator("equivalent_span_tol")
+    @classmethod
+    def validate_equivalent_span_tol(cls, value: float) -> float:
+        if not np.isfinite(value) or value <= 0:
+            raise ValueError("Mixture equivalent_span_tol must be a positive, finite number")
+        return float(value)
+
+    @field_validator("equivalent_recon_error_tol")
+    @classmethod
+    def validate_non_negative(cls, value: float) -> float:
+        if not np.isfinite(value) or value < 0:
+            raise ValueError("Mixture equivalent_recon_error_tol must be a non-negative, finite number")
+        return float(value)
+
+    @field_validator("single_phase_min_ref_conf", "nmf_min_mixture_conf")
+    @classmethod
+    def validate_confidence(cls, value: float) -> float:
+        if not np.isfinite(value) or value < 0 or value > 1:
+            raise ValueError("Mixture confidence thresholds must be in [0, 1]")
+        return float(value)
+
+
 class ClusteringConfig(BaseModel):
     """Configuration for clustering of compositions and their filtering."""
 
@@ -193,6 +300,7 @@ class ClusteringConfig(BaseModel):
     )
     dbscan: DBSCANParams = Field(default_factory=DBSCANParams)
     aitchison: AitchisonParams = Field(default_factory=AitchisonParams)
+    mixture: MixtureParams = Field(default_factory=MixtureParams)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -321,6 +429,8 @@ class ClusteringConfig(BaseModel):
         if self.geometry != "euclidean":
             payload["geometry"] = self.geometry
             payload["aitchison"] = self.aitchison.model_dump()
+        if self.mixture != MixtureParams():
+            payload["mixture"] = self.mixture.model_dump()
         return payload
 
     def fingerprint(self) -> str:

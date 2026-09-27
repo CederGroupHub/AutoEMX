@@ -623,6 +623,8 @@ class PlotConfig(BaseModel):
         show_plots (bool): Whether to display plots interactively.
         use_custom_plots (bool): Whether to use custom plotting routines.
         custom_plot_file (Optional[str]): Path to a user-editable custom plotting file.
+        plot_best_mixture (bool): Whether to plot the top-ranked mixture of each cluster, when it
+            combines 2 or 3 candidate phases (Mixture_plot_cl<i>.png). Default: True
     """
 
     show_unused_comps_clust: bool = True
@@ -633,6 +635,7 @@ class PlotConfig(BaseModel):
     show_plots: bool = False
     use_custom_plots: bool = False
     custom_plot_file: Optional[str] = None
+    plot_best_mixture: bool = True
 
     model_config = ConfigDict(extra="forbid")
 

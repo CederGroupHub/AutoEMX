@@ -60,6 +60,11 @@ REF_NAME_KEY = 'refs'
 CONF_SCORE_KEY = 'conf_score'
 MOLAR_FR_MEAN_KEY = 'mean'
 MOLAR_FR_STDEV_KEY = 'stddev'
+MOLAR_FRS_MEAN_KEY = 'means'
+MOLAR_FRS_STDEV_KEY = 'stddevs'
+MIX_RECON_ERROR_KEY = 'recon_error'
+MIX_PHASES_SPREAD_KEY = 'phases_spread'
+MIX_RANK_KEY = 'rank'
 
 # Experimental standard measurements
 MEAN_PB_KEY = 'PB_mean'
@@ -101,6 +106,8 @@ CS_MIX_DF_KEY = 'CS_mix'
 MIX_MOLAR_RATIO_DF_KEY = 'Mol_Ratio'
 MIX_FIRST_COMP_MEAN_DF_KEY = 'X1_mean'
 MIX_FIRST_COMP_STDEV_DF_KEY = 'X1_stdev'
+MIX_ALL_COMPS_MEAN_DF_KEY = 'X_means'
+MIX_MORE_DF_KEY = 'Mix_more'
 
 
 # Headers of Clusters.csv files
@@ -165,6 +172,7 @@ ANALYSIS_CONFIG_SUMMARY_FILENAME = 'Analysis_config_summary'
 CUSTOM_CLUSTERING_PLOT_FILENAME = 'Clustering_plot_custom'
 CUSTOM_PLOT_FILENAME = 'custom_plot.py'
 POWDER_MIXTURE_PLOT_FILENAME = 'Mixture_decomposition_plot'
+BEST_MIXTURE_PLOT_FILENAME = 'Mixture_plot'
 CLUSTERING_PLOT_FILEEXT = '.png'
 NAVCAM_IM_FILENAME = 'Analysed_region'
 INITIAL_SEM_IM_FILENAME = 'Initial_Position'

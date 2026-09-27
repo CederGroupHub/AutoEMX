@@ -15,6 +15,10 @@ import autoemx.utils.constants as cnst
 from autoemx.core.composition_analysis.plotting import PlottingModule
 
 
+# Transient key of mixture dictionaries: per-point molar fractions, used for plots and not saved
+_POINT_MOLAR_FRS_KEY = '_point_molar_frs'
+
+
 class ReferenceMatchingModule:
 	"""Container for reference matching algorithms extracted from the analyser."""
 
@@ -127,17 +131,17 @@ class ReferenceMatchingModule:
 		"""
 		clusters_assigned_mixtures = []
 		ref_formulae = self.ref_formulae or []
+		mixture_cfg = self.clustering_cfg.mixture
 		for i in range(k):
 			# Get compositions of data points included in cluster as np.array (only detectable elements)
 			cluster_data = compositions_df[self.detectable_els_sample].iloc[labels == i].values
 			max_mix_conf = 0
 			mixtures_dicts = []
 
-			max_rmsdist_single_cluster = 0.03
-			if rms_dist_cluster[i] < max_rmsdist_single_cluster:
+			if rms_dist_cluster[i] < mixture_cfg.single_phase_max_rms_dist:
 				if max_raw_confs is None or len(max_raw_confs) < 1:
 					is_cluster_single_phase = n_points_per_cluster[i] > 3
-				elif max_raw_confs[i] is not None and max_raw_confs[i] > 0.5:
+				elif max_raw_confs[i] is not None and max_raw_confs[i] > mixture_cfg.single_phase_min_ref_conf:
 					is_cluster_single_phase = True
 				else:
 					is_cluster_single_phase = False
@@ -150,22 +154,228 @@ class ReferenceMatchingModule:
 			elif len(ref_formulae) > 1:
 				max_mix_raw_conf, mixtures_dicts = ReferenceMatchingModule._identify_mixture_from_refs(self, cluster_data, cluster_ID=i)
 				max_mix_conf = max(max_mix_conf, max_mix_raw_conf)
-			if not is_cluster_single_phase and max_mix_conf < 0.5:
+			if not is_cluster_single_phase and max_mix_conf < mixture_cfg.nmf_min_mixture_conf:
 				mix_nmf_conf, mixture_dict = ReferenceMatchingModule._identify_mixture_nmf(self, cluster_data, cluster_ID=i)
 				if mixture_dict is not None:
 					mixtures_dicts.append(mixture_dict)
 				max_mix_conf = max(max_mix_conf, mix_nmf_conf)
+			mixtures_dicts = ReferenceMatchingModule._rank_mixtures(mixtures_dicts, mixture_cfg.equivalent_recon_error_tol)
+			if getattr(self.powder_meas_cfg, "is_known_powder_mixture_meas", False):
+				reported, _ = ReferenceMatchingModule._reported_mixtures(self, mixtures_dicts)
+				for mixture in reported:
+					if _POINT_MOLAR_FRS_KEY not in mixture:
+						continue
+					plot_violin = (
+						PlottingModule._save_violin_plot_powder_mixture if len(mixture[cnst.REF_NAME_KEY]) == 2
+						else PlottingModule._save_violin_plot_powder_mixture_multi
+					)
+					plot_violin(cast(Any, self), mixture[_POINT_MOLAR_FRS_KEY], mixture[cnst.REF_NAME_KEY], i)
+			for mixture in mixtures_dicts:
+				mixture.pop(_POINT_MOLAR_FRS_KEY, None)
 			clusters_assigned_mixtures.append(mixtures_dicts)
 		return clusters_assigned_mixtures
 
 
+	@staticmethod
+	def _rank_mixtures(mixtures: List[Dict], equivalent_recon_error_tol: float) -> List[Dict]:
+		"""
+		Rank the mixtures of a cluster, storing the rank in each mixture dictionary.
+
+		Mixtures are ranked by confidence score (i.e., reconstruction error). Mixtures whose
+		reconstruction error is within ``equivalent_recon_error_tol`` of the best remaining one
+		explain the cluster equally well (e.g., collinear candidate phases), and are ranked by
+		number of phases and then by the spread of their phases in composition space, so that
+		the phases closest to the cluster are preferred.
+		"""
+		remaining = sorted(mixtures, key=lambda m: -m[cnst.CONF_SCORE_KEY])
+		ranked: List[Dict] = []
+		while remaining:
+			best_recon_er = remaining[0].get(cnst.MIX_RECON_ERROR_KEY)
+			if best_recon_er is None:
+				group = remaining[:1]
+			else:
+				group = [
+					m for m in remaining
+					if m.get(cnst.MIX_RECON_ERROR_KEY) is not None
+					and m[cnst.MIX_RECON_ERROR_KEY] <= best_recon_er + equivalent_recon_error_tol
+				]
+				group.sort(key=lambda m: (
+					len(m[cnst.REF_NAME_KEY]),
+					m.get(cnst.MIX_PHASES_SPREAD_KEY, np.inf),
+					m[cnst.MIX_RECON_ERROR_KEY],
+				))
+			ranked.extend(group)
+			remaining = [m for m in remaining if not any(m is g for g in group)]
+
+		for rank, mixture in enumerate(ranked, start=1):
+			mixture[cnst.MIX_RANK_KEY] = rank
+		return ranked
+
+
+	@staticmethod
+	def _in_affine_span(points: 'np.ndarray', basis: 'np.ndarray', tol: float) -> bool:
+		"""Whether all ``points`` lie within ``tol`` of the affine span (line, plane, ...) of the rows of ``basis``."""
+		directions = (basis[1:] - basis[0]).T
+		for p in points:
+			offset = p - basis[0]
+			if directions.size:
+				coeffs = np.linalg.lstsq(directions, offset, rcond=None)[0]
+				offset = offset - directions @ coeffs
+			if np.linalg.norm(offset) > tol:
+				return False
+		return True
+
+
+	@staticmethod
+	def _collapse_equivalent_mixtures(
+		sorted_mixtures: List[Dict],
+		phase_compositions: Dict[str, 'np.ndarray'],
+		tol: float,
+	) -> Tuple[List[Dict], int]:
+		"""
+		Drop mixtures that are equivalent decompositions of a better-ranked one, from mixtures sorted by rank.
+
+		Two mixtures are equivalent when their phases span the same mixing line or plane, and that span is
+		narrower than the whole composition space (e.g., phases on the SrO-Ta2O5 line: any pair bracketing
+		the cluster describes the same mixture). Mixtures spanning the whole composition space (e.g., three
+		phases with three elements) are distinct decompositions and are kept. Mixtures with phases of unknown
+		composition (free NMF) are kept.
+
+		Returns the kept mixtures and the number of dropped equivalents.
+		"""
+		kept: List[Dict] = []
+		kept_spans: List['np.ndarray'] = []
+		n_equivalent = 0
+		for mixture in sorted_mixtures:
+			names = mixture.get(cnst.REF_NAME_KEY) or []
+			if not names or not all(f in phase_compositions for f in names):
+				kept.append(mixture)
+				continue
+			H = np.array([phase_compositions[f] for f in names], dtype=float)
+			n_dims = np.linalg.matrix_rank(H[1:] - H[0], tol=tol) if len(H) > 1 else 0
+			is_proper_span = n_dims < H.shape[1] - 1
+			is_equivalent = is_proper_span and any(
+				np.linalg.matrix_rank(K[1:] - K[0], tol=tol) == n_dims and ReferenceMatchingModule._in_affine_span(H, K, tol)
+				for K in kept_spans
+			)
+			if is_equivalent:
+				n_equivalent += 1
+				continue
+			kept.append(mixture)
+			kept_spans.append(H)
+		return kept, n_equivalent
+
+
+	def _reported_mixtures(self, mixtures: List[Dict]) -> Tuple[List[Dict], Dict[str, int]]:
+		"""
+		Mixtures of a cluster reported in Clusters.csv (and plotted), in rank order.
+
+		Equivalent decompositions of a better-ranked mixture are dropped (see ``_collapse_equivalent_mixtures``),
+		then ``_select_reported_mixtures`` is applied. Also returns the number of mixtures not reported, by reason:
+		'equivalent', 'below_min_conf' (confidence below min_reported_conf_ratio of the best) and 'beyond_max'
+		(ranked after the first max_reported_mixtures and not within report_within_conf_ratio of the best).
+		"""
+		mixture_cfg = self.clustering_cfg.mixture
+		sorted_mixtures = ReferenceMatchingModule._sort_mixtures(mixtures)
+		candidates, n_equivalent = sorted_mixtures, 0
+		phase_compositions = ReferenceMatchingModule._phase_compositions(self)
+		if mixture_cfg.collapse_equivalent_mixtures and phase_compositions:
+			candidates, n_equivalent = ReferenceMatchingModule._collapse_equivalent_mixtures(
+				sorted_mixtures, phase_compositions, mixture_cfg.equivalent_span_tol
+			)
+		reported = ReferenceMatchingModule._select_reported_mixtures(candidates, mixture_cfg)
+		best_conf = max((float(m.get(cnst.CONF_SCORE_KEY, 0.0)) for m in sorted_mixtures), default=0.0)
+		n_below = sum(
+			1 for m in candidates
+			if float(m.get(cnst.CONF_SCORE_KEY, 0.0)) < mixture_cfg.min_reported_conf_ratio * best_conf
+		)
+		counts = {
+			'equivalent': n_equivalent,
+			'below_min_conf': n_below,
+			'beyond_max': len(candidates) - len(reported) - n_below,
+			'best_conf': best_conf,
+		}
+		return reported, counts
+
+
+	def _phase_compositions(self) -> Dict[str, 'np.ndarray']:
+		"""Compositions of the candidate phases (detectable elements), by formula."""
+		els = list(getattr(self, 'detectable_els_sample', None) or [])
+		ref_formulae = list(getattr(self, 'ref_formulae', None) or [])
+		if not els or not ref_formulae or getattr(self, 'ref_phases_df', None) is None:
+			return {}
+		return {f: self.ref_phases_df[els].iloc[i].to_numpy(dtype=float) for i, f in enumerate(ref_formulae)}
+
+
+	@staticmethod
+	def _select_reported_mixtures(sorted_mixtures: List[Dict], mixture_cfg: Any) -> List[Dict]:
+		"""
+		Select the mixtures reported in Clusters.csv, from mixtures sorted by rank.
+
+		A mixture is reported if its confidence is at least ``min_reported_conf_ratio`` times the best
+		confidence of the cluster, and it is among the first ``max_reported_mixtures`` or its confidence
+		is at least ``report_within_conf_ratio`` times the best one.
+		"""
+		if not sorted_mixtures:
+			return []
+		best_conf = max(float(m.get(cnst.CONF_SCORE_KEY, 0.0)) for m in sorted_mixtures)
+		reported = []
+		for i, mixture in enumerate(sorted_mixtures):
+			conf = float(mixture.get(cnst.CONF_SCORE_KEY, 0.0))
+			if conf < mixture_cfg.min_reported_conf_ratio * best_conf:
+				continue
+			if i < mixture_cfg.max_reported_mixtures or conf >= mixture_cfg.report_within_conf_ratio * best_conf:
+				reported.append(mixture)
+		return reported
+
+
+	@staticmethod
+	def _mixtures_not_reported_note(counts: Dict[str, float], mixture_cfg: Any) -> Optional[str]:
+		"""Clusters.csv note on the mixtures saved in the ledger but not reported, with the reason and threshold."""
+		reasons = []
+		if counts['equivalent']:
+			reasons.append(f"{counts['equivalent']} equivalent to a listed mixture (same mixing line/plane)")
+		if counts['below_min_conf']:
+			floor = mixture_cfg.min_reported_conf_ratio
+			reasons.append(
+				f"{counts['below_min_conf']} with confidence below {floor * 100:.0f}% of the best "
+				f"(CS_mix < {floor * counts['best_conf']:.2f})"
+			)
+		if counts['beyond_max']:
+			within = mixture_cfg.report_within_conf_ratio
+			reasons.append(
+				f"{counts['beyond_max']} ranked after the first {mixture_cfg.max_reported_mixtures} with confidence "
+				f"more than {(1 - within) * 100:.0f}% below the best (CS_mix < {within * counts['best_conf']:.2f})"
+			)
+		if not reasons:
+			return None
+		n = int(counts['equivalent'] + counts['below_min_conf'] + counts['beyond_max'])
+		return (f"{n} more mixture(s) saved in ledger.json (clusters_assigned_mixtures of this clustering analysis): "
+				+ '; '.join(reasons))
+
+
+	@staticmethod
+	def _sort_mixtures(mixtures: List[Dict]) -> List[Dict]:
+		"""Sort the mixtures of a cluster by their stored rank, or by confidence score for results saved without ranks."""
+		if mixtures and all(cnst.MIX_RANK_KEY in m for m in mixtures):
+			return sorted(mixtures, key=lambda m: m[cnst.MIX_RANK_KEY])
+		return sorted(mixtures, key=lambda m: -float(m.get(cnst.CONF_SCORE_KEY, 0.0)))
+
+
 	def _identify_mixture_from_refs(self, X: 'np.ndarray', cluster_ID: Optional[int] = None) -> Tuple[float, List[Dict]]:
 		"""
-		Identify mixtures within a cluster by testing all pairs of candidate phases using constrained optimization.
+		Identify mixtures within a cluster by testing combinations of candidate phases using constrained optimization.
 
-		For each possible pair of candidate phases, tests if the cluster compositions (X)
-		can be well described by a linear combination of the two candidate phases, using
+		For each combination of candidate phases, tests if the cluster compositions (X)
+		can be well described by a linear combination of those phases, using
 		non-negative matrix factorization (NMF) with fixed bases.
+
+		All pairs of candidate phases are tested. Since adding phases always lowers the
+		reconstruction error, combinations of more phases (up to ``clustering_cfg.mixture.max_n_phases``)
+		are only tested when no combination with fewer phases reconstructs the cluster with an error
+		below ``clustering_cfg.mixture.max_recon_error``, stopping at the first number of phases that does.
+		This way the number of phases follows the shape of the cluster: a line for binary mixtures,
+		a plane for ternary ones.
 
 		Parameters
 		----------
@@ -179,41 +389,52 @@ class ReferenceMatchingModule:
 		max_confidence : float
 			The highest confidence score among all tested mixtures.
 		mixtures_dicts : list of Dict
-			List of mixture descriptions for all successful reference pairs.
-		cluster_ID : int
-			Current cluster ID. Used for violin plot name
+			List of mixture descriptions for all successful combinations of candidate phases.
 		"""
-		# Generate all possible pairs of candidate phases
-		ref_pair_combinations = list(itertools.combinations(range(len(self.ref_phases_df)), 2))
 		ref_formulae = self.ref_formulae or []
+		n_refs = len(self.ref_phases_df)
+		mixture_cfg = self.clustering_cfg.mixture
 
 		mixtures_dicts = []
 		max_confidence = 0
 
-		for ref_comb in ref_pair_combinations:
-			# Get the names of the candidate phases in this pair
-			ref_names = [ref_formulae[ref_i] for ref_i in ref_comb]
+		for n_phases in range(2, min(mixture_cfg.max_n_phases, n_refs) + 1):
+			# Binary mixtures are listed with a looser threshold; mixtures of more phases
+			# only if they reconstruct the cluster within noise
+			max_listed_recon_error = mixture_cfg.max_recon_error_binary if n_phases == 2 else mixture_cfg.max_recon_error
+			min_recon_er = np.inf
 
-			# Ratio of weights of references, for molar concentrations of parent phases
-			ref_w_r = self.ref_weights_in_mixture[ref_comb[0]] / self.ref_weights_in_mixture[ref_comb[1]]
+			for ref_comb in itertools.combinations(range(n_refs), n_phases):
+				# Get the names of the candidate phases in this combination
+				ref_names = [ref_formulae[ref_i] for ref_i in ref_comb]
 
-			# Get matrix of basis vectors (H) for the two candidate phases
-			H = np.array([
-				self.ref_phases_df[self.detectable_els_sample].iloc[ref_i].values
-				for ref_i in ref_comb
-			])
+				# Weights of references, for molar concentrations of parent phases
+				ref_weights = [self.ref_weights_in_mixture[ref_i] for ref_i in ref_comb]
 
-			# Perform NMF with fixed H to fit the cluster data as a mixture of the two candidate phases
-			W, _ = ReferenceMatchingModule._nmf_with_constraints(self, X, n_components=2, fixed_H=H)
+				# Get matrix of basis vectors (H) for the candidate phases
+				H = np.array([
+					self.ref_phases_df[self.detectable_els_sample].iloc[ref_i].values
+					for ref_i in ref_comb
+				])
 
-			# Compute reconstruction error for the fit
-			recon_er = ReferenceMatchingModule._calc_reconstruction_error(self, X, W, H)
+				# Perform NMF with fixed H to fit the cluster data as a mixture of the candidate phases
+				W, _ = ReferenceMatchingModule._nmf_with_constraints(self, X, n_components=n_phases, fixed_H=H)
 
-			# If the pair yields an acceptable reconstruction error, store the result
-			pair_dict, conf = ReferenceMatchingModule._get_mixture_dict_with_conf(self, W, ref_w_r, recon_er, ref_names, cluster_ID)
-			if pair_dict is not None:
-				mixtures_dicts.append(pair_dict)
-				max_confidence = max(max_confidence, conf)
+				# Compute reconstruction error for the fit
+				recon_er = ReferenceMatchingModule._calc_reconstruction_error(self, X, W, H)
+				min_recon_er = min(min_recon_er, recon_er)
+
+				# If the combination yields an acceptable reconstruction error, store the result
+				mix_dict, conf = ReferenceMatchingModule._get_mixture_dict_with_conf(
+					self, W, ref_weights, recon_er, ref_names, cluster_ID, max_listed_recon_error, H
+				)
+				if mix_dict is not None:
+					mixtures_dicts.append(mix_dict)
+					max_confidence = max(max_confidence, conf)
+
+			if min_recon_er < mixture_cfg.max_recon_error:
+				# Fewest phases that explain the cluster within noise
+				break
 
 		return max_confidence, mixtures_dicts
 
@@ -227,12 +448,12 @@ class ReferenceMatchingModule:
 		"""
 		Calculate the reconstruction error for a matrix factorization X ≈ W @ H.
 
-		The error metric is an exponential penalty (with parameter alpha) applied to the
-		absolute difference between X and its reconstruction W @ H, normalized by the
+		The error metric is an exponential penalty (with parameter ``clustering_cfg.mixture.recon_error_alpha``)
+		applied to the absolute difference between X and its reconstruction W @ H, normalized by the
 		number of elements in X. This penalizes large deviations more strongly.
 		"""
 		WH = np.dot(W, H)
-		alpha = 15
+		alpha = self.clustering_cfg.mixture.recon_error_alpha
 		norm = np.sum(np.exp(alpha * np.abs(X - WH)) - 1)
 		m, n = X.shape
 		normalized_norm = norm / (m * n)
@@ -242,49 +463,60 @@ class ReferenceMatchingModule:
 	def _get_mixture_dict_with_conf(
 		self,
 		W: 'np.ndarray',
-		ref_w_r: float,
+		ref_weights: List[float],
 		reconstruction_error: float,
 		ref_names: List[str],
-		cluster_ID: Optional[int] = None
+		cluster_ID: Optional[int] = None,
+		max_recon_error: Optional[float] = None,
+		H: Optional['np.ndarray'] = None
 	) -> Tuple[Optional[Dict], float]:
 		"""
-		Evaluate if a cluster is a mixture of two candidate phases, and compute a confidence score.
+		Evaluate if a cluster is a mixture of candidate phases, and compute a confidence score.
 
-		If the reconstruction error is below a set threshold, computes a confidence score and
-		transforms the NMF coefficients into molar fractions. Returns a dictionary describing
-		the mixture and the confidence score.
+		If the reconstruction error is below ``max_recon_error`` (``clustering_cfg.mixture.max_recon_error_binary``
+		if None), computes a confidence score and transforms the NMF coefficients into molar fractions.
+		Returns a dictionary describing the mixture and the confidence score. If the phase compositions
+		``H`` are given, their spread in composition space (sum of pairwise distances) is also stored,
+		used to rank mixtures that reconstruct the cluster equally well.
 		"""
-		min_acceptable_recon_error = 2  # Empirically determined
+		mixture_cfg = self.clustering_cfg.mixture
+		if max_recon_error is None:
+			max_recon_error = mixture_cfg.max_recon_error_binary
 
-		save_violin_plot = getattr(
+		# For known powder mixtures, all binary mixtures are kept (violin plots are drawn in
+		# _assign_mixtures, for the mixtures reported in Clusters.csv)
+		keep_binary = len(ref_names) == 2 and getattr(
 			self.powder_meas_cfg,
 			"is_known_powder_mixture_meas",
 			False,
 		)
 
-		if reconstruction_error < min_acceptable_recon_error or save_violin_plot:
-			gauss_sigma = 0.5
-			conf = np.exp(-reconstruction_error**2 / (2 * gauss_sigma**2))
+		if reconstruction_error < max_recon_error or keep_binary:
+			conf = np.exp(-reconstruction_error**2 / (2 * mixture_cfg.conf_sigma**2))
 
-			W_mol_frs = []
-			for c1, c2 in W:
-				x2 = c2 * ref_w_r / (1 - c2 * (1 - ref_w_r))
-				x1 = c1 * (1 + x2 * (1 / ref_w_r - 1))
-				W_mol_frs.append([x1, x2])
-			W_mol_frs = np.array(W_mol_frs)
+			# NMF coefficients are fractions of atoms (or mass) contributed by each phase. Dividing by
+			# the atoms (or mass) per formula unit of each phase gives its molar fraction.
+			W_mol_frs = np.asarray(W, dtype=float) / np.asarray(ref_weights, dtype=float)
+			W_mol_frs /= W_mol_frs.sum(axis=1, keepdims=True)
 
 			mol_frs_norm_means = np.mean(W_mol_frs, axis=0)
 			mol_frs_norm_stddevs = np.std(W_mol_frs, axis=0)
 
-			if save_violin_plot and cluster_ID is not None:
-				PlottingModule._save_violin_plot_powder_mixture(cast(Any, self), W_mol_frs, ref_names, cluster_ID)
-				
 			mixture_dict = {
 				cnst.REF_NAME_KEY: ref_names,
 				cnst.CONF_SCORE_KEY: conf,
 				cnst.MOLAR_FR_MEAN_KEY: mol_frs_norm_means[0],
-				cnst.MOLAR_FR_STDEV_KEY: mol_frs_norm_stddevs[0]
+				cnst.MOLAR_FR_STDEV_KEY: mol_frs_norm_stddevs[0],
+				cnst.MOLAR_FRS_MEAN_KEY: [float(v) for v in mol_frs_norm_means],
+				cnst.MOLAR_FRS_STDEV_KEY: [float(v) for v in mol_frs_norm_stddevs],
+				cnst.MIX_RECON_ERROR_KEY: float(reconstruction_error),
+				# Per-point molar fractions, for violin plots; removed in _assign_mixtures (not saved in the ledger)
+				_POINT_MOLAR_FRS_KEY: W_mol_frs,
 			}
+			if H is not None:
+				mixture_dict[cnst.MIX_PHASES_SPREAD_KEY] = float(sum(
+					np.linalg.norm(H[a] - H[b]) for a, b in itertools.combinations(range(len(H)), 2)
+				))
 		else:
 			mixture_dict = None
 			conf = 0
@@ -382,8 +614,7 @@ class ReferenceMatchingModule:
 		W, H = ReferenceMatchingModule._nmf_with_constraints(self, X, n_components)
 		recon_er = ReferenceMatchingModule._calc_reconstruction_error(self, X, W, H)
 		ref_names, ref_weights = ReferenceMatchingModule._get_pretty_formulas_nmf(self, H, n_components)
-		ref_w_r = ref_weights[0] / ref_weights[1]
-		mixture_dict, conf = ReferenceMatchingModule._get_mixture_dict_with_conf(self, W, ref_w_r, recon_er, ref_names, cluster_ID)
+		mixture_dict, conf = ReferenceMatchingModule._get_mixture_dict_with_conf(self, W, ref_weights, recon_er, ref_names, cluster_ID, H=H)
 
 		return conf, mixture_dict
 
@@ -439,23 +670,40 @@ class ReferenceMatchingModule:
 		"""
 		Build a DataFrame summarizing mixture assignments for each cluster.
 
-		For each cluster, sorts mixture dictionaries by confidence score and extracts:
+		For each cluster, sorts mixture dictionaries by rank (see ``_rank_mixtures``) and extracts:
 		  - candidate phase names (as a comma-separated string)
 		  - Confidence score
-		  - Molar ratio (mean / (1 - mean))
+		  - Molar ratio (mean / (1 - mean)), for binary mixtures only
 		  - Mean and standard deviation of the main component's molar fraction
+		  - Mean molar fractions of all phases, for mixtures of more than two phases
+
+		Equivalent decompositions of a better-ranked mixture are dropped (see ``_collapse_equivalent_mixtures``),
+		then only the mixtures selected by ``_select_reported_mixtures`` are included; if others were found,
+		a note gives their number and where they are saved.
 		"""
+		mixture_cfg = self.clustering_cfg.mixture
 		mixtures_strings_dict = []
 		for mixtures_dict in clusters_assigned_mixtures:
 			if mixtures_dict:
-				sorted_mixtures = sorted(mixtures_dict, key=lambda x: -x[cnst.CONF_SCORE_KEY])
+				reported_mixtures, counts = ReferenceMatchingModule._reported_mixtures(self, mixtures_dict)
 				cluster_mix_dict = {}
-				for i, mixture_dict in enumerate(sorted_mixtures, start=1):
+				for i, mixture_dict in enumerate(reported_mixtures, start=1):
+					is_binary = len(mixture_dict[cnst.REF_NAME_KEY]) == 2
 					cluster_mix_dict[f'{cnst.MIX_DF_KEY}{i}'] = ', '.join(mixture_dict[cnst.REF_NAME_KEY])
 					cluster_mix_dict[f'{cnst.CS_MIX_DF_KEY}{i}'] = float(f"{mixture_dict[cnst.CONF_SCORE_KEY]:.2f}")
-					cluster_mix_dict[f'{cnst.MIX_MOLAR_RATIO_DF_KEY}{i}'] = np.round(mixture_dict[cnst.MOLAR_FR_MEAN_KEY] / (1 - mixture_dict[cnst.MOLAR_FR_MEAN_KEY]), 2)
+					cluster_mix_dict[f'{cnst.MIX_MOLAR_RATIO_DF_KEY}{i}'] = (
+						np.round(mixture_dict[cnst.MOLAR_FR_MEAN_KEY] / (1 - mixture_dict[cnst.MOLAR_FR_MEAN_KEY]), 2)
+						if is_binary else np.nan
+					)
 					cluster_mix_dict[f'{cnst.MIX_FIRST_COMP_MEAN_DF_KEY}{i}'] = np.round(mixture_dict[cnst.MOLAR_FR_MEAN_KEY], 2)
 					cluster_mix_dict[f'{cnst.MIX_FIRST_COMP_STDEV_DF_KEY}{i}'] = np.round(mixture_dict[cnst.MOLAR_FR_STDEV_KEY], 2)
+					if not is_binary and cnst.MOLAR_FRS_MEAN_KEY in mixture_dict:
+						cluster_mix_dict[f'{cnst.MIX_ALL_COMPS_MEAN_DF_KEY}{i}'] = '/'.join(
+							f'{x:.2f}' for x in mixture_dict[cnst.MOLAR_FRS_MEAN_KEY]
+						)
+				note = ReferenceMatchingModule._mixtures_not_reported_note(counts, mixture_cfg)
+				if note:
+					cluster_mix_dict[cnst.MIX_MORE_DF_KEY] = note
 				mixtures_strings_dict.append(cluster_mix_dict)
 			else:
 				mixtures_strings_dict.append({})

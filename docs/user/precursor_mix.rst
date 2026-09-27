@@ -33,7 +33,9 @@ couple of small differences:
 
 - In the ``Analysis`` folder, the output will include a violin plot showing the
   distribution of molar fractions (`x`) of the two precursors measured with each EDS
-  spot spectrum, such as the example below.
+  spot spectrum, such as the example below. A violin plot is drawn for each mixture
+  reported in ``Clusters.csv``; for mixtures of three or more precursors, it shows one
+  violin per precursor, side by side.
   
 .. figure:: /_static/Example_violin_plot.png
    :alt: Example Violin Plot

@@ -232,6 +232,8 @@ def load_ledger_configs_from_legacy_json(sample_result_dir: str) -> Optional[obj
     ledger_cfg_kwargs["measurement_cfg"] = measurement_cfg
     if "plot_cfg" not in ledger_cfg_kwargs:
         ledger_cfg_kwargs["plot_cfg"] = PlotConfig()
+    # Plotting of the best mixture of each cluster did not exist in legacy configs: enable it
+    ledger_cfg_kwargs["plot_cfg"] = ledger_cfg_kwargs["plot_cfg"].model_copy(update={"plot_best_mixture": True})
 
     try:
         return LedgerConfigs(**ledger_cfg_kwargs)

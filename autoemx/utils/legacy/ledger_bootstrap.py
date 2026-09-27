@@ -897,7 +897,10 @@ def resolve_legacy_bootstrap_configs(
             sample_cfg=legacy_configs.get(cnst.SAMPLE_CFG_KEY) or default_ledger_configs.sample_cfg,
             measurement_cfg=legacy_configs.get(cnst.MEASUREMENT_CFG_KEY) or default_ledger_configs.measurement_cfg,
             sample_substrate_cfg=legacy_configs.get(cnst.SAMPLESUBSTRATE_CFG_KEY) or default_ledger_configs.sample_substrate_cfg,
-            plot_cfg=legacy_configs.get(cnst.PLOT_CFG_KEY) or default_ledger_configs.plot_cfg,
+            # Plotting of the best mixture of each cluster did not exist in legacy configs: enable it
+            plot_cfg=(legacy_configs.get(cnst.PLOT_CFG_KEY) or default_ledger_configs.plot_cfg).model_copy(
+                update={"plot_best_mixture": True}
+            ),
         )
         return ledger_configs, legacy_configs
     except Exception as exc:

@@ -480,6 +480,60 @@ class PlottingModule:
             pad_inches=0,
         )
 
+    def _save_violin_plot_powder_mixture_multi(
+        self,
+        W_mol_frs: 'np.ndarray',
+        ref_names: List[str],
+        cluster_ID: int
+    ) -> None:
+        """Violin plots of the molar fractions of each phase of a mixture of 3 or more phases, side by side."""
+        plt.rcParams['font.family'] = 'Arial'
+        fontsize = 17
+        plt.rcParams['font.size'] = fontsize
+        plt.rcParams['axes.titlesize'] = fontsize
+        plt.rcParams['axes.labelsize'] = fontsize
+        plt.rcParams['xtick.labelsize'] = fontsize
+        plt.rcParams['ytick.labelsize'] = fontsize
+        purple_cmap = cm.get_cmap('Purples')
+        yellow_cmap = cm.get_cmap('autumn')
+
+        x = np.asarray(W_mol_frs, dtype=float)
+        n_phases = x.shape[1]
+        long_df = pd.DataFrame({
+            'phase': np.repeat(np.arange(n_phases), len(x)),
+            'x': x.T.ravel(),
+        })
+        fig, ax = plt.subplots(figsize=(1.8 * n_phases + 1, 4))
+        sns.violinplot(data=long_df, x='phase', y='x', inner=None, color=purple_cmap(0.3), linewidth=1.5,
+                       density_norm='area', width=0.9, cut=0, zorder=1, ax=ax)
+        sns.swarmplot(data=long_df, x='phase', y='x', color=purple_cmap(0.8), edgecolor=purple_cmap(1.0),
+                      linewidth=1, size=3, zorder=2, ax=ax)
+        means, stds = x.mean(axis=0), x.std(axis=0)
+        ax.errorbar(np.arange(n_phases), means, yerr=stds / 2, fmt='none', ecolor='black', capsize=6, elinewidth=2, zorder=3)
+        ax.errorbar(np.arange(n_phases), means, yerr=stds / 2, fmt='none', ecolor=yellow_cmap(0.9), capsize=5, elinewidth=1, zorder=4)
+        ax.scatter(np.arange(n_phases), means, color=yellow_cmap(0.9), marker='o', s=50, edgecolors='k', linewidths=1, zorder=10)
+
+        ax.set_xticks(np.arange(n_phases))
+        ax.set_xticklabels([f"{to_latex_formula(f)}\n$\\sigma_x = {sd * 100:.1f}$%" for f, sd in zip(ref_names, stds)])
+        ax.set_xlabel('')
+        ax.set_ylabel('$x$')
+        ax.set_ylim(0, 1)
+        ax.set_yticks([0, 1])
+        ax.set_frame_on(True)
+        for spine in ax.spines.values():
+            spine.set_color('black')
+            spine.set_linewidth(0.5)
+        ax.grid(False)
+        ax.set_title(f'Violin plot {self.sample_id}')
+
+        fig.savefig(
+            os.path.join(self.analysis_dir, cnst.POWDER_MIXTURE_PLOT_FILENAME + f"_cl{cluster_ID}_" + '_'.join(ref_names) + cnst.CLUSTERING_PLOT_FILEEXT),
+            dpi=300,
+            bbox_inches='tight',
+            pad_inches=0.05,
+        )
+        plt.close(fig)
+
     @staticmethod
     def _save_silhouette_plot(
         model: 'KMeans',
@@ -520,3 +574,254 @@ class PlottingModule:
         fig.savefig(os.path.join(results_dir, 'Silhouette_plot.png'))
         if not show_plot:
             plt.close(fig)
+
+
+    # =========================================================================
+    # Best mixture of each cluster
+    # =========================================================================
+
+    def _save_best_mixture_plots(
+        self,
+        compositions_df: 'pd.DataFrame',
+        labels: 'np.ndarray',
+        clusters_assigned_mixtures: List[List[dict]],
+    ) -> None:
+        """
+        Plot the top-ranked mixture of each cluster, if it combines 2 or 3 candidate phases.
+
+        - 3 detectable elements: ternary diagram of the elements (full and zoomed).
+        - 2 phases, other numbers of elements: 2D plot of the two elements that differ most
+          between the phases, or of ``plot_cfg.els_to_plot`` if it lists two elements (full and zoomed).
+        - 3 phases, 4+ elements: ternary diagram of the molar fractions of the three phases.
+
+        Mixtures from free NMF (phases not among ``ref_formulae``) are not plotted.
+        """
+        # Imported here: reference_matching imports this module
+        from autoemx.core.composition_analysis.reference_matching import ReferenceMatchingModule
+
+        els = list(self.detectable_els_sample)
+        ref_formulae = list(self.ref_formulae or [])
+        unit = 'w%' if self.clustering_cfg.features == cnst.W_FR_CL_FEAT else 'at%'
+        labels_arr = np.asarray(labels)
+
+        for cluster_id, mixtures in enumerate(clusters_assigned_mixtures or []):
+            if not mixtures:
+                continue
+            top = ReferenceMatchingModule._sort_mixtures(mixtures)[0]
+            phases = list(top[cnst.REF_NAME_KEY])
+            if len(phases) not in (2, 3) or not all(f in ref_formulae for f in phases):
+                continue
+            X = compositions_df[els].to_numpy()[labels_arr == cluster_id]
+            if len(X) == 0:
+                continue
+            H = np.array([self.ref_phases_df[els].iloc[ref_formulae.index(f)].to_numpy() for f in phases], dtype=float)
+            W, _ = ReferenceMatchingModule._nmf_with_constraints(self, X, len(phases), fixed_H=H)
+            other_refs = {
+                f: self.ref_phases_df[els].iloc[i].to_numpy(dtype=float)
+                for i, f in enumerate(ref_formulae) if f not in phases
+            }
+            info = PlottingModule._mixture_info_text(top, phases)
+            title = f'Mixture {self.sample_id} cluster {cluster_id}'
+            filename = cnst.BEST_MIXTURE_PLOT_FILENAME + f'_cl{cluster_id}'
+
+            try:
+                if len(els) == 3:
+                    for zoomed in (False, True):
+                        fig = PlottingModule._plot_mixture_element_ternary(
+                            X, W, H, phases, other_refs, els, unit, title, info, zoomed
+                        )
+                        PlottingModule._finish_mixture_figure(self, fig, filename + ('_zoomed' if zoomed else ''))
+                elif len(phases) == 2:
+                    els_xy = PlottingModule._mixture_plot_elements(self, H, els)
+                    idx = [els.index(el) for el in els_xy]
+                    for zoomed in (False, True):
+                        fig = PlottingModule._plot_mixture_element_2d(
+                            X[:, idx], (W @ H)[:, idx], H[:, idx],
+                            {f: v[idx] for f, v in other_refs.items()}, phases, els_xy, unit, title, info, zoomed
+                        )
+                        PlottingModule._finish_mixture_figure(self, fig, filename + ('_zoomed' if zoomed else ''))
+                elif len(els) > 3:
+                    mol_frs = W / np.asarray([self.ref_weights_in_mixture[ref_formulae.index(f)] for f in phases], dtype=float)
+                    mol_frs /= mol_frs.sum(axis=1, keepdims=True)
+                    dist = np.linalg.norm(X - W @ H, axis=1) * 100
+                    fig = PlottingModule._plot_mixture_phase_ternary(mol_frs, dist, phases, unit, title, info)
+                    PlottingModule._finish_mixture_figure(self, fig, filename)
+            except Exception as exc:
+                logger.warning(f"⚠️ Could not plot the mixture of cluster {cluster_id}: {exc}")
+
+    @staticmethod
+    def _mixture_style() -> int:
+        fontsize = 14
+        plt.rcParams['font.family'] = 'Arial'
+        for key in ('font.size', 'axes.titlesize', 'axes.labelsize', 'xtick.labelsize', 'ytick.labelsize'):
+            plt.rcParams[key] = fontsize
+        return fontsize
+
+    @staticmethod
+    def _mixture_info_text(mixture: dict, phases: List[str]) -> str:
+        fractions = mixture.get(cnst.MOLAR_FRS_MEAN_KEY) or []
+        frs = ', '.join(f'{to_latex_formula(f)} {x * 100:.0f}%' for f, x in zip(phases, fractions))
+        return f"$CS_{{mix}}$ = {mixture[cnst.CONF_SCORE_KEY]:.2f}   |   {frs}"
+
+    def _mixture_plot_elements(self, H: 'np.ndarray', els: List[str]) -> List[str]:
+        """Axes of the 2D mixture plot: plot_cfg.els_to_plot if it lists 2 elements, else the 2 elements differing most between the phases."""
+        forced = [el for el in (getattr(self.plot_cfg, 'els_to_plot', None) or []) if el in els]
+        if len(forced) == 2:
+            return forced
+        order = np.argsort(-np.abs(H[0] - H[1]), kind='stable')
+        return [els[i] for i in sorted(order[:2])]
+
+    def _finish_mixture_figure(self, fig: Any, filename: str) -> None:
+        fig.savefig(
+            os.path.join(self.analysis_dir, filename + cnst.CLUSTERING_PLOT_FILEEXT),
+            dpi=300, bbox_inches='tight', pad_inches=0.1,
+        )
+        if self.plot_cfg.show_plots:
+            plt.show()
+        plt.close(fig)
+
+    @staticmethod
+    def _ternary_xy(A: 'np.ndarray') -> 'np.ndarray':
+        """Fractions of (a, b, c) -> 2D coordinates: a bottom-left, b bottom-right, c top."""
+        A = np.atleast_2d(np.asarray(A, dtype=float))
+        A = A / A.sum(axis=1, keepdims=True)
+        return np.c_[A[:, 1] + 0.5 * A[:, 2], np.sqrt(3) / 2 * A[:, 2]]
+
+    @staticmethod
+    def _draw_ternary_grid(ax: Any, step: float, edge_color: str = 'k') -> None:
+        C = PlottingModule._ternary_xy(np.eye(3))
+        ax.plot(*np.vstack([C, C[:1]]).T, '-', color=edge_color, lw=1.5 if edge_color != 'k' else 1, zorder=1)
+        for f in np.arange(step, 1.0 - 1e-9, step):
+            for i in range(3):
+                j, k = (i + 1) % 3, (i + 2) % 3
+                a = np.zeros(3); a[i] = f; a[j] = 1 - f
+                b = np.zeros(3); b[i] = f; b[k] = 1 - f
+                ax.plot(*PlottingModule._ternary_xy(np.array([a, b])).T, '-', color='#DDDDDD', lw=0.7, zorder=0)
+
+    @staticmethod
+    def _label_mixture_phases(
+        ax: Any, Q: 'np.ndarray', phases: List[str], fontsize: int,
+        corners: Optional['np.ndarray'] = None, view: Optional[tuple] = None,
+    ) -> None:
+        """
+        Label phases away from the mixture line/triangle. Phases on a ternary corner are labelled inwards,
+        and labels that would leave the view (phases on its edges) are turned back into it.
+        """
+        centre = Q.mean(axis=0)
+        inner = corners.mean(axis=0) if corners is not None else None
+        for k, (f, q) in enumerate(zip(phases, Q)):
+            ax.scatter(*q, color='blue', marker='*', s=160, zorder=4, label='Mixture phases' if k == 0 else None)
+            at_corner = corners is not None and np.min(np.linalg.norm(corners - q, axis=1)) < 0.05
+            d = (inner - q) if at_corner else (q - centre)
+            d = d / (np.linalg.norm(d) + 1e-12)
+            if view is not None:
+                for axis in range(2):
+                    lo, hi = view[axis]
+                    margin = 0.1 * (hi - lo)
+                    if (d[axis] < 0 and q[axis] - lo < margin) or (d[axis] > 0 and hi - q[axis] < margin):
+                        d[axis] = -d[axis]
+            ax.annotate(to_latex_formula(f), q, xytext=(14 * d[0], 14 * d[1]), textcoords='offset points',
+                        ha='left' if d[0] >= 0 else 'right', va='bottom' if d[1] >= 0 else 'top',
+                        fontsize=fontsize, zorder=5)
+
+    @staticmethod
+    def _plot_other_refs(ax: Any, points: dict, Q: 'np.ndarray', view: tuple, fontsize: int) -> None:
+        """Other candidate phases in view, in grey; labelled unless crowding a mixture phase."""
+        (x0, x1), (y0, y1) = view
+        diag = np.hypot(x1 - x0, y1 - y0)
+        first = True
+        for f, a in points.items():
+            if not (x0 <= a[0] <= x1 and y0 <= a[1] <= y1):
+                continue
+            ax.scatter(*a, color='#9A9A9A', marker='*', s=80, zorder=3, label='Other candidate phases' if first else None)
+            first = False
+            if np.min(np.linalg.norm(Q - a, axis=1)) > 0.06 * diag:
+                ax.annotate(to_latex_formula(f), a, color='#9A9A9A', fontsize=fontsize - 3,
+                            xytext=(4, -4), textcoords='offset points', ha='left', va='top')
+
+    @staticmethod
+    def _plot_reconstruction(ax: Any, P: 'np.ndarray', R: 'np.ndarray') -> None:
+        for p, r in zip(P, R):
+            ax.plot([p[0], r[0]], [p[1], r[1]], '-', color='grey', lw=0.5, alpha=0.6, zorder=1)
+        ax.scatter(R[:, 0], R[:, 1], color='red', marker='x', s=15, linewidths=1, label='Position on mixture line', zorder=3)
+
+    @staticmethod
+    def _square_view(points: 'np.ndarray', margin: float = 0.15) -> tuple:
+        lo, hi = points.min(axis=0), points.max(axis=0)
+        half = (hi - lo).max() / 2 * (1 + margin) + 1e-3
+        mid = (lo + hi) / 2
+        return (mid[0] - half, mid[0] + half), (mid[1] - half, mid[1] + half)
+
+    @staticmethod
+    def _plot_mixture_element_ternary(X, W, H, phases, other_refs, els, unit, title, info, zoomed):
+        """Cases with 3 elements: points, mixture phases (line or triangle), other candidates, in the element ternary."""
+        fontsize = PlottingModule._mixture_style()
+        fig, ax = plt.subplots(figsize=(6, 6.6))
+        txy = PlottingModule._ternary_xy
+        P, Q = txy(X), txy(H)
+        corners = txy(np.eye(3))
+        view = PlottingModule._square_view(np.vstack([P, Q])) if zoomed else ((-0.12, 1.12), (-0.12, 0.98))
+        PlottingModule._draw_ternary_grid(ax, 0.05 if zoomed else 0.1)
+        if not zoomed:
+            offsets = [(-0.03, -0.06), (0.03, -0.06), (0, 0.05)]
+            for (x, y), el, (dx, dy) in zip(corners, els, offsets):
+                ax.text(x + dx, y + dy, f'{el} ({unit})', ha='center', va='center', fontsize=fontsize)
+        if len(phases) == 2:
+            PlottingModule._plot_reconstruction(ax, P, txy(W @ H))
+        ax.scatter(P[:, 0], P[:, 1], color=cm.get_cmap('viridis')(0.0), marker='o', s=25, alpha=0.8, label='Compositions', zorder=2)
+        ax.plot(*(np.vstack([Q, Q[:1]]) if len(Q) > 2 else Q).T, '-', color='blue', lw=1.5, zorder=2)
+        PlottingModule._plot_other_refs(ax, {f: txy(v)[0] for f, v in other_refs.items()}, Q, view, fontsize)
+        PlottingModule._label_mixture_phases(ax, Q, phases, fontsize, corners)
+        ax.set_xlim(*view[0]); ax.set_ylim(*view[1])
+        ax.set_aspect('equal'); ax.axis('off')
+        ax.set_title(title + (' (zoomed)' if zoomed else ''))
+        ax.legend(fontsize=fontsize - 3, loc='upper center', bbox_to_anchor=(0.5, -0.01), ncol=2, frameon=False)
+        fig.text(0.5, 0.02, info, ha='center', va='bottom', fontsize=fontsize - 2)
+        fig.subplots_adjust(bottom=0.16)
+        return fig
+
+    @staticmethod
+    def _plot_mixture_element_2d(X, R, H, other_refs, phases, els_xy, unit, title, info, zoomed):
+        """2 phases, not 3 elements: points, mixture line and other candidates in the plane of the two most representative elements."""
+        fontsize = PlottingModule._mixture_style()
+        fig, ax = plt.subplots(figsize=(6, 6.6))
+        P, Rp, Q = X * 100, R * 100, H * 100
+        if zoomed:
+            # Fractions are non-negative: keep the zoomed view within the positive quadrant
+            (x0, x1), (y0, y1) = PlottingModule._square_view(np.vstack([P, Q]))
+            view = ((max(x0, 0.0) - 1, x1 - min(x0, 0.0)), (max(y0, 0.0) - 1, y1 - min(y0, 0.0)))
+        else:
+            view = ((0, 100), (0, 100))
+        PlottingModule._plot_reconstruction(ax, P, Rp)
+        ax.scatter(P[:, 0], P[:, 1], color=cm.get_cmap('viridis')(0.0), marker='o', s=25, alpha=0.8, label='Compositions', zorder=2)
+        ax.plot(*Q.T, '-', color='blue', lw=1.5, zorder=2)
+        PlottingModule._plot_other_refs(ax, {f: v * 100 for f, v in other_refs.items()}, Q, view, fontsize)
+        PlottingModule._label_mixture_phases(ax, Q, phases, fontsize, view=view)
+        ax.set_xlim(*view[0]); ax.set_ylim(*view[1]); ax.set_aspect('equal')
+        ax.set_xlabel(f'{els_xy[0]} ({unit})'); ax.set_ylabel(f'{els_xy[1]} ({unit})')
+        ax.set_title(title + (' (zoomed)' if zoomed else ''))
+        ax.legend(fontsize=fontsize - 3, loc='upper center', bbox_to_anchor=(0.5, -0.12), ncol=2, frameon=False)
+        fig.text(0.5, 0.01, info, ha='center', va='bottom', fontsize=fontsize - 2)
+        fig.subplots_adjust(bottom=0.22)
+        return fig
+
+    @staticmethod
+    def _plot_mixture_phase_ternary(mol_frs, dist, phases, unit, title, info):
+        """3 phases, 4+ elements: molar fractions of the three phases, points coloured by their distance from the mixture plane."""
+        fontsize = PlottingModule._mixture_style()
+        fig, ax = plt.subplots(figsize=(6.6, 6))
+        corners = PlottingModule._ternary_xy(np.eye(3))
+        PlottingModule._draw_ternary_grid(ax, 0.1, edge_color='blue')
+        P = PlottingModule._ternary_xy(mol_frs)
+        sc = ax.scatter(P[:, 0], P[:, 1], c=dist, cmap='viridis', marker='o', s=30, alpha=0.9, zorder=2)
+        offsets = [(-0.02, -0.07), (0.02, -0.07), (0, 0.06)]
+        for (x, y), f, (dx, dy) in zip(corners, phases, offsets):
+            ax.scatter(x, y, color='blue', marker='*', s=160, zorder=4)
+            ax.text(x + dx, y + dy, to_latex_formula(f), ha='center', va='center', fontsize=fontsize)
+        cbar = fig.colorbar(sc, ax=ax, shrink=0.6, pad=0.02)
+        cbar.set_label(f'Distance from mixture plane ({unit})')
+        ax.set_xlim(-0.15, 1.15); ax.set_ylim(-0.15, 1.0)
+        ax.set_aspect('equal'); ax.axis('off')
+        ax.set_title(title + '\n(molar fractions of the mixture phases)')
+        fig.text(0.45, 0.01, info, ha='center', va='bottom', fontsize=fontsize - 4)
+        return fig

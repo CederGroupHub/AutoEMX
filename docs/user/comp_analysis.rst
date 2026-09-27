@@ -397,6 +397,37 @@ options are available:
   is computed for each cluster. Default is ``True``. If many candidate phases are
   provided, these computations may take a long time and it may be desirable to
   set it to ``False``.
+- ``mixture_params`` : Options for decomposing clusters into mixtures of candidate
+  phases (see :class:`MixtureParams <autoemx.config.ledger_schemas.MixtureParams>`):
+
+  - ``max_n_phases`` (default ``4``): maximum number of candidate phases combined in a
+    mixture. Use ``2`` to only consider binary mixtures.
+  - ``max_recon_error`` (default ``0.4``): reconstruction error below which a combination
+    of phases is considered to explain the cluster.
+  - Further keys set how the reconstruction error and confidence scores are computed
+    (``recon_error_alpha``, ``conf_sigma``), the error below which binary mixtures are listed
+    (``max_recon_error_binary``, default ``1``), when a cluster is considered single-phase
+    (``single_phase_max_rms_dist``, ``single_phase_min_ref_conf``) and when free NMF is used
+    (``nmf_min_mixture_conf``).
+  - ``equivalent_recon_error_tol`` (default ``0.01``): combinations whose reconstruction errors
+    differ by less than this explain the cluster equally well (e.g., collinear candidate phases such
+    as CaO and Ca4Ta2O9 in a CaO-Ta2O5 mixture). Among them, the one with fewer phases, and then with
+    the phases closest to each other in composition space, is listed first.
+  - ``max_reported_mixtures`` (default ``5``), ``report_within_conf_ratio`` (default ``0.9``) and
+    ``min_reported_conf_ratio`` (default ``0.5``): which mixtures appear in ``Clusters.csv``. A mixture
+    is shown if its confidence is at least half of the best one in the cluster, and it is among the
+    first five or within 10% of the best confidence. All mixtures are saved in the ledger.
+  - ``collapse_equivalent_mixtures`` (default ``True``) and ``equivalent_span_tol`` (default
+    ``0.005``): mixtures whose phases span the same mixing line or plane as a better-ranked mixture
+    are equivalent decompositions (e.g., pairs of Sr-Ta oxides, which all lie on the SrO-Ta2O5 line)
+    and are not shown in ``Clusters.csv``. Mixtures spanning the whole composition space (e.g., three
+    phases in a three-element system) are distinct and are always considered.
+
+  Pairs of candidate phases are always tested. Since adding phases always lowers the
+  reconstruction error, combinations of more phases are only tested when no combination
+  with fewer phases reconstructs the cluster with an error below ``max_recon_error``.
+  A cluster that spreads along a line (binary mixture) is thus decomposed into two phases,
+  while one spreading over a plane (e.g., a ternary mixture) is decomposed into three.
 
 
 Plotting options
@@ -451,6 +482,15 @@ Running the script creates an ``Analysis`` folder with the following files:
    
 - ``Silhouette_plot.png`` : If ``k`` was not forced, shows silhouette
   scores for the determined number of clusters.
+- ``Mixture_plot_cl<i>.png`` (and ``_zoomed``) : Top-ranked mixture of cluster ``i``, when it
+  combines 2 or 3 candidate phases. Set ``PlotConfig.plot_best_mixture = False`` to disable.
+
+  - 3 detectable elements: ternary diagram of the elements, with the mixture phases (line or
+    triangle), the other candidate phases and, for 2 phases, each point's position on the mixture line.
+  - 2 phases, other numbers of elements: 2D plot of the two elements that differ most between
+    the phases (or of ``els_to_plot``, if it lists two elements).
+  - 3 phases, 4 or more elements: ternary diagram of the molar fractions of the three phases,
+    with points coloured by their distance from the mixture plane.
 
 .. figure:: /_static/Example_Silhouette_plot.png
    :alt: Example Silhouette plot
@@ -473,12 +513,27 @@ Running the script creates an ``Analysis`` folder with the following files:
   - ``cnd`` : Identified candidate composition with raw confidence score
     ``CS_raw`` and overall confidence score ``CS_cnd`` (taking into account
     neighboring candidate phase compositions, which decrease the confidence).
-  - ``mix`` : Pair of compositions potentially intermixed, with:
+  - ``mix`` : Candidate phases potentially intermixed (two or more, see ``mixture_params``),
+    ranked by reconstruction error (see ``equivalent_recon_error_tol``), with:
     
     - ``CS_mix`` : Confidence score of mixture.
-    - ``Mol_Ratio`` : Molar ratio (X1 / X2).
+    - ``Mol_Ratio`` : Molar ratio (X1 / X2), for binary mixtures only.
     - ``X1_mean`` : Mean molar fraction of the first phase.
     - ``X1_stdev`` : Standard deviation of the first phase molar fraction.
+    - ``X_means`` : Mean molar fractions of all phases (e.g., ``0.35/0.23/0.42``), for
+      mixtures of more than two phases only.
+    - ``Mix_more`` : Number of further mixtures not shown, because they are equivalent to a
+      listed mixture or have lower confidence, but saved in ``ledger.json``. To access all mixtures of a cluster programmatically:
+
+      .. code-block:: python
+
+          from autoemx.config import load_sample_ledger
+
+          ledger = load_sample_ledger("path/to/sample/ledger.json")
+          analysis = ledger.quantifications[ledger.active_quant].get_active_clustering_analysis()
+          mixtures = analysis.result.clusters_assigned_mixtures[cluster_id]  # list of dicts, see 'rank'
+          for mix in sorted(mixtures, key=lambda m: m.get("rank", 0)):
+              print(mix["refs"], mix["conf_score"], mix.get("means"))
 
 - ``Compositions.csv`` : Similar to ``Data.csv`` but with an additional
   ``Cluster ID`` column indicating the cluster assignment.

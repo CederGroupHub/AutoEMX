@@ -1209,6 +1209,8 @@ class EMXSp_Composition_Analyzer:
         )
         lines.append(f"  Accepted quant flags : {cc.quant_flags_accepted}")
         lines.append(f"  Matrix decomposition : {'yes' if cc.do_matrix_decomposition else 'no'}")
+        if cc.do_matrix_decomposition:
+            lines.append(f"  Max mixture phases   : {cc.mixture.max_n_phases} (max recon. error {cc.mixture.max_recon_error})")
         if cc.ref_formulae:
             lines.append("  Reference formulae   :")
             for formula in cc.ref_formulae:
@@ -2319,10 +2321,7 @@ class EMXSp_Composition_Analyzer:
             if cluster_id < len(mixtures_by_cluster):
                 mixtures = mixtures_by_cluster[cluster_id] or []
                 if mixtures:
-                    top_mix = sorted(
-                        mixtures,
-                        key=lambda m: -float(m.get(cnst.CONF_SCORE_KEY, 0.0)),
-                    )[0]
+                    top_mix = ReferenceMatchingModule._sort_mixtures(mixtures)[0]
                     refs = top_mix.get(cnst.REF_NAME_KEY) or []
                     conf = top_mix.get(cnst.CONF_SCORE_KEY)
                     if refs:
@@ -2837,6 +2836,7 @@ class EMXSp_Composition_Analyzer:
             dbscan=self.clustering_cfg.dbscan.model_copy(deep=True),
             geometry=self.clustering_cfg.geometry,
             aitchison=self.clustering_cfg.aitchison.model_copy(deep=True),
+            mixture=self.clustering_cfg.mixture.model_copy(deep=True),
         )
 
 
@@ -4169,6 +4169,8 @@ class EMXSp_Composition_Analyzer:
                 self, kmeans, compositions_df, centroids, labels, els_std_dev_per_cluster, unused_compositions_list,
                 silhouette_df=clustering_df,
             )
+            if getattr(self.plot_cfg, 'plot_best_mixture', True) and clusters_assigned_mixtures:
+                PlottingModule._save_best_mixture_plots(self, compositions_df, labels, clusters_assigned_mixtures)
     
         return True, max_cl_rmsdist, min_conf
     
