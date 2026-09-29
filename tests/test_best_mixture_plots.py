@@ -90,3 +90,69 @@ def test_plot_best_mixture_defaults_to_true():
     assert PlotConfig().plot_best_mixture is True
     # Plot configs saved before the field existed
     assert PlotConfig.model_validate({'save_plots': True}).plot_best_mixture is True
+
+
+# --- 2D clustering plot ----------------------------------------------------------
+def _clustering_stub(tmp_path, els, features='at_fr', els_to_plot=()):
+    return SimpleNamespace(
+        all_els_sample=list(els), detectable_els_sample=list(els), sample_id='test', analysis_dir=str(tmp_path),
+        clustering_cfg=ClusteringConfig(features=features), plot_cfg=PlotConfig(els_to_plot=list(els_to_plot)),
+        ref_formulae=None, ref_phases_df=None,
+    )
+
+
+def _two_groups(els, seed=0):
+    rng = np.random.default_rng(seed)
+    d = len(els)
+    a, b = np.full(d, 1 / d), np.r_[np.full(d - 1, 0.5 / (d - 1)), 0.5]
+    X = np.r_[a + rng.normal(0, 0.005, (20, d)), b + rng.normal(0, 0.005, (20, d))]
+    X = np.clip(X, 0, None); X /= X.sum(axis=1, keepdims=True)
+    labels = np.r_[np.zeros(20, int), np.ones(20, int)]
+    C = np.array([X[labels == j].mean(0) for j in range(2)])
+    S = [X[labels == j].std(0) for j in range(2)]
+    return pd.DataFrame(X, columns=els), C, labels, S
+
+
+@pytest.mark.parametrize('els, features, expected, ternary', [
+    (['Cu', 'Al', 'O'], 'at_fr', ['Cu', 'Al', 'O'], True),
+    (['Cu', 'Al', 'O'], 'w_fr', None, False),
+    (['Na', 'Al', 'Si', 'O'], 'at_fr', None, False),
+])
+def test_clustering_plot_2d(tmp_path, els, features, expected, ternary):
+    stub = _clustering_stub(tmp_path, els, features)
+    df, C, labels, S = _two_groups(els)
+    chosen, is_ternary = PlottingModule._clustering_plot_2d_elements(stub, df, C)
+    assert is_ternary == ternary
+    assert chosen == expected if expected else len(chosen) == 2
+    PlottingModule._save_clustering_plot_2d(stub, df, C, labels, S, [])
+    assert sorted(os.listdir(tmp_path)) == ['Clustering_plot_2D.png', 'Clustering_plot_2D_zoomed.png']
+
+
+def test_clustering_plot_2d_elements_follow_els_to_plot(tmp_path):
+    stub = _clustering_stub(tmp_path, ['Na', 'Al', 'Si', 'O'], els_to_plot=['Na', 'O'])
+    df, C, _, _ = _two_groups(['Na', 'Al', 'Si', 'O'])
+    assert PlottingModule._clustering_plot_2d_elements(stub, df, C) == (['Na', 'O'], False)
+
+
+def test_no_clustering_plot_2d_for_two_elements(tmp_path):
+    stub = _clustering_stub(tmp_path, ['Ti', 'O'])
+    df, C, labels, S = _two_groups(['Ti', 'O'])
+    PlottingModule._save_clustering_plot_2d(stub, df, C, labels, S, [])
+    assert os.listdir(tmp_path) == []
+
+
+def test_plots_without_adjusttext(tmp_path, monkeypatch):
+    """Labels keep their initial position when adjustText is not installed."""
+    import builtins
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == 'adjustText':
+            raise ImportError
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, '__import__', fake_import)
+    stub = _clustering_stub(tmp_path, ['Cu', 'Al', 'O'])
+    df, C, labels, S = _two_groups(['Cu', 'Al', 'O'])
+    PlottingModule._save_clustering_plot_2d(stub, df, C, labels, S, [])
+    assert sorted(os.listdir(tmp_path)) == ['Clustering_plot_2D.png', 'Clustering_plot_2D_zoomed.png']

@@ -474,6 +474,11 @@ Running the script creates an ``Analysis`` folder with the following files:
   when the script runs).
 - ``Clustering_plot_custom.png`` : Custom clustering plot produced by
   ``custom_plot.py`` when ``plot_custom_plots=True``.
+- ``Clustering_plot_2D.png`` (and ``_zoomed``) : 2D clustering plot, for samples with 3 or
+  more detectable elements. With 3 elements in atomic fractions, a ternary diagram of the
+  three elements; otherwise (weight fractions, or more than 3 elements) the two most
+  representative elements: those listed in ``els_to_plot`` if it has two entries, else the
+  two whose fractions differ most between the clusters.
   
 .. figure:: /_static/Example_3D_clustering_plot.png
    :alt: Example 3D clustering

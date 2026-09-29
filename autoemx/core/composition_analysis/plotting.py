@@ -5,7 +5,7 @@
 import importlib.util
 import os
 import warnings
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Tuple
 
 import matplotlib.cm as cm
 import matplotlib.patches as patches
@@ -222,6 +222,11 @@ class PlottingModule:
             elif n_els > 3:
                 els_for_plot = els_for_plot[:3]
 
+        # 2D clustering plot (ternary diagram or two most representative elements), from the full compositions
+        PlottingModule._save_clustering_plot_2d(
+            self, compositions_df, centroids, labels, els_std_dev_per_cluster, unused_compositions_list
+        )
+
         indices_to_keep = [self.all_els_sample.index(el) for el in els_for_plot]
         centroids = np.array([[row[i] for i in indices_to_keep] for row in centroids])
         els_std_dev_per_cluster = [[row[i] for i in indices_to_keep] for row in els_std_dev_per_cluster]
@@ -421,6 +426,129 @@ class PlottingModule:
             bbox_inches='tight',
             pad_inches=0.2 if is_3d else 0.1,
         )
+
+    def _clustering_plot_2d_elements(self, compositions_df: 'pd.DataFrame', centroids: 'np.ndarray') -> Tuple[List[str], bool]:
+        """
+        Elements of the 2D clustering plot, and whether they are shown in a ternary diagram.
+
+        With exactly 3 detectable elements (after exclusions) and atomic fractions, all 3 are shown in a
+        ternary diagram. Otherwise the 2 most representative elements are shown: those listed in
+        ``els_to_plot`` if it has exactly 2 entries, else those whose fractions differ most between the
+        cluster centroids (or vary most across compositions, with a single cluster).
+        """
+        excluded = set(self.plot_cfg.els_excluded_clust_plot or [])
+        els = [el for el in self.all_els_sample if el in self.detectable_els_sample and el not in excluded]
+        forced = [el for el in (getattr(self.plot_cfg, 'els_to_plot', None) or []) if el in self.detectable_els_sample]
+        if len(forced) == 3 and self.clustering_cfg.features == cnst.AT_FR_CL_FEAT:
+            return forced, True
+        if len(forced) == 2:
+            return forced, False
+        if len(els) == 3 and self.clustering_cfg.features == cnst.AT_FR_CL_FEAT:
+            return els, True
+        C = np.atleast_2d(np.asarray(centroids, dtype=float))
+        idx = [self.all_els_sample.index(el) for el in els]
+        spread = C[:, idx].std(axis=0) if len(C) > 1 else compositions_df[els].to_numpy(dtype=float).std(axis=0)
+        top = sorted(np.argsort(-spread, kind='stable')[:2])
+        return [els[i] for i in top], False
+
+
+    def _save_clustering_plot_2d(
+        self,
+        compositions_df: 'pd.DataFrame',
+        centroids: 'np.ndarray',
+        labels: 'np.ndarray',
+        els_std_dev_per_cluster: list,
+        unused_compositions_list: list,
+    ) -> None:
+        """
+        2D clustering plot, for samples with at least 3 detectable elements (full and zoomed).
+
+        Ternary diagram for 3 elements in atomic fractions; otherwise the 2 most representative elements,
+        in fractions (see ``_clustering_plot_2d_elements``). Saved as Clustering_plot_2D(_zoomed).png.
+        """
+        n_detectable = len([el for el in self.all_els_sample if el in self.detectable_els_sample])
+        if n_detectable < 3:
+            return
+        els, is_ternary = PlottingModule._clustering_plot_2d_elements(self, compositions_df, centroids)
+        if len(els) < 2:
+            return
+        fontsize = PlottingModule._mixture_style()
+        unit = 'w%' if self.clustering_cfg.features == cnst.W_FR_CL_FEAT else 'at%'
+        idx = [self.all_els_sample.index(el) for el in els]
+        X = compositions_df[els].to_numpy(dtype=float)
+        C = np.atleast_2d(np.asarray(centroids, dtype=float))[:, idx]
+        S = np.atleast_2d(np.asarray(els_std_dev_per_cluster, dtype=float))[:, idx] if len(els_std_dev_per_cluster) else None
+        U = np.atleast_2d(np.asarray(unused_compositions_list, dtype=float))[:, idx] if unused_compositions_list else None
+        R = None
+        if self.ref_formulae:
+            R = self.ref_phases_df[els].to_numpy(dtype=float)
+        if is_ternary:
+            proj = PlottingModule._ternary_xy
+        else:
+            proj = lambda A: np.atleast_2d(A) * 100
+        labels_arr = np.asarray(labels)
+        P, Pc = proj(X), proj(C)
+        Pu = proj(U) if U is not None and len(U) and self.plot_cfg.show_unused_comps_clust else None
+        Pr = proj(R) if R is not None and len(R) else None
+
+        for zoomed in (False, True):
+            fig, ax = plt.subplots(figsize=(6, 6))
+            if zoomed:
+                view = PlottingModule._square_view(np.vstack([P, Pc]))
+            else:
+                view = ((-0.12, 1.12), (-0.12, 0.98)) if is_ternary else ((0, 100), (0, 100))
+            corner_labels = []
+            if is_ternary:
+                PlottingModule._draw_ternary_grid(ax, 0.05 if zoomed else 0.1)
+                if not zoomed:
+                    corners = PlottingModule._ternary_xy(np.eye(3))
+                    for (x, y), el, (dx, dy) in zip(corners, els, [(-0.03, -0.06), (0.03, -0.06), (0, 0.05)]):
+                        corner_labels.append(ax.text(x + dx, y + dy, f'{el} ({unit})', ha='center', va='center', fontsize=fontsize))
+                ax.axis('off')
+            else:
+                ax.set_xlabel(f'{els[0]} ({unit})')
+                ax.set_ylabel(f'{els[1]} ({unit})')
+            noise = labels_arr == -1
+            ax.scatter(P[~noise, 0], P[~noise, 1], c=labels_arr[~noise], cmap='viridis', marker='o', s=25, zorder=2)
+            if np.any(noise):
+                ax.scatter(P[noise, 0], P[noise, 1], c='lightgrey', marker='o', s=25, label='Noise (unclustered)', zorder=2)
+            if Pu is not None:
+                ax.scatter(Pu[:, 0], Pu[:, 1], c='grey', marker='^', s=25, label='Discarded comps.', zorder=1)
+            if not is_ternary and S is not None:
+                first = True
+                for c_xy, sd in zip(Pc, S * 100):
+                    if not np.any(np.isnan(sd)):
+                        ax.add_patch(patches.Ellipse(tuple(c_xy), sd[0], sd[1], edgecolor='red', facecolor='red',
+                                                     linestyle='--', alpha=0.2, label='Stddev' if first else None))
+                        first = False
+            ax.scatter(Pc[:, 0], Pc[:, 1], c='red', marker='x', s=100, label='Centroids', zorder=4)
+            texts = [ax.text(*c_xy, str(i), color='black', fontsize=fontsize - 2, ha='right', va='bottom',
+                             bbox=PlottingModule.LABEL_BOX, zorder=3) for i, c_xy in enumerate(Pc)]
+            if Pr is not None:
+                for f, r in zip(self.ref_formulae, Pr):
+                    if not (view[0][0] <= r[0] <= view[0][1] and view[1][0] <= r[1] <= view[1][1]):
+                        continue
+                    ax.scatter(*r, c='blue', marker='*', s=100, label='Candidate phases' if len(texts) == len(Pc) else None, zorder=4)
+                    start = PlottingModule._label_start(r, PlottingModule._ternary_xy(np.eye(3)) if is_ternary else None)
+                    texts.append(ax.text(*start, to_latex_formula(f), color='black', fontsize=fontsize - 3, ha='left',
+                                         va='bottom', bbox=PlottingModule.LABEL_BOX, zorder=3))
+            ax.set_xlim(*view[0])
+            ax.set_ylim(*view[1])
+            ax.set_aspect('equal')
+            avoid = [P, Pc] + ([Pr] if Pr is not None else [])
+            PlottingModule._adjust_labels(ax, texts, np.vstack(avoid), corner_labels)
+            ax.set_title(f'{self.clustering_cfg.method} clustering {self.sample_id}' + (' (zoomed)' if zoomed else ''))
+            if not zoomed and getattr(self.plot_cfg, 'show_legend_clustering', None):
+                ax.legend(fontsize=fontsize - 3, loc='best')
+            fig.savefig(
+                os.path.join(self.analysis_dir, cnst.CLUSTERING_PLOT_FILENAME + '_2D' + ('_zoomed' if zoomed else '')
+                             + cnst.CLUSTERING_PLOT_FILEEXT),
+                dpi=300, bbox_inches='tight', pad_inches=0.1,
+            )
+            if self.plot_cfg.show_plots:
+                plt.show()
+            plt.close(fig)
+
 
     def _save_violin_plot_powder_mixture(
         self,
@@ -698,46 +826,73 @@ class PlottingModule:
                 b = np.zeros(3); b[i] = f; b[k] = 1 - f
                 ax.plot(*PlottingModule._ternary_xy(np.array([a, b])).T, '-', color='#DDDDDD', lw=0.7, zorder=0)
 
-    @staticmethod
-    def _label_mixture_phases(
-        ax: Any, Q: 'np.ndarray', phases: List[str], fontsize: int,
-        corners: Optional['np.ndarray'] = None, view: Optional[tuple] = None,
-    ) -> None:
-        """
-        Label phases away from the mixture line/triangle. Phases on a ternary corner are labelled inwards,
-        and labels that would leave the view (phases on its edges) are turned back into it.
-        """
-        centre = Q.mean(axis=0)
-        inner = corners.mean(axis=0) if corners is not None else None
-        for k, (f, q) in enumerate(zip(phases, Q)):
-            ax.scatter(*q, color='blue', marker='*', s=160, zorder=4, label='Mixture phases' if k == 0 else None)
-            at_corner = corners is not None and np.min(np.linalg.norm(corners - q, axis=1)) < 0.05
-            d = (inner - q) if at_corner else (q - centre)
-            d = d / (np.linalg.norm(d) + 1e-12)
-            if view is not None:
-                for axis in range(2):
-                    lo, hi = view[axis]
-                    margin = 0.1 * (hi - lo)
-                    if (d[axis] < 0 and q[axis] - lo < margin) or (d[axis] > 0 and hi - q[axis] < margin):
-                        d[axis] = -d[axis]
-            ax.annotate(to_latex_formula(f), q, xytext=(14 * d[0], 14 * d[1]), textcoords='offset points',
-                        ha='left' if d[0] >= 0 else 'right', va='bottom' if d[1] >= 0 else 'top',
-                        fontsize=fontsize, zorder=5)
+    # Label styles of the 2D plots: small, on a light background, placed to avoid overlaps
+    LABEL_BOX = dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='none', alpha=0.6)
 
     @staticmethod
-    def _plot_other_refs(ax: Any, points: dict, Q: 'np.ndarray', view: tuple, fontsize: int) -> None:
-        """Other candidate phases in view, in grey; labelled unless crowding a mixture phase."""
+    def _adjust_labels(ax: Any, texts: List[Any], avoid_points: Optional['np.ndarray'] = None,
+                       avoid_artists: Optional[List[Any]] = None) -> None:
+        """
+        Move labels so they overlap neither each other, the plotted points, nor fixed artists such as the
+        corner labels of a ternary diagram (adjustText), linking moved labels to their marker with a thin line. Axis limits must be set before calling. Labels keep their
+        initial position if adjustText is not installed.
+        """
+        if not texts:
+            return
+        try:
+            from adjustText import adjust_text
+        except ImportError:
+            return
+        kwargs = dict(ax=ax, expand=(1.15, 1.3), ensure_inside_axes=True,
+                      arrowprops=dict(arrowstyle='-', color='#777777', lw=0.6))
+        pts = [np.atleast_2d(avoid_points)] if avoid_points is not None and len(avoid_points) else []
+        if avoid_artists:
+            # Fixed artists (e.g. corner labels): obstacle points covering their extent on the canvas
+            renderer = ax.figure.canvas.get_renderer()
+            to_data = ax.transData.inverted()
+            for artist in avoid_artists:
+                bb = artist.get_window_extent(renderer)
+                gx, gy = np.meshgrid(np.linspace(bb.x0, bb.x1, 7), np.linspace(bb.y0, bb.y1, 3))
+                pts.append(to_data.transform(np.c_[gx.ravel(), gy.ravel()]))
+        if pts:
+            pts = np.vstack(pts)
+            kwargs.update(x=pts[:, 0], y=pts[:, 1])
+        try:
+            adjust_text(texts, **kwargs)
+        except Exception as exc:  # label placement must never break plotting
+            logger.debug(f"Label placement failed: {exc}")
+
+    @staticmethod
+    @staticmethod
+    def _label_start(q: 'np.ndarray', corners: Optional['np.ndarray']) -> 'np.ndarray':
+        """Initial label position: at the marker, or moved inwards for a marker on a ternary corner."""
+        if corners is not None and np.min(np.linalg.norm(corners - q, axis=1)) < 0.05:
+            return q + 0.06 * (corners.mean(axis=0) - q) / np.linalg.norm(corners.mean(axis=0) - q)
+        return q
+
+    @staticmethod
+    def _label_mixture_phases(ax: Any, Q: 'np.ndarray', phases: List[str], fontsize: int,
+                              corners: Optional['np.ndarray'] = None) -> List[Any]:
+        """Mixture phases as blue stars, with labels (to be placed by ``_adjust_labels``)."""
+        texts = []
+        for k, (f, q) in enumerate(zip(phases, Q)):
+            ax.scatter(*q, color='blue', marker='*', s=160, zorder=4, label='Mixture phases' if k == 0 else None)
+            texts.append(ax.text(*PlottingModule._label_start(q, corners), to_latex_formula(f), fontsize=fontsize - 2,
+                                 ha='left', va='bottom', bbox=PlottingModule.LABEL_BOX, zorder=3))
+        return texts
+
+    @staticmethod
+    def _plot_other_refs(ax: Any, points: dict, view: tuple, fontsize: int) -> List[Any]:
+        """Other candidate phases in view, as grey stars, with labels (to be placed by ``_adjust_labels``)."""
         (x0, x1), (y0, y1) = view
-        diag = np.hypot(x1 - x0, y1 - y0)
-        first = True
+        texts = []
         for f, a in points.items():
             if not (x0 <= a[0] <= x1 and y0 <= a[1] <= y1):
                 continue
-            ax.scatter(*a, color='#9A9A9A', marker='*', s=80, zorder=3, label='Other candidate phases' if first else None)
-            first = False
-            if np.min(np.linalg.norm(Q - a, axis=1)) > 0.06 * diag:
-                ax.annotate(to_latex_formula(f), a, color='#9A9A9A', fontsize=fontsize - 3,
-                            xytext=(4, -4), textcoords='offset points', ha='left', va='top')
+            ax.scatter(*a, color='#9A9A9A', marker='*', s=80, zorder=4, label='Other candidate phases' if not texts else None)
+            texts.append(ax.text(*a, to_latex_formula(f), color='#777777', fontsize=fontsize - 4, ha='left', va='top',
+                                 bbox=PlottingModule.LABEL_BOX, zorder=3))
+        return texts
 
     @staticmethod
     def _plot_reconstruction(ax: Any, P: 'np.ndarray', R: 'np.ndarray') -> None:
@@ -762,18 +917,20 @@ class PlottingModule:
         corners = txy(np.eye(3))
         view = PlottingModule._square_view(np.vstack([P, Q])) if zoomed else ((-0.12, 1.12), (-0.12, 0.98))
         PlottingModule._draw_ternary_grid(ax, 0.05 if zoomed else 0.1)
+        corner_labels = []
         if not zoomed:
             offsets = [(-0.03, -0.06), (0.03, -0.06), (0, 0.05)]
             for (x, y), el, (dx, dy) in zip(corners, els, offsets):
-                ax.text(x + dx, y + dy, f'{el} ({unit})', ha='center', va='center', fontsize=fontsize)
+                corner_labels.append(ax.text(x + dx, y + dy, f'{el} ({unit})', ha='center', va='center', fontsize=fontsize))
         if len(phases) == 2:
             PlottingModule._plot_reconstruction(ax, P, txy(W @ H))
         ax.scatter(P[:, 0], P[:, 1], color=cm.get_cmap('viridis')(0.0), marker='o', s=25, alpha=0.8, label='Compositions', zorder=2)
         ax.plot(*(np.vstack([Q, Q[:1]]) if len(Q) > 2 else Q).T, '-', color='blue', lw=1.5, zorder=2)
-        PlottingModule._plot_other_refs(ax, {f: txy(v)[0] for f, v in other_refs.items()}, Q, view, fontsize)
-        PlottingModule._label_mixture_phases(ax, Q, phases, fontsize, corners)
+        texts = PlottingModule._plot_other_refs(ax, {f: txy(v)[0] for f, v in other_refs.items()}, view, fontsize)
+        texts += PlottingModule._label_mixture_phases(ax, Q, phases, fontsize, corners)
         ax.set_xlim(*view[0]); ax.set_ylim(*view[1])
         ax.set_aspect('equal'); ax.axis('off')
+        PlottingModule._adjust_labels(ax, texts, np.vstack([P, Q]), corner_labels)
         ax.set_title(title + (' (zoomed)' if zoomed else ''))
         ax.legend(fontsize=fontsize - 3, loc='upper center', bbox_to_anchor=(0.5, -0.01), ncol=2, frameon=False)
         fig.text(0.5, 0.02, info, ha='center', va='bottom', fontsize=fontsize - 2)
@@ -795,9 +952,10 @@ class PlottingModule:
         PlottingModule._plot_reconstruction(ax, P, Rp)
         ax.scatter(P[:, 0], P[:, 1], color=cm.get_cmap('viridis')(0.0), marker='o', s=25, alpha=0.8, label='Compositions', zorder=2)
         ax.plot(*Q.T, '-', color='blue', lw=1.5, zorder=2)
-        PlottingModule._plot_other_refs(ax, {f: v * 100 for f, v in other_refs.items()}, Q, view, fontsize)
-        PlottingModule._label_mixture_phases(ax, Q, phases, fontsize, view=view)
+        texts = PlottingModule._plot_other_refs(ax, {f: v * 100 for f, v in other_refs.items()}, view, fontsize)
+        texts += PlottingModule._label_mixture_phases(ax, Q, phases, fontsize)
         ax.set_xlim(*view[0]); ax.set_ylim(*view[1]); ax.set_aspect('equal')
+        PlottingModule._adjust_labels(ax, texts, np.vstack([P, Q]))
         ax.set_xlabel(f'{els_xy[0]} ({unit})'); ax.set_ylabel(f'{els_xy[1]} ({unit})')
         ax.set_title(title + (' (zoomed)' if zoomed else ''))
         ax.legend(fontsize=fontsize - 3, loc='upper center', bbox_to_anchor=(0.5, -0.12), ncol=2, frameon=False)
