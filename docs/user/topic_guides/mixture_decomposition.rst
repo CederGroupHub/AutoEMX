@@ -98,7 +98,9 @@ Things to keep in mind
   fit equally well. AutoEMX reports the pair closest to the spots and hides the
   equivalent ones.
 - **Elements that are not quantified are ignored** (e.g. H, Li, and C when not in
-  the sample): LiNb₂O₅ and Nb₂O₅ look the same.
+  the sample): LiNb₂O₅ and Nb₂O₅ look the same in atomic fraction (``at_fr``) space.
+  They will look different in mass fraction (``wt_fr``) space, as the Li mass will be
+  taken into account
 - **With 3 elements, three phases surrounding the cluster always fit it.** A
   ternary result means that no pair fits, but which three phases are named
   depends on the candidates. Candidates close to a pure element (e.g. ``CO``,
