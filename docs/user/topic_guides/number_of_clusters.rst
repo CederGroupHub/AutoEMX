@@ -8,17 +8,20 @@ chosen automatically. This page explains how the automatic choice works and how
 to override it. (DBSCAN does not use ``k``: the number of clusters follows from
 the data density, see :ref:`clustering_modes`.)
 
-The automatic choice has two steps:
+The automatic choice has three steps:
 
 1. **Single-cluster check**: is the sample a single phase?
 2. **Choosing k**: if not, how many clusters (between 2 and ``max_k``)?
+3. **Merging clusters**: are some of the clusters pieces of one continuous
+   population, e.g. a mixture line cut by k-means?
 
 .. admonition:: Defaults: change them only if unsatisfied with the results
 
    By default ``k`` is **chosen automatically** (``k_forced = None``), using the
    silhouette score (``k_finding_method = 'silhouette'``) with up to
-   ``max_k = 6`` clusters. The single-cluster threshold adapts to the feature type
-   (see below). These defaults were extensively tested on standards, commercial
+   ``max_k = 6`` clusters, then merges clusters that form one continuous
+   population (``auto_merge_clusters = True``). The single-cluster threshold adapts
+   to the feature type (see below). These defaults were extensively tested on standards, commercial
    precursors and synthesized multi-phase samples.
 
    Set ``k`` yourself only if the result is unsatisfactory, e.g. a single phase
@@ -148,6 +151,66 @@ Once ``k`` is chosen, k-means is run several times and the solution with the
 best silhouette score is kept.
 
 
+Step 3: merging clusters
+------------------------
+
+k-means divides the compositions into compact groups, even when they spread
+continuously. A mixture of two phases measured at many spots spreads along the
+line between them, and k-means often cuts it into several clusters although it
+is one population. With ``auto_merge_clusters = True`` (default), the clusters
+are checked in pairs after k-means, and merged when all of the following hold:
+
+1. **One mode.** Along the axis joining the two cluster centers, their
+   compositions form a single peak: Hartigan's dip test gives a p-value above
+   0.05. An even spread along a mixture line counts as one peak.
+2. **No gap.** The empty space between the two clusters along that axis is
+   smaller than the spread (standard deviation) of the larger cluster. This
+   keeps small groups clear of the main one, e.g. a few spots of a minor phase,
+   which the dip test alone cannot detect.
+3. **Connected.** DBSCAN links the two clusters through dense neighbourhoods
+   of compositions. This keeps apart groups that touch in one direction but
+   differ in shape, e.g. a compact phase next to a diffuse cloud. The
+   neighbourhood size adapts to each sample: 3 times the median distance of the
+   compositions to their 5th nearest neighbour.
+
+Pairs are merged one at a time, starting from the most compatible, and the
+checks are repeated after each merge. Clusters are never split. The checks use
+the clustering geometry (log-ratio coordinates in Aitchison geometry).
+
+The merge only runs when ``k`` is chosen automatically: a forced ``k`` is always
+kept. The merge is deliberately conservative: when in doubt, clusters stay apart.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Example
+     - k-means
+     - After merging
+   * - Mixture line of Ca–Ta oxides (CaCO₃ + 2 Ta₂O₅)
+     - 5
+     - 2 (the line, plus a small group of spots on Ta₂O₅)
+   * - Mixture line of K–Sn oxides (K₂CO₃ + SnO₂)
+     - 2
+     - 1
+   * - Single phase with a small separate group (Mn₂SiO₄)
+     - 2
+     - 2
+   * - Synthetic three-phase mixture (NASICON)
+     - 5
+     - 5
+
+A merged cluster that spreads along a mixture line is then described by the
+:ref:`mixture decomposition <mixture_decomposition>`, which reports its phases
+and their fractions.
+
+To disable the merge, set ``auto_merge_clusters = False`` in
+:func:`analyze_sample <autoemx.runners.analyze_sample.analyze_sample>`. Samples
+analysed before this option existed keep their previous results
+(``auto_merge_clusters = False``). The thresholds are in ``ClusterMergeParams``
+(``ClusteringConfig.cluster_merge``): ``dip_alpha`` (0.05), ``max_gap_ratio``
+(1.0), ``dbscan_min_samples`` (5) and ``dbscan_eps_factor`` (3.0).
+
+
 Setting k yourself
 ------------------
 
@@ -159,6 +222,7 @@ Setting k yourself
 - ``k_finding_method``: change the method used in step 2. Setting it also
   forces ``k`` to be re-evaluated.
 - ``max_k``: largest ``k`` considered in step 2.
+- ``auto_merge_clusters``: whether step 3 runs (default ``True``).
 
 Example, in ``autoemx/scripts/Run_Analysis.py``:
 
@@ -190,6 +254,8 @@ When to override the automatic choice:
   used (two-element samples).
 - **A known minor phase is merged** into the main cluster: set ``k_forced`` to
   the expected number of phases.
-- **A continuous spread (e.g. a mixture line) is cut into many clusters**:
-  force a smaller ``k``. Mixtures are better described by the mixture
-  decomposition than by many clusters.
+- **A continuous spread (e.g. a mixture line) is still cut into several clusters**
+  after merging: force a smaller ``k``. Mixtures are better described by the
+  mixture decomposition than by many clusters.
+- **Two phases that should stay apart are merged**: set ``auto_merge_clusters = False``
+  or force ``k``.

@@ -104,6 +104,7 @@ def analyze_sample(
     aitchison_params: Optional[dict] = None,
     k_finding_method: Optional[str] = None,
     k_forced: Optional[Union[int, bool]] = None,
+    auto_merge_clusters: Optional[bool] = None,
     do_matrix_decomposition: bool = True,
     mixture_params: Optional[dict] = None,
     max_analytical_error_percent: float = 5,
@@ -165,6 +166,10 @@ def analyze_sample(
               discarding any previously saved forced k. Uses ``k_finding_method``
               when provided, otherwise the saved (or default) finding method.
             - ``None`` (default): reuse the clustering settings saved in the ledger.
+    auto_merge_clusters : bool, optional
+        Whether to merge k-means clusters that are pieces of one continuous population, e.g. a mixture
+        line cut into several clusters (only when k is chosen automatically; see ``ClusterMergeParams``).
+        If None, the saved value is kept (True for new samples, False for samples analysed before this option).
     do_matrix_decomposition : bool, optional
         Whether to compute matrix decomposition for intermixed phases. Slow if many candidate phases are provided. Default: True..
     mixture_params : dict, optional
@@ -321,6 +326,8 @@ def analyze_sample(
     
     if do_matrix_decomposition is not None:
         clustering_cfg.do_matrix_decomposition = do_matrix_decomposition
+    if auto_merge_clusters is not None:
+        clustering_cfg.auto_merge_clusters = bool(auto_merge_clusters)
     if mixture_params is not None:
         merged_mixture = {**clustering_cfg.mixture.model_dump(), **mixture_params}
         clustering_cfg.mixture = MixtureParams.model_validate(merged_mixture)

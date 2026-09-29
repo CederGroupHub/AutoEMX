@@ -641,6 +641,94 @@ class ClusteringModule:
             return kmeans, labels, np.nan
     
 
+    @staticmethod
+    def _cluster_pair_separation(A: 'np.ndarray', B: 'np.ndarray') -> Tuple[float, float]:
+        """
+        Dip-test p-value and gap ratio of two clusters, along the axis joining their centers.
+
+        The gap ratio is the empty space between the two clusters along that axis (negative if they
+        overlap), divided by the standard deviation of the larger cluster along it.
+        """
+        from autoemx.utils.unimodality import dip_test
+
+        d = A.mean(axis=0) - B.mean(axis=0)
+        norm = np.linalg.norm(d)
+        if norm == 0:
+            return 1.0, 0.0
+        u = d / norm
+        a, b = A @ u, B @ u
+        _, p_value = dip_test(np.r_[a, b])
+        larger = a if len(a) >= len(b) else b
+        sigma = float(np.std(larger)) if len(larger) > 1 else 0.0
+        gap = float(a.min() - b.max())
+        gap_ratio = gap / sigma if sigma > 0 else (0.0 if gap <= 0 else np.inf)
+        return float(p_value), gap_ratio
+
+
+    def _merge_connected_clusters(
+        self,
+        clustering_df: 'pd.DataFrame',
+        labels: 'np.ndarray'
+    ) -> Tuple['np.ndarray', int]:
+        """
+        Merge k-means clusters that are pieces of one continuous population (see ``ClusterMergeParams``).
+
+        Two clusters are merged when, in the clustering geometry, their projection on the axis joining
+        their centers is unimodal (dip test), the gap between them is small compared to their spread,
+        and DBSCAN connects them. Pairs are merged one at a time, highest dip p-value first, and the
+        criteria are re-evaluated after each merge.
+
+        Returns
+        -------
+        labels : np.ndarray
+            Cluster labels after merging, renumbered from 0.
+        k : int
+            Number of clusters after merging.
+        """
+        from sklearn.neighbors import NearestNeighbors
+
+        params = self.clustering_cfg.cluster_merge
+        Z = np.asarray(clustering_df, dtype=float)
+        labels = np.asarray(labels).copy()
+        if len(set(labels)) < 2 or len(Z) <= params.dbscan_min_samples:
+            return labels, len(set(labels))
+
+        # Density-connected components, with a neighbourhood size adapted to the spot density
+        knn_dist = NearestNeighbors(n_neighbors=params.dbscan_min_samples + 1).fit(Z).kneighbors(Z)[0][:, -1]
+        eps = params.dbscan_eps_factor * float(np.median(knn_dist))
+        components = DBSCAN(eps=eps, min_samples=params.dbscan_min_samples).fit_predict(Z) if eps > 0 else np.full(len(Z), -1)
+
+        def main_component(mask):
+            comps = components[mask]
+            comps = comps[comps >= 0]
+            return int(np.bincount(comps).argmax()) if len(comps) else None
+
+        while True:
+            ids = sorted(set(labels))
+            candidates = []
+            for a_i in range(len(ids)):
+                for b_i in range(a_i + 1, len(ids)):
+                    i, j = ids[a_i], ids[b_i]
+                    comp_i, comp_j = main_component(labels == i), main_component(labels == j)
+                    if comp_i is None or comp_i != comp_j:
+                        continue
+                    p_value, gap_ratio = ClusteringModule._cluster_pair_separation(Z[labels == i], Z[labels == j])
+                    if p_value > params.dip_alpha and gap_ratio < params.max_gap_ratio:
+                        candidates.append((p_value, i, j, gap_ratio))
+            if not candidates:
+                break
+            p_value, i, j, gap_ratio = max(candidates)
+            labels[labels == j] = i
+            if self.verbose:
+                logger.info(
+                    f"ℹ️ Merged two clusters forming one continuous population "
+                    f"(dip p-value {p_value:.2f}, gap {gap_ratio:.1f} x spread)."
+                )
+
+        _, labels = np.unique(labels, return_inverse=True)
+        return labels, int(labels.max()) + 1
+
+
     def _prepare_composition_dataframes(self, compositions_list_at, compositions_list_w):
         """
         Convert lists of compositions to DataFrames for clustering.

@@ -73,6 +73,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from pymatgen.core.composition import Composition
 from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
 import cvxpy as cp
  
 
@@ -1208,6 +1209,8 @@ class EMXSp_Composition_Analyzer:
             f"  Min background counts: {cc.min_bckgrnd_cnts if cc.min_bckgrnd_cnts is not None else 'disabled'}"
         )
         lines.append(f"  Accepted quant flags : {cc.quant_flags_accepted}")
+        if getattr(cc, "method", "kmeans") == "kmeans":
+            lines.append(f"  Merge clusters       : {'yes' if getattr(cc, 'auto_merge_clusters', False) else 'no'}")
         lines.append(f"  Matrix decomposition : {'yes' if cc.do_matrix_decomposition else 'no'}")
         if cc.do_matrix_decomposition:
             lines.append(f"  Max mixture phases   : {cc.mixture.max_n_phases} (max recon. error {cc.mixture.max_recon_error})")
@@ -2837,6 +2840,8 @@ class EMXSp_Composition_Analyzer:
             geometry=self.clustering_cfg.geometry,
             aitchison=self.clustering_cfg.aitchison.model_copy(deep=True),
             mixture=self.clustering_cfg.mixture.model_copy(deep=True),
+            auto_merge_clusters=self.clustering_cfg.auto_merge_clusters,
+            cluster_merge=self.clustering_cfg.cluster_merge.model_copy(deep=True),
         )
 
 
@@ -4089,7 +4094,26 @@ class EMXSp_Composition_Analyzer:
             )
             self._persist_resolved_k_on_active_clustering_config(k)
             kmeans, labels, sil_score = ClusteringModule._run_kmeans_clustering(self, k, clustering_df)
-            if is_aitchison:
+            if (
+                k > 1
+                and getattr(self.clustering_cfg, 'auto_merge_clusters', False)
+                and self.clustering_cfg.k_finding_method != 'forced'
+            ):
+                labels, k_merged = ClusteringModule._merge_connected_clusters(self, clustering_df, labels)
+                if k_merged < k:
+                    if self.verbose:
+                        print_single_separator()
+                        logger.info(f"ℹ️ Clusters merged: {k} -> {k_merged} (auto_merge_clusters).")
+                    k = k_merged
+                    self._persist_resolved_k_on_active_clustering_config(k)
+                    # The k-means model no longer describes the clusters
+                    kmeans = None
+                    sil_score = silhouette_score(clustering_df, labels) if k > 1 else np.nan
+            if kmeans is None:
+                centroids, wcss = ClusteringModule._centroids_and_wcss_from_labels(
+                    compositions_df.to_numpy(), labels, k
+                )
+            elif is_aitchison:
                 # k-means centers live in CLR space; report arithmetic means in fraction space.
                 centroids, wcss = ClusteringModule._centroids_and_wcss_from_labels(
                     compositions_df.to_numpy(), labels, k

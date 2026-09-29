@@ -135,6 +135,8 @@ def load_legacy_configurations_from_json(
             }
             # Legacy data was clustered in Euclidean geometry
             normalized_payload.setdefault("geometry", ClusteringConfig.LEGACY_GEOMETRY)
+            # ... and without merging clusters
+            normalized_payload.setdefault("auto_merge_clusters", ClusteringConfig.LEGACY_AUTO_MERGE_CLUSTERS)
 
             try:
                 configs[cnst.CLUSTERING_CFG_KEY] = ClusteringConfig.model_validate(normalized_payload)

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from .acquisition import AcquisitionDetails, Coordinate2D, ParticleInfo, SpectrumEntry, SpotCoordinates
-from .clustering import AitchisonParams, ClusteringAnalysis, ClusteringConfig, ClusteringResult, DBSCANParams, MixtureParams
+from .clustering import AitchisonParams, ClusteringAnalysis, ClusteringConfig, ClusteringResult, ClusterMergeParams, DBSCANParams, MixtureParams
 from .fitting import FitResult, FittedPeakResult
 from .ledger import LedgerConfigs, SampleLedger
 from .quantification import (
@@ -30,6 +30,7 @@ __all__ = [
     "DBSCANParams",
     "AitchisonParams",
     "MixtureParams",
+    "ClusterMergeParams",
     "FitResult",
     "FittedPeakResult",
     "LedgerConfigs",

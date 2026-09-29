@@ -160,6 +160,55 @@ class AitchisonParams(BaseModel):
         return float(value)
 
 
+class ClusterMergeParams(BaseModel):
+    """Parameters for merging k-means clusters that are pieces of one continuous population.
+
+    Only used when :attr:`ClusteringConfig.auto_merge_clusters` is ``True``, with k-means and an
+    automatically chosen number of clusters. k-means can cut a continuous spread of compositions,
+    e.g. a mixture line between two phases, into several clusters. After clustering, two clusters
+    are merged when all of the following hold, in the clustering geometry:
+
+    - their compositions projected onto the axis joining the two cluster centers form a single
+      mode (Hartigan's dip test, p-value above ``dip_alpha``);
+    - the empty gap between them along that axis is below ``max_gap_ratio`` times the spread
+      (standard deviation) of the larger cluster;
+    - DBSCAN connects them through dense neighbourhoods, with ``min_samples = dbscan_min_samples``
+      and ``eps = dbscan_eps_factor`` times the median distance of the compositions to their
+      ``dbscan_min_samples``-th nearest neighbour.
+
+    Pairs are merged one at a time, most compatible first, and the criteria are re-evaluated after
+    each merge. Clusters are never split.
+    """
+
+    dip_alpha: float = 0.05
+    max_gap_ratio: float = 1.0
+    dbscan_min_samples: int = 5
+    dbscan_eps_factor: float = 3.0
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("dip_alpha")
+    @classmethod
+    def validate_dip_alpha(cls, value: float) -> float:
+        if not np.isfinite(value) or value <= 0 or value >= 1:
+            raise ValueError("Cluster merge dip_alpha must be in (0, 1)")
+        return float(value)
+
+    @field_validator("max_gap_ratio", "dbscan_eps_factor")
+    @classmethod
+    def validate_positive(cls, value: float) -> float:
+        if not np.isfinite(value) or value <= 0:
+            raise ValueError("Cluster merge parameters must be positive, finite numbers")
+        return float(value)
+
+    @field_validator("dbscan_min_samples")
+    @classmethod
+    def validate_min_samples(cls, value: int) -> int:
+        if value < 2:
+            raise ValueError("Cluster merge dbscan_min_samples must be >= 2")
+        return int(value)
+
+
 class MixtureParams(BaseModel):
     """Parameters for decomposing clusters into mixtures of candidate phases (``ref_formulae``).
 
@@ -273,6 +322,7 @@ class ClusteringConfig(BaseModel):
     ALLOWED_METHODS: ClassVar[Tuple[str, ...]] = ("kmeans", "dbscan")
     ALLOWED_GEOMETRIES: ClassVar[Tuple[str, ...]] = ("euclidean", "aitchison", "auto")
     LEGACY_GEOMETRY: ClassVar[str] = "euclidean"
+    LEGACY_AUTO_MERGE_CLUSTERS: ClassVar[bool] = False
 
     clustering_id: int = 0
     method: str = "kmeans"
@@ -300,6 +350,11 @@ class ClusteringConfig(BaseModel):
     )
     dbscan: DBSCANParams = Field(default_factory=DBSCANParams)
     aitchison: AitchisonParams = Field(default_factory=AitchisonParams)
+    # Merge k-means clusters that are pieces of one continuous population (see ClusterMergeParams).
+    # New configs default to True; configs saved before this field existed and configs created from
+    # legacy data are False (LEGACY_AUTO_MERGE_CLUSTERS), preserving their results.
+    auto_merge_clusters: bool = True
+    cluster_merge: ClusterMergeParams = Field(default_factory=ClusterMergeParams)
     mixture: MixtureParams = Field(default_factory=MixtureParams)
 
     model_config = ConfigDict(extra="forbid")
@@ -426,6 +481,9 @@ class ClusteringConfig(BaseModel):
         # actually in use, so existing k-means configs keep their current hash.
         if self.method == "dbscan":
             payload["dbscan"] = self.dbscan.model_dump()
+        if self.auto_merge_clusters:
+            payload["auto_merge_clusters"] = True
+            payload["cluster_merge"] = self.cluster_merge.model_dump()
         if self.geometry != "euclidean":
             payload["geometry"] = self.geometry
             payload["aitchison"] = self.aitchison.model_dump()
@@ -483,7 +541,13 @@ class ClusteringAnalysis(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def backfill_legacy_geometry(cls, data: Any) -> Any:
-        """Configs saved before ``geometry`` existed were clustered in Euclidean geometry."""
-        if isinstance(data, dict) and isinstance(data.get("config"), dict) and "geometry" not in data["config"]:
-            data = {**data, "config": {**data["config"], "geometry": ClusteringConfig.LEGACY_GEOMETRY}}
+        """
+        Configs saved before ``geometry`` existed were clustered in Euclidean geometry, and configs
+        saved before ``auto_merge_clusters`` existed without merging clusters.
+        """
+        if isinstance(data, dict) and isinstance(data.get("config"), dict):
+            config = dict(data["config"])
+            config.setdefault("geometry", ClusteringConfig.LEGACY_GEOMETRY)
+            config.setdefault("auto_merge_clusters", ClusteringConfig.LEGACY_AUTO_MERGE_CLUSTERS)
+            data = {**data, "config": config}
         return data
