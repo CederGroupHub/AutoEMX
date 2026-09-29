@@ -21,9 +21,7 @@ compared directly.
 
    By default AutoEMX uses **k-means** with **automatic geometry selection**
    (``geometry='auto'``) and chooses the **number of clusters automatically**
-   (see :ref:`number_of_clusters`). These defaults were extensively tested on
-   standards, commercial precursors and synthesized multi-phase samples, and work
-   well in most cases.
+   (see :ref:`number_of_clusters`). They work well in most cases.
 
    Change them only if the results are unsatisfactory, e.g. if the clusters do
    not match the groups of compositions visible in the clustering plot. The rest
@@ -138,8 +136,8 @@ The choice is logged, for example::
    ℹ️ Automatic geometry selection: euclidean (a major element is < 1% in 61% of spectra (threshold 10%)).
 
 The thresholds (``auto_near_zero_percent = 1.0``,
-``auto_max_near_zero_fraction = 0.10``) were calibrated on a limited set of
-samples. If the choice looks wrong for a sample, set ``geometry`` explicitly.
+``auto_max_near_zero_fraction = 0.10``) can be changed in ``aitchison_params``.
+If the choice looks wrong for a sample, set ``geometry`` explicitly.
 
 **Defaults.** New samples use ``'auto'``. Samples analyzed before this option
 existed, and samples created from legacy data, use ``'euclidean'``, so

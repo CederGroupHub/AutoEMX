@@ -21,8 +21,7 @@ The automatic choice has three steps:
    silhouette score (``k_finding_method = 'silhouette'``) with up to
    ``max_k = 6`` clusters, then merges clusters that form one continuous
    population (``auto_merge_clusters = True``). The single-cluster threshold adapts
-   to the feature type (see below). These defaults were extensively tested on standards, commercial
-   precursors and synthesized multi-phase samples.
+   to the feature type (see below).
 
    Set ``k`` yourself only if the result is unsatisfactory, e.g. a single phase
    split into several clusters, or a known phase missing (see `Setting k
@@ -81,31 +80,7 @@ where :math:`\sigma_\text{total}` is the **standard deviation of the analytical
 errors** of the spectra being clustered, as a fraction (e.g. 0.046 for 4.6
 percentage points). The two sources of spread are independent, so they add in
 quadrature. The noisier the totals, the more spread is accepted before calling
-the sample multi-phase:
-
-.. list-table::
-   :header-rows: 1
-
-   * - Example
-     - :math:`\sigma_\text{total}`
-     - Threshold
-     - RMS distance
-     - Result
-   * - Clean totals
-     - 2.3%
-     - 3.8%
-     - 4.3%
-     - multiple phases
-   * - Typical totals
-     - 3.1%
-     - 4.3%
-     - 3.4%
-     - single phase
-   * - Very noisy totals
-     - 7.5%
-     - 8.1%
-     - 6.8%
-     - single phase
+the sample multi-phase.
 
 :math:`\sigma_\text{total}` is capped at the **maximum analytical error** used to
 filter spectra (``max_analytical_error_percent``, or 10% if no filter is set).
@@ -179,25 +154,6 @@ the clustering geometry (log-ratio coordinates in Aitchison geometry).
 
 The merge only runs when ``k`` is chosen automatically: a forced ``k`` is always
 kept. The merge is deliberately conservative: when in doubt, clusters stay apart.
-
-.. list-table::
-   :header-rows: 1
-
-   * - Example
-     - k-means
-     - After merging
-   * - Mixture line of Ca–Ta oxides (CaCO₃ + 2 Ta₂O₅)
-     - 5
-     - 2 (the line, plus a small group of spots on Ta₂O₅)
-   * - Mixture line of K–Sn oxides (K₂CO₃ + SnO₂)
-     - 2
-     - 1
-   * - Single phase with a small separate group (Mn₂SiO₄)
-     - 2
-     - 2
-   * - Synthetic three-phase mixture (NASICON)
-     - 5
-     - 5
 
 A merged cluster that spreads along a mixture line is then described by the
 :ref:`mixture decomposition <mixture_decomposition>`, which reports its phases
