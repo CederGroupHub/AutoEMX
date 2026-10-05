@@ -130,10 +130,6 @@ def _save_clustering_plot_custom_3D(elements, els_comps_list, centroids, labels,
     output_dir = analysis_dir if analysis_dir else custom_dir
     fig.savefig(os.path.join(output_dir, plot_file_title), dpi=300, bbox_inches='tight', pad_inches=0.1)
 
-    if show_plots:
-        plt.ion()
-        plt.show()
-        plt.pause(0.001)
-
+    # When show_plots is True the figure stays open and is shown with the others at the end of the analysis
     if not show_plots:
         plt.close(fig)

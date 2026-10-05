@@ -4195,6 +4195,10 @@ class EMXSp_Composition_Analyzer:
             )
             if getattr(self.plot_cfg, 'plot_best_mixture', True) and clusters_assigned_mixtures:
                 PlottingModule._save_best_mixture_plots(self, compositions_df, labels, clusters_assigned_mixtures)
+
+        # Show all open figures (elbow, silhouette, clustering, mixture) together, blocking until they are closed
+        if self.plot_cfg.show_plots and plt.get_fignums():
+            plt.show(block=True)
     
         return True, max_cl_rmsdist, min_conf
     

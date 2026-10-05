@@ -383,7 +383,8 @@ class PlottingModule:
                 is_3d=is_3d,
                 reversed_xy=is_3d,
             )
-            plt.show()
+        else:
+            plt.close(fig)
 
         all_points = gather_clustering_zoom_points(
             els_comps_list,
@@ -426,6 +427,8 @@ class PlottingModule:
             bbox_inches='tight',
             pad_inches=0.2 if is_3d else 0.1,
         )
+        if not self.plot_cfg.show_plots:
+            plt.close(fig_zoomed)
 
     def _clustering_plot_2d_elements(self, compositions_df: 'pd.DataFrame', centroids: 'np.ndarray') -> Tuple[List[str], bool]:
         """
@@ -545,9 +548,8 @@ class PlottingModule:
                              + cnst.CLUSTERING_PLOT_FILEEXT),
                 dpi=300, bbox_inches='tight', pad_inches=0.1,
             )
-            if self.plot_cfg.show_plots:
-                plt.show()
-            plt.close(fig)
+            if not self.plot_cfg.show_plots:
+                plt.close(fig)
 
 
     def _save_violin_plot_powder_mixture(
@@ -693,10 +695,8 @@ class PlottingModule:
         plt.legend(loc='upper right', frameon=True)
 
         if show_plot:
-            plt.ion()
-            sil_visualizer.show()
-            plt.pause(0.001)
-            plt.ioff()
+            # Finalize without displaying; all figures are shown together at the end of the analysis
+            sil_visualizer.finalize()
 
         fig = sil_visualizer.fig
         fig.savefig(os.path.join(results_dir, 'Silhouette_plot.png'))
@@ -804,9 +804,8 @@ class PlottingModule:
             os.path.join(self.analysis_dir, filename + cnst.CLUSTERING_PLOT_FILEEXT),
             dpi=300, bbox_inches='tight', pad_inches=0.1,
         )
-        if self.plot_cfg.show_plots:
-            plt.show()
-        plt.close(fig)
+        if not self.plot_cfg.show_plots:
+            plt.close(fig)
 
     @staticmethod
     def _ternary_xy(A: 'np.ndarray') -> 'np.ndarray':

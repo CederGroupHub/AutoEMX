@@ -486,9 +486,8 @@ class ClusteringModule:
         ax1.xaxis.set_major_locator(plt.MaxNLocator(integer=True))
     
         if show_plot:
-            plt.ion()
-            visualizer.show()
-            plt.pause(0.001)
+            # Finalize without displaying; all figures are shown together at the end of the analysis
+            visualizer.finalize()
     
         if results_dir:
             fig = visualizer.fig
