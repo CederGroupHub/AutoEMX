@@ -29,8 +29,9 @@ In a terminal, in the Python environment where AutoEMX is installed
 
    python -m autoemx.gui --create-launcher
 
-This writes ``AutoEMX GUI.command`` (macOS), ``AutoEMX GUI.bat`` (Windows) or
-``AutoEMX GUI.sh`` (Linux) on your Desktop, with the AutoEMX icon on macOS. From then on,
+This writes an **AutoEMX** launcher on your Desktop (``AutoEMX.command`` on macOS, shown with the
+AutoEMX icon and without its extension; ``AutoEMX.bat`` on Windows; ``AutoEMX.sh`` on Linux),
+replacing a launcher created by an earlier version (``AutoEMX GUI``). From then on,
 **double-click it to open the GUI**, without a terminal. It runs the GUI with the Python
 environment used to create it, so run the command again if you change environment.
 
@@ -42,7 +43,7 @@ Options: add a results folder to open it directly
 Step 2 - Launch the GUI
 -----------------------
 
-Double-click **AutoEMX GUI** on your Desktop. The interface opens in your browser
+Double-click **AutoEMX** on your Desktop. The interface opens in your browser
 (http://127.0.0.1:8050). The window that opens with it shows the log, and closing it stops the
 GUI. Double-clicking again while the GUI runs just reopens it in the browser.
 

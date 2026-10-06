@@ -17,7 +17,8 @@ import threading
 import webbrowser
 from pathlib import Path
 
-LAUNCHER_NAME = "AutoEMX GUI"
+LAUNCHER_NAME = "AutoEMX"
+OLD_LAUNCHER_NAMES = ("AutoEMX GUI",)  # replaced by LAUNCHER_NAME when the launcher is created again
 LAUNCHER_ICON = Path(__file__).with_name("assets") / "autoemx-icon-512.png"
 
 
@@ -41,11 +42,38 @@ def _set_macos_icon(path: Path) -> bool:
     return res.returncode == 0 and res.stdout.strip() == "true"
 
 
+def _hide_macos_extension(path: Path) -> bool:
+    """Hide the extension of a file in Finder, so that the launcher shows as an app name (best effort)."""
+    script = (
+        "ObjC.import('Foundation');"
+        "$.NSFileManager.defaultManager.setAttributesOfItemAtPathError("
+        f"$({{NSFileExtensionHidden: true}}), {json.dumps(str(path))}, null);"
+    )
+    try:
+        res = subprocess.run(["osascript", "-l", "JavaScript", "-e", script],
+                             capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return res.returncode == 0 and res.stdout.strip() == "true"
+
+
+def _remove_old_launchers(dest: Path, extension: str) -> None:
+    """Delete launchers written under a previous name in the same folder (only if they launch the GUI)."""
+    for name in OLD_LAUNCHER_NAMES:
+        old = dest / f"{name}{extension}"
+        try:
+            if old.is_file() and "-m autoemx.gui" in old.read_text(encoding="utf-8", errors="replace"):
+                old.unlink()
+        except OSError:
+            pass
+
+
 def create_launcher(dest_dir: Optional[str] = None, results_folder: Optional[str] = None) -> Path:
     """
     Write a double-clickable launcher of the GUI (``.command`` on macOS, ``.bat`` on Windows,
     ``.sh`` on Linux) that runs it with the current Python interpreter and AutoEMX installation.
-    On macOS the launcher also gets the AutoEMX icon.
+    On macOS the launcher also gets the AutoEMX icon, and its extension is hidden.
+    Launchers written under a previous name in the same folder are replaced.
     """
     dest = Path(dest_dir).expanduser() if dest_dir else Path.home() / "Desktop"
     if not dest.is_dir():
@@ -53,8 +81,10 @@ def create_launcher(dest_dir: Optional[str] = None, results_folder: Optional[str
     python = sys.executable
     package_parent = str(Path(__file__).resolve().parents[2])
     args = f' "{os.path.abspath(results_folder)}"' if results_folder else ""
+    extension = ".bat" if os.name == "nt" else ".command" if sys.platform == "darwin" else ".sh"
+    _remove_old_launchers(dest, extension)
+    path = dest / f"{LAUNCHER_NAME}{extension}"
     if os.name == "nt":
-        path = dest / f"{LAUNCHER_NAME}.bat"
         path.write_text(
             "@echo off\r\n"
             "rem Double-click to open the AutoEMX GUI. Close this window to stop it.\r\n"
@@ -64,7 +94,6 @@ def create_launcher(dest_dir: Optional[str] = None, results_folder: Optional[str
             encoding="utf-8",
         )
     else:
-        path = dest / (f"{LAUNCHER_NAME}.command" if sys.platform == "darwin" else f"{LAUNCHER_NAME}.sh")
         path.write_text(
             "#!/bin/bash\n"
             "# Double-click to open the AutoEMX GUI. Close this window to stop it.\n"
@@ -75,6 +104,7 @@ def create_launcher(dest_dir: Optional[str] = None, results_folder: Optional[str
         path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
         if sys.platform == "darwin":
             _set_macos_icon(path)
+            _hide_macos_extension(path)
     return path
 
 

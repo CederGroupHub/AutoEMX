@@ -5,6 +5,7 @@
 
 import os
 import sys
+import tomllib
 sys.path.insert(0, os.path.abspath(".."))
 
 
@@ -15,7 +16,10 @@ sys.path.insert(0, os.path.abspath(".."))
 project = 'AutoEMX'
 copyright = '2026, Andrea Giunto'
 author = 'Andrea Giunto'
-release = '0.1.6'
+# Version of the package, read from pyproject.toml so that it follows each release
+with open(os.path.join(os.path.dirname(__file__), "..", "pyproject.toml"), "rb") as _f:
+    release = tomllib.load(_f)["project"]["version"]
+version = release
 
 
 

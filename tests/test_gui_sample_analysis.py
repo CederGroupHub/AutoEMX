@@ -161,7 +161,15 @@ def test_create_launcher(tmp_path: Path):
 
     from autoemx.gui.__main__ import create_launcher
 
+    ext = ".bat" if os.name == "nt" else ".command" if sys.platform == "darwin" else ".sh"
+    old_launcher = tmp_path / f"AutoEMX GUI{ext}"
+    old_launcher.write_text('python -m autoemx.gui\n')
+    other_file = tmp_path / f"AutoEMX GUI notes{ext}"
+    other_file.write_text("not a launcher")
+
     path = create_launcher(str(tmp_path), results_folder=str(tmp_path))
+    assert path.name == f"AutoEMX{ext}"
+    assert not old_launcher.exists() and other_file.exists()  # only the old launcher is replaced
     text = path.read_text()
     assert sys.executable in text and "-m autoemx.gui" in text and str(tmp_path) in text
     if os.name != "nt":
