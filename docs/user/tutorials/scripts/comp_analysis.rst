@@ -3,6 +3,11 @@
 Tutorial: EDS compositional analysis for phase identification
 =============================================================
 
+.. tip::
+
+   **Prefer a GUI?** You can run the whole workflow (acquisition, quantification and analysis) in the AutoEMX GUI, without editing scripts: see
+   :ref:`gui_comp_analysis_tutorial`.
+
 This tutorial shows how to run the automated workflow for EDS compositional
 analysis using the ``run_acquisition_quant_analysis.py`` script.
 
@@ -17,9 +22,6 @@ This script initiates the fully automated workflow described in Giunto *et al.*,
 
 The script allows multiple samples to be defined and run sequentially with a
 *single click*.
-
-To re-run the quantification and clustering analysis of acquired samples and explore
-the results interactively, see :ref:`sample_analysis_gui_tutorial`.
 
 Key output includes:
 
@@ -226,7 +228,7 @@ For each sample, ``AutoEMX`` creates a folder named after ``ID`` containing:
   ``autoemx/scripts/Annotate_Particle_Images.py`` into the sample folder and run it:
   annotated copies are written to ``SEM images/annotated``. Set
   ``annotate_particle_images = True`` in the acquisition script to annotate the images
-  directly during acquisition. The interactive GUI (:ref:`sample_analysis_gui_tutorial`)
+  directly during acquisition. The AutoEMX GUI (:ref:`gui_comp_analysis_tutorial`)
   also shows the spectrum positions on the images.
 
 .. figure:: /_static/Example_annotated_particle.png

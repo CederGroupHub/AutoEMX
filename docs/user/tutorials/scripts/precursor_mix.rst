@@ -4,6 +4,12 @@
 Tutorial: Quantify the extent of intermixing in precursor powders
 ========================================================================
 
+.. tip::
+
+   **Prefer a GUI?** You can measure the intermixing of precursors in the AutoEMX GUI, without editing scripts: see
+   :ref:`gui_comp_analysis_tutorial`, section *Quantify the extent of
+   intermixing in precursor powders*.
+
 When mixing two powder precursors together, use EDS to evaluate the extent of
 their spatial intermixing, known to affect solid-state reactions and the final
 impurity content.

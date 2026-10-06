@@ -28,18 +28,26 @@ Expected runtime on a normal desktop computer:
 Workflows
 ----------------------------------------------------
 
-``AutoEMX`` comes with a selection of scripts (located at autoemx/scripts/) that require a minimal set of user-defined
-parameters for running:
+Each workflow can be run in two ways, which use the same engine and write the same sample
+folders:
+
+- **GUI**: the AutoEMX GUI, a point-and-click interface running locally in your browser.
+  Create its double-click app once with ``python -m autoemx.gui --create-launcher``
+  (:ref:`Tutorial <gui_getting_started_tutorial>`).
+- **Scripts**: the scripts in ``autoemx/scripts/``, which require a minimal set of user-defined
+  parameters.
 
 
 EDS compositional analysis for phase identification
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Run the ``run_acquisition_quant_analysis.py`` script (:ref:`Tutorial <comp_analysis_tutorial>`):
-
 With one click, `AutoEMX` handles the full workflow from EDS spectral acquisition and quantification, to
 rule-based filtering of the quantified compositions and unsupervised machine-learning analysis to identify
 the different phase compositions in your sample.
+
+- **GUI**: Acquisition, Quantification and Analysis tabs, with interactive 3D plots of the
+  results (:ref:`Tutorial <gui_comp_analysis_tutorial>`).
+- **Scripts**: ``run_acquisition_quant_analysis.py`` (:ref:`Tutorial <comp_analysis_tutorial>`).
 
 See full workflow at:
 
@@ -49,41 +57,40 @@ See full workflow at:
     https://doi.org/10.1038/s41467-026-76633-x
 
 
-Fit and quantify a single EDS spectrum
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Fit and quantify EDS spectra
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Run the ``fit_quant_single_autoemx_spectrum.py`` (:ref:`Tutorial <fit_autoemx_spectrum_tutorial>`)
-or the ``fit_quant_single_msa_spectrum.py`` script (:ref:`Tutorial <fit_msa_spectrum_tutorial>`):
+Fit--and optionally quantify-- EDS spectra acquired using ``AutoEMX`` or exported by commercial
+EDS software (.msa, .emsa, .msg spectra files), one at a time to evaluate the model performance,
+or in batch.
 
-Fit--and optionally quantify-- a single EDS spectrum acquired using ``AutoEMX`` or exported by commercial
-EDS software (.msa, .emsa, .msg spectra files).
-
-These scripts print the full process in the terminal, the employed fit parameters and their final values. 
-They also show the fitted spectrum for visual evaluation of goodness of fit.
-
-Alternatively, launch the local GUI (same engine; PNG and TXT download)::
-
-   python -m autoemx.web
-
-See :ref:`web_gui_tutorial`.
+- **GUI**: Single spectrum tab for one spectrum; Quantification tab for many spectra,
+  including folders of exported spectra (:ref:`Tutorial <gui_fit_spectra_tutorial>`).
+- **Scripts**: ``fit_quant_single_autoemx_spectrum.py`` (:ref:`Tutorial <fit_autoemx_spectrum_tutorial>`)
+  or ``fit_quant_single_msa_spectrum.py`` (:ref:`Tutorial <fit_msa_spectrum_tutorial>`) for one
+  spectrum, which print the full process in the terminal, the employed fit parameters and their
+  final values; ``quantify_external_spectra.py`` for exported spectra in batch
+  (:ref:`Tutorial <quantify_external_spectra_tutorial>`).
 
 
 Measure particle size distribution via SEM
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Run the ``collect_particle_statistics.py`` script (:ref:`Tutorial <particle_size_tutorial>`).
-
 Have `AutoEMX` collect multiple images, detect particles, and quantify their size distribution.
 
+- **Scripts**: ``collect_particle_statistics.py`` (:ref:`Tutorial <particle_size_tutorial>`).
+  Not available in the GUI yet.
 
 
 Quantify the extent of intermixing in precursor powders
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Run the ``Run_Acquisition_PrecursorMix.py`` script (:ref:`Tutorial <precursor_mix_tutorial>`):
 
 Use EDS to evaluate the extent of spatial intermixing of different precursor powders, known to affect
 the output of solid-state reactions. `AutoEMX` offers a method to quantify the intermixing, helping
 the rationalization of impurity formation in solid-state reactions. See for example Fig. 6 in:
 
     Chem. Mater. 2025, 37, 6807−6822 (https://pubs.acs.org/doi/10.1021/acs.chemmater.5c01573)
+
+- **GUI**: as for the compositional analysis, with the precursor options
+  (:ref:`Tutorial <gui_comp_analysis_tutorial>`, last section).
+- **Scripts**: ``Run_Acquisition_PrecursorMix.py`` (:ref:`Tutorial <precursor_mix_tutorial>`).

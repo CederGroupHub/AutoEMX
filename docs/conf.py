@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.abspath(".."))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'AutoEMX'
-copyright = '2025, Andrea Giunto'
+copyright = '2026, Andrea Giunto'
 author = 'Andrea Giunto'
 release = '0.1.6'
 

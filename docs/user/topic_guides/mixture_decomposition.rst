@@ -61,7 +61,7 @@ Each mixture in ``Clusters.csv`` gives its phases (``Mix``), their molar fractio
 
 Several mixtures can be listed per cluster, best first. Only the most plausible
 are shown; the ``Mix_more`` row says how many more are saved in ``ledger.json``
-and why they were left out. All columns are described in :doc:`../comp_analysis`.
+and why they were left out. All columns are described in :doc:`../tutorials/scripts/comp_analysis`.
 
 
 Plots

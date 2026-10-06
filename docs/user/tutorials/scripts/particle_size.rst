@@ -4,6 +4,11 @@
 Tutorial: Measure particle size distribution via SEM
 =======================================================================
 
+.. note::
+
+   Particle size measurements are not available in the AutoEMX GUI yet: use the script
+   described here.
+
 This tutorial explains how to collect particle-size statistics with
 ``AutoEMX`` using the script:
 

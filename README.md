@@ -36,8 +36,7 @@ DOI: [https://doi.org/10.1038/s41467-026-76633-x](https://doi.org/10.1038/s41467
     - **Rule-based filtering** of compositions to discard poorly quantified spectra from the analysis
     - **Unsupervised machine learning–based analysis** to identify the compositions of individual phases in the sample  
 
-- **Browser GUI** — upload `.msa` / `.emsa` / `.msg` spectra, fit and quantify, inspect the overlay, and download PNG / TXT (`python -m autoemx.web`)
-- **AutoEMX GUI** — acquire spectra with the microscope, quantify the samples of a project, run their clustering analysis with every parameter and explore the clusters in interactive 3D / ternary / 2D plots linked to the spectra and SEM images, and fit/quantify single spectra (`python -m autoemx.gui path/to/Results`)
+- **AutoEMX GUI** — acquire spectra with the microscope, quantify the samples of a project, run their clustering analysis with every parameter and explore the clusters in interactive 3D / ternary / 2D plots linked to the spectra and SEM images, and fit/quantify single spectra. Run `python -m autoemx.gui --create-launcher` once to create a double-click app on your Desktop (or start it with `python -m autoemx.gui path/to/Results`)
 - Scripts for **fitting and quantification** of single EDS spectra exported by proprietary commercial software (`.msa`, `.emsa`, `.msg`)
 
 - **Automated experimental standard collection** scripts
@@ -136,7 +135,7 @@ AutoEMX/
 │   ├── microscope_drivers/              # Electron Microscope driver (⚠️ adapt to your own instrument)
 │   ├── runners/                # Runner functions calling on core objects
 │   ├── scripts/                # Scripts to run acquisition, quantification, etc. (see full list below)
-│   ├── web/                    # Local Streamlit GUI (`python -m autoemx.web`)
+│   ├── web/                    # Streamlit app of the online single-spectrum demo
 │   ├── gui/                    # Local GUI: acquisition, quantification, analysis, single spectrum (`python -m autoemx.gui`)
 │   ├── calibrations/             # X-ray spectral calibrations (⚠️ adapt to your own instrument for optimal accuracy)
 │   ├── utils/                  # Utility functions and strings employed by the program
@@ -164,7 +163,7 @@ This repository includes a collection of scripts that streamline the use of **Au
 - **Fit_Quant_Single_AutoEMX_Spectrum.py** — Fit and optionally quantify a single spectrum measured with AutoEMX. Prints fitting parameters and plots fitted spectrum for detailed inspection of model performance.
 - **Fit_Quant_Single_MSA_Spectrum.py** — Fit and optionally quantify a single spectrum exported by proprietary software.
 - **Quantify_External_Spectra.py** — Quantify spectra acquired outside AutoEMX (e.g., from other SEM-EDS systems).
-- **GUI** — upload `.msa` / `.emsa` and test quantification at https://autoemx-singlespectrum.streamlit.app (or locally with `python -m autoemx.web`).
+- **Online demo** — upload `.msa` / `.emsa` and test quantification at https://autoemx-singlespectrum.streamlit.app, without installing AutoEMX. Locally, use the Single spectrum tab of the AutoEMX GUI.
 
 ### 📊 Particle Size Distribution Measurements
 - **collect_particle_statistics.py** - Analyse sample, collecting particle size statistics and distribution.

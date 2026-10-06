@@ -4,14 +4,17 @@
 Tutorial: Fit and quantify individual spectra exported by commercial EDS software
 =================================================================================
 
+.. tip::
+
+   **Prefer a GUI?** You can fit and quantify exported spectrum files in the AutoEMX GUI, without editing scripts: see
+   :ref:`gui_fit_spectra_tutorial`.
+
 This tutorial shows how to fit--and optionall quantify-- a single EDS spectrum,
 using the ``fit_quant_single_msa_spectrum.py`` script.
 
 This allows to load an individual spectrum from an exported file (typically
 ``.msa``, ``.emsa``, ``.msg``), fit and quantify it and visualize the fitted spectrum
 for inspection of model fitting performance.
-
-For a browser upload UI with PNG/TXT download, see :ref:`web_gui_tutorial`.
 
 This script also prints the full fitting and quantification process steps, prints
 the employed fit parameters and their final values. 

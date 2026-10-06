@@ -4,6 +4,11 @@
 Tutorial: Quantify externally exported spectra in batch
 =======================================================
 
+.. tip::
+
+   **Prefer a GUI?** You can import and quantify folders of exported spectra in the AutoEMX GUI, without editing scripts: see
+   :ref:`gui_fit_spectra_tutorial`.
+
 This tutorial shows how to import, quantify, and optionally cluster externally
 exported EDS spectra using the ``quantify_external_spectra.py`` script.
 
@@ -128,7 +133,7 @@ Notes and troubleshooting
 - For re-analysis with different clustering filters (without re-ingestion), use
   ``run_analysis.py``.
 - ``quantify=False`` only copies the spectra and writes the ledgers; the samples can then be
-  quantified with ``Run_Quantification.py`` or in the GUI (see :doc:`sample_analysis_gui`, which
+  quantified with ``Run_Quantification.py`` or in the GUI (see :ref:`gui_fit_spectra_tutorial`, which
   can also import a folder of spectra with **Import spectra folder…** in the Quantification tab).
 - The energy calibration of each sample is always read from the ``#OFFSET`` and ``#XPERCHAN``
   lines of the EMSA headers of its spectra (in the unit of ``#XUNITS``, eV or keV). Samples whose

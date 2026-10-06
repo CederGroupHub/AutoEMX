@@ -8,8 +8,8 @@ All paper results in this directory can be reproduced by:
 Samples in the archived data are **already quantified**. The scripts here are provided to reproduce the published results and to re-run analysis (and, optionally, re-quantification) from the paper.
 
 Follow the tutorials in the documentation for the full workflow and parameter guidance:
-- [Quantify spectra tutorial](https://cedergrouphub.github.io/AutoEMX/user/quantify_external_spectra.html)
-- [EDS compositional analysis tutorial](https://cedergrouphub.github.io/AutoEMX/user/comp_analysis.html)
+- [Quantify spectra tutorial](https://cedergrouphub.github.io/AutoEMX/user/tutorials/scripts/quantify_external_spectra.html)
+- [EDS compositional analysis tutorial](https://cedergrouphub.github.io/AutoEMX/user/tutorials/scripts/comp_analysis.html)
 
 Practical workflow from this folder:
 

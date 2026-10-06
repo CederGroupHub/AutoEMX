@@ -70,8 +70,9 @@ Demo
 Watch ``AutoEMX`` in action on a desktop SEM–EDS system:
 https://youtu.be/Bym58gNxlj0
 
-For a step-by-step guide to run this workflow, see:
-:ref:`Tutorial: EDS compositional analysis for phase identification <comp_analysis_tutorial>`.
+For a step-by-step guide to run this workflow, see the tutorial for the
+:ref:`GUI <gui_comp_analysis_tutorial>` or for the
+:ref:`scripts <comp_analysis_tutorial>`.
 
 Expected runtime on a normal desktop computer:
 

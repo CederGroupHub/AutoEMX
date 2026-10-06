@@ -4,6 +4,11 @@
 Tutorial: Fit and quantify individual spectra acquired with `AutoEMX`
 =======================================================================
 
+.. tip::
+
+   **Prefer a GUI?** You can fit and quantify single spectra of your samples in the AutoEMX GUI, without editing scripts: see
+   :ref:`gui_fit_spectra_tutorial`.
+
 This tutorial shows how to fit--and optionall quantify-- a single EDS spectrum,
 using the ``fit_quant_single_autoemx_spectrum.py`` script.
 
