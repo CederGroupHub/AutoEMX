@@ -29,9 +29,10 @@ In a terminal, in the Python environment where AutoEMX is installed
 
    python -m autoemx.gui --create-launcher
 
-This writes an **AutoEMX** launcher on your Desktop (``AutoEMX.command`` on macOS, shown with the
-AutoEMX icon and without its extension; ``AutoEMX.bat`` on Windows; ``AutoEMX.sh`` on Linux),
-replacing a launcher created by an earlier version (``AutoEMX GUI``). From then on,
+This writes an **AutoEMX** launcher on your Desktop: ``AutoEMX.command`` on macOS (with the
+AutoEMX icon, shown without its extension), an ``AutoEMX`` shortcut with the AutoEMX icon on Windows (it runs a ``.bat`` file
+kept in ``.autoemx\launchers`` in your user folder), or ``AutoEMX.sh`` on Linux. It replaces a
+launcher created by an earlier version (``AutoEMX GUI``). From then on,
 **double-click it to open the GUI**, without a terminal. It runs the GUI with the Python
 environment used to create it, so run the command again if you change environment.
 

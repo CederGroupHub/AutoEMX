@@ -336,3 +336,16 @@ def test_import_requires_one_energy_calibration(tmp_path: Path):
     with pytest.raises(RuntimeError):
         be._run_import("", {"kwargs": kwargs})
     assert not (results / "Mixed").exists()
+
+
+def test_windows_launcher_shortcut():
+    from PIL import Image
+
+    from autoemx.gui.__main__ import LAUNCHER_ICON_WINDOWS, _windows_shortcut_script
+
+    # Windows icon with the sizes shown on the Desktop, up to 256 px
+    assert (256, 256) in Image.open(LAUNCHER_ICON_WINDOWS).info["sizes"]
+    script = _windows_shortcut_script(Path("C:/Users/O'Neil/Desktop/AutoEMX.lnk"), Path("C:/x/AutoEMX_1.bat"),
+                                      LAUNCHER_ICON_WINDOWS, Path("C:/Users/O'Neil"))
+    assert "'C:/Users/O''Neil/Desktop/AutoEMX.lnk'" in script.replace("\\", "/")  # quotes escaped
+    assert f"{LAUNCHER_ICON_WINDOWS},0" in script and script.endswith("$s.Save()")

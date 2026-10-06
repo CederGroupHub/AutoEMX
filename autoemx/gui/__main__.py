@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import Optional
 
 import argparse
+import hashlib
 import json
 import os
 import socket
@@ -20,6 +21,9 @@ from pathlib import Path
 LAUNCHER_NAME = "AutoEMX"
 OLD_LAUNCHER_NAMES = ("AutoEMX GUI",)  # replaced by LAUNCHER_NAME when the launcher is created again
 LAUNCHER_ICON = Path(__file__).with_name("assets") / "autoemx-icon-512.png"
+LAUNCHER_ICON_WINDOWS = Path(__file__).with_name("assets") / "autoemx-icon.ico"
+# On Windows, the .bat run by the Desktop shortcut is kept here (a .bat cannot have its own icon)
+WINDOWS_LAUNCHERS_DIR = Path.home() / ".autoemx" / "launchers"
 
 
 def _port_in_use(port: int) -> bool:
@@ -57,9 +61,42 @@ def _hide_macos_extension(path: Path) -> bool:
     return res.returncode == 0 and res.stdout.strip() == "true"
 
 
-def _remove_old_launchers(dest: Path, extension: str) -> None:
+def _powershell(script: str) -> Optional[str]:
+    """Run a PowerShell script (Windows); its output, or None if it failed."""
+    try:
+        res = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+                             capture_output=True, text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return res.stdout.strip() if res.returncode == 0 else None
+
+
+def _ps_quote(text: str) -> str:
+    """Single-quoted PowerShell string literal."""
+    return "'" + str(text).replace("'", "''") + "'"
+
+
+def _windows_desktop() -> Path:
+    """The user's Desktop folder on Windows (it may be redirected, e.g. to OneDrive)."""
+    out = _powershell("[Environment]::GetFolderPath('Desktop')")
+    return Path(out) if out and Path(out).is_dir() else Path.home() / "Desktop"
+
+
+def _windows_shortcut_script(shortcut: Path, target: Path, icon: Path, workdir: Path) -> str:
+    """PowerShell script creating a shortcut (.lnk) to *target*, with the icon *icon*."""
+    return (
+        "$s = (New-Object -ComObject WScript.Shell).CreateShortcut(" + _ps_quote(shortcut) + "); "
+        "$s.TargetPath = " + _ps_quote(target) + "; "
+        "$s.WorkingDirectory = " + _ps_quote(workdir) + "; "
+        "$s.IconLocation = " + _ps_quote(f"{icon},0") + "; "
+        "$s.Description = 'AutoEMX GUI'; "
+        "$s.Save()"
+    )
+
+
+def _remove_old_launchers(dest: Path, extension: str, names=OLD_LAUNCHER_NAMES) -> None:
     """Delete launchers written under a previous name in the same folder (only if they launch the GUI)."""
-    for name in OLD_LAUNCHER_NAMES:
+    for name in names:
         old = dest / f"{name}{extension}"
         try:
             if old.is_file() and "-m autoemx.gui" in old.read_text(encoding="utf-8", errors="replace"):
@@ -70,12 +107,21 @@ def _remove_old_launchers(dest: Path, extension: str) -> None:
 
 def create_launcher(dest_dir: Optional[str] = None, results_folder: Optional[str] = None) -> Path:
     """
-    Write a double-clickable launcher of the GUI (``.command`` on macOS, ``.bat`` on Windows,
-    ``.sh`` on Linux) that runs it with the current Python interpreter and AutoEMX installation.
-    On macOS the launcher also gets the AutoEMX icon, and its extension is hidden.
+    Write a double-clickable launcher of the GUI that runs it with the current Python interpreter
+    and AutoEMX installation, and return its path.
+
+    - macOS: ``AutoEMX.command``, with the AutoEMX icon and its extension hidden.
+    - Windows: an ``AutoEMX`` shortcut (``.lnk``) with the AutoEMX icon, running a ``.bat`` kept in
+      ``~/.autoemx/launchers`` (a ``.bat`` cannot have its own icon). If the shortcut cannot be
+      created, the ``.bat`` is written in the destination folder instead.
+    - Linux: ``AutoEMX.sh``.
+
     Launchers written under a previous name in the same folder are replaced.
     """
-    dest = Path(dest_dir).expanduser() if dest_dir else Path.home() / "Desktop"
+    if dest_dir:
+        dest = Path(dest_dir).expanduser()
+    else:
+        dest = _windows_desktop() if os.name == "nt" else Path.home() / "Desktop"
     if not dest.is_dir():
         dest = Path.home()
     python = sys.executable
@@ -85,14 +131,28 @@ def create_launcher(dest_dir: Optional[str] = None, results_folder: Optional[str
     _remove_old_launchers(dest, extension)
     path = dest / f"{LAUNCHER_NAME}{extension}"
     if os.name == "nt":
-        path.write_text(
+        bat_text = (
             "@echo off\r\n"
             "rem Double-click to open the AutoEMX GUI. Close this window to stop it.\r\n"
             f'set "PYTHONPATH={package_parent};%PYTHONPATH%"\r\n'
             f'"{python}" -m autoemx.gui{args} %*\r\n'
-            "pause\r\n",
-            encoding="utf-8",
+            "pause\r\n"
         )
+        # One .bat per shortcut (destination and results folder), so that shortcuts do not overwrite each other
+        key = hashlib.sha1(f"{dest.resolve()}|{args}".encode()).hexdigest()[:8]
+        bat = WINDOWS_LAUNCHERS_DIR / f"{LAUNCHER_NAME}_{key}.bat"
+        shortcut = dest / f"{LAUNCHER_NAME}.lnk"
+        try:
+            WINDOWS_LAUNCHERS_DIR.mkdir(parents=True, exist_ok=True)
+            bat.write_text(bat_text, encoding="utf-8")
+            created = _powershell(_windows_shortcut_script(
+                shortcut, bat, LAUNCHER_ICON_WINDOWS, Path.home())) is not None and shortcut.exists()
+        except OSError:
+            created = False
+        if created:
+            _remove_old_launchers(dest, ".bat", OLD_LAUNCHER_NAMES + (LAUNCHER_NAME,))
+            return shortcut
+        path.write_text(bat_text, encoding="utf-8")  # no shortcut: plain .bat, without icon
     else:
         path.write_text(
             "#!/bin/bash\n"
