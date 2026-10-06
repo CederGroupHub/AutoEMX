@@ -250,7 +250,11 @@ class MeasurementConfig(BaseModel):
         bulk_meas_cfg (Optional[BulkMeasurementConfig]): Bulk/grid acquisition settings.
         exp_stds_cfg (Optional[ExpStandardsConfig]): Experimental standards settings.
         saved_images_extension (str): Extension used when saving SEM frame images.
-        save_raw_images (bool): Whether to save the non-annotated SEM image.
+        save_raw_images (bool): Whether to also save the non-annotated version of annotated SEM images
+            (frame images, and particle images when ``annotate_particle_images`` is True).
+        annotate_particle_images (bool): Whether to draw the spectrum spots (dot + spectrum ID) and a scale bar
+            on the particle images saved during acquisition. If False (default), raw particle images are saved;
+            annotated copies can be made afterwards with ``Annotate_Particle_Images.py``.
     """
 
     type: str = dflt.measurement_type
@@ -270,6 +274,7 @@ class MeasurementConfig(BaseModel):
     exp_stds_cfg: Optional["ExpStandardsConfig"] = None
     saved_images_extension: str = dflt.saved_images_extension
     save_raw_images: bool = dflt.save_raw_images
+    annotate_particle_images: bool = dflt.annotate_particle_images
     ALLOWED_IMAGE_EXTENSIONS: ClassVar[Tuple[str, ...]] = (
         "tif", "tiff", "png", "jpg", "jpeg", "webp", "bmp",
     )

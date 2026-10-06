@@ -93,6 +93,7 @@ def batch_acquire_experimental_stds(
     output_filename_suffix: str = '',
     saved_images_extension: str = dflts.saved_images_extension,
     save_raw_images: bool = dflts.save_raw_images,
+    annotate_particle_images: bool = dflts.annotate_particle_images,
     development_mode: bool = False,
     verbose: bool = True,
     exp_std_dir: Optional[str] = None,
@@ -198,10 +199,14 @@ def batch_acquire_experimental_stds(
         Default is `''`.
     saved_images_extension : str, optional
         Extension used for SEM image files saved during acquisition.
-        Default is `'tif'`.
+        Default is `'png'`.
     save_raw_images : bool, optional
-        Whether to save non-annotated raw SEM images in addition to annotated images.
-        Default is `True`.
+        Whether to also save the non-annotated version of annotated SEM images (frame images, and
+        particle images when ``annotate_particle_images`` is True). Default is `False`.
+    annotate_particle_images : bool, optional
+        Whether to draw the spectrum spots (dot + spectrum ID) and a scale bar on the saved particle images.
+        If False, raw particle images are saved; annotated copies can be made afterwards with
+        ``Annotate_Particle_Images.py``. Default is `False`.
     development_mode : bool, optional
         If True, enables development/debug features.  
         Default is `False`.
@@ -293,7 +298,8 @@ def batch_acquire_experimental_stds(
             min_n_spectra=min_n_spectra,
             max_n_spectra=max_n_spectra,
             saved_images_extension=saved_images_extension,
-            save_raw_images=save_raw_images
+            save_raw_images=save_raw_images,
+            annotate_particle_images=annotate_particle_images,
         )
         
         

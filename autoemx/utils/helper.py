@@ -68,6 +68,8 @@ import numpy as np
 from pathlib import Path
 from pymatgen.core import Element, Composition
 
+import autoemx.utils.constants as cnst
+
 # Typing imports
 from collections.abc import Mapping
 from typing import Any, Sequence, List, Optional, Tuple, Dict, Union
@@ -690,6 +692,29 @@ if __name__ == "__main__":
     
 
 #%% Images
+_XSP_SPOTS_IMAGE_RE = re.compile(r"(?:_par(?P<par>\d+))?_fr_?(?P<frame>.+?)" + re.escape(cnst.XSP_SPOTS_IMAGE_SUFFIX) + r"$")
+
+
+def parse_xsp_spots_image_name(stem: str) -> Optional[Tuple[Optional[int], Optional[str]]]:
+    """
+    Particle ID and frame ID of an image showing X-ray spectrum spots, from its file name (without extension).
+
+    Images are saved during acquisition as ``<sample>_par<particle>_fr<frame>_xyspots`` (particle acquisition)
+    or ``<sample>_fr<frame>_xyspots`` (grid/linescan acquisition).
+
+    Returns
+    -------
+    tuple or None
+        ``(particle_id, frame_id)``, with ``particle_id`` None for frame images, or None if ``stem``
+        is not the name of such an image.
+    """
+    match = _XSP_SPOTS_IMAGE_RE.search(stem)
+    if match is None:
+        return None
+    par = match.group("par")
+    return (int(par) if par is not None else None), match.group("frame")
+
+
 def draw_scalebar(image, pixel_size_um, bar_width = 0.25, color = None):
     """
     Draw a scale bar on the given image.

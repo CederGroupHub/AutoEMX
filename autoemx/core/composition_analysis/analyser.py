@@ -81,6 +81,7 @@ import cvxpy as cp
 from autoemx.core.quantifier import XSp_Quantifier
 from autoemx.core.fitter import DetectorResponseFunction
 from autoemx.core.em_runtime.controller import EM_Controller
+from autoemx.core.em_runtime.image_utilities import xsp_spot_annotation
 from autoemx.core.em_runtime.xsp_spot_selection import XSpSpotSelectorCallback
 from autoemx.core.em_runtime.sample_finder import EM_Sample_Finder
 import autoemx.calibrations as calibs
@@ -2272,6 +2273,7 @@ class EMXSp_Composition_Analyzer:
         area_um: Optional[float],
         frame_id: Optional[str] = None,
         coordinates: Optional[Coordinate2D] = None,
+        image_pixel_size_um: Optional[float] = None,
     ) -> None:
         """Create or update the ParticleInfo entry for a particle in the ledger."""
         eq_diameter_um = (
@@ -2286,6 +2288,8 @@ class EMXSp_Composition_Analyzer:
                     particle.frame_id = frame_id
                 if coordinates is not None:
                     particle.coordinates = coordinates
+                if image_pixel_size_um is not None:
+                    particle.image_pixel_size_um = image_pixel_size_um
                 return
         ledger.particles.append(
             ParticleInfo(
@@ -2294,6 +2298,7 @@ class EMXSp_Composition_Analyzer:
                 eq_diameter_um=eq_diameter_um,
                 frame_id=frame_id,
                 coordinates=coordinates,
+                image_pixel_size_um=image_pixel_size_um,
             )
         )
 
@@ -3521,6 +3526,8 @@ class EMXSp_Composition_Analyzer:
                         area_um=particle_area_um,
                         frame_id=frame_id_str,
                         coordinates=particle_coordinates,
+                        # Pixel size of the particle image, saved with the spectrum spots
+                        image_pixel_size_um=getattr(self.EM_controller, "pixel_size_um", None),
                     )
                 ledger.to_json_file(ledger_path)
                 ingested_spectrum_ids.add(str(spectrum_entry.spectrum_id))
@@ -3536,31 +3543,31 @@ class EMXSp_Composition_Analyzer:
                             logger.info('ℹ️ Increase measurement_cfg.max_acquisition_time if this behavior is undesired.')
                         break
             
-            # Save image of particle, with ID of acquired XSp spots
+            # Save image of particle. Spot pixel coordinates are stored in the ledger, so raw images
+            # can be annotated afterwards with Annotate_Particle_Images.py.
             if latest_spot_id is not None:
                 # Prepare save path
                 par_cntr_str = f"_par{self.particle_cntr}" if self.particle_cntr is not None else ''
                 filename = f"{self.sample_id}{par_cntr_str}_fr{frame_ID}_xyspots"
-                # Construct annotation dictionary
-                im_annotations = []
-                for i, xy_coords in enumerate(spots_xy_list):
-                    # Skip if latest_spot_id is None or i is out of range
-                    if latest_spot_id is None or i > latest_spot_id:
-                        break
+                if not self.measurement_cfg.annotate_particle_images:
+                    self.EM_controller.save_frame_image(filename, im_annotations=None, scalebar=False)
+                else:
+                    # Construct annotation dictionary with the ID of the acquired XSp spots
+                    im_annotations = []
+                    for i, xy_coords in enumerate(spots_xy_list):
+                        # Skip if latest_spot_id is None or i is out of range
+                        if latest_spot_id is None or i > latest_spot_id:
+                            break
 
-                    xy_center = (int(xy_coords[0]), int(xy_coords[1]))
-                    if xy_center is None:
-                        continue
-                    
-                    im_annotations.append({
-                        cnst.ANNOTATION_TEXT_KEY: (
-                            str(next_spectrum_id - 1 - latest_spot_id + i),
-                            (xy_center[0] - 30, xy_center[1] - 15)
-                        ),
-                        cnst.ANNOTATION_CIRCLE_KEY: (10, xy_center, -1)
-                    })
-                # Save image with annotations
-                self.EM_controller.save_frame_image(filename, im_annotations = im_annotations)
+                        xy_center = (int(xy_coords[0]), int(xy_coords[1]))
+                        if xy_center is None:
+                            continue
+                        
+                        im_annotations.append(
+                            xsp_spot_annotation(next_spectrum_id - 1 - latest_spot_id + i, xy_center)
+                        )
+                    # Save image with annotations
+                    self.EM_controller.save_frame_image(filename, im_annotations = im_annotations)
                 
             if quantify:
                 self._fit_and_quantify_spectra(interrupt_fits_bad_spectra = interrupt_fits_bad_spectra)

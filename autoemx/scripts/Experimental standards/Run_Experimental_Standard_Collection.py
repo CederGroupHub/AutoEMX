@@ -70,7 +70,8 @@ auto_adjust_brightness_contrast = True
 contrast = None # 4.3877  # Used if auto_adjust_brightness_contrast = False
 brightness = None # 0.4504  # Used if auto_adjust_brightness_contrast = False
 saved_images_extension = 'png' # Default lightweight output. Set 'tif' for higher-resolution/larger files.
-save_raw_images = False # Default saves only the annotated image. Set True to also save raw images.
+annotate_particle_images = False # If False, particle images are saved without spectrum spots; annotate copies afterwards with Annotate_Particle_Images.py
+save_raw_images = False # Saves also the non-annotated version of annotated images (frames, and particles if annotate_particle_images = True).
 
 n_target_spectra = 15
 max_n_spectra = 200
@@ -148,6 +149,7 @@ exp_std_maker = batch_acquire_experimental_stds(
     contrast=contrast,
     brightness=brightness,
     saved_images_extension=saved_images_extension,
+    annotate_particle_images=annotate_particle_images,
     save_raw_images=save_raw_images,
     min_n_spectra=n_target_spectra,
     max_n_spectra=max_n_spectra,

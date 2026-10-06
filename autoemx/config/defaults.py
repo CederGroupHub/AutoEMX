@@ -42,8 +42,12 @@ saved_images_extension : str
     Image extension used when saving SEM frames.
     Default is `'png'`.
 save_raw_images : bool
-    Whether to persist the non-annotated SEM image alongside the annotated one.
-    Default is `False`.
+    Whether to also save the non-annotated version of annotated SEM images (frame images, and
+    particle images when ``annotate_particle_images`` is True). Default is `False`.
+annotate_particle_images : bool
+    Whether to draw the X-ray spectrum spots (dot + spectrum ID) and a scale bar on the particle
+    images saved during acquisition. If False, raw particle images are saved; annotated copies can
+    be made afterwards with ``Annotate_Particle_Images.py``. Default is `False`.
 
 Created on Sun Dec 21 18:59:50 2025
 
@@ -75,6 +79,8 @@ RAW_SPECTRUM_EXT: str = '.msa'
 saved_images_extension: str = 'png'
 
 save_raw_images: bool = False
+
+annotate_particle_images: bool = False
 
 # These values are used as a general estimate but they should be properly defined in the microscope calibration module XS_calibrations.py
 escape_peak_probability = 0.03

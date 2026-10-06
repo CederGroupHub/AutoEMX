@@ -161,7 +161,7 @@ def collect_particle_statistics(
         is_manual_navigation=is_manual_navigation,
         powder_meas_cfg=powder_meas_cfg,
         saved_images_extension=saved_images_extension,
-        save_raw_images=save_raw_images
+        save_raw_images=save_raw_images,
     )
         
     sample_substrate_cfg = SampleSubstrateConfig(

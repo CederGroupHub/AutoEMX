@@ -81,6 +81,9 @@ class ParticleInfo(BaseModel):
 
     ``coordinates`` are absolute stage positions in mm of the particle center.
     They are not the frame-relative ``SpotCoordinates.machine_coordinates``.
+    ``image_pixel_size_um`` is the pixel size of the particle image saved with the
+    spectrum spots (``SEM images/<sample>_par<id>_fr<frame>_xyspots``), in which the
+    ``SpotCoordinates.pixel_coordinates`` of its spectra are given.
     """
 
     id: int
@@ -88,6 +91,7 @@ class ParticleInfo(BaseModel):
     eq_diameter_um: Optional[float] = None
     coordinates: Optional[Coordinate2D] = None
     frame_id: Optional[str] = None
+    image_pixel_size_um: Optional[float] = None
     clusters: List[int] = Field(default_factory=list)
     composition: Optional[str] = None
 
@@ -100,13 +104,13 @@ class ParticleInfo(BaseModel):
             raise ValueError("id must be non-negative")
         return v
 
-    @field_validator("area_um", "eq_diameter_um")
+    @field_validator("area_um", "eq_diameter_um", "image_pixel_size_um")
     @classmethod
     def validate_positive_finite(cls, v: Optional[float]) -> Optional[float]:
         if v is None:
             return None
         if not np.isfinite(v) or v <= 0:
-            raise ValueError("area_um and eq_diameter_um must be finite and positive when set")
+            raise ValueError("area_um, eq_diameter_um and image_pixel_size_um must be finite and positive when set")
         return v
 
     @field_validator("frame_id")

@@ -33,6 +33,7 @@ import numpy as np
 import pandas as pd
 
 import autoemx.utils.constants as cnst
+from autoemx.utils.helper import parse_xsp_spots_image_name
 from autoemx.config.ledger_io import load_sample_ledger
 from autoemx.config.ledger_schemas import (
     AitchisonParams,
@@ -1126,7 +1127,6 @@ def load_raw_spectrum(info: SampleInfo, spectrum_id: Any) -> Dict[str, Any]:
 # SEM images
 # =============================================================================
 SEM_IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp")
-_SPOTS_RE = re.compile(r"(?:_par(?P<par>\d+))?_fr_?(?P<frame>.+?)_xyspots$")
 # Whole frames, with the detected particles circled
 _FRAME_RE = re.compile(r"_fr_?(?P<frame>.+?)_particles$")
 
@@ -1160,10 +1160,9 @@ def find_sem_images(sample_dir: str) -> List[SemImage]:
         for path in sorted(folder.iterdir()):
             if path.suffix.lower() not in SEM_IMAGE_EXTENSIONS or path.stem.endswith("_raw"):
                 continue
-            match = _SPOTS_RE.search(path.stem)
-            if match:
-                par = match.group("par")
-                images.append(SemImage(str(path), path.name, "spots", int(par) if par else None, match.group("frame")))
+            parsed = parse_xsp_spots_image_name(path.stem)
+            if parsed is not None:
+                images.append(SemImage(str(path), path.name, "spots", parsed[0], parsed[1]))
             else:
                 frame_match = _FRAME_RE.search(path.stem)
                 if frame_match:

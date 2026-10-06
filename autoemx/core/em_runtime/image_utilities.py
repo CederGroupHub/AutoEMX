@@ -12,8 +12,10 @@ convert_pixel_pos_to_mm
     Convert pixel coordinates to absolute stage coordinates.
 convert_XS_coords_to_pixels
     Convert XS coordinates to pixel coordinates.
+draw_annotations
+    Draw circles and labels (e.g. X-ray spectrum spots) on an RGB image.
 save_frame_image
-    Save annotated and raw EM frame as multi-page TIFF.
+    Save an EM frame, with optional annotations and scale bar.
 normalise_img
     Normalize brightness of an RGB image.
 
@@ -103,19 +105,75 @@ def convert_XS_coords_to_pixels(xy_coords, im_width, im_height, EM_driver):
     return xy_coords_pixels
 
 
+def draw_annotations(color_image, im_annotations):
+    """
+    Draw circles and text labels on an RGB image, in place.
+
+    Parameters
+    ----------
+    color_image : np.ndarray
+        RGB image to annotate.
+    im_annotations : dict | list(dict)
+        Dictionary or list of dictionaries with annotations:
+            - 'circle': (radius, xy_center, border_thickness), with border_thickness -1 for a filled dot
+            - 'text': (text, xy_coords)
+
+    Returns
+    -------
+    np.ndarray
+        The annotated image.
+    """
+    an_circle_key = cnst.ANNOTATION_CIRCLE_KEY
+    an_text_key = cnst.ANNOTATION_TEXT_KEY
+
+    if isinstance(im_annotations, dict):
+        im_annotations = [im_annotations]
+
+    for ann_dict in im_annotations:
+        # Add circles
+        if an_circle_key in ann_dict.keys():
+            radius, xy_center, border_thickness = ann_dict[an_circle_key]
+            cv2.circle(color_image, tuple(int(c) for c in xy_center), radius, (255, 0, 0), border_thickness)
+
+        # Add label text
+        if an_text_key in ann_dict.keys():
+            text, text_xy = ann_dict[an_text_key]
+            cv2.putText(
+                color_image,
+                text,
+                tuple(int(c) for c in text_xy),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (255, 0, 0),
+                2,
+                cv2.LINE_AA
+            )
+    return color_image
+
+
+def xsp_spot_annotation(spectrum_id, xy_center):
+    """Annotation of an X-ray spectrum spot: red dot with the spectrum ID at its top-left."""
+    x, y = int(xy_center[0]), int(xy_center[1])
+    return {
+        cnst.ANNOTATION_TEXT_KEY: (str(spectrum_id), (x - 30, y - 15)),
+        cnst.ANNOTATION_CIRCLE_KEY: (10, (x, y), -1),
+    }
+
+
 def save_frame_image(frame_image, pixel_size_um, im_width, im_height,
                      sample_id, microscope_cfg, filename, results_dir,
                      im_annotations=None, scalebar=True,
                      image_extension: str = "tif",
-                     save_raw_image: bool = True,
+                     save_raw_image: bool = False,
                      EM_driver=None,
                      auto_adjust_bc=True):
     """
-    Save an annotated and optional raw electron microscopy (EM) frame.
-    
-    Generates a raw grayscale EM image and an annotated RGB version with optional 
-    markers and scale bar. Both are saved into a single multi-page TIFF file.
-    The annotated image is stored as the first page, and the raw image as the second page.
+    Save an electron microscopy (EM) frame, with optional markers and scale bar.
+
+    If the image is annotated and ``save_raw_image`` is True, the raw image is saved as well:
+    as second page of the TIFF file, or as ``<filename>_raw.<ext>`` for other formats.
+    The image metadata (sample, microscope, resolution, pixel size) is stored in the
+    TIFF/PNG image description, e.g. to draw scale bars on raw images afterwards.
     
     Parameters
     ----------
@@ -172,32 +230,8 @@ def save_frame_image(frame_image, pixel_size_um, im_width, im_height,
         color_image = frame_image.copy()
     
     # Draw annotations if provided
-    an_circle_key = cnst.ANNOTATION_CIRCLE_KEY
-    an_text_key = cnst.ANNOTATION_TEXT_KEY
-    
     if im_annotations is not None:
-        if isinstance(im_annotations, dict):
-            im_annotations = [im_annotations]
-        
-        for ann_dict in im_annotations:
-            # Add circles
-            if an_circle_key in ann_dict.keys():
-                radius, xy_center, border_thickness = ann_dict[an_circle_key]
-                cv2.circle(color_image, tuple(xy_center), radius, (255, 0, 0), border_thickness)
-            
-            # Add label text
-            if an_text_key in ann_dict.keys():
-                text, text_xy = ann_dict[an_text_key]
-                cv2.putText(
-                    color_image,
-                    text,
-                    text_xy,
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    (255, 0, 0),
-                    2,
-                    cv2.LINE_AA
-                )
+        draw_annotations(color_image, im_annotations)
     
     # Add scale bar
     if scalebar:
@@ -235,33 +269,32 @@ def save_frame_image(frame_image, pixel_size_um, im_width, im_height,
     desc_str = json.dumps(image_description_d, ensure_ascii=True)
     
     # Convert numpy arrays to Pillow Image objects.
-    if scalebar or im_annotations:
-        im1 = Image.fromarray(color_image.astype('uint8'), mode='RGB')
-    else:
-        im1 = None
-    im2 = Image.fromarray(frame_image_uint8.astype('uint8'), mode='RGB')
+    is_annotated = bool(scalebar or im_annotations)
+    raw_image = Image.fromarray(frame_image_uint8.astype('uint8'), mode='RGB')
+    image = Image.fromarray(color_image.astype('uint8'), mode='RGB') if is_annotated else raw_image
+    # A raw copy is only useful when the saved image is annotated
+    save_raw_copy = save_raw_image and is_annotated
 
-    annotated_image = im1 if im1 is not None else im2
-
-    # TIFF supports multi-page saves. For non-TIFF formats, save raw in a sidecar file.
     if ext in {"tif", "tiff"}:
-        if save_raw_image and im1 is not None:
-            im1.save(
-                save_path,
-                format='TIFF',
-                description=desc_str,
-                save_all=True,
-                append_images=[im2],
-                compression=None,
-            )
+        if save_raw_copy:
+            # Annotated image as first page, raw image as second page
+            image.save(save_path, format='TIFF', description=desc_str, save_all=True,
+                       append_images=[raw_image], compression=None)
         else:
-            annotated_image.save(save_path, format='TIFF', description=desc_str)
+            image.save(save_path, format='TIFF', description=desc_str)
         return
 
-    annotated_image.save(save_path, format=ext.upper())
-    if save_raw_image:
+    if ext == "png":
+        from PIL.PngImagePlugin import PngInfo
+
+        png_info = PngInfo()
+        png_info.add_text("Description", desc_str)
+        image.save(save_path, format="PNG", pnginfo=png_info)
+    else:
+        image.save(save_path, format=ext.upper())
+    if save_raw_copy:
         raw_path = os.path.join(results_dir, f"{filename}_raw.{ext}")
-        im2.save(raw_path, format=ext.upper())
+        raw_image.save(raw_path, format=ext.upper())
 
 
 def normalise_img(img: np.ndarray, target_brightness: float = 128.0) -> np.ndarray:
