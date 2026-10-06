@@ -44,7 +44,13 @@ from autoemx.utils.plotting_helpers import (
     refresh_custom_plot_template_file,
 )
 from autoemx.config import config_classes_dict, load_sample_ledger
-from autoemx.config.ledger_schemas import AitchisonParams, ClusteringConfig, DBSCANParams, MixtureParams
+from autoemx.config.ledger_schemas import (
+    AitchisonParams,
+    ClusterMergeParams,
+    ClusteringConfig,
+    DBSCANParams,
+    MixtureParams,
+)
 from autoemx.core.composition_analysis import EMXSp_Composition_Analyzer
 
 # Configure logging
@@ -104,14 +110,19 @@ def analyze_sample(
     aitchison_params: Optional[dict] = None,
     k_finding_method: Optional[str] = None,
     k_forced: Optional[Union[int, bool]] = None,
+    max_k: Optional[int] = None,
     auto_merge_clusters: Optional[bool] = None,
+    cluster_merge_params: Optional[dict] = None,
     do_matrix_decomposition: bool = True,
     mixture_params: Optional[dict] = None,
     max_analytical_error_percent: float = 5,
     quant_flags_accepted: Optional[List[int]] = None,
+    min_bckgrnd_cnts: Optional[float] = None,
     show_plots: bool = True,
     plot_custom_plots: bool = False,
     show_unused_compositions_cluster_plot: bool = True,
+    plot_best_mixture: Optional[bool] = None,
+    show_legend_clustering: Optional[bool] = None,
 ) -> Optional[EMXSp_Composition_Analyzer]:
     """
     Run clustering and analysis for a single sample.
@@ -166,10 +177,17 @@ def analyze_sample(
               discarding any previously saved forced k. Uses ``k_finding_method``
               when provided, otherwise the saved (or default) finding method.
             - ``None`` (default): reuse the clustering settings saved in the ledger.
+    max_k : int, optional
+        Maximum number of clusters tested when k is determined automatically (k-means only).
+        If None, the saved value is kept (default 6).
     auto_merge_clusters : bool, optional
         Whether to merge k-means clusters that are pieces of one continuous population, e.g. a mixture
         line cut into several clusters (only when k is chosen automatically; see ``ClusterMergeParams``).
         If None, the saved value is kept (True for new samples, False for samples analysed before this option).
+    cluster_merge_params : dict, optional
+        Overrides for the cluster-merging criteria (see ``ClusterMergeParams``). Recognized keys:
+        ``dip_alpha``, ``max_gap_ratio``, ``dbscan_min_samples``, ``dbscan_eps_factor``.
+        Unspecified keys keep their existing/default values.
     do_matrix_decomposition : bool, optional
         Whether to compute matrix decomposition for intermixed phases. Slow if many candidate phases are provided. Default: True..
     mixture_params : dict, optional
@@ -185,10 +203,17 @@ def analyze_sample(
     quant_flags_accepted : list of int, optional
         Accepted quantification flags. See the user documentation page
         "Quantification flags (quant_flag)".
+    min_bckgrnd_cnts : float, optional
+        Minimum background counts under the reference peaks, stored on the clustering config.
+        If None, the saved value is kept.
     plot_custom_plots : bool, optional
         Whether to use custom plots.
     show_unused_compositions_cluster_plot : bool, optional
         Whether to show unused compositions in cluster plot.
+    plot_best_mixture : bool, optional
+        Whether to save the plot of the top-ranked mixture of each cluster. If None, the saved value is kept.
+    show_legend_clustering : bool, optional
+        Whether to show the legend in the clustering plot. If None, the saved value is kept.
         
     Returns
     -------
@@ -324,10 +349,17 @@ def analyze_sample(
         # If a finding method is not specified and k_forced is None, simply loads the default values from clustering_cfg
         pass
     
+    if max_k is not None:
+        clustering_cfg.max_k = ClusteringConfig.validate_max_k(int(max_k))
+    if min_bckgrnd_cnts is not None:
+        clustering_cfg.min_bckgrnd_cnts = ClusteringConfig.validate_min_bckgrnd_cnts(float(min_bckgrnd_cnts))
     if do_matrix_decomposition is not None:
         clustering_cfg.do_matrix_decomposition = do_matrix_decomposition
     if auto_merge_clusters is not None:
         clustering_cfg.auto_merge_clusters = bool(auto_merge_clusters)
+    if cluster_merge_params is not None:
+        merged_merge = {**clustering_cfg.cluster_merge.model_dump(), **cluster_merge_params}
+        clustering_cfg.cluster_merge = ClusterMergeParams.model_validate(merged_merge)
     if mixture_params is not None:
         merged_mixture = {**clustering_cfg.mixture.model_dump(), **mixture_params}
         clustering_cfg.mixture = MixtureParams.model_validate(merged_mixture)
@@ -340,6 +372,10 @@ def analyze_sample(
         plot_cfg.els_excluded_clust_plot = els_excluded_clust_plot
     if els_to_plot is not None:
         plot_cfg.els_to_plot = els_to_plot
+    if plot_best_mixture is not None:
+        plot_cfg.plot_best_mixture = bool(plot_best_mixture)
+    if show_legend_clustering is not None:
+        plot_cfg.show_legend_clustering = bool(show_legend_clustering)
     _ensure_custom_plot_file(sample_dir, plot_cfg)
 
     # Spectral source resolution is delegated to analyser._load_or_create_ledger():

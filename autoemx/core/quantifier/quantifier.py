@@ -1864,6 +1864,30 @@ class XSp_Quantifier:
                 logger.info(f"  ℹ️  Z̅_w (mass-averaged): {Z_sample['mass-averaged']:.2f}")
             
     
+    def get_bckgrnd_cnts_ref_lines(self) -> Dict[str, Tuple[float, float]]:
+        """
+        Background counts under each reference line used for quantification, as plotted by
+        ``plot_quantified_spectrum``.
+
+        The value is taken at the theoretical line energy from the fitted background without
+        detector response (when the background is fitted), so it generally differs from the
+        plotted fitted background at that energy.
+
+        Returns
+        -------
+        dict
+            ``{el_line: (energy_keV, background_counts)}``.
+        """
+        bckgrnd_cnts = {}
+        for el_line in self.ref_lines_for_quant:
+            peak_center = self.fitted_peaks_info[el_line][cnst.PEAK_TH_ENERGY_KEY]
+            if self.fit_background:
+                peak_bck_val = np.interp(peak_center, self.energy_vals_finer, self.background_vals_wo_det_response)
+            else:
+                peak_bck_val = np.interp(peak_center, self.energy_vals, self.background_vals)
+            bckgrnd_cnts[el_line] = (float(peak_center), float(peak_bck_val))
+        return bckgrnd_cnts
+
     def plot_quantified_spectrum(
         self,
         annotate_peaks: str = 'all',
@@ -1976,18 +2000,12 @@ class XSp_Quantifier:
         # Highlight the background counts with vertical lines and a vertical legend handle
         if plot_bckgrnd_cnts_ref_peaks:
             first_line = True
-            for el_line in self.ref_lines_for_quant:
+            for el_line, (peak_center, peak_bck_val) in self.get_bckgrnd_cnts_ref_lines().items():
                 if first_line:
                     first_line = False
                     bckgrnd_cnts_label = 'background counts'
                 else:
                     bckgrnd_cnts_label = ''
-                    
-                peak_center = self.fitted_peaks_info[el_line][cnst.PEAK_TH_ENERGY_KEY]
-                if self.fit_background:
-                    peak_bck_val = np.interp(peak_center, self.energy_vals_finer, self.background_vals_wo_det_response)
-                else:
-                    peak_bck_val = np.interp(peak_center, self.energy_vals, self.background_vals)
                 plt.vlines(peak_center, ymin=0, ymax=peak_bck_val, color='red', alpha=1, label = bckgrnd_cnts_label)
     
         # Add initial guess

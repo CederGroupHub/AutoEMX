@@ -7,6 +7,7 @@ Tutorials
    :maxdepth: 1
     
    comp_analysis
+   sample_analysis_gui
    fit_autoemx_spectrum
    fit_msa_spectrum
    web_gui

@@ -18,6 +18,9 @@ This script initiates the fully automated workflow described in Giunto *et al.*,
 The script allows multiple samples to be defined and run sequentially with a
 *single click*.
 
+To re-run the quantification and clustering analysis of acquired samples and explore
+the results interactively, see :ref:`sample_analysis_gui_tutorial`.
+
 Key output includes:
 
 - SEM images of every analysed region

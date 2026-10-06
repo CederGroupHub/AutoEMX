@@ -34,6 +34,7 @@ DOI: [https://doi.org/10.1038/s41467-026-76633-x](https://doi.org/10.1038/s41467
     - **Unsupervised machine learning–based analysis** to identify the compositions of individual phases in the sample  
 
 - **Browser GUI** — upload `.msa` / `.emsa` / `.msg` spectra, fit and quantify, inspect the overlay, and download PNG / TXT (`python -m autoemx.web`)
+- **Sample-analysis GUI** — set every quantification/clustering parameter, run the analysis of acquired samples, and explore the clusters in interactive 3D / ternary / 2D plots linked to the spectra (`python -m autoemx.gui path/to/Results`)
 - Scripts for **fitting and quantification** of single EDS spectra exported by proprietary commercial software (`.msa`, `.emsa`, `.msg`)
 
 - **Automated experimental standard collection** scripts
@@ -133,6 +134,7 @@ AutoEMX/
 │   ├── runners/                # Runner functions calling on core objects
 │   ├── scripts/                # Scripts to run acquisition, quantification, etc. (see full list below)
 │   ├── web/                    # Local Streamlit GUI (`python -m autoemx.web`)
+│   ├── gui/                    # Local sample-analysis GUI (`python -m autoemx.gui`)
 │   ├── calibrations/             # X-ray spectral calibrations (⚠️ adapt to your own instrument for optimal accuracy)
 │   ├── utils/                  # Utility functions and strings employed by the program
 │

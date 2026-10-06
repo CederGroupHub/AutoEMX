@@ -1,0 +1,1298 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+AutoEMX sample-analysis GUI (Dash).
+
+Pick an AutoEMX results folder and a sample, set every quantification/clustering parameter,
+run ``analyze_sample`` (optionally after ``batch_quantify_and_analyze``), then explore the
+results in interactive 3D / ternary / 2D clustering plots, linked to the spectra.
+
+Launch with ``python -m autoemx.gui``.
+"""
+
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+import threading
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
+import pandas as pd
+from dash import ALL, Dash, Input, Output, State, ctx, dash_table, dcc, html, no_update
+from urllib.parse import quote
+
+from flask import Response, abort, send_file
+
+from autoemx.gui import backend as be
+from autoemx.gui import plots as pl
+
+_CITATION = (
+    "A. Giunto et al., Accurate SEM-EDS Quantification, Automation, and Machine Learning Enable "
+    "High-Throughput Compositional Characterization of Powders, Nature Communications 17, 9735 (2026)."
+)
+_SECTION_NOTES = {
+    "quant": "used only when “Quantify spectra first” is ticked",
+    "dbscan": "used when method = dbscan",
+    "aitchison": "used when geometry = aitchison or auto",
+    "merge": "k-means with automatic k and merging on",
+    "mixture": "used when mixture decomposition is on",
+    "plot": "saved PNG figures",
+}
+_OPEN_SECTIONS = {"filter", "clust"}
+_PLOT_OPTIONS = [
+    {"label": "Discarded", "value": pl.OPT_DISCARDED},
+    {"label": "±1σ", "value": pl.OPT_STD},
+    {"label": "Candidates", "value": pl.OPT_REFS},
+    {"label": "Best mixtures", "value": pl.OPT_MIXTURES},
+    {"label": "Centroids", "value": pl.OPT_CENTROIDS},
+    {"label": "Zoom to data", "value": pl.OPT_ZOOM},
+]
+_COLOR_BY = [
+    {"label": "Cluster", "value": "cluster"},
+    {"label": "Analytical error", "value": "an_err"},
+    {"label": "Particle", "value": "particle"},
+    {"label": "Quant flag", "value": "quant_flag"},
+    {"label": "R²", "value": "r_squared"},
+]
+_GRAPH_CONFIG = {
+    "displaylogo": False,
+    "toImageButtonOptions": {"format": "png", "scale": 3},
+    "modeBarButtonsToRemove": ["lasso2d", "select2d"],
+}
+
+JOBS = be.JobManager()
+
+# =============================================================================
+# Cached loading (keyed on file modification times)
+# =============================================================================
+_info_cache: Dict[str, Tuple[float, be.SampleInfo]] = {}
+_analysis_cache: Dict[Tuple[Any, ...], be.AnalysisData] = {}
+# Callbacks run in parallel threads; loading ledgers and calibration modules is not thread-safe.
+_load_lock = threading.RLock()
+
+
+def _mtime(path: str) -> float:
+    try:
+        return os.path.getmtime(path)
+    except OSError:
+        return 0.0
+
+
+def get_info(sample_dir: Optional[str]) -> Optional[be.SampleInfo]:
+    if not sample_dir:
+        return None
+    with _load_lock:
+        return _get_info(sample_dir)
+
+
+def _get_info(sample_dir: str) -> be.SampleInfo:
+    m = _mtime(os.path.join(sample_dir, be.LEDGER_NAME))
+    cached = _info_cache.get(sample_dir)
+    if cached and cached[0] == m:
+        return cached[1]
+    info = be.load_sample_info(sample_dir)
+    _info_cache[sample_dir] = (m, info)
+    return info
+
+
+def get_analysis(sample_dir: Optional[str], key: Optional[str]) -> Tuple[Optional[be.SampleInfo], Optional[be.AnalysisData]]:
+    if not sample_dir:
+        return None, None
+    with _load_lock:
+        return _get_analysis(sample_dir, key)
+
+
+def _get_analysis(sample_dir: str, key: Optional[str]) -> Tuple[be.SampleInfo, be.AnalysisData]:
+    info = _get_info(sample_dir)
+    ref = be.find_analysis(info, key)
+    folder = ref.folder if ref else ""
+    cache_key = (sample_dir, ref.key if ref else None, _mtime(os.path.join(sample_dir, be.LEDGER_NAME)),
+                 _mtime(os.path.join(folder, "Compositions.csv")) if folder else 0)
+    data = _analysis_cache.get(cache_key)
+    if data is None:
+        data = be.load_analysis(info, ref)
+        if len(_analysis_cache) > 20:
+            _analysis_cache.clear()
+        _analysis_cache[cache_key] = data
+    return info, data
+
+
+# =============================================================================
+# Parameter form
+# =============================================================================
+def _to_ui(spec: be.ParamSpec, value: Any) -> Any:
+    if spec.kind == "bool":
+        return ["on"] if value else []
+    if spec.kind == "pair":
+        return ", ".join(str(int(v)) for v in value) if value else ""
+    if spec.kind == "formulae":
+        return "\n".join(value or [])
+    if spec.kind in ("elements", "flags"):
+        return list(value or [])
+    return value
+
+
+def _from_ui(spec: be.ParamSpec, value: Any) -> Any:
+    if spec.kind == "bool":
+        return bool(value) and "on" in value
+    return value
+
+
+def _pid(key: str) -> Dict[str, str]:
+    """Component id of a parameter (Dash ids cannot contain dots)."""
+    return {"type": "param", "key": key.replace(".", "__")}
+
+
+def _spec(component_id: Dict[str, str]) -> be.ParamSpec:
+    return be.SPECS_BY_KEY[component_id["key"].replace("__", ".")]
+
+
+def _row_class(spec: be.ParamSpec) -> str:
+    if spec.kind == "bool":
+        return "param-row param-bool"
+    return "param-row" + (" param-stacked" if spec.kind in ("flags", "formulae", "elements") else "")
+
+
+def _row_id(key: str) -> Dict[str, str]:
+    return {"type": "param-row", "key": key.replace(".", "__")}
+
+
+def _param_control(spec: be.ParamSpec) -> html.Div:
+    pid = _pid(spec.key)
+    value = _to_ui(spec, spec.default)
+    help_icon = html.Span("?", className="help", title=spec.help) if spec.help else None
+    if spec.kind == "bool":
+        ctrl = dcc.Checklist(id=pid, options=[{"label": spec.label, "value": "on"}], value=value,
+                             className="param-check")
+        return html.Div([ctrl, help_icon], id=_row_id(spec.key), className=_row_class(spec), title=spec.help)
+    if spec.kind in ("int", "int_opt", "float", "float_opt"):
+        placeholder = {"clust.k_forced": "auto", "dbscan.eps": "default",
+                       "quant.num_CPU_cores": "auto"}.get(spec.key, "none" if spec.kind.endswith("_opt") else "")
+        ctrl = dcc.Input(id=pid, type="number", value=value, step="any", debounce=True,
+                         placeholder=placeholder, className="param-input")
+    elif spec.kind == "choice":
+        ctrl = dcc.Dropdown(id=pid, options=[{"label": str(c), "value": c} for c in spec.choices],
+                            value=value, clearable=False, className="param-dd")
+    elif spec.kind == "elements":
+        ctrl = dcc.Dropdown(id=pid, options=[], value=value, multi=True, placeholder="default",
+                            className="param-dd")
+    elif spec.kind == "flags":
+        ctrl = dcc.Checklist(
+            id=pid, value=value, className="flag-list",
+            options=[{"label": f"{f} · {m}", "value": f} for f, m in be.QUANT_FLAG_MEANINGS.items()],
+        )
+    elif spec.kind == "formulae":
+        ctrl = dcc.Textarea(id=pid, value=value, placeholder="MgO\nAl2O3\nMgAl2O4", className="param-text",
+                            rows=3)
+    else:
+        ctrl = dcc.Input(id=pid, type="text", value=value, debounce=True, className="param-input")
+    return html.Div(
+        [html.Label([spec.label, help_icon], className="param-label", title=spec.help), ctrl],
+        id=_row_id(spec.key), className=_row_class(spec),
+    )
+
+
+def _param_sections() -> List[html.Details]:
+    sections = []
+    for key, title in be.SECTIONS:
+        specs = [s for s in be.PARAM_SPECS if s.section == key]
+        note = _SECTION_NOTES.get(key)
+        summary = [html.Span(title)]
+        if note:
+            summary.append(html.Span(note, className="section-note"))
+        sections.append(html.Details(
+            [html.Summary(summary)] + [_param_control(s) for s in specs],
+            id={"type": "param-section", "key": key}, open=key in _OPEN_SECTIONS, className="param-section",
+        ))
+    return sections
+
+
+def active_params(values: Dict[str, Any], quantify: bool) -> Tuple[Dict[str, bool], Dict[str, bool]]:
+    """Which parameter sections and single parameters are used with the current settings."""
+    method = values.get("clust.method")
+    kmeans = method == "kmeans"
+    auto_k = values.get("clust.k_forced") in (None, "")
+    sections = {
+        "quant": quantify,
+        "dbscan": method == "dbscan",
+        "aitchison": values.get("clust.geometry") in ("aitchison", "auto"),
+        "merge": kmeans and auto_k and bool(values.get("clust.auto_merge_clusters")),
+        "mixture": bool(values.get("clust.do_matrix_decomposition")),
+    }
+    params = {
+        "clust.k_forced": kmeans,
+        "clust.k_finding_method": kmeans and auto_k,
+        "clust.max_k": kmeans and auto_k,
+        "clust.auto_merge_clusters": kmeans and auto_k,
+    }
+    return sections, params
+
+
+# =============================================================================
+# Layout
+# =============================================================================
+def _header(results_dir: str) -> html.Div:
+    return html.Div(
+        [
+            html.Div([html.Span("AutoEMX", className="brand"), html.Span("Sample analysis", className="brand-sub")],
+                     className="brand-box"),
+            html.Div(
+                [
+                    dcc.Input(id="folder", type="text", value=results_dir, debounce=True,
+                              placeholder="Results folder (contains sample folders with ledger.json)",
+                              className="folder-input"),
+                    html.Button("Browse…", id="browse-btn", className="btn"),
+                    html.Button("Rescan", id="scan-btn", className="btn"),
+                ],
+                className="folder-box",
+            ),
+            html.Div(id="scan-msg", className="scan-msg"),
+        ],
+        className="header",
+    )
+
+
+def _sidebar() -> html.Div:
+    return html.Div(
+        [
+            html.Div(
+                [
+                    html.Label("Sample", className="side-label"),
+                    dcc.Dropdown(id="sample-dd", options=[], placeholder="Select a sample", clearable=False),
+                    html.Div(id="sample-info", className="sample-info"),
+                ],
+                className="side-block",
+            ),
+            html.Div(
+                [
+                    html.Div([
+                        html.Span("Parameters", className="side-title"),
+                        html.Button("Load settings of shown analysis", id="load-settings-btn", className="btn btn-small",
+                                    title="Fill the form with the settings of the analysis selected above the plot"),
+                    ], className="side-title-row"),
+                    html.Div(_param_sections(), className="param-sections"),
+                ],
+                className="side-block side-params",
+            ),
+            html.Div(
+                [
+                    dcc.Checklist(id="quantify-first", options=[{"label": "Quantify spectra first", "value": "on"}],
+                                  value=[], className="param-check quantify-check"),
+                    html.Div([
+                        html.Button("Run analysis", id="run-btn", className="btn btn-primary"),
+                        html.Button("Cancel", id="cancel-btn", className="btn btn-danger", disabled=True),
+                    ], className="run-buttons"),
+                    html.Div(id="run-msg", className="run-msg"),
+                    html.Details([html.Summary("Log"), html.Pre(id="run-log", className="log")],
+                                 id="log-details", className="log-box"),
+                ],
+                className="side-block run-block",
+            ),
+        ],
+        className="sidebar",
+    )
+
+
+def _plot_controls() -> html.Div:
+    return html.Div(
+        [
+            dcc.RadioItems(id="plot-mode", value="3d", inline=True, className="seg",
+                           options=[{"label": "3D", "value": "3d"}, {"label": "Ternary", "value": "ternary"},
+                                    {"label": "2D", "value": "2d"}]),
+            html.Div([html.Span("X", className="axis-tag"),
+                      dcc.Dropdown(id="axis-x", clearable=False, className="axis-dd")], className="axis-box"),
+            html.Div([html.Span("Y", className="axis-tag"),
+                      dcc.Dropdown(id="axis-y", clearable=False, className="axis-dd")], className="axis-box"),
+            html.Div([html.Span("Z", className="axis-tag"),
+                      dcc.Dropdown(id="axis-z", clearable=False, className="axis-dd")], className="axis-box"),
+            html.Div([html.Span("Colour", className="axis-tag"),
+                      dcc.Dropdown(id="color-by", options=_COLOR_BY, value="cluster", clearable=False,
+                                   className="color-dd")], className="axis-box"),
+            dcc.Checklist(id="plot-opts", options=_PLOT_OPTIONS, value=pl.DEFAULT_OPTIONS, inline=True,
+                          className="plot-opts"),
+            html.Div([html.Span("mix. conf ≥", className="axis-tag"),
+                      dcc.Input(id="mix-conf", type="number", min=0, max=1, step=0.05, debounce=True,
+                                value=pl.DEFAULT_MIN_MIXTURE_CONF, className="param-input conf-input")],
+                     className="axis-box", title="Best mixtures are drawn only above this confidence score"),
+            html.Div([
+                html.Button("Save plot as HTML", id="save-html-btn", className="btn btn-small",
+                            title="Save the interactive (rotatable) plot in the analysis folder"),
+                html.Button("Open analysis folder", id="open-folder-btn", className="btn btn-small"),
+            ], className="summary-actions"),
+        ],
+        className="plot-controls",
+    )
+
+
+def _spectrum_panel() -> html.Div:
+    return html.Div(
+        [
+            html.Div([
+                html.Button("◀", id="prev-btn", className="btn btn-small", title="Previous spectrum"),
+                html.Div(id="spectrum-title", className="spectrum-title"),
+                html.Button("▶", id="next-btn", className="btn btn-small", title="Next spectrum"),
+            ], className="spectrum-nav"),
+            html.Div(id="spectrum-info", className="spectrum-info"),
+            dcc.Graph(id="spectrum-graph", config=_GRAPH_CONFIG, className="spectrum-graph",
+                      figure=pl.spectrum_figure(None)),
+            html.Div([
+                html.Button("Fit spectrum", id="fit-btn", className="btn",
+                            title="Re-fit and quantify this spectrum to show the fitted model (≈10 s)"),
+                html.Button("Show in SEM image", id="show-image-btn", className="btn",
+                            title="Show the image of the particle where this spectrum was collected"),
+                dcc.Checklist(id="log-y", options=[{"label": "Log scale", "value": "on"}], value=[],
+                              className="param-check"),
+                html.Span(id="fit-msg", className="fit-msg"),
+            ], className="spectrum-actions"),
+        ],
+        className="spectrum-panel",
+    )
+
+
+def _tabs() -> dcc.Tabs:
+    return dcc.Tabs(
+        id="tabs", value="plot", className="tabs",
+        children=[
+            dcc.Tab(label="Clustering", value="plot", children=[
+                _plot_controls(),
+                dcc.Loading(dcc.Graph(id="cluster-graph", config=_GRAPH_CONFIG, className="cluster-graph"),
+                            type="circle", delay_show=400, parent_className="graph-fill"),
+            ]),
+            dcc.Tab(label="Clusters", value="clusters", children=[html.Div(id="clusters-view", className="tab-body")]),
+            dcc.Tab(label="Spectra", value="spectra", children=[html.Div([
+                html.Div("Click a row to show the spectrum. Filter with e.g. “> 5”, “< -3” or text.",
+                         className="hint"),
+                dash_table.DataTable(
+                    id="spectra-table", page_size=25, sort_action="native", filter_action="native",
+                    style_table={"overflowX": "auto"}, style_as_list_view=True,
+                    style_cell={"fontSize": 13, "padding": "4px 8px",
+                                "textAlign": "right", "minWidth": 56},
+                    style_header={"fontWeight": 600, "backgroundColor": "#f3f5f8"},
+                ),
+            ], className="tab-body")]),
+            dcc.Tab(label="Distributions", value="dist", children=[html.Div(
+                dcc.Graph(id="dist-graph", config=_GRAPH_CONFIG, className="dist-graph"),
+                className="tab-body graph-fill")]),
+            dcc.Tab(id="sem-tab", label="SEM images", value="sem", children=[html.Div([
+                html.Div([
+                    html.Button("◀", id="sem-prev-btn", className="btn btn-small", title="Previous image"),
+                    html.Span(id="sem-counter", className="muted sem-counter"),
+                    html.Button("▶", id="sem-next-btn", className="btn btn-small", title="Next image"),
+                    html.Div(id="sem-caption", className="sem-caption"),
+                    dcc.Checklist(id="sem-spots", options=[{"label": "Show spectrum spots", "value": "on"}],
+                                  value=["on"], className="param-check"),
+                    html.Button("Open image", id="sem-open-btn", className="btn btn-small",
+                                title="Open the full-resolution image in your image viewer"),
+                ], className="sem-bar"),
+                dcc.Graph(id="sem-graph", className="sem-graph",
+                          config={**_GRAPH_CONFIG, "scrollZoom": True}),
+                html.Div(id="sem-gallery", className="sem-gallery"),
+            ], className="tab-body sem-body")]),
+            dcc.Tab(label="Saved figures", value="figures", children=[html.Div(id="figures-view", className="tab-body")]),
+            dcc.Tab(label="Settings used", value="settings", children=[html.Div(id="settings-view", className="tab-body")]),
+        ],
+    )
+
+
+def _main() -> html.Div:
+    return html.Div(
+        [
+            html.Div(
+                [
+                    html.Div([
+                        html.Label("Analysis", className="side-label"),
+                        dcc.Dropdown(id="analysis-dd", options=[], placeholder="No analysis yet", clearable=False,
+                                     className="analysis-dd"),
+                    ], className="analysis-select"),
+                    html.Div(id="summary", className="summary"),
+                ],
+                className="analysis-bar",
+            ),
+            html.Div(id="action-msg", className="action-msg"),
+            html.Div([html.Div(_tabs(), className="tabs-col"), _spectrum_panel()], className="main-row"),
+        ],
+        className="main",
+    )
+
+
+def build_layout(results_dir: str) -> html.Div:
+    return html.Div(
+        [
+            dcc.Store(id="data-version", data=0),
+            dcc.Store(id="selected-spectrum"),
+            dcc.Store(id="job-store"),
+            dcc.Store(id="fit-job-store"),
+            dcc.Store(id="fit-result"),
+            dcc.Store(id="folder-store"),
+            dcc.Store(id="sem-image"),
+            dcc.Store(id="mode-forced", data=False),
+            dcc.Store(id="sem-paths"),
+            dcc.Interval(id="poll", interval=1000, disabled=True),
+            _header(results_dir),
+            html.Div([_sidebar(), _main()], className="body"),
+            html.Div(["If you use AutoEMX, please cite: ", _CITATION], className="footer"),
+        ],
+        className="app",
+    )
+
+
+# =============================================================================
+# Views
+# =============================================================================
+def _chip(label: str, value: Any, cls: str = "") -> html.Span:
+    return html.Span([html.Span(label, className="chip-label"), html.Span(str(value), className="chip-value")],
+                     className="chip " + cls)
+
+
+def _summary_view(info: be.SampleInfo, data: be.AnalysisData) -> List[Any]:
+    s = data.summary
+    chips = []
+    if s.get("has_labels"):
+        chips.append(_chip("clusters", s.get("n_clusters", 0)))
+        if s.get("silhouette") is not None and s.get("n_clusters", 0) > 1:
+            chips.append(_chip("silhouette", f"{s['silhouette']:.2f}"))
+        chips.append(_chip("clustered", s["n_clustered"], "chip-ok"))
+        if s["n_noise"]:
+            chips.append(_chip("noise", s["n_noise"]))
+        chips.append(_chip("discarded", s["n_discarded"], "chip-warn"))
+    else:
+        chips.append(_chip("status", "not analysed", "chip-warn"))
+        chips.append(_chip("quantified", s["n_spectra"] - s["n_not_quantified"]))
+    chips.append(_chip("not quantified", s["n_not_quantified"], "chip-muted"))
+    chips.append(_chip("method", f"{data.config.method} · {data.config.geometry} · {data.features}"))
+    return chips
+
+
+def _fmt(v: Any, nd: int = 1) -> str:
+    try:
+        if v is None or (isinstance(v, float) and np.isnan(v)):
+            return "—"
+        return f"{float(v):.{nd}f}"
+    except (TypeError, ValueError):
+        return str(v)
+
+
+def _clusters_view(data: be.AnalysisData) -> List[Any]:
+    if not len(data.centroids):
+        return [html.Div("No clusters for this analysis. Run the analysis to cluster the spectra.", className="hint")]
+    unit = data.unit
+    cards = []
+    for i, (c, sd) in enumerate(zip(data.centroids, data.stdevs)):
+        n = data.n_points[i] if i < len(data.n_points) else "?"
+        comp = html.Table(
+            [html.Tr([html.Th(el) for el in data.elements])]
+            + [html.Tr([html.Td(f"{v * 100:.1f} ± {e * 100:.1f}") for v, e in zip(c, sd)])],
+            className="comp-table",
+        )
+        body = [html.Div([html.Span(className="swatch", style={"background": pl.cluster_color(i)}),
+                          html.B(f"Cluster {i}"), html.Span(f"  {n} spectra · {unit}", className="muted")],
+                         className="card-title"), comp]
+        cand = data.candidates[i] if i < len(data.candidates) else None
+        if cand:
+            body.append(html.Div([html.B("Candidate phases: "), ", ".join(
+                f"{name} (conf. {conf:.2f})" for name, conf in cand)], className="card-line"))
+        mixes = data.mixtures[i] if i < len(data.mixtures) else []
+        if mixes:
+            header = html.Tr([html.Th("#"), html.Th("Phases"), html.Th("Confidence"), html.Th("Recon. error"),
+                              html.Th("Molar fractions (mean ± σ)")])
+            rows = []
+            for rank, m in enumerate(mixes, start=1):
+                refs = m.get("refs") or []
+                means = m.get("means") or ([m.get("mean"), 1 - m["mean"]] if m.get("mean") is not None and len(refs) == 2 else [])
+                stds = m.get("stddevs") or ([m.get("stddev")] * len(means) if m.get("stddev") is not None else [])
+                fr = ", ".join(
+                    f"{r}: {mu:.2f} ± {sg:.2f}" for r, mu, sg in zip(refs, means, stds + [np.nan] * len(means))
+                ) if means else "—"
+                rows.append(html.Tr([html.Td(m.get("rank", rank)), html.Td(" + ".join(refs)),
+                                     html.Td(_fmt(m.get("conf_score"), 2)), html.Td(_fmt(m.get("recon_error"), 3)),
+                                     html.Td(fr)]))
+            body.append(html.Div([html.B("Mixtures of candidate phases"),
+                                  html.Table([header] + rows, className="mix-table")], className="card-line"))
+        cards.append(html.Div(body, className="card"))
+    out: List[Any] = [html.Div(cards, className="cards")]
+    if data.clusters_table is not None:
+        df = data.clusters_table
+        out.append(html.Details([
+            html.Summary("Clusters.csv"),
+            dash_table.DataTable(
+                data=df.astype(str).to_dict("records"), columns=[{"name": c, "id": c} for c in df.columns],
+                style_table={"overflowX": "auto"}, style_cell={"fontSize": 12},
+                style_header={"fontWeight": 600},
+            ),
+        ], className="raw-csv"))
+    return out
+
+
+def _table_payload(data: be.AnalysisData):
+    df = data.comps.copy()
+    cols = ["spectrum", "particle", "cluster", "status"]
+    cols += [f"{el} at%" for el in data.elements] + [f"{el} w%" for el in data.elements]
+    cols += ["an_err", "quant_flag", "r_squared", "redchi_sq", "total_counts", "comment"]
+    names = {"an_err": "An. err w%", "quant_flag": "Flag", "r_squared": "R²", "redchi_sq": "Red. χ²",
+             "total_counts": "Counts"}
+    df["cluster"] = df["cluster"].astype("Int64")
+    df["id"] = df["spectrum"].astype(str)
+    numeric = set(cols) - {"spectrum", "status", "comment", "particle", "cluster"}
+    columns = []
+    for c in cols:
+        col = {"name": names.get(c, c), "id": c}
+        if c in numeric:
+            col["type"] = "numeric"
+            col["format"] = {"specifier": ".5f" if c == "r_squared" else ".2f"}
+        if c == "quant_flag":
+            col["format"] = {"specifier": ".0f"}
+        if c == "total_counts":
+            col["format"] = {"specifier": ",.0f"}
+        columns.append(col)
+    for c in ("particle",):
+        df[c] = df[c].astype(str).replace({"None": "", "nan": ""})
+    records = df[cols + ["id"]].replace({np.nan: None}).astype(object).where(df[cols + ["id"]].notna(), None)
+    records = records.to_dict("records")
+    for r in records:
+        if r.get("cluster") is not None:
+            r["cluster"] = int(r["cluster"])
+    styles = [
+        {"if": {"filter_query": '{status} = "discarded"'}, "color": "#8a8f98"},
+        {"if": {"filter_query": '{status} = "not quantified"'}, "color": "#b5b9c0", "fontStyle": "italic"},
+        {"if": {"state": "active"}, "backgroundColor": "#fff3e0", "border": "1px solid #ff9800"},
+    ]
+    for k in range(len(data.centroids)):
+        styles.append({"if": {"filter_query": f"{{cluster}} = {k}", "column_id": "cluster"},
+                       "backgroundColor": pl.cluster_color(k), "color": "white", "fontWeight": 600})
+    for c in ("status", "comment", "spectrum", "particle"):
+        styles.append({"if": {"column_id": c}, "textAlign": "left"})
+    return records, columns, styles
+
+
+def _figures_view(data: be.AnalysisData) -> List[Any]:
+    if not data.images:
+        return [html.Div("No saved figures for this analysis.", className="hint")]
+    items = []
+    for path in data.images:
+        name = Path(path).name
+        items.append(html.Figure([
+            html.A(html.Img(src=f"/analysis-file?path={path}", className="saved-img"),
+                   href=f"/analysis-file?path={path}", target="_blank"),
+            html.Figcaption(name),
+        ], className="saved-fig"))
+    return [html.Div(f"Folder: {data.folder}", className="hint"), html.Div(items, className="gallery")]
+
+
+def _sample_info_view(info: be.SampleInfo) -> List[Any]:
+    return [
+        html.Div([html.Span("Elements", className="k"), html.Span(", ".join(info.elements), className="v")]),
+        html.Div([html.Span("Substrate", className="k"), html.Span(", ".join(info.substrate) or "—", className="v")]),
+        html.Div([html.Span("Spectra", className="k"),
+                  html.Span(f"{info.n_spectra} ({info.n_quantified} quantified)", className="v")]),
+        html.Div([html.Span("Analyses", className="k"), html.Span(str(len(info.analyses)), className="v")]),
+    ]
+
+
+def _spectrum_info(data: be.AnalysisData, sid: str, fit: Optional[Dict[str, Any]]) -> List[Any]:
+    rows = data.comps[data.comps["spectrum"].astype(str) == str(sid)]
+    if rows.empty:
+        return [html.Div("Spectrum not found", className="hint")]
+    r = rows.iloc[0]
+    status = r["status"]
+    cl = r["cluster"]
+    badge_style = {"background": pl.cluster_color(cl)} if status == "clustered" and pd.notna(cl) else {}
+    badge = f"Cluster {int(cl)}" if status == "clustered" and pd.notna(cl) else status
+    head = html.Div([
+        html.Span(badge, className="badge", style=badge_style),
+        html.Span(f"Particle {r['particle']}" if r["particle"] not in (None, "", "None") and pd.notna(r["particle"]) else "",
+                  className="muted"),
+    ], className="spectrum-badges")
+    comp_rows = [html.Tr([html.Th("")] + [html.Th(el) for el in data.elements])]
+    comp_rows.append(html.Tr([html.Td("at%")] + [html.Td(_fmt(r.get(f"{el} at%"))) for el in data.elements]))
+    comp_rows.append(html.Tr([html.Td("w%")] + [html.Td(_fmt(r.get(f"{el} w%"))) for el in data.elements]))
+    if fit and fit.get("comp_at"):
+        comp_rows.append(html.Tr([html.Td("refit at%", className="muted")] + [
+            html.Td(_fmt((fit["comp_at"].get(el) or 0) * 100), className="muted") for el in data.elements]))
+    metrics = html.Div([
+        _chip("an. err", f"{_fmt(r['an_err'])} w%"),
+        _chip("flag", pl.flag_label(r["quant_flag"])),
+        _chip("R²", _fmt(r["r_squared"], 5)),
+        _chip("χ²ᵣ", _fmt(r["redchi_sq"])),
+        _chip("counts", f"{int(r['total_counts']):,}" if pd.notna(r["total_counts"]) else "—"),
+    ], className="metrics")
+    out = [head, html.Table(comp_rows, className="comp-table"), metrics]
+    if isinstance(r["comment"], str) and r["comment"]:
+        out.append(html.Div(r["comment"], className="comment"))
+    return out
+
+
+# =============================================================================
+# Helpers
+# =============================================================================
+def _pick_folder() -> Optional[str]:
+    """Native folder dialog (in a subprocess, so it never blocks the server thread)."""
+    try:
+        if sys.platform == "darwin":
+            res = subprocess.run(
+                ["osascript", "-e", 'POSIX path of (choose folder with prompt "Select the AutoEMX results folder")'],
+                capture_output=True, text=True, timeout=600,
+            )
+        else:
+            code = ("import tkinter as tk; from tkinter import filedialog; r = tk.Tk(); r.withdraw(); "
+                    "r.attributes('-topmost', True); print(filedialog.askdirectory(title='Select the AutoEMX results folder'))")
+            res = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=600)
+    except Exception:
+        return None
+    path = res.stdout.strip()
+    return path.rstrip("/") if path else None
+
+
+def _open_path(path: str) -> None:
+    if sys.platform == "darwin":
+        subprocess.Popen(["open", path])
+    elif os.name == "nt":
+        os.startfile(path)  # type: ignore[attr-defined]
+    else:
+        subprocess.Popen(["xdg-open", path])
+
+
+def _default_axes(data: be.AnalysisData, current: List[Optional[str]]) -> List[str]:
+    """Keep the current axes if valid; else use the elements spreading most between clusters."""
+    els = data.detectable or data.elements
+    cur = [c for c in current if c in els]
+    if len(cur) == len(current) and len(set(cur)) == len(cur) and len(cur) == min(3, len(els)):
+        return cur
+    if len(els) <= 3:
+        return list(els)
+    X = data.comps[data.comps["status"] != "not quantified"][els].to_numpy(dtype=float)
+    spread = data.centroids[:, [data.elements.index(e) for e in els]].std(axis=0) if len(data.centroids) > 1 \
+        else np.nanstd(X, axis=0) if len(X) else np.zeros(len(els))
+    top = sorted(np.argsort(-np.nan_to_num(spread), kind="stable")[:3])
+    return [els[i] for i in top]
+
+
+def _point_spectrum(click: Optional[Dict[str, Any]]) -> Optional[str]:
+    if not click or not click.get("points"):
+        return None
+    cd = click["points"][0].get("customdata")
+    if isinstance(cd, list) and cd:
+        return str(cd[0])
+    if isinstance(cd, (str, int, float)):
+        return str(cd)
+    return None
+
+
+# =============================================================================
+# App
+# =============================================================================
+def _log_callback_error(err: Exception) -> None:
+    """Print callback errors to the terminal (Dash only reports them in the browser)."""
+    import traceback
+
+    traceback.print_exception(type(err), err, err.__traceback__)
+    raise err
+
+
+def create_app(results_dir: Optional[str] = None) -> Dash:
+    app = Dash(
+        __name__,
+        title="AutoEMX · Sample analysis",
+        assets_folder=str(Path(__file__).with_name("assets")),
+        suppress_callback_exceptions=False,
+        on_error=_log_callback_error,
+    )
+    app.layout = build_layout(results_dir or "")
+    allowed_roots: Dict[str, bool] = {}
+
+    @app.server.route("/analysis-file")
+    def analysis_file():  # pragma: no cover - exercised through the browser
+        from flask import request
+
+        path = os.path.realpath(request.args.get("path", ""))
+        if not path.lower().endswith(".png") or not _allowed(path):
+            abort(404)
+        if not os.path.exists(path):
+            abort(404)
+        return send_file(path, mimetype="image/png", max_age=0)
+
+    def _allowed(path: str) -> bool:
+        return any(path.startswith(os.path.realpath(root) + os.sep) for root in allowed_roots)
+
+    _png_cache: Dict[Tuple[str, float, int], bytes] = {}
+
+    @app.server.route("/sem-image")
+    def sem_image():  # pragma: no cover - exercised through the browser
+        """SEM image as PNG (TIFFs converted), downscaled to ``max`` pixels."""
+        from flask import request
+
+        path = os.path.realpath(request.args.get("path", ""))
+        if not path.lower().endswith(be.SEM_IMAGE_EXTENSIONS) or not _allowed(path) or not os.path.exists(path):
+            abort(404)
+        max_size = int(request.args.get("max", 0) or 0)
+        key = (path, _mtime(path), max_size)
+        png = _png_cache.get(key)
+        if png is None:
+            png = be.read_image_png(path, max_size or None)[0]
+            if len(_png_cache) > 400:
+                _png_cache.clear()
+            _png_cache[key] = png
+        return Response(png, mimetype="image/png")
+
+    # ---------------------------------------------------------------- folder / samples
+    @app.callback(
+        Output("folder", "value"),
+        Input("browse-btn", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def browse(_):
+        path = _pick_folder()
+        return path if path else no_update
+
+    @app.callback(
+        Output("sample-dd", "options"),
+        Output("sample-dd", "value"),
+        Output("scan-msg", "children"),
+        Input("folder", "value"),
+        Input("scan-btn", "n_clicks"),
+        State("sample-dd", "value"),
+    )
+    def scan(folder, _, current):
+        if not folder:
+            return [], None, "Choose the folder containing your AutoEMX sample folders."
+        try:
+            samples = be.find_samples(folder)
+        except FileNotFoundError as exc:
+            return [], None, html.Span(str(exc), className="err")
+        allowed_roots[os.path.realpath(os.path.expanduser(folder))] = True
+        if not samples:
+            return [], None, html.Span("No sample folders (with ledger.json) found here.", className="err")
+        options = [{"label": s.label, "value": s.sample_dir} for s in samples]
+        dirs = [s.sample_dir for s in samples]
+        value = current if current in dirs else dirs[0]
+        return options, value, f"{len(samples)} sample{'s' if len(samples) != 1 else ''}"
+
+    # ---------------------------------------------------------------- sample / analyses
+    @app.callback(
+        Output("sample-info", "children"),
+        Output("analysis-dd", "options"),
+        Output("analysis-dd", "value"),
+        Output(_pid("plot.els_to_plot"), "options"),
+        Output(_pid("plot.els_excluded_clust_plot"), "options"),
+        Output("sem-tab", "label"),
+        Output("show-image-btn", "children"),
+        Input("sample-dd", "value"),
+        Input("data-version", "data"),
+    )
+    def sample_changed(sample_dir, _):
+        try:
+            info = get_info(sample_dir)
+        except Exception as exc:
+            return html.Span(f"Cannot read ledger: {exc}", className="err"), [], None, [], [], no_update, no_update
+        if info is None:
+            return [], [], None, [], [], no_update, no_update
+        # Microscope type saved in the ledger (e.g. "SEM") names the image tab.
+        em_type = str(getattr(info.ledger.configs.microscope_cfg, "type", "") or "SEM")
+        options = [{"label": a.label, "value": a.key} for a in reversed(info.analyses)]
+        # After a run (or on sample change) show the active analysis, i.e. the latest one run.
+        active = info.active_analysis
+        value = active.key if active else None
+        els = [{"label": e, "value": e} for e in info.elements]
+        return (_sample_info_view(info), options, value, els, els, f"{em_type} images",
+                f"Show in {em_type} image")
+
+    @app.callback(
+        Output({"type": "param", "key": ALL}, "value"),
+        Input("sample-dd", "value"),
+        Input("load-settings-btn", "n_clicks"),
+        State("analysis-dd", "value"),
+    )
+    def load_params(sample_dir, _, analysis_key):
+        outputs = ctx.outputs_list
+        info = get_info(sample_dir) if sample_dir else None
+        if info is None:
+            return [no_update] * len(outputs)
+        ref = be.find_analysis(info, analysis_key) if ctx.triggered_id == "load-settings-btn" else None
+        values = be.sample_param_values(info, ref)
+        return [_to_ui(_spec(o["id"]), values.get(_spec(o["id"]).key)) for o in outputs]
+
+    @app.callback(
+        Output("summary", "children"),
+        Output("clusters-view", "children"),
+        Output("spectra-table", "data"),
+        Output("spectra-table", "columns"),
+        Output("spectra-table", "style_data_conditional"),
+        Output("figures-view", "children"),
+        Output("settings-view", "children"),
+        Output("dist-graph", "figure"),
+        Output("folder-store", "data"),
+        Output("axis-x", "options"),
+        Output("axis-y", "options"),
+        Output("axis-z", "options"),
+        Output("axis-x", "value"),
+        Output("axis-y", "value"),
+        Output("axis-z", "value"),
+        Output("plot-mode", "value"),
+        Output("mode-forced", "data"),
+        Input("analysis-dd", "value"),
+        Input("data-version", "data"),
+        State("sample-dd", "value"),
+        State("axis-x", "value"),
+        State("axis-y", "value"),
+        State("axis-z", "value"),
+        State("plot-mode", "value"),
+        State("mode-forced", "data"),
+    )
+    def analysis_changed(key, _, sample_dir, ax, ay, az, mode, mode_forced):
+        empty = ([], [html.Div("Select a sample.", className="hint")], [], [], [], [], [], pl.distribution_figure(None),
+                 None, [], [], [], None, None, None, mode, mode_forced)
+        try:
+            info, data = get_analysis(sample_dir, key)
+        except Exception as exc:
+            msg = html.Div(f"Cannot load this analysis: {exc}", className="err")
+            return ([msg],) + empty[1:]
+        if data is None:
+            return empty
+        records, columns, styles = _table_payload(data)
+        settings = [html.Pre(data.config_summary or "No Analysis_config_summary.txt for this analysis.",
+                             className="settings-pre")]
+        els = data.detectable or data.elements
+        opts = [{"label": e, "value": e} for e in els]
+        axes = _default_axes(data, [ax, ay, az][:min(3, len(els))])
+        axes = (axes + [None, None, None])[:3]
+        # Samples with 2 elements can only be shown in 2D; restore 3D afterwards if 2D was forced.
+        if len(els) < 3:
+            mode, mode_forced = "2d", mode != "2d" or bool(mode_forced)
+        elif mode_forced:
+            mode, mode_forced = "3d", False
+        return (
+            _summary_view(info, data), _clusters_view(data), records, columns, styles,
+            _figures_view(data), settings, pl.distribution_figure(data), data.folder or info.sample_dir,
+            opts, opts, opts, axes[0], axes[1], axes[2], mode, mode_forced,
+        )
+
+    # ---------------------------------------------------------------- clustering plot
+    @app.callback(
+        Output("axis-z", "disabled"),
+        Input("plot-mode", "value"),
+    )
+    def z_disabled(mode):
+        return mode == "2d"
+
+    @app.callback(
+        Output("cluster-graph", "figure"),
+        Input("plot-mode", "value"),
+        Input("axis-x", "value"),
+        Input("axis-y", "value"),
+        Input("axis-z", "value"),
+        Input("color-by", "value"),
+        Input("plot-opts", "value"),
+        Input("mix-conf", "value"),
+        Input("selected-spectrum", "data"),
+        Input("analysis-dd", "value"),
+        Input("data-version", "data"),
+        State("sample-dd", "value"),
+    )
+    def cluster_plot(mode, ax, ay, az, color_by, opts, mix_conf, selected, key, version, sample_dir):
+        try:
+            _, data = get_analysis(sample_dir, key)
+        except Exception:
+            data = None
+        axes = [ax, ay] if mode == "2d" else [ax, ay, az]
+        uirev = f"{sample_dir}|{key}|{mode}|{'-'.join(map(str, axes))}|{version}"
+        min_conf = float(mix_conf) if mix_conf not in (None, "") else pl.DEFAULT_MIN_MIXTURE_CONF
+        return pl.clustering_figure(data, axes, mode, opts, color_by, highlight=selected, uirevision=uirev,
+                                    min_mixture_conf=min_conf)
+
+    # ---------------------------------------------------------------- spectrum selection
+    @app.callback(
+        Output("fit-msg", "children", allow_duplicate=True),
+        Input("selected-spectrum", "data"),
+        prevent_initial_call=True,
+    )
+    def clear_fit_msg(_):
+        return ""
+
+    @app.callback(
+        Output("selected-spectrum", "data"),
+        Input("cluster-graph", "clickData"),
+        Input("dist-graph", "clickData"),
+        Input("sem-graph", "clickData"),
+        Input("spectra-table", "active_cell"),
+        Input("prev-btn", "n_clicks"),
+        Input("next-btn", "n_clicks"),
+        Input("sample-dd", "value"),
+        State("selected-spectrum", "data"),
+        State("analysis-dd", "value"),
+        prevent_initial_call=True,
+    )
+    def select_spectrum(click, dist_click, sem_click, cell, _p, _n, sample_dir, current, key):
+        trig = ctx.triggered_id
+        if trig == "sample-dd":
+            return None
+        if trig == "cluster-graph":
+            return _point_spectrum(click) or no_update
+        if trig == "dist-graph":
+            return _point_spectrum(dist_click) or no_update
+        if trig == "sem-graph":
+            return _point_spectrum(sem_click) or no_update
+        if trig == "spectra-table":
+            return str(cell["row_id"]) if cell and cell.get("row_id") is not None else no_update
+        _, data = get_analysis(sample_dir, key)
+        if data is None or data.comps.empty:
+            return no_update
+        ids = data.comps["spectrum"].astype(str).tolist()
+        if current not in ids:
+            return ids[0]
+        i = ids.index(current) + (1 if trig == "next-btn" else -1)
+        return ids[i % len(ids)]
+
+    @app.callback(
+        Output("spectrum-title", "children"),
+        Output("spectrum-info", "children"),
+        Output("spectrum-graph", "figure"),
+        Input("selected-spectrum", "data"),
+        Input("fit-result", "data"),
+        Input("log-y", "value"),
+        Input("analysis-dd", "value"),
+        State("sample-dd", "value"),
+    )
+    def spectrum_panel(sid, fit, log_y, key, sample_dir):
+        if not sid or not sample_dir:
+            return "No spectrum selected", [], pl.spectrum_figure(None)
+        info, data = get_analysis(sample_dir, key)
+        if info is None or data is None:
+            return "No spectrum selected", [], pl.spectrum_figure(None)
+        fit = fit if fit and fit.get("sample_dir") == sample_dir and str(fit.get("spectrum_id")) == str(sid) else None
+        try:
+            raw = be.load_raw_spectrum(info, sid)
+        except Exception as exc:
+            return f"Spectrum {sid}", [html.Div(str(exc), className="err")], pl.spectrum_figure(None)
+        title = f"Spectrum {sid}"
+        fig = pl.spectrum_figure(raw, fit, log_y=bool(log_y), title=f"{info.sample_id} · {title}" + (" · fitted" if fit else ""))
+        return title, _spectrum_info(data, sid, fit), fig
+
+    # ---------------------------------------------------------------- greyed-out parameters
+    @app.callback(
+        Output({"type": "param-section", "key": ALL}, "className"),
+        Output({"type": "param-row", "key": ALL}, "className"),
+        Input(_pid("clust.method"), "value"),
+        Input(_pid("clust.geometry"), "value"),
+        Input(_pid("clust.k_forced"), "value"),
+        Input(_pid("clust.auto_merge_clusters"), "value"),
+        Input(_pid("clust.do_matrix_decomposition"), "value"),
+        Input("quantify-first", "value"),
+    )
+    def grey_out_unused(method, geometry, k_forced, auto_merge, do_mixture, quantify):
+        values = {
+            "clust.method": method, "clust.geometry": geometry, "clust.k_forced": k_forced,
+            "clust.auto_merge_clusters": bool(auto_merge), "clust.do_matrix_decomposition": bool(do_mixture),
+        }
+        sections, params = active_params(values, bool(quantify))
+        section_classes = [
+            "param-section" + ("" if sections.get(o["id"]["key"], True) else " disabled")
+            for o in ctx.outputs_list[0]
+        ]
+        row_classes = []
+        for o in ctx.outputs_list[1]:
+            spec = _spec(o["id"])
+            row_classes.append(_row_class(spec) + ("" if params.get(spec.key, True) else " disabled"))
+        return section_classes, row_classes
+
+    # ---------------------------------------------------------------- SEM images
+    @app.callback(
+        Output("sem-gallery", "children"),
+        Output("sem-paths", "data"),
+        Input("analysis-dd", "value"),
+        Input("data-version", "data"),
+        State("sample-dd", "value"),
+    )
+    def sem_gallery(key, _, sample_dir):
+        if not sample_dir:
+            return [], []
+        images = be.find_sem_images(sample_dir)
+        if not images:
+            return [html.Div(f"No SEM images in {os.path.join(sample_dir, be.cnst.IMAGES_DIR)}.", className="hint")], []
+        _, data = get_analysis(sample_dir, key)
+        items = []
+        for i, im in enumerate(images):
+            caption = [html.B(im.label)]
+            if data is not None and im.kind == "spots":
+                ids = be.spectra_on_image(data.comps, im)["spectrum"].astype(str).tolist()
+                if ids:
+                    caption.append(html.Span(" · spectra " + ", ".join(ids), className="muted"))
+            if im.kind == "other":
+                caption = [html.Span(im.name, className="muted")]
+            items.append(html.Div(
+                [html.Img(src=f"/sem-image?max=420&path={quote(im.path)}", className="saved-img"),
+                 html.Div(caption, className="sem-thumb-caption")],
+                id={"type": "sem-thumb", "index": i}, n_clicks=0, className="saved-fig sem-thumb",
+                title="Show in the viewer",
+            ))
+        return items, [im.path for im in images]
+
+    @app.callback(
+        Output("sem-image", "data"),
+        Input("selected-spectrum", "data"),
+        Input({"type": "sem-thumb", "index": ALL}, "n_clicks"),
+        Input("sem-paths", "data"),
+        Input("sem-prev-btn", "n_clicks"),
+        Input("sem-next-btn", "n_clicks"),
+        State("sample-dd", "value"),
+        State("analysis-dd", "value"),
+        State("sem-image", "data"),
+    )
+    def choose_sem_image(sid, clicks, paths, _prev, _next, sample_dir, key, current):
+        trig = ctx.triggered_id
+        if trig in ("sem-prev-btn", "sem-next-btn"):
+            if not paths:
+                return no_update
+            i = paths.index(current) if current in paths else -1
+            return paths[(i + (1 if trig == "sem-next-btn" else -1)) % len(paths)]
+        if isinstance(trig, dict) and trig.get("type") == "sem-thumb":
+            i = trig["index"]
+            if not clicks or i >= len(clicks) or not clicks[i] or not paths or i >= len(paths):
+                return no_update
+            return paths[i]
+        if not sample_dir:
+            return None
+        images = be.find_sem_images(sample_dir)
+        if sid:
+            _, data = get_analysis(sample_dir, key)
+            row = data.comps[data.comps["spectrum"].astype(str) == str(sid)] if data is not None else None
+            if row is not None and not row.empty:
+                im = be.sem_image_for_spectrum(images, row.iloc[0]["particle"], row.iloc[0]["frame"])
+                if im is not None:
+                    return im.path
+        if current and paths and current in paths:
+            return no_update
+        spots = [im for im in images if im.kind == "spots"]
+        return (spots or images)[0].path if images else None
+
+    @app.callback(
+        Output("sem-graph", "figure"),
+        Output("sem-caption", "children"),
+        Output("sem-counter", "children"),
+        Output({"type": "sem-thumb", "index": ALL}, "className"),
+        Input("sem-image", "data"),
+        Input("selected-spectrum", "data"),
+        Input("sem-spots", "value"),
+        Input("analysis-dd", "value"),
+        Input("data-version", "data"),
+        State("sample-dd", "value"),
+        State("sem-paths", "data"),
+    )
+    def sem_view(path, sid, show_spots, key, _, sample_dir, paths):
+        classes = ["saved-fig sem-thumb" + (" active" if p == path else "") for p in (paths or [])]
+        n_thumbs = len(ctx.outputs_list[3])
+        classes = classes[:n_thumbs] + ["saved-fig sem-thumb"] * (n_thumbs - len(classes))
+        counter = f"{paths.index(path) + 1} / {len(paths)}" if paths and path in paths else ""
+        if not path or not sample_dir or not os.path.exists(path):
+            return pl.sem_image_figure(None, None), "No images for this sample.", counter, classes
+        images = be.find_sem_images(sample_dir)
+        image = next((im for im in images if im.path == path), None)
+        _, data = get_analysis(sample_dir, key)
+        spots = be.spectra_on_image(data.comps, image) if (data is not None and image is not None) else None
+        from PIL import Image
+
+        with Image.open(path) as im:
+            size = im.size
+        fig = pl.sem_image_figure(
+            f"/sem-image?max=1600&path={quote(path)}", size, spots, data, selected=sid,
+            show_spots=bool(show_spots), uirevision=path,
+        )
+        caption = [html.B(image.label if image else Path(path).name)]
+        if spots is not None and len(spots):
+            caption.append(html.Span(f" · {len(spots)} spectra · click a spot to select it", className="muted"))
+        if sid and (spots is None or str(sid) not in spots["spectrum"].astype(str).tolist()):
+            caption.append(html.Span(f" · spectrum {sid} is not in this image", className="warn"))
+        return fig, caption, counter, classes
+
+    @app.callback(
+        Output("tabs", "value"),
+        Input("show-image-btn", "n_clicks"),
+        State("selected-spectrum", "data"),
+        prevent_initial_call=True,
+    )
+    def show_spectrum_image(_, sid):
+        # The image of the selected spectrum is already chosen by choose_sem_image.
+        return "sem" if sid else no_update
+
+    app.clientside_callback(
+        """
+        function(classes, tab) {
+            // Keep the image shown in the viewer visible in the thumbnail strip (also right after
+            // switching to the tab, when the strip has just been drawn).
+            [80, 400].forEach(function(delay) {
+                setTimeout(function() {
+                    const el = document.querySelector('.sem-thumb.active');
+                    if (el) { el.scrollIntoView({behavior: 'smooth', block: 'nearest', inline: 'center'}); }
+                }, delay);
+            });
+            return window.dash_clientside.no_update;
+        }
+        """,
+        Output("sem-gallery", "title"),
+        Input({"type": "sem-thumb", "index": ALL}, "className"),
+        Input("tabs", "value"),
+    )
+
+    @app.callback(
+        Output("action-msg", "children", allow_duplicate=True),
+        Input("sem-open-btn", "n_clicks"),
+        State("sem-image", "data"),
+        prevent_initial_call=True,
+    )
+    def open_sem_image(_, path):
+        if path and os.path.exists(path):
+            _open_path(path)
+        return no_update
+
+    # ---------------------------------------------------------------- jobs
+    @app.callback(
+        Output("job-store", "data"),
+        Output("poll", "disabled"),
+        Output("run-msg", "children"),
+        Input("run-btn", "n_clicks"),
+        State({"type": "param", "key": ALL}, "value"),
+        State("quantify-first", "value"),
+        State("sample-dd", "value"),
+        prevent_initial_call=True,
+    )
+    def run(_, __, quantify_first, sample_dir):
+        if not sample_dir:
+            return no_update, no_update, html.Span("Select a sample first.", className="err")
+        raw = {_spec(s["id"]).key: _from_ui(_spec(s["id"]), s.get("value")) for s in ctx.states_list[0]}
+        try:
+            values = be.coerce_values(raw)
+        except ValueError as exc:
+            return no_update, no_update, html.Div([html.B("Invalid parameters: "), str(exc)], className="err")
+        quantify = bool(quantify_first)
+        payload = {"quantify": quantify, "analyse": True, "analysis_kwargs": be.analysis_kwargs(values)}
+        if quantify:
+            payload["quant_kwargs"] = be.quantification_kwargs(values)
+        desc = ("Quantification + analysis" if quantify else "Analysis") + f" of {Path(sample_dir).name}"
+        try:
+            job = JOBS.start("analysis", sample_dir, payload, desc)
+        except RuntimeError as exc:
+            return no_update, no_update, html.Span(str(exc), className="err")
+        return {"id": job.job_id, "done": False}, False, html.Span(f"{desc} started…", className="running")
+
+    @app.callback(
+        Output("fit-job-store", "data"),
+        Output("poll", "disabled", allow_duplicate=True),
+        Output("fit-msg", "children"),
+        Input("fit-btn", "n_clicks"),
+        State("selected-spectrum", "data"),
+        State("sample-dd", "value"),
+        State(_pid("quant.fit_tolerance"), "value"),
+        State(_pid("quant.use_instrument_background"), "value"),
+        prevent_initial_call=True,
+    )
+    def fit(_, sid, sample_dir, fit_tol, use_bkg):
+        if not sid or not sample_dir:
+            return no_update, no_update, "Select a spectrum first."
+        try:
+            tol = float(fit_tol) if fit_tol not in (None, "") else 1e-4
+            job = JOBS.start("fit", sample_dir, {"spectrum_id": sid, "fit_tol": tol,
+                                                 "use_instrument_background": bool(use_bkg)},
+                             f"Fit of spectrum {sid}")
+        except RuntimeError as exc:
+            return no_update, no_update, str(exc)
+        return {"id": job.job_id, "done": False}, False, f"Fitting spectrum {sid}…"
+
+    @app.callback(
+        Output("run-msg", "children", allow_duplicate=True),
+        Output("run-log", "children"),
+        Output("run-btn", "disabled"),
+        Output("cancel-btn", "disabled"),
+        Output("data-version", "data"),
+        Output("job-store", "data", allow_duplicate=True),
+        Output("fit-job-store", "data", allow_duplicate=True),
+        Output("fit-result", "data"),
+        Output("fit-msg", "children", allow_duplicate=True),
+        Output("poll", "disabled", allow_duplicate=True),
+        Output("log-details", "open"),
+        Input("poll", "n_intervals"),
+        State("job-store", "data"),
+        State("fit-job-store", "data"),
+        State("data-version", "data"),
+        prevent_initial_call=True,
+    )
+    def poll(_, job_data, fit_data, version):
+        run_msg = log = data_version = job_out = fit_job_out = fit_result = fit_msg = no_update
+        run_disabled = cancel_disabled = log_open = no_update
+        any_running = False
+
+        job = JOBS.get(job_data["id"]) if job_data else None
+        if job is not None and not job_data.get("done"):
+            log = job.log_tail()
+            res = job.result()
+            if res is None:
+                any_running = True
+                run_msg = html.Span(f"{job.description} running… {job.elapsed():.0f} s", className="running")
+                run_disabled, cancel_disabled, log_open = True, False, True
+            else:
+                job_out = {**job_data, "done": True}
+                run_disabled, cancel_disabled = False, True
+                if res.get("ok"):
+                    text = f"{job.description} finished in {job.elapsed():.0f} s."
+                    if res.get("n_clusters") is not None:
+                        text += f" {res['n_clusters']} cluster(s)."
+                    run_msg = html.Span(text, className="ok")
+                    if res.get("warning"):
+                        run_msg = html.Span(text + " " + res["warning"], className="warn")
+                    log_open = False
+                else:
+                    run_msg = html.Span(f"{job.description} failed: {res.get('error')}", className="err")
+                _info_cache.pop(job.sample_dir, None)
+                data_version = (version or 0) + 1
+
+        fjob = JOBS.get(fit_data["id"]) if fit_data else None
+        if fjob is not None and not fit_data.get("done"):
+            res = fjob.result()
+            if res is None:
+                any_running = True
+                fit_msg = f"Fitting… {fjob.elapsed():.0f} s"
+            else:
+                fit_job_out = {**fit_data, "done": True}
+                if res.get("ok"):
+                    fit_result = {**res, "sample_dir": fjob.sample_dir}
+                    r2 = res.get("r_squared")
+                    fit_msg = f"Fitted in {fjob.elapsed():.0f} s" + (f" · R² {r2:.5f}" if r2 is not None else "")
+                else:
+                    fit_msg = f"Fit failed: {res.get('error')}"
+        return (run_msg, log, run_disabled, cancel_disabled, data_version, job_out, fit_job_out, fit_result,
+                fit_msg, not any_running, log_open)
+
+    @app.callback(
+        Output("run-msg", "children", allow_duplicate=True),
+        Input("cancel-btn", "n_clicks"),
+        State("job-store", "data"),
+        prevent_initial_call=True,
+    )
+    def cancel(_, job_data):
+        if job_data:
+            JOBS.cancel(job_data["id"])
+        return html.Span("Cancelling…", className="warn")
+
+    # ---------------------------------------------------------------- actions
+    @app.callback(
+        Output("action-msg", "children"),
+        Input("open-folder-btn", "n_clicks"),
+        Input("save-html-btn", "n_clicks"),
+        State("folder-store", "data"),
+        State("cluster-graph", "figure"),
+        State("plot-mode", "value"),
+        prevent_initial_call=True,
+    )
+    def actions(_o, _s, folder, figure, mode):
+        if not folder or not os.path.isdir(folder):
+            return html.Span("No analysis folder.", className="err")
+        if ctx.triggered_id == "open-folder-btn":
+            _open_path(folder)
+            return no_update
+        import plotly.graph_objects as go
+
+        path = os.path.join(folder, f"Clustering_plot_interactive_{mode}.html")
+        go.Figure(figure).write_html(path, include_plotlyjs=True, config=_GRAPH_CONFIG)
+        return html.Span(f"Saved {path}", className="ok")
+
+    return app
