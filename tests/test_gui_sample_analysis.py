@@ -10,6 +10,8 @@ from pathlib import Path
 
 import pytest
 
+import autoemx.utils.constants as cnst
+
 pytest.importorskip("plotly")
 
 from autoemx.config.ledger_schemas import (
@@ -59,22 +61,40 @@ def test_param_specs_cover_every_clustering_submodel_field():
 
 
 def test_kwargs_match_runner_signatures(results_dir: Path):
+    from autoemx.runners.fit_and_quantify_spectrum_from_ledger import fit_and_quantify_spectrum_from_ledger
+
     info = be.load_sample_info(str(results_dir / WULFENITE_MINI_ID))
     values = be.coerce_values(be.sample_param_values(info))
-    analysis_params = inspect.signature(analyze_sample).parameters
-    quant_params = inspect.signature(batch_quantify_and_analyze).parameters
-    assert set(be.analysis_kwargs(values)) <= set(analysis_params)
-    assert set(be.quantification_kwargs(values)) <= set(quant_params)
+    assert set(be.analysis_kwargs(values)) <= set(inspect.signature(analyze_sample).parameters)
+
+    qvalues = be.coerce_values({s.key: s.default for s in be.QUANT_SPECS}, be.QUANT_SPECS)
+    qkwargs = be.quantification_kwargs(qvalues)
+    assert set(qkwargs) <= set(inspect.signature(batch_quantify_and_analyze).parameters)
+    # Empty / 'saved' options keep each sample's saved value
+    assert qkwargs["spectrum_lims"] is None and qkwargs["use_project_specific_std_dict"] is None
+    assert "use_instrument_background" not in qkwargs and qkwargs["run_analysis"] is True
+    assert qkwargs["max_spectra_to_quantify"] is None
+
+    svalues = be.coerce_values(be.single_param_values(info), be.SINGLE_SPECS)
+    skwargs = be.single_fit_kwargs(svalues)
+    skwargs.pop("quantify")
+    assert set(skwargs) <= set(inspect.signature(fit_and_quantify_spectrum_from_ledger).parameters)
+    assert skwargs["els_sample"] == ["Pb", "Mo", "O"]
 
 
 def test_coerce_values_reports_all_errors(results_dir: Path):
     info = be.load_sample_info(str(results_dir / WULFENITE_MINI_ID))
     raw = be.sample_param_values(info)
-    raw.update({"dbscan.eps": "-1", "clust.ref_formulae": "PbMoO4\nXx2", "quant.els_sample": "Pb, Qq"})
+    raw.update({"dbscan.eps": "-1", "clust.ref_formulae": "PbMoO4\nXx2"})
     with pytest.raises(ValueError) as exc:
         be.coerce_values(raw)
     msg = str(exc.value)
-    assert "Qq" in msg and "eps" in msg and "Xx2" in msg
+    assert "eps" in msg and "Xx2" in msg
+    single = be.single_param_values(info)
+    single.update({"single.els_sample": "Pb, Qq", "single.std_formula": "Zz3"})
+    with pytest.raises(ValueError) as exc:
+        be.coerce_values(single, be.SINGLE_SPECS)
+    assert "Qq" in str(exc.value) and "Zz3" in str(exc.value)
 
 
 def test_k_forced_mapping(results_dir: Path):
@@ -185,13 +205,126 @@ def test_active_params():
 
     base = {"clust.method": "kmeans", "clust.geometry": "euclidean", "clust.k_forced": None,
             "clust.auto_merge_clusters": True, "clust.do_matrix_decomposition": True}
-    sections, params = active_params(base, quantify=False)
-    assert not sections["quant"] and not sections["dbscan"] and not sections["aitchison"]
+    sections, params = active_params(base)
+    assert not sections["dbscan"] and not sections["aitchison"]
     assert sections["merge"] and sections["mixture"] and params["clust.max_k"]
     for geometry in ("aitchison", "auto"):
-        assert active_params({**base, "clust.geometry": geometry}, False)[0]["aitchison"]
-    sections, params = active_params({**base, "clust.k_forced": 3}, quantify=True)
-    assert sections["quant"] and not sections["merge"] and not params["clust.k_finding_method"]
-    sections, params = active_params({**base, "clust.method": "dbscan"}, False)
+        assert active_params({**base, "clust.geometry": geometry})[0]["aitchison"]
+    sections, params = active_params({**base, "clust.k_forced": 3})
+    assert not sections["merge"] and not params["clust.k_finding_method"]
+    sections, params = active_params({**base, "clust.method": "dbscan"})
     assert sections["dbscan"] and not sections["merge"] and not params["clust.k_forced"]
-    assert not active_params({**base, "clust.do_matrix_decomposition": False}, False)[0]["mixture"]
+    assert not active_params({**base, "clust.do_matrix_decomposition": False})[0]["mixture"]
+
+
+def test_sample_summary_and_quant_progress(results_dir: Path):
+    summary = be.sample_summary(str(results_dir / K412_CLUSTER_MINI_ID))
+    assert summary["sample"] == K412_CLUSTER_MINI_ID and summary["n_spectra"] == 6
+    assert summary["elements"] == "Fe, Mg, Ca, Al, Si, O" and len(summary["date"]) == 16
+    runs = be.quantification_runs(be.load_sample_info(str(results_dir / K412_CLUSTER_MINI_ID)))
+    assert runs and runs[-1]["n_spectra"] == 6
+
+    log = (f"{be.QUANT_SAMPLE_MARKER} 1/2: A\nINFO: Starting quantification of 3 spectra on up to 6 cores.\n"
+           f" Spectrum #1/5:\n  x\n Spectrum #0/5:\n\n{be.QUANT_SAMPLE_MARKER} 2/2: B\n"
+           "INFO: Starting quantification of 4 spectra\n Spectrum #3/9:\n")
+    progress = be.quant_progress(log, ["A", "B"])
+    assert progress[0] == {"sample": "A", "state": "done", "done": 2, "total": 3}
+    assert progress[1] == {"sample": "B", "state": "running", "done": 1, "total": 4}
+
+
+def test_acquisition_settings():
+    from autoemx.gui.tab_acquisition import active_acq_params
+    from autoemx.runners.batch_acquire_and_analyze import batch_acquire_and_analyze
+
+    defaults = {s.key: s.default for s in be.ACQ_SPECS}
+    values = be.coerce_values(defaults, be.ACQ_SPECS)
+    kwargs = be.acquisition_kwargs(values)
+    assert set(kwargs) <= set(inspect.signature(batch_acquire_and_analyze).parameters)
+    assert kwargs["max_XSp_acquisition_time"] == 25  # 50000 counts / 10000 * 5 s, as in Run_Acquisition.py
+    assert kwargs["els_substrate"] == ["C", "O", "Al"]
+    # Without quantification, "number of spectra" sets the spectra collected; with it, min and max
+    assert be.acquisition_kwargs({**values, "aacq.n_spectra": 30})["max_n_spectra"] == 30
+    assert be.acquisition_kwargs({**values, "aacq.quantify_spectra": True, "aacq.n_spectra": 30})["max_n_spectra"] == 100
+    assert kwargs["powder_meas_cfg_kwargs"]["max_area_par"] == 10000.0
+    assert "par_spot_selection_mode" not in kwargs["powder_meas_cfg_kwargs"]
+
+    samples = be.acquisition_samples([
+        {"ID": "Anorthite", "els": "Ca, Al, Si, O", "x": "-37.5", "y": -37.5, "cnd": "CaAl2Si2O8"},
+        {"ID": "", "els": "", "x": None, "y": None, "cnd": ""},  # empty rows are ignored
+    ])
+    assert samples == [{"ID": "Anorthite", "els": ["Ca", "Al", "Si", "O"], "pos": (-37.5, -37.5),
+                        "cnd": ["CaAl2Si2O8"]}]
+    with pytest.raises(ValueError) as exc:
+        be.acquisition_samples([{"ID": "a/b", "els": "Qq", "x": "s", "y": 1, "cnd": "Xx2"},
+                                {"ID": "a/b", "els": "O", "x": 0, "y": 0}])
+    assert all(word in str(exc.value) for word in ("cannot contain", "Qq", "numbers", "Xx2", "duplicated"))
+
+    script = be.acquisition_script(samples, kwargs, "/data/results")
+    compile(script, "Run_Acquisition_GUI.py", "exec")
+    assert "batch_acquire_and_analyze(" in script and "'Anorthite'" in script
+
+    active = active_acq_params(defaults)
+    assert (active["apowder"], active["abulk"], active["aquant"]) == ("on", "off", "off")
+    assert (active["aacq.n_spectra"], active["aacq.min_n_spectra"], active["aacq.contrast"]) == ("on", "hidden", "hidden")
+    active = active_acq_params({**defaults, "asample.sample_type": "bulk", "aacq.quantify_spectra": True,
+                                "aacq.auto_adjust_brightness_contrast": False})
+    assert (active["apowder"], active["abulk"], active["aquant"]) == ("off", "on", "on")
+    assert (active["aacq.n_spectra"], active["aacq.max_n_spectra"], active["aacq.brightness"]) == ("hidden", "on", "on")
+
+    log = "Sample 'Anorthite'\n🔬 Acquiring spectrum #0...\n🔬 Acquiring spectrum #1...\nSample 'B'\n🔬 Acquiring spectrum #2..."
+    progress = be.acquisition_progress(log, ["Anorthite", "B", "C"], 100)
+    assert [(p["state"], p["done"]) for p in progress] == [("done", 2), ("running", 1), ("waiting", 0)]
+
+
+def test_import_spectra_folder(tmp_path: Path):
+    source = INPUTS_DIR / WULFENITE_MINI_ID / cnst.SPECTRA_DIR
+    scan = be.inspect_spectra_folder(str(source))
+    n_files = len([p for p in source.iterdir() if p.suffix.lower() in cnst.EMSA_SPECTRUM_EXTENSIONS])
+    assert scan["n_files"] == n_files > 0 and scan["beam_energies"] == [15.0] and scan["calibration"]
+
+    results = tmp_path / "results"
+    results.mkdir()
+    (results / "taken").mkdir()
+    args = dict(folder=str(source), results_dir=str(results), elements="Pb, Mo, O", substrate="C, O, Al",
+                sample_type="powder", microscope_id=be.dflt.microscope_ID, beam_energy=15)
+    for bad, msg in ((dict(sample_id="taken"), "already exists"), (dict(sample_id="a b"), "sample ID"),
+                     (dict(sample_id="ok", elements=""), "elements"), (dict(sample_id="ok", beam_energy=None), "beam")):
+        with pytest.raises(ValueError, match=msg):
+            be.import_kwargs(**{**args, **bad})
+
+    kwargs = be.import_kwargs(sample_id="Imported", **args)
+    be._run_import("", {"kwargs": kwargs})
+    info = be.load_sample_info(str(results / "Imported"))
+    assert info.n_spectra == n_files and info.elements == ["Pb", "Mo", "O"]
+    cfg = info.ledger.configs
+    assert (cfg.microscope_cfg.energy_zero, cfg.microscope_cfg.bin_width) == pytest.approx(scan["calibration"])
+    assert cfg.sample_cfg.type == "powder" and cfg.measurement_cfg.beam_energy_keV == 15
+    assert len(list(source.iterdir())) == n_files  # source untouched
+    # Failed import: no partial sample folder left
+    with pytest.raises(Exception):
+        be._run_import("", {"kwargs": {**kwargs, "samples": [{**kwargs["samples"][0], "ID": "Empty",
+                                                                 "spectra_dir": str(tmp_path)}]}})
+    assert not (results / "Empty").exists()
+
+
+def test_import_requires_one_energy_calibration(tmp_path: Path):
+    source = INPUTS_DIR / WULFENITE_MINI_ID / cnst.SPECTRA_DIR
+    files = sorted(p for p in source.iterdir() if p.suffix.lower() in cnst.EMSA_SPECTRUM_EXTENSIONS)[:2]
+    mixed = tmp_path / "mixed"
+    mixed.mkdir()
+    for i, f in enumerate(files):
+        text = f.read_text(encoding="utf-8", errors="replace")
+        if i:  # second file: another channel width
+            text = "\n".join("#XPERCHAN    : 5.0" if line.upper().startswith("#XPERCHAN") else line
+                              for line in text.splitlines())
+        (mixed / f.name).write_text(text, encoding="utf-8")
+    scan = be.inspect_spectra_folder(str(mixed))
+    assert scan["calibration"] is None and "different energy calibrations" in scan["calibration_error"]
+
+    results = tmp_path / "results"
+    results.mkdir()
+    kwargs = be.import_kwargs(str(mixed), str(results), "Mixed", "Pb, Mo, O", "C", "powder",
+                              be.dflt.microscope_ID, 15)
+    with pytest.raises(RuntimeError):
+        be._run_import("", {"kwargs": kwargs})
+    assert not (results / "Mixed").exists()

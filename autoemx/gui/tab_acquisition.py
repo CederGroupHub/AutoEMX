@@ -1,0 +1,419 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Acquisition tab of the AutoEMX GUI: acquire (and optionally quantify) the spectra of a list of
+samples with the electron microscope (``batch_acquire_and_analyze``), with every option of
+``Run_Acquisition.py``. Settings and the sample list are kept in the browser between sessions.
+"""
+
+from __future__ import annotations
+
+import os
+import uuid
+from typing import Any, Dict, List
+
+from dash import ALL, Input, Output, State, ctx, dcc, html, no_update
+
+from autoemx.gui import backend as be
+from autoemx.gui.common import JOBS, _chip, _pid, _row_class, _spec, form_values, param_sections
+
+_NOTES = {
+    "apowder": "used for powder samples",
+    "abulk": "used for bulk-type samples",
+    "aquant": "used when quantifying during acquisition",
+}
+# Columns of the samples list: (key, header, placeholder)
+_COLUMNS = [
+    ("ID", "Sample ID", "e.g. Anorthite_mineral"),
+    ("els", "Elements", "e.g. Ca, Al, Si, O"),
+    ("x", "x (mm)", "x"),
+    ("y", "y (mm)", "y"),
+    ("cnd", "Candidate phases (optional)", "e.g. CaAl2Si2O8, CaO"),
+]
+_EXAMPLE_ROW = {"ID": "Anorthite_mineral", "els": "Ca, Al, Si, O", "x": -37.5, "y": -37.5, "cnd": "CaAl2Si2O8"}
+
+
+def _sample_rows(rows: List[Dict[str, Any]]) -> List[Any]:
+    """Editable rows of the samples list (plain text fields, so that their content can be edited in place)."""
+    header = html.Div([html.Span(name, className=f"a-col a-col-{key}") for key, name, _ in _COLUMNS]
+                      + [html.Span("", className="a-col a-col-del"), html.Span("", className="a-col a-col-del")],
+                      className="a-row a-head")
+    out = [header]
+    for row in rows:
+        uid = row["uid"]
+        cells = [
+            dcc.Input(id={"type": "a-cell", "uid": uid, "col": key}, value=row.get(key),
+                      type="number" if key in ("x", "y") else "text", step="any", placeholder=placeholder,
+                      className=f"param-input a-col a-col-{key}")
+            for key, _, placeholder in _COLUMNS
+        ]
+        cells.append(html.Button("⧉", id={"type": "a-copy", "uid": uid}, n_clicks=0,
+                                 title="Copy this sample (inserted below)", className="btn btn-small a-col a-col-del"))
+        cells.append(html.Button("×", id={"type": "a-del", "uid": uid}, n_clicks=0, title="Remove this sample",
+                                 className="btn btn-small a-col a-col-del"))
+        out.append(html.Div(cells, className="a-row"))
+    return out
+
+
+def _rows_from_cells(cells: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Rows of the samples list from the ``ctx.states_list``/``inputs_list`` entry of its ALL-pattern cells."""
+    rows: Dict[str, Dict[str, Any]] = {}
+    for cell in cells or []:
+        uid, col = cell["id"]["uid"], cell["id"]["col"]
+        rows.setdefault(uid, {"uid": uid})[col] = cell.get("value")
+    return list(rows.values())
+
+
+# =============================================================================
+# Layout
+# =============================================================================
+def layout() -> List[Any]:
+    sidebar = html.Div(
+        [
+            html.Div(
+                [
+                    html.Div([html.Span("Settings", className="side-title"),
+                              html.Button("Reset to defaults", id="a-reset", className="btn btn-small",
+                                          title="Restore the default settings of Run_Acquisition.py")],
+                             className="side-title-row"),
+                    html.Div(param_sections(be.ACQ_SPECS, be.ACQ_SECTIONS, _NOTES,
+                                            open_sections=("amicro", "asample", "aacq"), persist=True),
+                             className="param-sections"),
+                ],
+                className="side-block side-params",
+            ),
+            html.Div(
+                [
+                    html.Div([
+                        dcc.ConfirmDialogProvider(
+                            html.Button("Start acquisition", id="a-run-btn", className="btn btn-primary"),
+                            id="a-run-confirm",
+                            message="Start the acquisition? The microscope stage will move to each sample "
+                                    "and the beam will be used. Make sure the sample holder is loaded as defined.",
+                        ),
+                        dcc.ConfirmDialogProvider(
+                            html.Button("Stop", id="a-cancel-btn", className="btn btn-danger", disabled=True),
+                            id="a-cancel-confirm",
+                            message="Stop the acquisition now? Spectra already acquired are kept. The microscope "
+                                    "is left in its current state (stage position, beam).",
+                        ),
+                    ], className="run-buttons"),
+                    html.Div(id="a-run-msg", className="run-msg"),
+                    html.Div(id="a-progress", className="q-progress"),
+                    html.Details([html.Summary("Log"), html.Pre(id="a-log", className="log")],
+                                 id="a-log-details", className="log-box"),
+                ],
+                className="side-block run-block",
+            ),
+        ],
+        className="sidebar",
+    )
+    main = html.Div(
+        [
+            html.Div(id="a-status", className="a-status"),
+            html.Div(
+                [
+                    html.Div([
+                        html.B("Samples to acquire"),
+                        html.Span(" · one row per sample · position of the sample centre on the stage, in mm · "
+                                  "elements quantified (substrate elements are set in the settings)",
+                                  className="muted"),
+                    ], className="q-table-title"),
+                    html.Div([
+                        html.Button("Add sample", id="a-add-row", className="btn btn-small"),
+                        html.Button("Quantifiable elements", id="a-pt-btn", className="btn btn-small",
+                                    title="Periodic table of the elements with P/B standards for the chosen "
+                                          "microscope and beam energy"),
+                        html.Button("Save as script…", id="a-script-btn", className="btn btn-small",
+                                    title="Download a Python script running this acquisition, e.g. to run it "
+                                          "on the microscope computer"),
+                        html.Span(id="a-folder-msg", className="muted"),
+                    ], className="q-table-actions"),
+                    html.Div(id="a-rows", className="a-rows"),
+                    html.Div(id="a-table-msg", className="run-msg"),
+                ],
+                className="q-table-box",
+            ),
+            html.Div([
+                html.B("Notes"),
+                html.Ul([
+                    html.Li("Each sample is saved in a sub-folder named after its ID, in the results folder "
+                            "chosen at the top. Acquiring an existing sample adds spectra to it."),
+                    html.Li("With manual navigation, or manual particle selection, a window asks you to centre "
+                            "each spot or particle on the microscope."),
+                    html.Li("After the acquisition, quantify the spectra in the Quantification tab "
+                            "(unless they were quantified during the acquisition)."),
+                ]),
+            ], className="q-details a-notes"),
+            dcc.Download(id="a-download"),
+        ],
+        className="main q-main",
+    )
+    return [
+        dcc.Store(id="a-job-store"),
+        # Sample list, kept in the browser between sessions
+        dcc.Store(id="a-saved-rows", storage_type="local"),
+        dcc.Interval(id="a-poll", interval=2000, disabled=True),
+        sidebar,
+        main,
+    ]
+
+
+ON, OFF, HIDDEN = "on", "off", "hidden"  # parameter shown, greyed out, or not shown
+
+
+def active_acq_params(values: Dict[str, Any]) -> Dict[str, str]:
+    """State (on / off / hidden) of the acquisition sections ('section') and parameters ('section.name')
+    with the current settings. Not listed: on."""
+    sample_type = values.get("asample.sample_type")
+    quantify = bool(values.get("aacq.quantify_spectra"))
+    auto_bc = bool(values.get("aacq.auto_adjust_brightness_contrast"))
+    return {
+        "apowder": ON if sample_type in be.ACQ_PARTICLE_TYPES else OFF,
+        "abulk": ON if sample_type in be.ACQ_GRID_TYPES else OFF,
+        "aquant": ON if quantify else OFF,
+        "asample.is_auto_substrate_detection":
+            ON if values.get("asample.sample_substrate_type") == be.cnst.CTAPE_SUBSTRATE_TYPE else OFF,
+        "aacq.contrast": HIDDEN if auto_bc else ON,
+        "aacq.brightness": HIDDEN if auto_bc else ON,
+        "aacq.n_spectra": HIDDEN if quantify else ON,
+        "aacq.min_n_spectra": ON if quantify else HIDDEN,
+        "aacq.max_n_spectra": ON if quantify else HIDDEN,
+    }
+
+
+def _progress_view(progress: List[Dict[str, Any]]) -> List[Any]:
+    items = []
+    for p in progress:
+        frac = min(1.0, p["done"] / p["total"]) if p["total"] else 0.0
+        label = {"waiting": "waiting", "running": f"{p['done']} / {p['total']} spectra",
+                 "done": f"done · {p['done']} spectra", "failed": "failed"}[p["state"]]
+        items.append(html.Div([
+            html.Div([html.Span(p["sample"], className="q-prog-name"), html.Span(label, className="muted")],
+                     className="q-prog-head"),
+            html.Div(html.Div(className=f"q-bar-fill q-{p['state']}",
+                              style={"width": f"{100 * (1.0 if p['state'] == 'done' else frac):.0f}%"}),
+                     className="q-bar"),
+        ], className="q-prog-item"))
+    return items
+
+
+# =============================================================================
+# Callbacks
+# =============================================================================
+def register(app) -> None:
+    @app.callback(
+        Output("a-status", "children"),
+        Input("main-tabs", "value"),
+        Input(_pid("amicro.microscope_ID"), "value"),
+        Input(_pid("aacq.beam_energy"), "value"),
+    )
+    def status(_, microscope, beam_kv):
+        microscope = microscope or be.dflt.microscope_ID
+        ok, text = be.microscope_status(microscope)
+        chips = [_chip("microscope", text, "chip-ok" if ok else "chip-warn")]
+        energies = be.standards_beam_energies(microscope)
+        try:
+            has_stds = be.quantifiable_elements(microscope, float(beam_kv)) is not None
+        except (TypeError, ValueError):
+            has_stds = False
+        chips.append(_chip("P/B standards",
+                           f"{float(beam_kv):g} kV available" if has_stds else
+                           f"none at {beam_kv} kV (available: {', '.join(f'{e:g} kV' for e in energies) or 'none'})",
+                           "chip-ok" if has_stds else "chip-warn"))
+        return chips
+
+    @app.callback(
+        Output("a-folder-msg", "children"),
+        Input("folder", "value"),
+    )
+    def folder_msg(folder):
+        return f"Saved in: {folder}" if folder else "Choose the results folder at the top."
+
+    @app.callback(
+        Output("a-rows", "children"),
+        Input("a-add-row", "n_clicks"),
+        Input({"type": "a-del", "uid": ALL}, "n_clicks"),
+        Input({"type": "a-copy", "uid": ALL}, "n_clicks"),
+        State({"type": "a-cell", "uid": ALL, "col": ALL}, "value"),
+        State("a-saved-rows", "data"),
+    )
+    def render_rows(_add, deletes, _copies, _cells, saved):
+        # Rows are re-drawn only when a sample is added or removed, not while typing in them
+        trig = ctx.triggered_id
+        if trig is None:  # page load: rows saved in the browser, or an example
+            rows = [r for r in (saved or []) if isinstance(r, dict)] or [dict(_EXAMPLE_ROW)]
+        else:
+            rows = _rows_from_cells(ctx.states_list[0])
+            if trig == "a-add-row":
+                rows.append({"ID": "", "els": "", "x": None, "y": None, "cnd": ""})
+            elif isinstance(trig, dict) and trig.get("type") in ("a-del", "a-copy"):
+                # New rows also trigger this callback (with n_clicks 0): only act on a real click
+                if not ctx.triggered[0].get("value"):
+                    return no_update
+                i = next((k for k, r in enumerate(rows) if r["uid"] == trig["uid"]), None)
+                if i is None:
+                    return no_update
+                if trig["type"] == "a-del":
+                    rows.pop(i)
+                else:
+                    ids = {str(r.get("ID") or "") for r in rows}
+                    copy_id, n = f"{rows[i].get('ID') or 'sample'}_copy", 2
+                    while copy_id in ids:
+                        copy_id, n = f"{rows[i].get('ID') or 'sample'}_copy{n}", n + 1
+                    rows.insert(i + 1, {**rows[i], "uid": uuid.uuid4().hex[:8], "ID": copy_id})
+        for r in rows:
+            r.setdefault("uid", uuid.uuid4().hex[:8])
+        return _sample_rows(rows)
+
+    @app.callback(
+        Output({"type": "aparam", "key": ALL}, "value"),
+        Input("a-reset", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def reset(_):
+        from autoemx.gui.common import ui_value
+
+        return [ui_value(o["id"], {s.key: s.default for s in be.ACQ_SPECS}) for o in ctx.outputs_list]
+
+    @app.callback(
+        Output({"type": "aparam-section", "key": ALL}, "className"),
+        Output({"type": "aparam-row", "key": ALL}, "className"),
+        Input({"type": "aparam", "key": ALL}, "value"),
+    )
+    def grey_out(_):
+        active = active_acq_params(form_values(ctx.inputs_list[0]))
+        extra = {ON: "", OFF: " disabled", HIDDEN: " hidden-param"}
+        sections = ["param-section" + extra[active.get(o["id"]["key"], ON)] for o in ctx.outputs_list[0]]
+        rows = [_row_class(_spec(o["id"])) + extra[active.get(_spec(o["id"]).key, ON)] for o in ctx.outputs_list[1]]
+        return sections, rows
+
+    @app.callback(
+        Output("a-table-msg", "children"),
+        Output("a-saved-rows", "data"),
+        Input({"type": "a-cell", "uid": ALL, "col": ALL}, "value"),
+        Input(_pid("amicro.microscope_ID"), "value"),
+        Input(_pid("aacq.beam_energy"), "value"),
+        State("sample-dd", "options"),
+    )
+    def check_table(_, microscope, beam_kv, options):
+        rows = _rows_from_cells(ctx.inputs_list[0])
+        if not ctx.inputs_list[0]:
+            return html.Span("Add the samples to acquire.", className="muted"), no_update
+        return _check_message(rows, options, microscope or be.dflt.microscope_ID, beam_kv), rows
+
+    def _check_message(rows, options, microscope, beam_kv):
+        try:
+            samples = be.acquisition_samples(rows)
+        except ValueError as exc:
+            return html.Span(str(exc), className="err")
+        existing = {os.path.basename(o["value"]) for o in (options or [])}
+        again = [s["ID"] for s in samples if s["ID"] in existing]
+        out = [html.Span(f"{len(samples)} sample{'s' if len(samples) != 1 else ''} to acquire.", className="ok")]
+        if again:
+            out.append(html.Span(f" Already in the results folder (spectra will be added): {', '.join(again)}.",
+                                 className="warn"))
+        missing = []
+        for smp in samples:
+            no_std = be.elements_without_standards(smp["els"], microscope, beam_kv)
+            if no_std:
+                missing.append(f"{smp['ID']}: {', '.join(no_std)}")
+        if missing:
+            out.append(html.Span(f" No P/B standard (these elements cannot be quantified): {'; '.join(missing)}.",
+                                 className="err"))
+        return out
+
+    def _settings(states_form, rows, folder):
+        values = be.coerce_values(form_values(states_form), be.ACQ_SPECS)
+        samples = be.acquisition_samples(rows)
+        if not folder:
+            raise ValueError("Choose the results folder at the top")
+        return samples, be.acquisition_kwargs(values)
+
+    @app.callback(
+        Output("a-download", "data"),
+        Output("a-run-msg", "children", allow_duplicate=True),
+        Input("a-script-btn", "n_clicks"),
+        State({"type": "aparam", "key": ALL}, "value"),
+        State({"type": "a-cell", "uid": ALL, "col": ALL}, "value"),
+        State("folder", "value"),
+        prevent_initial_call=True,
+    )
+    def script(_, __, ___, folder):
+        try:
+            samples, kwargs = _settings(ctx.states_list[0], _rows_from_cells(ctx.states_list[1]), folder)
+        except ValueError as exc:
+            return no_update, html.Div([html.B("Invalid settings: "), str(exc)], className="err")
+        return dict(content=be.acquisition_script(samples, kwargs, folder), filename="Run_Acquisition_GUI.py"), \
+            html.Span("Script downloaded.", className="ok")
+
+    @app.callback(
+        Output("a-job-store", "data"),
+        Output("a-poll", "disabled"),
+        Output("a-run-msg", "children"),
+        Input("a-run-confirm", "submit_n_clicks"),
+        State({"type": "aparam", "key": ALL}, "value"),
+        State({"type": "a-cell", "uid": ALL, "col": ALL}, "value"),
+        State("folder", "value"),
+        prevent_initial_call=True,
+    )
+    def run(_, __, ___, folder):
+        try:
+            samples, kwargs = _settings(ctx.states_list[0], _rows_from_cells(ctx.states_list[1]), folder)
+        except ValueError as exc:
+            return no_update, no_update, html.Div([html.B("Invalid settings: "), str(exc)], className="err")
+        payload = {"samples": samples, "kwargs": kwargs, "results_dir": os.path.abspath(os.path.expanduser(folder))}
+        desc = f"Acquisition of {len(samples)} sample{'s' if len(samples) > 1 else ''}"
+        try:
+            job = JOBS.start("acquisition", "", payload, desc)
+        except RuntimeError as exc:
+            return no_update, no_update, html.Span(str(exc), className="err")
+        return ({"id": job.job_id, "done": False, "samples": [s["ID"] for s in samples],
+                 "max_n": kwargs["max_n_spectra"]}, False, html.Span(f"{desc} started…", className="running"))
+
+    @app.callback(
+        Output("a-run-msg", "children", allow_duplicate=True),
+        Output("a-progress", "children"),
+        Output("a-log", "children"),
+        Output("a-run-btn", "disabled"),
+        Output("a-cancel-btn", "disabled"),
+        Output("a-job-store", "data", allow_duplicate=True),
+        Output("a-poll", "disabled", allow_duplicate=True),
+        Output("a-log-details", "open"),
+        Output("scan-btn", "n_clicks", allow_duplicate=True),
+        Input("a-poll", "n_intervals"),
+        State("a-job-store", "data"),
+        State("scan-btn", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def poll(_, job_data, scans):
+        job = JOBS.get(job_data["id"]) if job_data else None
+        if job is None or job_data.get("done"):
+            return (no_update,) * 6 + (True, no_update, no_update)
+        log = job.log_tail(200000)
+        progress = be.acquisition_progress(log, job_data["samples"], job_data["max_n"])
+        res = job.result()
+        if res is None:
+            msg = html.Span(f"{job.description} running… {job.elapsed() / 60:.1f} min", className="running")
+            return msg, _progress_view(progress), log[-20000:], True, False, no_update, False, True, no_update
+        for p in progress:
+            if p["state"] == "running":
+                p["state"] = "done" if res.get("ok") else "failed"
+        if res.get("ok"):
+            msg = html.Span(f"{job.description} finished in {job.elapsed() / 60:.1f} min.", className="ok")
+        else:
+            msg = html.Span(f"{job.description} stopped: {res.get('error')}", className="err")
+        # Rescan the results folder so that the new samples appear in the other tabs
+        return (msg, _progress_view(progress), log[-20000:], False, True, {**job_data, "done": True}, True,
+                not res.get("ok"), (scans or 0) + 1)
+
+    @app.callback(
+        Output("a-run-msg", "children", allow_duplicate=True),
+        Input("a-cancel-confirm", "submit_n_clicks"),
+        State("a-job-store", "data"),
+        prevent_initial_call=True,
+    )
+    def cancel(_, job_data):
+        if job_data:
+            JOBS.cancel(job_data["id"])
+        return html.Span("Stopping…", className="warn")

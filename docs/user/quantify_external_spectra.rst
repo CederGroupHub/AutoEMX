@@ -127,3 +127,9 @@ Notes and troubleshooting
   Set ``overwrite_existing=True`` to rebuild from current script settings.
 - For re-analysis with different clustering filters (without re-ingestion), use
   ``run_analysis.py``.
+- ``quantify=False`` only copies the spectra and writes the ledgers; the samples can then be
+  quantified with ``Run_Quantification.py`` or in the GUI (see :doc:`sample_analysis_gui`, which
+  can also import a folder of spectra with **Import spectra folder…** in the Quantification tab).
+- The energy calibration of each sample is always read from the ``#OFFSET`` and ``#XPERCHAN``
+  lines of the EMSA headers of its spectra (in the unit of ``#XUNITS``, eV or keV). Samples whose
+  spectra lack these lines, or have different calibrations, are skipped.

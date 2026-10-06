@@ -26,12 +26,12 @@ import os
 import shutil
 import traceback
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
-import autoemx.calibrations as calibs
 import autoemx.config.defaults as dflt
 import autoemx.utils.constants as cnst
-from autoemx.config.ledger_schemas import ClusteringConfig  # type: ignore
+from autoemx.config.ledger_io import ingest_spectra, load_sample_ledger
+from autoemx.config.ledger_schemas import ClusteringConfig, SampleLedger  # type: ignore
 from autoemx.config.runtime_configs import (
     BulkMeasurementConfig,
     MeasurementConfig,
@@ -44,7 +44,7 @@ from autoemx.config.runtime_configs import (
 )
 from autoemx.core.composition_analysis import EMXSp_Composition_Analyzer
 from autoemx.runners.batch_quantify_and_analyze import batch_quantify_and_analyze
-from autoemx.utils import print_double_separator
+from autoemx.utils import load_msa, print_double_separator
 
 logging.basicConfig(
     level=logging.INFO,
@@ -68,6 +68,30 @@ def _discover_spectra_files(spectra_dir: str) -> List[Path]:
         p for p in source.iterdir()
         if p.is_file() and p.suffix.lower() in _SUPPORTED_EXTENSIONS
     )
+
+
+def read_energy_calibration(files: List[Path]) -> Tuple[float, float]:
+    """
+    Energy calibration ``(offset, width)`` in keV (energy of channel 0 and channel width),
+    from the ``#OFFSET`` and ``#XPERCHAN`` lines of the EMSA headers of *files*,
+    read as in the web app (``load_msa`` + ``parse_emsa_geometry``).
+
+    Raises ValueError if the files have no calibration or different ones.
+    """
+    from autoemx.web.pipeline import parse_emsa_geometry
+
+    if not files:
+        raise ValueError("no spectrum files")
+    calibrations = set()
+    for path in files:
+        _, _, metadata = load_msa(str(path))
+        if "OFFSET" not in metadata or "XPERCHAN" not in metadata:
+            raise ValueError(f"no #OFFSET or #XPERCHAN line in the header of '{path.name}'")
+        geometry = parse_emsa_geometry(metadata)
+        calibrations.add((round(geometry["det_ch_offset"], 9), round(geometry["det_ch_width"], 9)))
+    if len(calibrations) > 1:
+        raise ValueError(f"the spectra have {len(calibrations)} different energy calibrations")
+    return calibrations.pop()
 
 
 def _clear_destination_spectra_files(spectra_dest_dir: str) -> int:
@@ -119,6 +143,7 @@ def quantify_external_spectra(
     overwrite_existing: bool = False,
     standards_dict: Optional[dict] = None,
     verbose: bool = True,
+    quantify: bool = True,
 ) -> List[EMXSp_Composition_Analyzer]:
     """
     Copy externally-acquired spectra into the AutoEMX sample folder layout,
@@ -204,6 +229,9 @@ def quantify_external_spectra(
         Custom dictionary of reference PB values; ``None`` loads the defaults.
     verbose : bool
         Print progress information.
+    quantify : bool
+        If False, only copies the spectra and builds the ledgers (no quantification nor analysis);
+        the samples can then be quantified with :func:`batch_quantify_and_analyze`. Default: True.
 
     Returns
     -------
@@ -221,15 +249,8 @@ def quantify_external_spectra(
     # ------------------------------------------------------------------
     # Shared config objects (identical for every sample in the batch)
     # ------------------------------------------------------------------
+    # The energy calibration of each sample is read from the headers of its spectra (below)
     microscope_cfg = MicroscopeConfig(ID=microscope_ID, type=microscope_type)
-
-    # Populate detector channel parameters so they are stored in the ledger.
-    calibs.load_microscope_calibrations(
-        microscope_ID, measurement_mode, load_detector_channel_params=True
-    )
-    meas_modes_calibs = calibs.detector_channel_params
-    microscope_cfg.energy_zero = meas_modes_calibs[measurement_mode][cnst.OFFSET_KEY]
-    microscope_cfg.bin_width   = meas_modes_calibs[measurement_mode][cnst.SCALE_KEY]
 
     measurement_cfg = MeasurementConfig(
         type=measurement_type,
@@ -324,6 +345,18 @@ def quantify_external_spectra(
 
         os.makedirs(spectra_dest_dir, exist_ok=True)
 
+        # ---- Energy calibration, always read from the EMSA headers of the spectra ----
+        try:
+            energy_zero, bin_width = read_energy_calibration(_discover_spectra_files(spectra_dest_dir))
+        except Exception as exc:
+            logging.warning("Could not read the energy calibration of '%s': %s. Skipping.", sample_id, exc)
+            continue
+        sample_microscope_cfg = microscope_cfg.model_copy(
+            update={"energy_zero": energy_zero, "bin_width": bin_width}
+        )
+        logging.info("Energy calibration from the spectra headers: offset %.4f keV, %.6f keV/channel.",
+                     energy_zero, bin_width)
+
         # ---- Sample-specific configs ----
         sample_cfg = SampleConfig(
             elements=elements,
@@ -346,7 +379,7 @@ def quantify_external_spectra(
         # ---- Instantiate analyzer (non-acquisition mode) ----
         try:
             comp_analyzer = EMXSp_Composition_Analyzer(
-                microscope_cfg=microscope_cfg,
+                microscope_cfg=sample_microscope_cfg,
                 sample_id=sample_id,
                 sample_cfg=sample_cfg,
                 measurement_cfg=measurement_cfg,
@@ -370,11 +403,25 @@ def quantify_external_spectra(
             continue
 
         # ---- Build and persist ledger ----
-        # _load_or_create_ledger discovers every spectrum_*.msa in spectra/,
-        # builds SpectrumEntry objects, seeds a QuantificationConfig, and writes
-        # ledger.json to disk.  No manual QuantificationConfig creation needed here.
+        # As at the start of an acquisition: a new ledger with the sample configs, then every
+        # spectrum_* file of spectra/ is ingested. An existing ledger keeps its quantification history.
         try:
-            comp_analyzer._load_or_create_ledger()
+            if os.path.exists(ledger_path):
+                ledger = load_sample_ledger(ledger_path)
+            else:
+                ledger = SampleLedger(
+                    sample_id=sample_id,
+                    sample_path=os.path.abspath(sample_dir),
+                    configs=comp_analyzer._build_ledger_configs(),
+                    spectra=[],
+                    quantifications=[],
+                    active_quant=None,
+                )
+            n_ingested, _ = ingest_spectra(ledger)
+            if not ledger.spectra:
+                raise ValueError(f"no spectrum files in '{spectra_dest_dir}'")
+            ledger.to_json_file(ledger_path)
+            logging.info("Ledger with %d spectra (%d new).", len(ledger.spectra), n_ingested)
         except Exception as exc:
             logging.warning(
                 "Could not build ledger for '%s': %s. Skipping.", sample_id, exc,
@@ -384,6 +431,11 @@ def quantify_external_spectra(
 
         logging.info("Ledger ready for sample '%s'.", sample_id)
         ingested_ids.append(sample_id)
+
+    if not quantify:
+        logging.info("Ledgers ready for %d sample(s): %s. Quantification not requested.",
+                     len(ingested_ids), ", ".join(ingested_ids))
+        return []
 
     if not ingested_ids:
         logging.warning("No samples were successfully ingested. Quantification skipped.")

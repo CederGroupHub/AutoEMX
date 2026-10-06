@@ -53,6 +53,9 @@ min_total_counts_fraction = 0.9 # Minimum accepted total spectrum counts as a fr
 
 num_CPU_cores = None # Number of cores used during fitting and quantification. If None, selects automatically half the available cores
 force_requantification = False # If True, re-quantifies all spectra regardless of existing quantification runs/settings.
+requantify_only_unquantified_spectra = False # If True, re-quantifies only spectra without a composition (never quantified, or previously skipped/flagged).
+max_spectra_to_quantify = None # Quantify at most this number of spectra per sample (e.g. 5 for a quick test). None quantifies all of them.
+fit_tolerance = None # Tolerance for fit convergence. Uses the value saved for each sample (default 1e-4) if None.
 interrupt_fits_bad_spectra = True # Interrupts the fit and quantification of spectra when it finds they will lead to large quantification errors. Used to speed up computations. If False, previously interrupted spectra are re-quantified without interruption.
 use_project_specific_std_dict = None # If True, loads standards from project folder (i.e. results_dir) during quantification.
 
@@ -73,6 +76,9 @@ comp_analyzer = batch_quantify_and_analyze(
     max_analytical_error=max_analytical_error,
     num_CPU_cores = num_CPU_cores,
     force_requantification=force_requantification,
+    requantify_only_unquantified_spectra=requantify_only_unquantified_spectra,
+    max_spectra_to_quantify=max_spectra_to_quantify,
+    fit_tolerance=fit_tolerance,
     interrupt_fits_bad_spectra=interrupt_fits_bad_spectra,
     use_project_specific_std_dict = use_project_specific_std_dict,
     is_known_precursor_mixture = is_known_precursor_mixture,

@@ -3582,6 +3582,7 @@ class EMXSp_Composition_Analyzer:
             requantify_only_unquantified_spectra: bool = False,
             interrupt_fits_bad_spectra: bool = True,
             num_CPU_cores: Optional[int] = None,
+            max_spectra_to_quantify: Optional[int] = None,
         ) -> None:
             """
             Fit and (optionally) quantify all collected spectra.
@@ -3612,6 +3613,9 @@ class EMXSp_Composition_Analyzer:
             num_CPU_cores : Optional[int]
                 Number of CPU cores for parallel fitting.
                 None uses half of available cores.
+            max_spectra_to_quantify : Optional[int]
+                Process at most this number of spectra, among those that need processing.
+                None processes all of them.
             """
             
             _ledger = self._load_or_create_ledger()
@@ -3671,6 +3675,8 @@ class EMXSp_Composition_Analyzer:
                             i for i in indices_to_process
                             if self.spectra_quant_records[i] is None
                         ]
+                if max_spectra_to_quantify is not None:
+                    indices_to_process = indices_to_process[:max(0, int(max_spectra_to_quantify))]
             else:
                 # Fitting-only (experimental standards) path
                 self._ensure_current_quantification_run(force_new=force_requantification)
@@ -4497,6 +4503,7 @@ class EMXSp_Composition_Analyzer:
         requantify_only_unquantified_spectra: bool = False,
         interrupt_fits_bad_spectra: bool = True,
         num_CPU_cores: Optional[int] = None,
+        max_spectra_to_quantify: Optional[int] = None,
     ) -> None:
         """
         Perform quantification of all collected spectra and save the results.
@@ -4524,6 +4531,9 @@ class EMXSp_Composition_Analyzer:
         num_CPU_cores : Optional[int], optional
             Number of CPU cores for parallel fitting (non-quantify path only).
             None uses half of available cores.
+        max_spectra_to_quantify : Optional[int], optional
+            Quantify at most this number of spectra, among those that need quantification
+            (in acquisition order), e.g. for quick tests. None quantifies all of them.
         """
         self._initialise_std_dict()
         self._fit_and_quantify_spectra(
@@ -4531,6 +4541,7 @@ class EMXSp_Composition_Analyzer:
             requantify_only_unquantified_spectra=requantify_only_unquantified_spectra,
             interrupt_fits_bad_spectra=interrupt_fits_bad_spectra,
             num_CPU_cores=num_CPU_cores,
+            max_spectra_to_quantify=max_spectra_to_quantify,
         )
         # Quantification-only workflows also export Compositions.csv, so ensure
         # a deterministic analysis directory exists instead of falling back to

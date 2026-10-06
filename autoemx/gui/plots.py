@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Interactive Plotly figures of the AutoEMX sample-analysis GUI."""
+"""Interactive Plotly figures of the AutoEMX GUI."""
 
 from __future__ import annotations
 
@@ -549,4 +549,95 @@ def sem_image_figure(
         uirevision=uirevision,
         dragmode="pan",
     )
+    return fig
+
+
+def single_spectrum_figure(
+    spectrum: Optional[Dict[str, Any]],
+    fit: Optional[Dict[str, Any]] = None,
+    log_y: bool = False,
+    zoom_line: Optional[str] = None,
+    show_bckgrnd_cnts: bool = True,
+    title: str = "",
+    channel_lims: Optional[Sequence[int]] = None,
+) -> go.Figure:
+    """
+    Large spectrum plot: raw spectrum, or data/fit/background with a residuals panel underneath.
+
+    As in ``XSp_Quantifier.plot_quantified_spectrum``, only the fitted energy range is shown: the
+    channels ``channel_lims`` of the raw spectrum, or the energies of the fit.
+    """
+    from plotly.subplots import make_subplots
+
+    if spectrum is None and fit is None:
+        return _empty_figure("Choose a spectrum")
+    if fit is None:
+        e = np.asarray(spectrum["energy"], dtype=float)
+        counts = np.asarray(spectrum["counts"], dtype=float)
+        if channel_lims is not None and len(channel_lims) == 2:
+            lo, hi = max(0, int(channel_lims[0])), min(len(e), int(channel_lims[1]))
+            if hi > lo:
+                e, counts = e[lo:hi], counts[lo:hi]
+        fig = go.Figure(go.Scatter(x=e, y=counts, mode="lines", name="Counts", line=dict(color="#1f77b4", width=1.2)))
+        fig.update_layout(
+            template="plotly_white",
+            title=dict(text=title, x=0.01, font=dict(size=14)),
+            xaxis=dict(title="Energy (keV)", range=[float(e[0]), float(e[-1])] if e.size else None),
+            yaxis=dict(title="Counts", type="log" if log_y else "linear"),
+            margin=dict(l=10, r=10, t=40, b=10),
+            uirevision=f"{title}|raw|{log_y}",
+        )
+        return fig
+    e = np.asarray(fit["energy"], dtype=float)
+    counts = np.asarray(fit["counts"], dtype=float)
+    model = np.asarray(fit["fit"], dtype=float)
+    bkg = np.asarray(fit["background"], dtype=float)
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.78, 0.22], vertical_spacing=0.03)
+    fig.add_trace(go.Scatter(x=e, y=counts, mode="markers", name="Data", marker=dict(size=3.5, color="#1f77b4")),
+                  row=1, col=1)
+    fig.add_trace(go.Scatter(x=e, y=model, mode="lines", name="Fit", line=dict(color="#ff7f0e", width=1.6)),
+                  row=1, col=1)
+    fig.add_trace(go.Scatter(x=e, y=bkg, mode="lines", name="Background",
+                             line=dict(color="#2ca02c", width=1.3, dash="dash")), row=1, col=1)
+    bars = fit.get("bckgrnd_cnts") or []
+    if show_bckgrnd_cnts and bars:
+        base = 1.0 if log_y else 0.0
+        xs, ys, text = [], [], []
+        for line, energy, value in bars:
+            xs += [energy, energy, None]
+            ys += [base, max(value, base), None]
+            text += [None, f"{line.replace('_', ' ')}: {value:.1f} background counts", None]
+        fig.add_trace(go.Scatter(x=xs, y=ys, mode="lines", name="Background counts",
+                                 line=dict(color="#d62728", width=2.5), hovertext=text, hoverinfo="text"),
+                      row=1, col=1)
+    fig.add_trace(go.Scatter(x=e, y=counts - model, mode="lines", name="Residuals", showlegend=False,
+                             line=dict(color="#7f7f7f", width=1)), row=2, col=1)
+    fig.add_hline(y=0, line=dict(color="#b0b6bf", width=1), row=2, col=1)
+    for energy, label in fit.get("peak_labels", []) or []:
+        i = int(np.argmin(np.abs(e - energy))) if e.size else 0
+        y = float(max(model[i], counts[i])) if e.size else 0
+        fig.add_annotation(x=energy, y=np.log10(max(y, 1)) if log_y else y, text=label.replace("_", " "),
+                           showarrow=True, arrowhead=0, ay=-28, font=dict(size=12), row=1, col=1)
+    x_range = [float(e.min()), float(e.max())] if e.size else None  # fitted range
+    y_range = None
+    peak = next((p for p in fit.get("peaks", []) if p["line"] == zoom_line), None) if zoom_line else None
+    if peak and peak.get("center"):
+        half = max(3 * float(peak.get("fwhm") or 0.1), 0.15)
+        x_range = [peak["center"] - half, peak["center"] + half]
+        sel = (e >= x_range[0]) & (e <= x_range[1])
+        if sel.any() and not log_y:
+            y_range = [0, float(max(counts[sel].max(), model[sel].max())) * 1.15]
+    fig.update_layout(
+        template="plotly_white",
+        title=dict(text=title, x=0.01, font=dict(size=14)),
+        margin=dict(l=10, r=10, t=40, b=10),
+        legend=dict(orientation="h", y=1.02, yanchor="bottom", x=1, xanchor="right"),
+        uirevision=f"{title}|{zoom_line}|{log_y}",
+        hovermode="x unified",
+    )
+    fig.update_yaxes(title_text="Counts", type="log" if log_y else "linear", row=1, col=1,
+                     **({"range": y_range} if y_range else {}))
+    fig.update_yaxes(title_text="Residuals", row=2, col=1)
+    fig.update_xaxes(range=x_range, row=1, col=1)
+    fig.update_xaxes(title_text="Energy (keV)", range=x_range, row=2, col=1)
     return fig

@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Launch the AutoEMX sample-analysis GUI: ``python -m autoemx.gui [results_folder]``."""
+"""Launch the AutoEMX GUI: ``python -m autoemx.gui [results_folder]``."""
 
 from __future__ import annotations
 
 from typing import Optional
 
 import argparse
+import json
 import os
 import socket
 import stat
+import subprocess
 import sys
 import threading
 import webbrowser
 from pathlib import Path
 
 LAUNCHER_NAME = "AutoEMX GUI"
+LAUNCHER_ICON = Path(__file__).with_name("assets") / "autoemx-icon-512.png"
 
 
 def _port_in_use(port: int) -> bool:
@@ -23,10 +26,26 @@ def _port_in_use(port: int) -> bool:
         return sock.connect_ex(("127.0.0.1", port)) == 0
 
 
+def _set_macos_icon(path: Path) -> bool:
+    """Give a file the AutoEMX icon in Finder (best effort; uses the AppKit bridge of osascript)."""
+    script = (
+        "ObjC.import('AppKit');"
+        f"var img = $.NSImage.alloc.initWithContentsOfFile({json.dumps(str(LAUNCHER_ICON))});"
+        f"$.NSWorkspace.sharedWorkspace.setIconForFileOptions(img, {json.dumps(str(path))}, 0);"
+    )
+    try:
+        res = subprocess.run(["osascript", "-l", "JavaScript", "-e", script],
+                             capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return res.returncode == 0 and res.stdout.strip() == "true"
+
+
 def create_launcher(dest_dir: Optional[str] = None, results_folder: Optional[str] = None) -> Path:
     """
     Write a double-clickable launcher of the GUI (``.command`` on macOS, ``.bat`` on Windows,
     ``.sh`` on Linux) that runs it with the current Python interpreter and AutoEMX installation.
+    On macOS the launcher also gets the AutoEMX icon.
     """
     dest = Path(dest_dir).expanduser() if dest_dir else Path.home() / "Desktop"
     if not dest.is_dir():
@@ -38,7 +57,7 @@ def create_launcher(dest_dir: Optional[str] = None, results_folder: Optional[str
         path = dest / f"{LAUNCHER_NAME}.bat"
         path.write_text(
             "@echo off\r\n"
-            "rem Double-click to open the AutoEMX sample-analysis GUI. Close this window to stop it.\r\n"
+            "rem Double-click to open the AutoEMX GUI. Close this window to stop it.\r\n"
             f'set "PYTHONPATH={package_parent};%PYTHONPATH%"\r\n'
             f'"{python}" -m autoemx.gui{args} %*\r\n'
             "pause\r\n",
@@ -48,19 +67,21 @@ def create_launcher(dest_dir: Optional[str] = None, results_folder: Optional[str
         path = dest / (f"{LAUNCHER_NAME}.command" if sys.platform == "darwin" else f"{LAUNCHER_NAME}.sh")
         path.write_text(
             "#!/bin/bash\n"
-            "# Double-click to open the AutoEMX sample-analysis GUI. Close this window to stop it.\n"
+            "# Double-click to open the AutoEMX GUI. Close this window to stop it.\n"
             f'export PYTHONPATH="{package_parent}${{PYTHONPATH:+:$PYTHONPATH}}"\n'
             f'"{python}" -m autoemx.gui{args} "$@"\n',
             encoding="utf-8",
         )
         path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+        if sys.platform == "darwin":
+            _set_macos_icon(path)
     return path
 
 
 def main(argv=None) -> None:
     parser = argparse.ArgumentParser(
         prog="python -m autoemx.gui",
-        description="Interactive quantification and clustering analysis of AutoEMX samples.",
+        description="AutoEMX GUI: quantification, clustering analysis and single-spectrum fits of AutoEMX samples.",
     )
     parser.add_argument("results_folder", nargs="?", default=None,
                         help="Folder containing the sample folders (default: ./Results if present, else none).")
@@ -74,14 +95,14 @@ def main(argv=None) -> None:
 
     if args.create_launcher is not None:
         path = create_launcher(args.create_launcher or None, args.results_folder)
-        print(f"Launcher written to: {path}\nDouble-click it to open the AutoEMX sample-analysis GUI.")
+        print(f"Launcher written to: {path}\nDouble-click it to open the AutoEMX GUI.")
         return
 
     import importlib.util
 
     if importlib.util.find_spec("dash") is None:
         print(
-            "The AutoEMX sample-analysis GUI requires Dash.\n"
+            "The AutoEMX GUI requires Dash.\n"
             "Install it with:  pip install dash\n"
             "Then run:         python -m autoemx.gui",
             file=sys.stderr,
@@ -104,7 +125,7 @@ def main(argv=None) -> None:
         folder = os.path.join(os.getcwd(), "Results")
     app = create_app(os.path.abspath(folder) if folder else None)
 
-    print(f"AutoEMX sample-analysis GUI running at {url}  (Ctrl+C to stop)")
+    print(f"AutoEMX GUI running at {url}  (Ctrl+C to stop)")
     if not args.no_browser:
         threading.Timer(1.2, lambda: webbrowser.open(url)).start()
     try:

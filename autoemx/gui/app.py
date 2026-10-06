@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-AutoEMX sample-analysis GUI (Dash).
+AutoEMX GUI (Dash), with three tabs:
 
-Pick an AutoEMX results folder and a sample, set every quantification/clustering parameter,
-run ``analyze_sample`` (optionally after ``batch_quantify_and_analyze``), then explore the
-results in interactive 3D / ternary / 2D clustering plots, linked to the spectra.
+- Acquisition: acquire the spectra of a list of samples with the microscope (``batch_acquire_and_analyze``).
+- Quantification: quantify the spectra of one or more samples (``batch_quantify_and_analyze``).
+- Analysis: set every clustering parameter, run ``analyze_sample``, and explore the results in
+  interactive 3D / ternary / 2D clustering plots linked to the spectra and SEM images.
+- Single spectrum: fit and quantify one spectrum of a sample, or an external EMSA file.
 
 Launch with ``python -m autoemx.gui``.
 """
@@ -13,28 +15,47 @@ Launch with ``python -m autoemx.gui``.
 from __future__ import annotations
 
 import os
-import subprocess
-import sys
-import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from dash import ALL, Dash, Input, Output, State, ctx, dash_table, dcc, html, no_update
+from dash import ALL, Dash, Input, Output, State, ctx, dash_table, dcc, get_asset_url, html, no_update
 from urllib.parse import quote
 
 from flask import Response, abort, send_file
 
 from autoemx.gui import backend as be
 from autoemx.gui import plots as pl
+from autoemx.gui import tab_acquisition, tab_quantification, tab_single
+from autoemx.gui.periodic_table import periodic_table
+from autoemx.gui.common import (
+    GRAPH_CONFIG as _GRAPH_CONFIG,
+    JOBS,
+    SUMMARIES,
+    _chip,
+    _fmt,
+    _info_cache,
+    _mtime,
+    _open_path,
+    _pick_folder,
+    _pid,
+    _point_spectrum,
+    _row_class,
+    _spec,
+    form_values,
+    get_analysis,
+    get_info,
+    param_sections,
+    register_clear_buttons,
+    ui_value,
+)
 
 _CITATION = (
     "A. Giunto et al., Accurate SEM-EDS Quantification, Automation, and Machine Learning Enable "
     "High-Throughput Compositional Characterization of Powders, Nature Communications 17, 9735 (2026)."
 )
 _SECTION_NOTES = {
-    "quant": "used only when “Quantify spectra first” is ticked",
     "dbscan": "used when method = dbscan",
     "aitchison": "used when geometry = aitchison or auto",
     "merge": "k-means with automatic k and merging on",
@@ -57,166 +78,12 @@ _COLOR_BY = [
     {"label": "Quant flag", "value": "quant_flag"},
     {"label": "R²", "value": "r_squared"},
 ]
-_GRAPH_CONFIG = {
-    "displaylogo": False,
-    "toImageButtonOptions": {"format": "png", "scale": 3},
-    "modeBarButtonsToRemove": ["lasso2d", "select2d"],
-}
-
-JOBS = be.JobManager()
-
-# =============================================================================
-# Cached loading (keyed on file modification times)
-# =============================================================================
-_info_cache: Dict[str, Tuple[float, be.SampleInfo]] = {}
-_analysis_cache: Dict[Tuple[Any, ...], be.AnalysisData] = {}
-# Callbacks run in parallel threads; loading ledgers and calibration modules is not thread-safe.
-_load_lock = threading.RLock()
-
-
-def _mtime(path: str) -> float:
-    try:
-        return os.path.getmtime(path)
-    except OSError:
-        return 0.0
-
-
-def get_info(sample_dir: Optional[str]) -> Optional[be.SampleInfo]:
-    if not sample_dir:
-        return None
-    with _load_lock:
-        return _get_info(sample_dir)
-
-
-def _get_info(sample_dir: str) -> be.SampleInfo:
-    m = _mtime(os.path.join(sample_dir, be.LEDGER_NAME))
-    cached = _info_cache.get(sample_dir)
-    if cached and cached[0] == m:
-        return cached[1]
-    info = be.load_sample_info(sample_dir)
-    _info_cache[sample_dir] = (m, info)
-    return info
-
-
-def get_analysis(sample_dir: Optional[str], key: Optional[str]) -> Tuple[Optional[be.SampleInfo], Optional[be.AnalysisData]]:
-    if not sample_dir:
-        return None, None
-    with _load_lock:
-        return _get_analysis(sample_dir, key)
-
-
-def _get_analysis(sample_dir: str, key: Optional[str]) -> Tuple[be.SampleInfo, be.AnalysisData]:
-    info = _get_info(sample_dir)
-    ref = be.find_analysis(info, key)
-    folder = ref.folder if ref else ""
-    cache_key = (sample_dir, ref.key if ref else None, _mtime(os.path.join(sample_dir, be.LEDGER_NAME)),
-                 _mtime(os.path.join(folder, "Compositions.csv")) if folder else 0)
-    data = _analysis_cache.get(cache_key)
-    if data is None:
-        data = be.load_analysis(info, ref)
-        if len(_analysis_cache) > 20:
-            _analysis_cache.clear()
-        _analysis_cache[cache_key] = data
-    return info, data
-
-
-# =============================================================================
-# Parameter form
-# =============================================================================
-def _to_ui(spec: be.ParamSpec, value: Any) -> Any:
-    if spec.kind == "bool":
-        return ["on"] if value else []
-    if spec.kind == "pair":
-        return ", ".join(str(int(v)) for v in value) if value else ""
-    if spec.kind == "formulae":
-        return "\n".join(value or [])
-    if spec.kind in ("elements", "flags"):
-        return list(value or [])
-    return value
-
-
-def _from_ui(spec: be.ParamSpec, value: Any) -> Any:
-    if spec.kind == "bool":
-        return bool(value) and "on" in value
-    return value
-
-
-def _pid(key: str) -> Dict[str, str]:
-    """Component id of a parameter (Dash ids cannot contain dots)."""
-    return {"type": "param", "key": key.replace(".", "__")}
-
-
-def _spec(component_id: Dict[str, str]) -> be.ParamSpec:
-    return be.SPECS_BY_KEY[component_id["key"].replace("__", ".")]
-
-
-def _row_class(spec: be.ParamSpec) -> str:
-    if spec.kind == "bool":
-        return "param-row param-bool"
-    return "param-row" + (" param-stacked" if spec.kind in ("flags", "formulae", "elements") else "")
-
-
-def _row_id(key: str) -> Dict[str, str]:
-    return {"type": "param-row", "key": key.replace(".", "__")}
-
-
-def _param_control(spec: be.ParamSpec) -> html.Div:
-    pid = _pid(spec.key)
-    value = _to_ui(spec, spec.default)
-    help_icon = html.Span("?", className="help", title=spec.help) if spec.help else None
-    if spec.kind == "bool":
-        ctrl = dcc.Checklist(id=pid, options=[{"label": spec.label, "value": "on"}], value=value,
-                             className="param-check")
-        return html.Div([ctrl, help_icon], id=_row_id(spec.key), className=_row_class(spec), title=spec.help)
-    if spec.kind in ("int", "int_opt", "float", "float_opt"):
-        placeholder = {"clust.k_forced": "auto", "dbscan.eps": "default",
-                       "quant.num_CPU_cores": "auto"}.get(spec.key, "none" if spec.kind.endswith("_opt") else "")
-        ctrl = dcc.Input(id=pid, type="number", value=value, step="any", debounce=True,
-                         placeholder=placeholder, className="param-input")
-    elif spec.kind == "choice":
-        ctrl = dcc.Dropdown(id=pid, options=[{"label": str(c), "value": c} for c in spec.choices],
-                            value=value, clearable=False, className="param-dd")
-    elif spec.kind == "elements":
-        ctrl = dcc.Dropdown(id=pid, options=[], value=value, multi=True, placeholder="default",
-                            className="param-dd")
-    elif spec.kind == "flags":
-        ctrl = dcc.Checklist(
-            id=pid, value=value, className="flag-list",
-            options=[{"label": f"{f} · {m}", "value": f} for f, m in be.QUANT_FLAG_MEANINGS.items()],
-        )
-    elif spec.kind == "formulae":
-        ctrl = dcc.Textarea(id=pid, value=value, placeholder="MgO\nAl2O3\nMgAl2O4", className="param-text",
-                            rows=3)
-    else:
-        ctrl = dcc.Input(id=pid, type="text", value=value, debounce=True, className="param-input")
-    return html.Div(
-        [html.Label([spec.label, help_icon], className="param-label", title=spec.help), ctrl],
-        id=_row_id(spec.key), className=_row_class(spec),
-    )
-
-
-def _param_sections() -> List[html.Details]:
-    sections = []
-    for key, title in be.SECTIONS:
-        specs = [s for s in be.PARAM_SPECS if s.section == key]
-        note = _SECTION_NOTES.get(key)
-        summary = [html.Span(title)]
-        if note:
-            summary.append(html.Span(note, className="section-note"))
-        sections.append(html.Details(
-            [html.Summary(summary)] + [_param_control(s) for s in specs],
-            id={"type": "param-section", "key": key}, open=key in _OPEN_SECTIONS, className="param-section",
-        ))
-    return sections
-
-
-def active_params(values: Dict[str, Any], quantify: bool) -> Tuple[Dict[str, bool], Dict[str, bool]]:
-    """Which parameter sections and single parameters are used with the current settings."""
+def active_params(values: Dict[str, Any]) -> Tuple[Dict[str, bool], Dict[str, bool]]:
+    """Which analysis parameter sections and single parameters are used with the current settings."""
     method = values.get("clust.method")
     kmeans = method == "kmeans"
     auto_k = values.get("clust.k_forced") in (None, "")
     sections = {
-        "quant": quantify,
         "dbscan": method == "dbscan",
         "aitchison": values.get("clust.geometry") in ("aitchison", "auto"),
         "merge": kmeans and auto_k and bool(values.get("clust.auto_merge_clusters")),
@@ -237,7 +104,7 @@ def active_params(values: Dict[str, Any], quantify: bool) -> Tuple[Dict[str, boo
 def _header(results_dir: str) -> html.Div:
     return html.Div(
         [
-            html.Div([html.Span("AutoEMX", className="brand"), html.Span("Sample analysis", className="brand-sub")],
+            html.Div([html.Img(src=get_asset_url("autoemx-logo-dark.svg"), alt="AutoEMX", className="brand-logo")],
                      className="brand-box"),
             html.Div(
                 [
@@ -250,8 +117,28 @@ def _header(results_dir: str) -> html.Div:
                 className="folder-box",
             ),
             html.Div(id="scan-msg", className="scan-msg"),
+            html.Div(
+                [html.Span("Sample", className="header-label"),
+                 dcc.Dropdown(id="sample-dd", options=[], placeholder="Select a sample", clearable=False,
+                              className="header-sample")],
+                className="header-sample-box",
+            ),
         ],
         className="header",
+    )
+
+
+PAGES = [("acq", "Acquisition"), ("quant", "Quantification"), ("analysis", "Analysis"),
+         ("single", "Single spectrum")]
+
+
+def _nav() -> dcc.Tabs:
+    # Open on Acquisition on the microscope computer, else on Quantification
+    first = "acq" if be.microscope_status()[0] else "quant"
+    return dcc.Tabs(
+        id="main-tabs", value=first, className="main-tabs",
+        children=[dcc.Tab(label=label, value=value, className="main-tab", selected_className="main-tab--selected")
+                  for value, label in PAGES],
     )
 
 
@@ -261,7 +148,6 @@ def _sidebar() -> html.Div:
             html.Div(
                 [
                     html.Label("Sample", className="side-label"),
-                    dcc.Dropdown(id="sample-dd", options=[], placeholder="Select a sample", clearable=False),
                     html.Div(id="sample-info", className="sample-info"),
                 ],
                 className="side-block",
@@ -273,14 +159,13 @@ def _sidebar() -> html.Div:
                         html.Button("Load settings of shown analysis", id="load-settings-btn", className="btn btn-small",
                                     title="Fill the form with the settings of the analysis selected above the plot"),
                     ], className="side-title-row"),
-                    html.Div(_param_sections(), className="param-sections"),
+                    html.Div(param_sections(be.PARAM_SPECS, be.SECTIONS, _SECTION_NOTES, _OPEN_SECTIONS),
+                             className="param-sections"),
                 ],
                 className="side-block side-params",
             ),
             html.Div(
                 [
-                    dcc.Checklist(id="quantify-first", options=[{"label": "Quantify spectra first", "value": "on"}],
-                                  value=[], className="param-check quantify-check"),
                     html.Div([
                         html.Button("Run analysis", id="run-btn", className="btn btn-primary"),
                         html.Button("Cancel", id="cancel-btn", className="btn btn-danger", disabled=True),
@@ -343,6 +228,8 @@ def _spectrum_panel() -> html.Div:
                             title="Re-fit and quantify this spectrum to show the fitted model (≈10 s)"),
                 html.Button("Show in SEM image", id="show-image-btn", className="btn",
                             title="Show the image of the particle where this spectrum was collected"),
+                html.Button("Open in Single spectrum", id="to-single-btn", className="btn",
+                            title="Fit and quantify this spectrum with custom settings in the Single spectrum tab"),
                 dcc.Checklist(id="log-y", options=[{"label": "Log scale", "value": "on"}], value=[],
                               className="param-check"),
                 html.Span(id="fit-msg", className="fit-msg"),
@@ -418,6 +305,34 @@ def _main() -> html.Div:
     )
 
 
+def _periodic_table_modal() -> html.Div:
+    """Window with the periodic table of the elements quantifiable with the standards of a microscope."""
+    micros = be.available_microscopes()
+    return html.Div(
+        html.Div([
+            html.Div([html.B("Quantifiable elements"),
+                      html.Button("×", id="pt-close", className="btn btn-small", title="Close")],
+                     className="pt-head"),
+            html.Div([
+                html.Span("Microscope", className="axis-tag"),
+                dcc.Dropdown(id="pt-micro", options=[{"label": m, "value": m} for m in micros],
+                             value=be.dflt.microscope_ID, clearable=False, className="pt-dd"),
+                html.Span("Beam energy", className="axis-tag"),
+                dcc.Dropdown(id="pt-kv", options=[], clearable=False, className="pt-dd"),
+            ], className="pt-controls"),
+            html.Div(id="pt-info", className="pt-info"),
+            html.Div(id="pt-table"),
+            html.Div([
+                html.Span([html.Span(className="pt-swatch pt-quant"), " quantifiable"]),
+                html.Span([html.Span(className="pt-swatch"), " no standard"]),
+                html.Span([html.Span(className="pt-swatch pt-sample pt-quant"), " sample element"]),
+                html.Span([html.Span(className="pt-swatch pt-missing"), " sample element without standard"]),
+            ], className="pt-legend"),
+        ], className="pt-window"),
+        id="pt-modal", className="pt-backdrop", hidden=True,
+    )
+
+
 def build_layout(results_dir: str) -> html.Div:
     return html.Div(
         [
@@ -431,9 +346,16 @@ def build_layout(results_dir: str) -> html.Div:
             dcc.Store(id="mode-forced", data=False),
             dcc.Store(id="sem-paths"),
             dcc.Interval(id="poll", interval=1000, disabled=True),
+            dcc.Store(id="single-request"),
+            dcc.Store(id="pt-elements"),
             _header(results_dir),
-            html.Div([_sidebar(), _main()], className="body"),
+            _nav(),
+            html.Div(tab_acquisition.layout(), id="page-acq", className="body page", hidden=True),
+            html.Div(tab_quantification.layout(), id="page-quant", className="body page", hidden=True),
+            html.Div([_sidebar(), _main()], id="page-analysis", className="body page", hidden=True),
+            html.Div(tab_single.layout(), id="page-single", className="body page", hidden=True),
             html.Div(["If you use AutoEMX, please cite: ", _CITATION], className="footer"),
+            _periodic_table_modal(),
         ],
         className="app",
     )
@@ -442,11 +364,6 @@ def build_layout(results_dir: str) -> html.Div:
 # =============================================================================
 # Views
 # =============================================================================
-def _chip(label: str, value: Any, cls: str = "") -> html.Span:
-    return html.Span([html.Span(label, className="chip-label"), html.Span(str(value), className="chip-value")],
-                     className="chip " + cls)
-
-
 def _summary_view(info: be.SampleInfo, data: be.AnalysisData) -> List[Any]:
     s = data.summary
     chips = []
@@ -464,15 +381,6 @@ def _summary_view(info: be.SampleInfo, data: be.AnalysisData) -> List[Any]:
     chips.append(_chip("not quantified", s["n_not_quantified"], "chip-muted"))
     chips.append(_chip("method", f"{data.config.method} · {data.config.geometry} · {data.features}"))
     return chips
-
-
-def _fmt(v: Any, nd: int = 1) -> str:
-    try:
-        if v is None or (isinstance(v, float) and np.isnan(v)):
-            return "—"
-        return f"{float(v):.{nd}f}"
-    except (TypeError, ValueError):
-        return str(v)
 
 
 def _clusters_view(data: be.AnalysisData) -> List[Any]:
@@ -627,33 +535,6 @@ def _spectrum_info(data: be.AnalysisData, sid: str, fit: Optional[Dict[str, Any]
 # =============================================================================
 # Helpers
 # =============================================================================
-def _pick_folder() -> Optional[str]:
-    """Native folder dialog (in a subprocess, so it never blocks the server thread)."""
-    try:
-        if sys.platform == "darwin":
-            res = subprocess.run(
-                ["osascript", "-e", 'POSIX path of (choose folder with prompt "Select the AutoEMX results folder")'],
-                capture_output=True, text=True, timeout=600,
-            )
-        else:
-            code = ("import tkinter as tk; from tkinter import filedialog; r = tk.Tk(); r.withdraw(); "
-                    "r.attributes('-topmost', True); print(filedialog.askdirectory(title='Select the AutoEMX results folder'))")
-            res = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=600)
-    except Exception:
-        return None
-    path = res.stdout.strip()
-    return path.rstrip("/") if path else None
-
-
-def _open_path(path: str) -> None:
-    if sys.platform == "darwin":
-        subprocess.Popen(["open", path])
-    elif os.name == "nt":
-        os.startfile(path)  # type: ignore[attr-defined]
-    else:
-        subprocess.Popen(["xdg-open", path])
-
-
 def _default_axes(data: be.AnalysisData, current: List[Optional[str]]) -> List[str]:
     """Keep the current axes if valid; else use the elements spreading most between clusters."""
     els = data.detectable or data.elements
@@ -667,17 +548,6 @@ def _default_axes(data: be.AnalysisData, current: List[Optional[str]]) -> List[s
         else np.nanstd(X, axis=0) if len(X) else np.zeros(len(els))
     top = sorted(np.argsort(-np.nan_to_num(spread), kind="stable")[:3])
     return [els[i] for i in top]
-
-
-def _point_spectrum(click: Optional[Dict[str, Any]]) -> Optional[str]:
-    if not click or not click.get("points"):
-        return None
-    cd = click["points"][0].get("customdata")
-    if isinstance(cd, list) and cd:
-        return str(cd[0])
-    if isinstance(cd, (str, int, float)):
-        return str(cd)
-    return None
 
 
 # =============================================================================
@@ -694,7 +564,7 @@ def _log_callback_error(err: Exception) -> None:
 def create_app(results_dir: Optional[str] = None) -> Dash:
     app = Dash(
         __name__,
-        title="AutoEMX · Sample analysis",
+        title="AutoEMX",
         assets_folder=str(Path(__file__).with_name("assets")),
         suppress_callback_exceptions=False,
         on_error=_log_callback_error,
@@ -735,6 +605,98 @@ def create_app(results_dir: Optional[str] = None) -> Dash:
                 _png_cache.clear()
             _png_cache[key] = png
         return Response(png, mimetype="image/png")
+
+    # ---------------------------------------------------------------- pages
+    @app.callback(
+        Output("page-acq", "hidden"),
+        Output("page-quant", "hidden"),
+        Output("page-analysis", "hidden"),
+        Output("page-single", "hidden"),
+        Input("main-tabs", "value"),
+    )
+    def show_page(page):
+        # Pages stay in the layout (hidden), so they keep their state when switching
+        return tuple(page != value for value, _ in PAGES)
+
+    register_clear_buttons(app)
+
+    # ---------------------------------------------------------------- periodic table of quantifiable elements
+    @app.callback(
+        Output("pt-modal", "hidden"),
+        Output("pt-micro", "value"),
+        Output("pt-kv", "value"),
+        Output("pt-elements", "data"),
+        Input("a-pt-btn", "n_clicks"),
+        Input("q-pt-btn", "n_clicks"),
+        Input("pt-close", "n_clicks"),
+        State(_pid("amicro.microscope_ID"), "value"),
+        State(_pid("aacq.beam_energy"), "value"),
+        State({"type": "a-cell", "uid": ALL, "col": ALL}, "value"),
+        State("q-table", "selected_rows"),
+        State("q-table", "data"),
+        State("sample-dd", "value"),
+        prevent_initial_call=True,
+    )
+    def open_periodic_table(_a, _q, _c, micro, kv, _cells, q_selected, q_rows, sample_dir):
+        trig = ctx.triggered_id
+        if trig == "pt-close" or not ctx.triggered[0].get("value"):
+            return True, no_update, no_update, no_update
+        elements: List[str] = []
+        if trig == "a-pt-btn":
+            # Microscope and beam energy of the acquisition settings; elements of the samples to acquire
+            for cell in ctx.states_list[2]:
+                if cell["id"]["col"] == "els":
+                    try:
+                        elements += be._elements_list(cell.get("value"))
+                    except ValueError:
+                        pass
+        else:
+            # Microscope and beam energy of the ticked samples (or of the current sample)
+            dirs = [q_rows[i]["id"] for i in (q_selected or []) if q_rows and i < len(q_rows)] or \
+                ([sample_dir] if sample_dir else [])
+            summaries, _n = SUMMARIES.get(dirs)
+            micro, kv = be.dflt.microscope_ID, 15.0
+            if summaries:
+                first = next(iter(summaries.values()))
+                micro, kv = first.get("microscope") or micro, first.get("beam_energy_keV") or kv
+                for summ in summaries.values():
+                    elements += [e.strip() for e in (summ.get("elements") or "").split(",") if e.strip()]
+        return False, micro or be.dflt.microscope_ID, float(kv) if kv else 15.0, sorted(set(elements))
+
+    @app.callback(
+        Output("pt-kv", "options"),
+        Output("pt-table", "children"),
+        Output("pt-info", "children"),
+        Input("pt-micro", "value"),
+        Input("pt-kv", "value"),
+        Input("pt-elements", "data"),
+    )
+    def show_periodic_table(micro, kv, elements):
+        energies = be.standards_beam_energies(micro) if micro else []
+        values = sorted(set(energies) | ({float(kv)} if kv else set()))
+        options = [{"label": f"{e:g} kV" + ("" if e in energies else " (no standards)"), "value": e} for e in values]
+        if not micro or not kv:
+            return options, periodic_table(None), ""
+        available = be.quantifiable_elements(micro, kv)
+        elements = elements or []
+        if available is None:
+            info = html.Span(f"No P/B standards for {micro} at {kv:g} kV: spectra can be fitted but not quantified. "
+                             f"Standards are available at: {', '.join(f'{e:g} kV' for e in energies) or 'none'}.",
+                             className="err")
+        else:
+            missing = [e for e in elements if e not in available and e not in be._DEFAULT_UNDETECTABLE_ELS]
+            info = [html.Span(f"{len(available)} elements quantifiable with the standards of {micro} at {kv:g} kV "
+                              f"({be.dflt.measurement_mode} mode).")]
+            if missing:
+                info.append(html.Span(f" No standard for the sample element(s): {', '.join(missing)}.", className="err"))
+            elif elements:
+                info.append(html.Span(" All sample elements can be quantified.", className="ok"))
+        # Elements undetectable by EDS (e.g. Li) are not quantified anyway: not marked
+        detectable = [e for e in elements if e not in be._DEFAULT_UNDETECTABLE_ELS]
+        return options, periodic_table(available, detectable), info
+    tab_acquisition.register(app)
+    tab_quantification.register(app)
+    tab_single.register(app)
 
     # ---------------------------------------------------------------- folder / samples
     @app.callback(
@@ -811,7 +773,7 @@ def create_app(results_dir: Optional[str] = None) -> Dash:
             return [no_update] * len(outputs)
         ref = be.find_analysis(info, analysis_key) if ctx.triggered_id == "load-settings-btn" else None
         values = be.sample_param_values(info, ref)
-        return [_to_ui(_spec(o["id"]), values.get(_spec(o["id"]).key)) for o in outputs]
+        return [ui_value(o["id"], values) for o in outputs]
 
     @app.callback(
         Output("summary", "children"),
@@ -978,14 +940,13 @@ def create_app(results_dir: Optional[str] = None) -> Dash:
         Input(_pid("clust.k_forced"), "value"),
         Input(_pid("clust.auto_merge_clusters"), "value"),
         Input(_pid("clust.do_matrix_decomposition"), "value"),
-        Input("quantify-first", "value"),
     )
-    def grey_out_unused(method, geometry, k_forced, auto_merge, do_mixture, quantify):
+    def grey_out_unused(method, geometry, k_forced, auto_merge, do_mixture):
         values = {
             "clust.method": method, "clust.geometry": geometry, "clust.k_forced": k_forced,
             "clust.auto_merge_clusters": bool(auto_merge), "clust.do_matrix_decomposition": bool(do_mixture),
         }
-        sections, params = active_params(values, bool(quantify))
+        sections, params = active_params(values)
         section_classes = [
             "param-section" + ("" if sections.get(o["id"]["key"], True) else " disabled")
             for o in ctx.outputs_list[0]
@@ -1106,6 +1067,19 @@ def create_app(results_dir: Optional[str] = None) -> Dash:
         return fig, caption, counter, classes
 
     @app.callback(
+        Output("single-request", "data"),
+        Output("main-tabs", "value"),
+        Input("to-single-btn", "n_clicks"),
+        State("selected-spectrum", "data"),
+        State("sample-dd", "value"),
+        prevent_initial_call=True,
+    )
+    def open_in_single(n, sid, sample_dir):
+        if not sid or not sample_dir:
+            return no_update, no_update
+        return {"sample_dir": sample_dir, "spectrum_id": str(sid), "n": n}, "single"
+
+    @app.callback(
         Output("tabs", "value"),
         Input("show-image-btn", "n_clicks"),
         State("selected-spectrum", "data"),
@@ -1152,23 +1126,18 @@ def create_app(results_dir: Optional[str] = None) -> Dash:
         Output("run-msg", "children"),
         Input("run-btn", "n_clicks"),
         State({"type": "param", "key": ALL}, "value"),
-        State("quantify-first", "value"),
         State("sample-dd", "value"),
         prevent_initial_call=True,
     )
-    def run(_, __, quantify_first, sample_dir):
+    def run(_, __, sample_dir):
         if not sample_dir:
             return no_update, no_update, html.Span("Select a sample first.", className="err")
-        raw = {_spec(s["id"]).key: _from_ui(_spec(s["id"]), s.get("value")) for s in ctx.states_list[0]}
         try:
-            values = be.coerce_values(raw)
+            values = be.coerce_values(form_values(ctx.states_list[0]))
         except ValueError as exc:
             return no_update, no_update, html.Div([html.B("Invalid parameters: "), str(exc)], className="err")
-        quantify = bool(quantify_first)
-        payload = {"quantify": quantify, "analyse": True, "analysis_kwargs": be.analysis_kwargs(values)}
-        if quantify:
-            payload["quant_kwargs"] = be.quantification_kwargs(values)
-        desc = ("Quantification + analysis" if quantify else "Analysis") + f" of {Path(sample_dir).name}"
+        payload = {"quantify": False, "analyse": True, "analysis_kwargs": be.analysis_kwargs(values)}
+        desc = f"Analysis of {Path(sample_dir).name}"
         try:
             job = JOBS.start("analysis", sample_dir, payload, desc)
         except RuntimeError as exc:
@@ -1182,18 +1151,14 @@ def create_app(results_dir: Optional[str] = None) -> Dash:
         Input("fit-btn", "n_clicks"),
         State("selected-spectrum", "data"),
         State("sample-dd", "value"),
-        State(_pid("quant.fit_tolerance"), "value"),
-        State(_pid("quant.use_instrument_background"), "value"),
         prevent_initial_call=True,
     )
-    def fit(_, sid, sample_dir, fit_tol, use_bkg):
+    def fit(_, sid, sample_dir):
+        # Fitted with the settings of the sample's active quantification
         if not sid or not sample_dir:
             return no_update, no_update, "Select a spectrum first."
         try:
-            tol = float(fit_tol) if fit_tol not in (None, "") else 1e-4
-            job = JOBS.start("fit", sample_dir, {"spectrum_id": sid, "fit_tol": tol,
-                                                 "use_instrument_background": bool(use_bkg)},
-                             f"Fit of spectrum {sid}")
+            job = JOBS.start("fit", sample_dir, {"spectrum_id": sid}, f"Fit of spectrum {sid}")
         except RuntimeError as exc:
             return no_update, no_update, str(exc)
         return {"id": job.job_id, "done": False}, False, f"Fitting spectrum {sid}…"

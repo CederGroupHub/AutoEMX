@@ -91,6 +91,9 @@ def batch_quantify_and_analyze(
     standards_dict: Optional[dict] = None,
     spectrum_lims: Optional[tuple] = None,
     els_substrate: Optional[List[str]] = None,
+    fit_tolerance: Optional[float] = None,
+    requantify_only_unquantified_spectra: bool = False,
+    max_spectra_to_quantify: Optional[int] = None,
 ) -> List[EMXSp_Composition_Analyzer]:
     """
     Batch quantification and analysis for a list of samples.
@@ -167,6 +170,15 @@ def batch_quantify_and_analyze(
         Dictionary of reference PB values from experimental standards. Default : None.
         If None, dictionary of standards is loaded from the XSp_calibs/Your_Microscope_ID directory.
         Provide standards_dict only when providing different standards from those normally used for quantification.
+    fit_tolerance : float, optional
+        Tolerance for fit convergence. If None, uses ``fit_tolerance`` from the active quantification
+        configuration in each ledger (default 1e-4).
+    requantify_only_unquantified_spectra : bool, optional
+        Reuse the latest matching quantification run, but re-quantify only spectra without a
+        composition result (never quantified, or previously skipped/flagged). Default: False.
+    max_spectra_to_quantify : int, optional
+        Quantify at most this number of spectra per sample, among those that need quantification
+        (in acquisition order), e.g. for quick tests. None (default) quantifies all of them.
             
     Returns
     -------
@@ -292,6 +304,8 @@ def batch_quantify_and_analyze(
             quant_cfg.method = quantification_method
         if spectrum_lims is not None:
             quant_cfg.spectrum_lims = spectrum_lims
+        if fit_tolerance is not None:
+            quant_cfg.fit_tolerance = float(fit_tolerance)
         if use_project_specific_std_dict is not None:
             quant_cfg.use_project_specific_std_dict = use_project_specific_std_dict
         if use_instrument_background is not None:
@@ -331,8 +345,10 @@ def batch_quantify_and_analyze(
         try:
             comp_analyzer.run_quantification(
                 force_requantification=force_requantification,
+                requantify_only_unquantified_spectra=requantify_only_unquantified_spectra,
                 interrupt_fits_bad_spectra=interrupt_fits_bad_spectra,
                 num_CPU_cores=num_CPU_cores,
+                max_spectra_to_quantify=max_spectra_to_quantify,
             )
         except FileNotFoundError as e:
             logging.warning(f"Skipping sample '{sample_ID}': {e}")

@@ -48,6 +48,8 @@ from autoemx.web.reader_report import (
 _DEMO_FILE_CAP = 2
 _ACCEPT = sorted(SUPPORTED_UPLOAD_EXTENSIONS)
 _LICENSE_CONTACT = "IPO@lbl.gov"
+# Logo files are shared with the AutoEMX GUI
+_ASSETS = Path(__file__).resolve().parents[1] / "gui" / "assets"
 
 # (row, col) positions in the standard 18-column periodic table layout.
 # Lanthanides and actinides are placed in rows 9 and 10 (with a gap after row 7).
@@ -190,11 +192,14 @@ def _results_table(result: SpectrumFitResult):
 def main() -> None:
     st.set_page_config(
         page_title="AutoEMX SEM-EDS spectrum quantification",
+        page_icon=str(_ASSETS / "autoemx-icon-256.png"),
         layout="wide",
     )
     hosted = _is_hosted_demo()
 
-    st.title("AutoEMX SEM-EDS spectrum quantification")
+    dark = getattr(st.context.theme, "type", None) == "dark"
+    st.image(str(_ASSETS / ("autoemx-logo-dark.svg" if dark else "autoemx-logo.svg")), width=340)
+    st.title("SEM-EDS spectrum quantification")
     st.caption(
         "Scanning Electron Microscopy – Energy-Dispersive X-ray Spectroscopy "
         "(SEM-EDS). Upload one or more SEM-EDS spectra (``.msa``, ``.emsa``, ``.msg``), "
