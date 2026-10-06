@@ -1,6 +1,9 @@
 <div align="center">
 
-# AutoEMX 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/CederGroupHub/AutoEMX/main/docs/_static/logo/autoemx-logo-dark.svg">
+  <img src="https://raw.githubusercontent.com/CederGroupHub/AutoEMX/main/docs/_static/logo/autoemx-logo.svg" alt="AutoEMX" width="420">
+</picture>
 
 [![PyPI version](https://badge.fury.io/py/autoemx.svg)](https://pypi.org/project/autoemx/)
 [![Python Version](https://img.shields.io/pypi/pyversions/autoemx.svg)](https://pypi.org/project/autoemx/)
@@ -34,7 +37,7 @@ DOI: [https://doi.org/10.1038/s41467-026-76633-x](https://doi.org/10.1038/s41467
     - **Unsupervised machine learning–based analysis** to identify the compositions of individual phases in the sample  
 
 - **Browser GUI** — upload `.msa` / `.emsa` / `.msg` spectra, fit and quantify, inspect the overlay, and download PNG / TXT (`python -m autoemx.web`)
-- **Sample-analysis GUI** — set every quantification/clustering parameter, run the analysis of acquired samples, and explore the clusters in interactive 3D / ternary / 2D plots linked to the spectra (`python -m autoemx.gui path/to/Results`)
+- **AutoEMX GUI** — acquire spectra with the microscope, quantify the samples of a project, run their clustering analysis with every parameter and explore the clusters in interactive 3D / ternary / 2D plots linked to the spectra and SEM images, and fit/quantify single spectra (`python -m autoemx.gui path/to/Results`)
 - Scripts for **fitting and quantification** of single EDS spectra exported by proprietary commercial software (`.msa`, `.emsa`, `.msg`)
 
 - **Automated experimental standard collection** scripts
@@ -134,7 +137,7 @@ AutoEMX/
 │   ├── runners/                # Runner functions calling on core objects
 │   ├── scripts/                # Scripts to run acquisition, quantification, etc. (see full list below)
 │   ├── web/                    # Local Streamlit GUI (`python -m autoemx.web`)
-│   ├── gui/                    # Local sample-analysis GUI (`python -m autoemx.gui`)
+│   ├── gui/                    # Local GUI: acquisition, quantification, analysis, single spectrum (`python -m autoemx.gui`)
 │   ├── calibrations/             # X-ray spectral calibrations (⚠️ adapt to your own instrument for optimal accuracy)
 │   ├── utils/                  # Utility functions and strings employed by the program
 │

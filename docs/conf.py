@@ -40,11 +40,16 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
 html_js_files = ['expand_user_docs.js']
+html_logo = '_static/logo/autoemx-logo-dark.svg'
+html_favicon = '_static/logo/favicon.ico'
 
 # Render the full navigation tree on every page (with expand/collapse buttons),
 # so expand_user_docs.js can open the User Documentation section by default
 html_theme_options = {
     'collapse_navigation': False,
+    # Logo already spells the project name; navy matches the logo and the GUI header
+    'logo_only': True,
+    'style_nav_header_background': '#13263d',
 }
 
 
