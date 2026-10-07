@@ -88,6 +88,15 @@ Click **Fit and quantify** (or **Fit spectrum** when *quantify* is off). It take
 - The fitted peaks table gives the energy, FWHM, area, height and P/B ratio of each line.
   **Download CSV** saves the composition or the peaks.
 
+.. figure:: /_static/gui/gui_single_spectrum.png
+   :alt: Single spectrum tab
+   :target: ../../../_static/gui/gui_single_spectrum.png
+   :width: 100%
+   :align: center
+
+   A spectrum of the K-412 example fitted and quantified in the Single spectrum tab: data, fit,
+   background and residuals, with the composition and the fitted peaks below.
+
 For a quick check of a spectrum while exploring an analysis, **Fit spectrum** under the
 spectrum panel of the Analysis tab re-fits it with the settings of the active quantification,
 without leaving the tab.
@@ -131,3 +140,12 @@ Put the spectra of each sample in a folder, then:
 4. The new sample appears in the samples table: tick it and quantify it as above. With
    **Run analysis afterwards**, the clustering analysis runs right after; set the candidate
    phases and re-run it in the Analysis tab (Step 10 of :ref:`gui_comp_analysis_tutorial`).
+
+.. figure:: /_static/gui/gui_import.png
+   :alt: Import spectra folder dialog
+   :target: ../../../_static/gui/gui_import.png
+   :width: 100%
+   :align: center
+
+   **Import spectra folder…**: the number of spectra, beam energy and energy calibration are read from
+   the headers of the spectra, here those of the K-412 example.

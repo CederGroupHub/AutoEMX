@@ -36,6 +36,15 @@ show whether the microscope is connected and whether P/B standards exist at the 
 energy. **Quantifiable elements** shows the periodic table of the elements with standards.
 
 
+.. figure:: /_static/gui/gui_acquisition.png
+   :alt: Acquisition tab
+   :target: ../../../_static/gui/gui_acquisition.png
+   :width: 100%
+   :align: center
+
+   The Acquisition tab, with one sample to acquire (K-412) and its settings. On this computer the
+   microscope API is not installed, as the status chip at the top shows.
+
 Step 2 - Define the samples to analyse
 --------------------------------------
 
@@ -204,6 +213,15 @@ or on a more performant one (e.g. with more CPU cores) with access to the result
    are quantified one after the other, in the order of the table, with a progress bar per sample
    and the log. Cancelling keeps the spectra already quantified.
 
+.. figure:: /_static/gui/gui_quantification.png
+   :alt: Quantification tab
+   :target: ../../../_static/gui/gui_quantification.png
+   :width: 100%
+   :align: center
+
+   The Quantification tab, with the K-412 sample ticked. Below the table, its quantification runs and the
+   quant flags of the active run.
+
 Click a sample in the table to show its quantification runs (settings, number of quantified
 spectra, quant flags; see :ref:`quant_flags`) and the flags of its active run.
 **Analyse this sample →** opens it in the Analysis tab.
@@ -262,6 +280,33 @@ afterwards**. To run the analysis again with other parameters, open the **Analys
    background and the background counts under the reference peaks. **Open in Single
    spectrum** opens it in the Single spectrum tab, to fit it with other settings (see
    :ref:`gui_fit_spectra_tutorial`).
+
+.. figure:: /_static/gui/gui_analysis.png
+   :alt: Analysis tab, 3D clustering plot
+   :target: ../../../_static/gui/gui_analysis.png
+   :width: 100%
+   :align: center
+
+   Clustering of the K-412 NIST glass standard (example sample ``K-412_NISTstd_example`` in ``examples/Results``), with **Zoom to data** on. Spectrum 15 is selected in the plot and fitted with
+   **Fit spectrum** (right). Grey diamonds are spectra discarded by the filters.
+
+.. figure:: /_static/gui/gui_ternary.png
+   :alt: Analysis tab, ternary plot
+   :target: ../../../_static/gui/gui_ternary.png
+   :width: 100%
+   :align: center
+
+   The same analysis as a ternary plot of Mg, Ca and Si (normalised atomic fractions), with the candidate
+   phases and the best mixture of each cluster.
+
+.. figure:: /_static/gui/gui_clusters.png
+   :alt: Analysis tab, Clusters view
+   :target: ../../../_static/gui/gui_clusters.png
+   :width: 100%
+   :align: center
+
+   The *Clusters* view: composition of each cluster, matching candidate phases and mixtures of candidate
+   phases, with their confidence.
 
 Previous analyses of a sample can be selected in the **Analysis** menu above the plot.
 

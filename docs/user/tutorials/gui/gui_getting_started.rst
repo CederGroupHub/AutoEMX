@@ -9,6 +9,15 @@ explore the results in interactive 3D plots, and fit single spectra. It runs the
 the scripts and reads and writes the same sample folders, so you can switch between the GUI and
 the scripts at any time.
 
+.. figure:: /_static/gui/gui_analysis.png
+   :alt: AutoEMX GUI, Analysis tab
+   :target: ../../../_static/gui/gui_analysis.png
+   :width: 100%
+   :align: center
+
+   The Analysis tab of the AutoEMX GUI, with the clustering of the K-412 NIST glass standard (example sample ``K-412_NISTstd_example`` in ``examples/Results``): interactive 3D plot of the
+   compositions on the left, and a spectrum and its fit on the right.
+
 It runs **locally**: a small server on your computer (``127.0.0.1``) shows the interface in
 your browser. It reads and writes the sample folders on your disk, and nothing is uploaded
 anywhere.
@@ -105,3 +114,12 @@ Helpful features shared by all tabs:
 - The Quantification table reads the ledger of every sample; on cloud drives, ledgers not
   stored locally can take a few seconds each to download the first time. Summaries are cached
   in ``~/.autoemx/gui_sample_summaries.json`` and only re-read when a ledger changes.
+
+.. figure:: /_static/gui/gui_periodic_table.png
+   :alt: Periodic table of quantifiable elements
+   :target: ../../../_static/gui/gui_periodic_table.png
+   :width: 100%
+   :align: center
+
+   **Quantifiable elements**: elements with P/B standards for the PhenomXL at 15 kV. The elements of the
+   ticked sample (here K-412) are outlined in orange.
