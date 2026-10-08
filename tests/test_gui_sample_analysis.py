@@ -282,6 +282,10 @@ def test_acquisition_settings():
     log = "Sample 'Anorthite'\n🔬 Acquiring spectrum #0...\n🔬 Acquiring spectrum #1...\nSample 'B'\n🔬 Acquiring spectrum #2..."
     progress = be.acquisition_progress(log, ["Anorthite", "B", "C"], 100)
     assert [(p["state"], p["done"]) for p in progress] == [("done", 2), ("running", 1), ("waiting", 0)]
+    log = ("Sample 'A'\n🔬 Acquiring spectrum #0...\n12:00:00 ERROR: Sample 'A': acquisition/quantification failed: "
+           "no particles found\nTraceback...\nSample 'B'\n🔬 Acquiring spectrum #0...")
+    progress = be.acquisition_progress(log, ["A", "B"], 100)
+    assert [(p["state"], p["error"]) for p in progress] == [("failed", "no particles found"), ("running", None)]
 
 
 def test_import_spectra_folder(tmp_path: Path):

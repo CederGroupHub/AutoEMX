@@ -1207,8 +1207,8 @@ def acquisition_script(samples: List[Dict[str, Any]], kwargs: Dict[str, Any], re
 
 
 def acquisition_progress(log_text: str, sample_ids: List[str], max_n: int) -> List[Dict[str, Any]]:
-    """Progress of each sample of an acquisition (spectra acquired), parsed from its log."""
-    progress = [{"sample": sid, "state": "waiting", "done": 0, "total": max_n} for sid in sample_ids]
+    """Progress of each sample of an acquisition (spectra acquired, or why it failed), parsed from its log."""
+    progress = [{"sample": sid, "state": "waiting", "done": 0, "total": max_n, "error": None} for sid in sample_ids]
     positions = []
     for i, sid in enumerate(sample_ids):
         idx = log_text.find(f"Sample '{sid}'")
@@ -1219,8 +1219,14 @@ def acquisition_progress(log_text: str, sample_ids: List[str], max_n: int) -> Li
         end = positions[k + 1][0] if k + 1 < len(positions) else len(log_text)
         progress[i]["state"] = "running"
         progress[i]["done"] = len(re.findall(r"Acquiring spectrum #\d+", log_text[start:end]))
+        # Logged by batch_acquire_and_analyze when a sample fails (the batch goes on with the next one)
+        failed = re.search(rf"Sample '{re.escape(progress[i]['sample'])}': acquisition/quantification failed: (.*)",
+                           log_text[start:end])
+        if failed:
+            progress[i]["state"], progress[i]["error"] = "failed", failed.group(1).strip()
     for _start, i in positions[:-1]:
-        progress[i]["state"] = "done"
+        if progress[i]["state"] == "running":
+            progress[i]["state"] = "done"
     return progress
 
 
@@ -1507,13 +1513,33 @@ def _run_acquisition(_: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     from autoemx.runners.batch_acquire_and_analyze import batch_acquire_and_analyze
 
     print(f"Acquiring {len(payload['samples'])} sample(s) into {payload['results_dir']}", flush=True)
-    batch_acquire_and_analyze(
-        samples=payload["samples"],
-        results_dir=payload["results_dir"],
-        development_mode=False,
-        verbose=True,
-        **payload["kwargs"],
-    )
+    report = payload.get("report")  # run started by an external program: report each sample
+    on_sample_done = None
+    if report:
+        from autoemx.gui import run_report
+
+        def on_sample_done(sample_id, error):
+            run_report.sample_done(report, sample_id, error)
+            run_report.write_report(report)
+
+    try:
+        batch_acquire_and_analyze(
+            samples=payload["samples"],
+            results_dir=payload["results_dir"],
+            development_mode=False,
+            verbose=True,
+            on_sample_done=on_sample_done,
+            **payload["kwargs"],
+        )
+    except Exception as exc:
+        if report:
+            run_report.finish_report(report, "failed", f"{type(exc).__name__}: {exc}")
+            run_report.write_report(report)
+        raise
+    if report:
+        # Final here too, in case the GUI server is gone (the run goes on if its window was closed)
+        run_report.finish_report(report, "finished")
+        run_report.write_report(report)
     return {"samples": [s["ID"] for s in payload["samples"]]}
 
 

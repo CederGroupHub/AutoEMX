@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Launch the AutoEMX GUI: ``python -m autoemx.gui [results_folder]``."""
+"""Launch the AutoEMX GUI: ``python -m autoemx.gui [results_folder] [--samples samples.json]``."""
 
 from __future__ import annotations
 
@@ -15,8 +15,11 @@ import stat
 import subprocess
 import sys
 import threading
+import time
+import uuid
 import webbrowser
 from pathlib import Path
+from urllib.parse import urlencode
 
 LAUNCHER_NAME = "AutoEMX"
 OLD_LAUNCHER_NAMES = ("AutoEMX GUI",)  # replaced by LAUNCHER_NAME when the launcher is created again
@@ -24,11 +27,99 @@ LAUNCHER_ICON = Path(__file__).with_name("assets") / "autoemx-icon-512.png"
 LAUNCHER_ICON_WINDOWS = Path(__file__).with_name("assets") / "autoemx-icon.ico"
 # On Windows, the .bat run by the Desktop shortcut is kept here (a .bat cannot have its own icon)
 WINDOWS_LAUNCHERS_DIR = Path.home() / ".autoemx" / "launchers"
+# Output of the GUIs started in the background by open_acquisition (macOS, Linux)
+BACKGROUND_LOGS_DIR = Path.home() / ".autoemx" / "logs"
+
+
+def acquisition_url(samples: Optional[list] = None, results_folder: Optional[str] = None, port: int = 8050,
+                    run_id: Optional[str] = None) -> str:
+    """
+    URL of the GUI opening the Acquisition tab with these samples and results folder filled in.
+
+    *samples* are as in ``Run_Acquisition.py``: ``{'ID', 'els', 'pos': (x, y), 'cnd'}``. With a *run_id*,
+    the runs started from that page are reported (see ``acquisition_report``).
+    """
+    url = f"http://127.0.0.1:{port}/"
+    acq: dict = {}
+    if results_folder:
+        acq["folder"] = os.path.abspath(os.path.expanduser(results_folder))
+    if samples is not None:
+        acq["samples"] = list(samples)
+    if run_id is not None:
+        from autoemx.gui.run_report import clean_run_id
+
+        acq["run_id"] = clean_run_id(run_id)
+    return f"{url}?{urlencode({'acq': json.dumps(acq)})}" if acq else url
+
+
+def _read_samples_file(path: str) -> tuple:
+    """Samples, results folder and run ID (None if not given) of a JSON file: a list of samples, or
+    ``{"folder", "samples", "run_id"}``."""
+    with open(os.path.expanduser(path), encoding="utf-8") as f:
+        data = json.load(f)
+    if isinstance(data, list):
+        return data, None, None
+    if isinstance(data, dict) and isinstance(data.get("samples"), list):
+        return data["samples"], data.get("folder"), data.get("run_id")
+    raise ValueError('expected a list of samples, or {"folder": ..., "samples": [...], "run_id": ...}')
 
 
 def _port_in_use(port: int) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         return sock.connect_ex(("127.0.0.1", port)) == 0
+
+
+def open_acquisition(samples: list, results_folder: Optional[str] = None, port: int = 8050,
+                     run_id: Optional[str] = None, open_browser: bool = True, timeout: float = 120.0) -> str:
+    """
+    Open the Acquisition tab of the GUI with these samples and results folder filled in, and return the ID
+    of the run (*run_id*, or a new one), to get its report with ``acquisition_report`` or
+    ``wait_for_acquisition``. Meant for external scripts: it returns once the GUI is ready, without waiting
+    for the acquisition.
+
+    *samples* are as in ``Run_Acquisition.py``: ``{'ID', 'els', 'pos': (x, y), 'cnd'}``. *run_id*: letters,
+    digits, '-' or '_'. If the user starts several acquisitions from the page, the report is of the last one.
+
+    If a GUI already runs on *port*, it is used. Otherwise one is started in the background, with the
+    current Python interpreter, and keeps running after the calling script ends:
+
+    - Windows: in its own console window; close it to stop the GUI.
+    - macOS, Linux: without a window, its output written to ``~/.autoemx/logs/gui_<port>.log``;
+      stop it with ``kill`` (the PID is in the log).
+
+    Raises ``RuntimeError`` if the GUI could not be started within *timeout* seconds.
+    """
+    run_id = run_id if run_id is not None else uuid.uuid4().hex[:12]
+    url = acquisition_url(samples, results_folder, port, run_id)  # checks the run ID and that samples are JSON
+    if not _port_in_use(port):
+        cmd = [sys.executable, "-m", "autoemx.gui", "--port", str(port), "--no-browser"]
+        if results_folder:
+            cmd.append(os.path.abspath(os.path.expanduser(results_folder)))
+        env = dict(os.environ)
+        package_parent = str(Path(__file__).resolve().parents[2])  # also works if AutoEMX is not installed
+        env["PYTHONPATH"] = os.pathsep.join(p for p in (package_parent, env.get("PYTHONPATH")) if p)
+        if os.name == "nt":
+            log = None
+            proc = subprocess.Popen(cmd, env=env, cwd=str(Path.home()),
+                                    creationflags=subprocess.CREATE_NEW_CONSOLE)
+        else:
+            BACKGROUND_LOGS_DIR.mkdir(parents=True, exist_ok=True)
+            log = BACKGROUND_LOGS_DIR / f"gui_{port}.log"
+            with open(log, "w", encoding="utf-8") as out:
+                proc = subprocess.Popen(cmd, env=env, cwd=str(Path.home()), stdin=subprocess.DEVNULL,
+                                        stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
+                out.write(f"AutoEMX GUI, PID {proc.pid}\n")
+        deadline = time.monotonic() + timeout
+        while not _port_in_use(port):
+            if proc.poll() is not None or time.monotonic() > deadline:
+                if proc.poll() is None:
+                    proc.kill()
+                where = f" See {log}." if log else ""
+                raise RuntimeError(f"The AutoEMX GUI could not be started on port {port}.{where}")
+            time.sleep(0.3)
+    if open_browser:
+        webbrowser.open(url)
+    return run_id
 
 
 def _set_macos_icon(path: Path) -> bool:
@@ -175,6 +266,10 @@ def main(argv=None) -> None:
     )
     parser.add_argument("results_folder", nargs="?", default=None,
                         help="Folder containing the sample folders (default: ./Results if present, else none).")
+    parser.add_argument("--samples", default=None, metavar="JSON",
+                        help="JSON file of samples to acquire, as in Run_Acquisition.py (a list, or "
+                             '{"folder": ..., "samples": [...], "run_id": ...}): opens the Acquisition tab with '
+                             "them filled in. With a run_id, each run is reported (see autoemx.gui.acquisition_report).")
     parser.add_argument("--port", type=int, default=8050, help="Local port (default: 8050).")
     parser.add_argument("--no-browser", action="store_true", help="Do not open a browser tab.")
     parser.add_argument("--debug", action="store_true", help="Dash debug mode (auto-reload, error pop-ups).")
@@ -200,11 +295,22 @@ def main(argv=None) -> None:
         sys.exit(1)
 
     url = f"http://127.0.0.1:{args.port}/"
+    open_url = url
+    if args.samples:
+        try:
+            samples, samples_folder, run_id = _read_samples_file(args.samples)
+            open_url = acquisition_url(samples, args.results_folder or samples_folder, args.port, run_id)
+        except (OSError, ValueError) as exc:
+            print(f"Cannot read the samples file {args.samples}: {exc}", file=sys.stderr)
+            sys.exit(1)
     if _port_in_use(args.port):
         # Most likely the GUI is already running (e.g. launcher double-clicked twice).
+        # The samples, if any, are passed to it in the URL.
         print(f"Port {args.port} is already in use; opening {url}. Use --port to start another instance.")
         if not args.no_browser:
-            webbrowser.open(url)
+            webbrowser.open(open_url)
+        elif open_url != url:
+            print(f"Open the samples with: {open_url}")
         return
 
     os.environ.setdefault("MPLBACKEND", "Agg")
@@ -216,8 +322,10 @@ def main(argv=None) -> None:
     app = create_app(os.path.abspath(folder) if folder else None)
 
     print(f"AutoEMX GUI running at {url}  (Ctrl+C to stop)")
+    if args.no_browser and open_url != url:
+        print(f"Open the samples with: {open_url}")
     if not args.no_browser:
-        threading.Timer(1.2, lambda: webbrowser.open(url)).start()
+        threading.Timer(1.2, lambda: webbrowser.open(open_url)).start()
     try:
         # Bound to localhost only: the GUI reads and writes your local files.
         app.run(host="127.0.0.1", port=args.port, debug=args.debug, use_reloader=False)

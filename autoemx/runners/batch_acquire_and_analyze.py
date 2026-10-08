@@ -33,7 +33,7 @@ Created on Fri Jul 26 09:34:34 2024
 """
 
 import logging
-from typing import List, Dict, Tuple, Any, Optional, Sequence
+from typing import List, Dict, Tuple, Any, Optional, Sequence, Callable
 
 from autoemx.core.composition_analysis import EMXSp_Composition_Analyzer
 from autoemx.core.em_runtime.xsp_spot_selection import XSpSpotSelectorCallback
@@ -110,6 +110,7 @@ def batch_acquire_and_analyze(
     xsp_spot_selector: Optional[XSpSpotSelectorCallback] = None,
     particle_ids: Optional[Sequence[int]] = None,
     particle_coords_mm: Optional[Sequence[Sequence[float]]] = None,
+    on_sample_done: Optional[Callable[[str, Optional[BaseException]], None]] = None,
 ) -> EMXSp_Composition_Analyzer:
     """
     Batch acquisition (and optional quantification) of X-ray spectra for a list of powder samples.
@@ -279,6 +280,14 @@ def batch_acquire_and_analyze(
         Global list of absolute stage coordinates in mm to visit when
         ``par_selection_mode='list'``. Mutually exclusive with ``particle_ids``.
         Can be overridden per sample via ``sample['particle_coords_mm']``.
+    on_sample_done : callable, optional
+        Called after each sample with its ID and ``None`` if it was acquired (and quantified)
+        successfully, or the exception that made it fail (the batch then continues with the
+        next sample). Signature::
+
+            on_sample_done(sample_id: str, error: Optional[BaseException])
+
+        Errors raised by the callback are logged and do not stop the batch.
     
             
     Returns
@@ -475,11 +484,17 @@ def batch_acquire_and_analyze(
             particle_coords_mm=sample_particle_coords_mm,
         )
         
+        error: Optional[BaseException] = None
         try:
             comp_analyzer.run_collection_and_quantification(quantify=quantify_spectra, interrupt_fits_bad_spectra=interrupt_fits_bad_spectra)
         except Exception as e:
             logging.exception(f"Sample '{sample_ID}': acquisition/quantification failed: {e}")
-            continue
+            error = e
+        if on_sample_done is not None:
+            try:
+                on_sample_done(sample_ID, error)
+            except Exception as e:
+                logging.warning(f"Sample '{sample_ID}': on_sample_done callback failed: {e}")
     
     # Put microscope in standby after completion
     if (

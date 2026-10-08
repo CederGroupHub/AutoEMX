@@ -348,6 +348,8 @@ def build_layout(results_dir: str) -> html.Div:
             dcc.Interval(id="poll", interval=1000, disabled=True),
             dcc.Store(id="single-request"),
             dcc.Store(id="pt-elements"),
+            # Query string of the page URL: samples to acquire given by an external script (?acq=...)
+            dcc.Location(id="url", refresh=False),
             _header(results_dir),
             _nav(),
             html.Div(tab_acquisition.layout(), id="page-acq", className="body page", hidden=True),

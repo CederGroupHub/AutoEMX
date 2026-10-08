@@ -52,7 +52,7 @@ dependencies = [
     "opencv-python>=4.10.0,<=4.12.0.88",
     "pillow>=10.0.1",
     "streamlit>=1.32,<=1.48.1",
-    "dash>=2.17,<=4.4.1"
+    "dash>=2.18,<=4.4.1"
 ]
 
 [project.optional-dependencies]
@@ -63,7 +63,7 @@ web = [
     "streamlit>=1.32,<=1.48.1",
 ]
 gui = [
-    "dash>=2.17,<=4.4.1",
+    "dash>=2.18,<=4.4.1",
 ]
 
 [tool.pytest.ini_options]

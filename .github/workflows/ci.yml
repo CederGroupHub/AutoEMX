@@ -33,4 +33,4 @@ jobs:
           MPLBACKEND: Agg
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          pytest -q tests/test_ci_smoke.py
+          pytest -q tests/test_ci_smoke.py tests/test_gui_external_acquisition.py

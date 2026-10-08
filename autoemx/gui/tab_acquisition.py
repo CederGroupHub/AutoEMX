@@ -4,17 +4,25 @@
 Acquisition tab of the AutoEMX GUI: acquire (and optionally quantify) the spectra of a list of
 samples with the electron microscope (``batch_acquire_and_analyze``), with every option of
 ``Run_Acquisition.py``. Settings and the sample list are kept in the browser between sessions.
+
+The results folder and the samples can be given in the page URL (``?acq=<JSON>``), e.g. by an external
+script; see ``prefill_from_query``. With a run ID, the runs started from that page are reported to it
+(see ``run_report``).
 """
 
 from __future__ import annotations
 
+import json
 import os
+import threading
 import uuid
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+from urllib.parse import parse_qs
 
 from dash import ALL, Input, Output, State, ctx, dcc, html, no_update
 
 from autoemx.gui import backend as be
+from autoemx.gui import run_report
 from autoemx.gui.common import JOBS, _chip, _pid, _row_class, _spec, form_values, param_sections
 
 _NOTES = {
@@ -62,6 +70,60 @@ def _rows_from_cells(cells: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         uid, col = cell["id"]["uid"], cell["id"]["col"]
         rows.setdefault(uid, {"uid": uid})[col] = cell.get("value")
     return list(rows.values())
+
+
+def _row_from_sample(smp: Any) -> Dict[str, Any]:
+    """Row of the samples list from a sample of ``Run_Acquisition.py`` (``{'ID', 'els', 'pos', 'cnd'}``)."""
+    if not isinstance(smp, dict):
+        raise ValueError("each sample must be a dict with keys 'ID', 'els', 'pos', 'cnd'")
+    pos = smp.get("pos")
+    if pos is None:
+        x = y = None
+    elif isinstance(pos, (list, tuple)) and len(pos) == 2:
+        x, y = pos
+    else:
+        raise ValueError(f"sample {smp.get('ID')}: 'pos' must be [x, y] (mm)")
+
+    def text(value):
+        return ", ".join(str(v) for v in value) if isinstance(value, (list, tuple)) else str(value or "")
+
+    return {"uid": uuid.uuid4().hex[:8], "ID": str(smp.get("ID") or ""), "els": text(smp.get("els")),
+            "x": x, "y": y, "cnd": text(smp.get("cnd"))}
+
+
+def prefill_from_query(search: Optional[str]) -> Optional[Dict[str, Any]]:
+    """
+    Results folder and sample rows given in the query string of the page URL, or None if there are none.
+
+    The query is ``?acq=<URL-encoded JSON>``, with the JSON ``{"folder": ..., "samples": [...], "run_id": ...}``
+    (all keys optional) and the samples as in ``Run_Acquisition.py``: ``{"ID", "els", "pos": [x, y], "cnd"}``,
+    with ``els`` and ``cnd`` as lists or comma-separated text. Raises ``ValueError`` if the value is not valid.
+    """
+    values = parse_qs((search or "").lstrip("?")).get("acq")
+    if not values:
+        return None
+    try:
+        data = json.loads(values[0])
+    except ValueError:
+        raise ValueError("not valid JSON") from None
+    if not isinstance(data, dict):
+        raise ValueError("expected a JSON object with keys 'folder' and 'samples'")
+    folder, samples = data.get("folder"), data.get("samples")
+    if folder is not None and not isinstance(folder, str):
+        raise ValueError("'folder' must be a path")
+    if samples is not None and not isinstance(samples, list):
+        raise ValueError("'samples' must be a list")
+    run_id = data.get("run_id")
+    return {"folder": folder or None, "rows": [_row_from_sample(s) for s in samples or []],
+            "run_id": run_report.clean_run_id(run_id) if run_id is not None else None}
+
+
+def _prefill_rows(search: Optional[str]) -> List[Dict[str, Any]]:
+    try:
+        prefill = prefill_from_query(search)
+    except ValueError:
+        return []  # reported by the prefill callback
+    return prefill["rows"] if prefill else []
 
 
 # =============================================================================
@@ -129,6 +191,7 @@ def layout() -> List[Any]:
                                           "on the microscope computer"),
                         html.Span(id="a-folder-msg", className="muted"),
                     ], className="q-table-actions"),
+                    html.Div(id="a-prefill-msg", className="run-msg"),
                     html.Div(id="a-rows", className="a-rows"),
                     html.Div(id="a-table-msg", className="run-msg"),
                 ],
@@ -151,6 +214,8 @@ def layout() -> List[Any]:
     )
     return [
         dcc.Store(id="a-job-store"),
+        # Run ID and samples given in the page URL by an external program, to report the runs to it
+        dcc.Store(id="a-link"),
         # Sample list, kept in the browser between sessions
         dcc.Store(id="a-saved-rows", storage_type="local"),
         dcc.Interval(id="a-poll", interval=2000, disabled=True),
@@ -188,13 +253,14 @@ def _progress_view(progress: List[Dict[str, Any]]) -> List[Any]:
         frac = min(1.0, p["done"] / p["total"]) if p["total"] else 0.0
         label = {"waiting": "waiting", "running": f"{p['done']} / {p['total']} spectra",
                  "done": f"done · {p['done']} spectra", "failed": "failed"}[p["state"]]
+        error = [html.Div(p["error"], className="err q-prog-error")] if p.get("error") else []
         items.append(html.Div([
             html.Div([html.Span(p["sample"], className="q-prog-name"), html.Span(label, className="muted")],
                      className="q-prog-head"),
             html.Div(html.Div(className=f"q-bar-fill q-{p['state']}",
                               style={"width": f"{100 * (1.0 if p['state'] == 'done' else frac):.0f}%"}),
                      className="q-bar"),
-        ], className="q-prog-item"))
+        ] + error, className="q-prog-item"))
     return items
 
 
@@ -235,14 +301,20 @@ def register(app) -> None:
         Input("a-add-row", "n_clicks"),
         Input({"type": "a-del", "uid": ALL}, "n_clicks"),
         Input({"type": "a-copy", "uid": ALL}, "n_clicks"),
+        Input("url", "search"),
         State({"type": "a-cell", "uid": ALL, "col": ALL}, "value"),
         State("a-saved-rows", "data"),
     )
-    def render_rows(_add, deletes, _copies, _cells, saved):
+    def render_rows(_add, deletes, _copies, search, _cells, saved):
         # Rows are re-drawn only when a sample is added or removed, not while typing in them
         trig = ctx.triggered_id
-        if trig is None:  # page load: rows saved in the browser, or an example
-            rows = [r for r in (saved or []) if isinstance(r, dict)] or [dict(_EXAMPLE_ROW)]
+        if trig in (None, "url"):
+            # Page load: samples given in the URL, else rows saved in the browser, or an example
+            rows = _prefill_rows(search)
+            if not rows:
+                if ctx.states_list[0]:  # rows already drawn: keep them
+                    return no_update
+                rows = [r for r in (saved or []) if isinstance(r, dict)] or [dict(_EXAMPLE_ROW)]
         else:
             rows = _rows_from_cells(ctx.states_list[0])
             if trig == "a-add-row":
@@ -265,6 +337,47 @@ def register(app) -> None:
         for r in rows:
             r.setdefault("uid", uuid.uuid4().hex[:8])
         return _sample_rows(rows)
+
+    @app.callback(
+        Output("a-prefill-msg", "children"),
+        Output("folder", "value", allow_duplicate=True),
+        Output("main-tabs", "value", allow_duplicate=True),
+        Output("a-link", "data"),
+        Input("url", "search"),
+        prevent_initial_call="initial_duplicate",
+    )
+    def prefill(search):
+        # Results folder and samples given in the URL (the rows are drawn by render_rows)
+        try:
+            data = prefill_from_query(search)
+        except ValueError as exc:
+            return html.Span(f"The samples given in the link could not be read: {exc}", className="err"), \
+                no_update, "acq", None
+        if data is None:
+            return no_update, no_update, no_update, no_update
+        n = len(data["rows"])
+        msg = [html.Span(f"{n} sample{'s' if n != 1 else ''} loaded from the link.", className="ok")] if n else []
+        link = None
+        if data["run_id"]:
+            link = {"run_id": data["run_id"], "requested": [r["ID"] for r in data["rows"]]}
+            msg.append(html.Span(f" Runs are reported to the program that opened this page "
+                                 f"(run {data['run_id']}).", className="muted"))
+        return msg, data["folder"] or no_update, "acq", link
+
+    # Remove the samples from the address bar once loaded, so that reloading the page keeps the edits
+    app.clientside_callback(
+        """
+        function(_) {
+            if (window.location.search.indexOf('acq=') >= 0) {
+                window.history.replaceState(window.history.state, '', window.location.pathname + window.location.hash);
+            }
+            return window.dash_clientside.no_update;
+        }
+        """,
+        Output("a-prefill-msg", "title"),
+        Input("a-prefill-msg", "children"),
+        prevent_initial_call=True,
+    )
 
     @app.callback(
         Output({"type": "aparam", "key": ALL}, "value"),
@@ -355,19 +468,33 @@ def register(app) -> None:
         State({"type": "aparam", "key": ALL}, "value"),
         State({"type": "a-cell", "uid": ALL, "col": ALL}, "value"),
         State("folder", "value"),
+        State("a-link", "data"),
         prevent_initial_call=True,
     )
-    def run(_, __, ___, folder):
+    def run(_, __, ___, folder, link):
         try:
             samples, kwargs = _settings(ctx.states_list[0], _rows_from_cells(ctx.states_list[1]), folder)
         except ValueError as exc:
             return no_update, no_update, html.Div([html.B("Invalid settings: "), str(exc)], className="err")
         payload = {"samples": samples, "kwargs": kwargs, "results_dir": os.path.abspath(os.path.expanduser(folder))}
         desc = f"Acquisition of {len(samples)} sample{'s' if len(samples) > 1 else ''}"
+        report = None
+        if link and link.get("run_id"):
+            report = run_report.new_report(link["run_id"], [s["ID"] for s in samples], payload["results_dir"],
+                                           link.get("requested"))
+            payload["report"] = report
+            # Written before the job process updates it, so that a report of a previous run is never read
+            run_report.write_report(report)
         try:
             job = JOBS.start("acquisition", "", payload, desc)
         except RuntimeError as exc:
+            if report:
+                run_report.finish_report(report, "failed", str(exc))
+                run_report.write_report(report)
             return no_update, no_update, html.Span(str(exc), className="err")
+        if report:
+            threading.Thread(target=run_report.follow_job, args=(job, report), name=f"report-{report['run_id']}",
+                             daemon=False).start()
         return ({"id": job.job_id, "done": False, "samples": [s["ID"] for s in samples],
                  "max_n": kwargs["max_n_spectra"]}, False, html.Span(f"{desc} started…", className="running"))
 
@@ -399,13 +526,18 @@ def register(app) -> None:
         for p in progress:
             if p["state"] == "running":
                 p["state"] = "done" if res.get("ok") else "failed"
-        if res.get("ok"):
+        failed = [p["sample"] for p in progress if p["state"] == "failed"]
+        if res.get("ok") and failed:
+            msg = html.Span(f"{job.description} finished in {job.elapsed() / 60:.1f} min. "
+                            f"{len(failed)} of {len(progress)} samples failed: {', '.join(failed)} "
+                            "(see below, and the log).", className="warn")
+        elif res.get("ok"):
             msg = html.Span(f"{job.description} finished in {job.elapsed() / 60:.1f} min.", className="ok")
         else:
             msg = html.Span(f"{job.description} stopped: {res.get('error')}", className="err")
         # Rescan the results folder so that the new samples appear in the other tabs
         return (msg, _progress_view(progress), log[-20000:], False, True, {**job_data, "done": True}, True,
-                not res.get("ok"), (scans or 0) + 1)
+                not res.get("ok") or bool(failed), (scans or 0) + 1)
 
     @app.callback(
         Output("a-run-msg", "children", allow_duplicate=True),
