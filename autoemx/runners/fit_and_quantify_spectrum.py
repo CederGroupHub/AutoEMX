@@ -16,6 +16,7 @@ from typing import Optional, Dict, Any
 
 from autoemx.utils import print_double_separator
 from autoemx.core.quantifier import XSp_Quantifier
+from autoemx.core.quantifier.peak_overlaps import warn_peak_overlaps
 import autoemx.utils.constants as cnst
 from autoemx.utils import (
     print_double_separator,
@@ -159,7 +160,20 @@ def fit_and_quantify_spectrum(
         standards_dict = standards_dict,
         free_area_el_lines=free_area_el_lines,
     )
-    
+
+    def _warn_peak_overlaps():
+        warn_peak_overlaps(
+            meas_type,
+            quantifier.els_sample,
+            quantifier.els_substrate,
+            beam_energy_keV=beam_energy,
+            energy_range_keV=(quantifier.energy_vals[0], quantifier.energy_vals[-1]),
+            microscope_ID=microscope_ID,
+        )
+
+    if quantify_plot:
+        _warn_peak_overlaps()
+
     try:
         if quantify_plot:
             quant_result, _, flag = quantifier.quantify_spectrum(
@@ -234,5 +248,8 @@ def fit_and_quantify_spectrum(
     time_str = f"{total_process_time/60:.1f} min" if total_process_time > 100 else f"{total_process_time:.1f} sec"
     quant_str = 'quantified' if quantify_plot else 'fitted'
     logging.info(f"Sample '{sample_ID}' successfully {quant_str} in {time_str}.")
-        
+
+    if quantify_plot:
+        _warn_peak_overlaps()
+
     return quantifier

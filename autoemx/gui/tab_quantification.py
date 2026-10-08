@@ -25,6 +25,7 @@ from autoemx.gui.common import (
     form_values,
     get_info,
     param_sections,
+    peak_overlaps_view,
 )
 
 _NOTES = {
@@ -122,6 +123,7 @@ def layout() -> List[Any]:
                 html.Div([html.Div(id="q-details-title"),
                           html.Button("Analyse this sample →", id="q-to-analysis", className="btn btn-small")],
                          className="q-details-head"),
+                html.Div(id="q-overlap-msg"),
                 html.Div(id="q-details"),
             ], className="q-details"),
         ],
@@ -534,6 +536,30 @@ def register(app) -> None:
             return _details_view(get_info(sample_dir))
         except Exception as exc:
             return Path(sample_dir).name, html.Div(f"Cannot read the ledger: {exc}", className="err")
+
+    @app.callback(
+        Output("q-overlap-msg", "children"),
+        Input("sample-dd", "value"),
+        Input("q-table", "data"),
+        Input("data-version", "data"),
+    )
+    def overlap_msg(sample_dir, rows, _):
+        """Peak overlaps of the clicked sample, with its elements as edited in the table."""
+        if not sample_dir:
+            return None
+        try:
+            info = get_info(sample_dir)
+        except Exception:
+            return None
+        if info is None:
+            return None
+        row = next((r for r in rows or [] if r.get("id") == sample_dir), {})
+        try:
+            els = be._elements_list(row["elements"]) if row.get("elements") else None
+            substrate = be._elements_list(row["substrate"]) if "substrate" in row else None
+        except ValueError:
+            return None
+        return peak_overlaps_view(be.sample_peak_overlaps(info, els, substrate))
 
     @app.callback(
         Output("main-tabs", "value", allow_duplicate=True),

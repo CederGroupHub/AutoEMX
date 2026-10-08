@@ -34,8 +34,11 @@ from autoemx.web.pipeline import (
     SUPPORTED_UPLOAD_EXTENSIONS,
     SpectrumFitResult,
     beam_energy_supports_quantification,
+    find_peak_overlaps,
     fit_uploaded_spectrum,
     parse_elements,
+    peak_overlap_affected_elements,
+    peak_overlap_lines,
     validate_elements_quantifiable,
 )
 from autoemx.web.reader_report import (
@@ -175,6 +178,29 @@ def _render_quantifiable_elements_section() -> None:
             st.info("Standards file could not be read; supported element list unavailable.")
 
 
+def _render_peak_overlap_warning(overlaps) -> None:
+    """Warn about peak overlaps that may compromise the quantification."""
+    if not overlaps:
+        return
+    affected = ", ".join(peak_overlap_affected_elements(overlaps))
+    items = "\n".join(f"- {line}" for line in peak_overlap_lines(overlaps))
+    st.warning(f"**Peak overlaps may cause inaccurate quantification of {affected}:**\n{items}")
+
+
+def _render_sidebar_peak_overlap_warning(els_sample_text: str, els_substrate_text: str) -> None:
+    """Live warning in the sidebar, for the elements as typed and the required beam energy."""
+    try:
+        els_sample = parse_elements(els_sample_text)
+        els_substrate = parse_elements(els_substrate_text)
+    except ValueError:
+        return
+    try:
+        overlaps = find_peak_overlaps(els_sample, els_substrate)
+    except Exception:
+        return
+    _render_peak_overlap_warning(overlaps)
+
+
 def _results_table(result: SpectrumFitResult):
     rows = []
     elements = list(result.composition_at.keys()) or list(result.composition_wt.keys())
@@ -259,6 +285,7 @@ def main() -> None:
             value=True,
             help="Uncheck if your sample is flat, with roughness lower than 50nm.",
         )
+        _render_sidebar_peak_overlap_warning(els_sample_text, els_substrate_text)
         st.header("Files")
         st.caption(
             f"Collect spectra at **{QUANT_BEAM_KV:.0f} kV**. "
@@ -432,6 +459,8 @@ def _render_results(results: list[SpectrumFitResult]) -> None:
                     f"not {QUANT_BEAM_KV:.0f} kV. The composition below is **not valid** "
                     "with the shipped 15 kV standards."
                 )
+
+        _render_peak_overlap_warning(result.peak_overlaps)
 
         fig = fitted_spectrum_figure(result)
         st.pyplot(fig, clear_figure=False)

@@ -484,9 +484,18 @@ class DetectorResponseFunction:
         - Parameters (conv_eff, elec_noise, F) are calibrated on several elements in bulk standards.
         - See Calculation_pars_peak_fwhm.py for details.
         """
-        # Calculate detector sigma using calibrated parameters
-        sigma = calibs.conv_eff * np.sqrt(calibs.elec_noise**2 + E * calibs.F / calibs.conv_eff)
-        return sigma
+        return DetectorResponseFunction.det_sigma(E, calibs.conv_eff, calibs.elec_noise, calibs.F)
+
+    @staticmethod
+    def det_sigma(E, conv_eff, elec_noise, F):
+        """
+        Detector Gaussian sigma (keV) at X-ray energy E (keV), for given detector parameters.
+
+        sigma = conv_eff * sqrt(elec_noise^2 + E * F / conv_eff), with conv_eff the energy per
+        electron-hole pair (keV), elec_noise the electronic noise (in electrons) and F the Fano factor.
+        See _det_sigma for the version using the loaded microscope calibrations.
+        """
+        return conv_eff * np.sqrt(elec_noise**2 + E * F / conv_eff)
         
     
     @classmethod

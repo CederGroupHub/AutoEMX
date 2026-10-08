@@ -1,6 +1,6 @@
 {
   "sample_id": "Wulfenite_mini",
-  "sample_path": "E:\\Desktop\\AutoEMX\\tests\\inputs\\Wulfenite_mini",
+  "sample_path": "/Users/Andrea_1/Desktop/Work/Codes/Repositories/AutoEMXSp/tests/inputs/Wulfenite_mini",
   "configs": {
     "microscope_cfg": {
       "ID": "PhenomXL",
@@ -44,7 +44,7 @@
       "min_n_spectra": 103,
       "max_n_spectra": 103,
       "powder_meas_cfg": {
-        "is_manual_particle_selection": false,
+        "par_selection_mode": "auto",
         "is_known_powder_mixture_meas": false,
         "img_shift_tracking": true,
         "par_search_frame_width_um": 500.0,
@@ -54,6 +54,7 @@
         "min_area_par": 10.0,
         "par_mask_margin": 1.0,
         "xsp_spots_distance_um": 1.0,
+        "par_spot_selection_mode": "auto",
         "par_segmentation_model": "threshold_bright",
         "par_brightness_thresh": 100,
         "par_xy_spots_thresh": 100,
@@ -63,7 +64,8 @@
       "bulk_meas_cfg": null,
       "exp_stds_cfg": null,
       "saved_images_extension": "png",
-      "save_raw_images": false
+      "save_raw_images": false,
+      "annotate_particle_images": false
     },
     "sample_substrate_cfg": {
       "elements": [
@@ -79,11 +81,13 @@
     "plot_cfg": {
       "show_unused_comps_clust": true,
       "els_excluded_clust_plot": [],
+      "els_to_plot": [],
       "show_legend_clustering": true,
       "save_plots": true,
       "show_plots": false,
       "use_custom_plots": false,
-      "custom_plot_file": null
+      "custom_plot_file": null,
+      "plot_best_mixture": true
     }
   },
   "spectra": [
@@ -132,6 +136,7 @@
       "quantification_results": []
     }
   ],
+  "particles": [],
   "active_quant": 0,
   "quantifications": [
     {
@@ -185,6 +190,7 @@
           "config": {
             "clustering_id": 0,
             "method": "kmeans",
+            "geometry": "euclidean",
             "features": "at_fr",
             "k_forced": null,
             "k_resolved": null,
@@ -199,7 +205,40 @@
             "quant_flags_accepted": [
               0,
               -1
-            ]
+            ],
+            "dbscan": {
+              "eps": null,
+              "min_samples": 3,
+              "metric": "euclidean"
+            },
+            "aitchison": {
+              "detection_limit_percent": 0.5,
+              "auto_near_zero_percent": 1.0,
+              "auto_max_near_zero_fraction": 0.1
+            },
+            "auto_merge_clusters": false,
+            "cluster_merge": {
+              "dip_alpha": 0.05,
+              "max_gap_ratio": 1.0,
+              "dbscan_min_samples": 5,
+              "dbscan_eps_factor": 3.0
+            },
+            "mixture": {
+              "max_n_phases": 4,
+              "max_recon_error": 0.4,
+              "max_recon_error_binary": 1.0,
+              "recon_error_alpha": 15.0,
+              "conf_sigma": 0.5,
+              "single_phase_max_rms_dist": 0.03,
+              "single_phase_min_ref_conf": 0.5,
+              "nmf_min_mixture_conf": 0.5,
+              "equivalent_recon_error_tol": 0.01,
+              "max_reported_mixtures": 5,
+              "report_within_conf_ratio": 0.9,
+              "min_reported_conf_ratio": 0.5,
+              "collapse_equivalent_mixtures": true,
+              "equivalent_span_tol": 0.005
+            }
           },
           "result": null
         }

@@ -249,6 +249,9 @@ def sample_summary(sample_dir: str) -> Dict[str, Any]:
         "microscope": (cfgs.get("microscope_cfg") or {}).get("ID", dflt.microscope_ID),
         "beam_energy_keV": (cfgs.get("measurement_cfg") or {}).get("beam_energy_keV"),
         "meas_mode": (cfgs.get("measurement_cfg") or {}).get("mode", dflt.measurement_mode),
+        "meas_type": (cfgs.get("measurement_cfg") or {}).get("type", dflt.measurement_type),
+        "energy_zero": (cfgs.get("microscope_cfg") or {}).get("energy_zero"),
+        "bin_width": (cfgs.get("microscope_cfg") or {}).get("bin_width"),
     }
     _summary_cache[sample_dir] = (mtime, summary)
     return summary
@@ -904,6 +907,50 @@ def single_param_values(info: Optional[SampleInfo]) -> Dict[str, Any]:
     exp_cfg = info.ledger.configs.measurement_cfg.exp_stds_cfg
     values["single.is_standard"] = bool(exp_cfg is not None and getattr(exp_cfg, "is_exp_std_measurement", False))
     return values
+
+
+def peak_overlaps(
+    meas_type: Optional[str],
+    els_sample: List[str],
+    els_substrate: List[str],
+    beam_energy_keV: Optional[float],
+    det_ch_offset: Optional[float] = None,
+    det_ch_width: Optional[float] = None,
+    spectrum_lims: Optional[Any] = None,
+    microscope_ID: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Peak overlaps that may compromise the quantification (see autoemx.core.quantifier.peak_overlaps)."""
+    from autoemx.core.quantifier.peak_overlaps import get_peak_overlaps
+
+    lims = spectrum_lims or dflt.spectrum_lims
+    energy_range = None
+    if det_ch_offset is not None and det_ch_width:
+        energy_range = (det_ch_offset + det_ch_width * lims[0], det_ch_offset + det_ch_width * lims[1])
+    els_sample = [el for el in els_sample if el not in _DEFAULT_UNDETECTABLE_ELS]
+    els_substrate = [el for el in els_substrate if el not in _DEFAULT_UNDETECTABLE_ELS and el not in els_sample]
+    try:
+        return get_peak_overlaps(meas_type or dflt.measurement_type, els_sample, els_substrate,
+                                 float(beam_energy_keV) if beam_energy_keV else None, energy_range,
+                                 microscope_ID or dflt.microscope_ID)
+    except Exception:
+        return []
+
+
+def sample_peak_overlaps(info: SampleInfo, els_sample: Optional[List[str]] = None,
+                         els_substrate: Optional[List[str]] = None,
+                         spectrum_lims: Optional[Any] = None) -> List[Dict[str, Any]]:
+    """Peak overlaps for a sample, with its saved elements unless others are given."""
+    cfgs = info.ledger.configs
+    return peak_overlaps(
+        cfgs.measurement_cfg.type,
+        info.elements if els_sample is None else els_sample,
+        info.substrate if els_substrate is None else els_substrate,
+        cfgs.measurement_cfg.beam_energy_keV,
+        cfgs.microscope_cfg.energy_zero,
+        cfgs.microscope_cfg.bin_width,
+        spectrum_lims or quant_options(info).spectrum_lims,
+        cfgs.microscope_cfg.ID,
+    )
 
 
 def _elements_list(text: Any) -> List[str]:

@@ -424,5 +424,6 @@ def analyze_sample(
     else:
         utils.print_single_separator()
         logging.info(f"Analysis was not successful for '{sample_ID}'.")
+        comp_analyzer._warn_peak_overlaps()
     
     return comp_analyzer

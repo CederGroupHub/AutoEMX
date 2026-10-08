@@ -47,6 +47,7 @@ from autoemx.gui.common import (
     get_analysis,
     get_info,
     param_sections,
+    peak_overlaps_view,
     register_clear_buttons,
     ui_value,
 )
@@ -498,6 +499,7 @@ def _sample_info_view(info: be.SampleInfo) -> List[Any]:
         html.Div([html.Span("Spectra", className="k"),
                   html.Span(f"{info.n_spectra} ({info.n_quantified} quantified)", className="v")]),
         html.Div([html.Span("Analyses", className="k"), html.Span(str(len(info.analyses)), className="v")]),
+        peak_overlaps_view(be.sample_peak_overlaps(info)),
     ]
 
 

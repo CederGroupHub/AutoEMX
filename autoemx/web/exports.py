@@ -17,6 +17,8 @@ from autoemx.web.pipeline import (
     QUANT_BEAM_KV,
     SpectrumFitResult,
     beam_energy_supports_quantification,
+    peak_overlap_affected_elements,
+    peak_overlap_lines,
 )
 
 
@@ -48,6 +50,12 @@ def format_composition_txt(result: SpectrumFitResult) -> str:
         lines.append(f"# Analytical error (w%): {result.analytical_error * 100:.2f}")
     if result.quant_flag is not None:
         lines.append(f"# Quantification flag: {result.quant_flag}")
+    if result.peak_overlaps:
+        lines.append(
+            "# WARNING: Peak overlaps may cause inaccurate quantification of "
+            f"{', '.join(peak_overlap_affected_elements(result.peak_overlaps))}:"
+        )
+        lines.extend(f"#   {line}" for line in peak_overlap_lines(result.peak_overlaps))
     if result.error:
         lines.append(f"# Error: {result.error}")
     lines.append("#")

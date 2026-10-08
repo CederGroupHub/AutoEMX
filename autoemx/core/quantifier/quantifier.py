@@ -174,12 +174,18 @@ class XSp_Quantifier:
         List of X-ray lines used as reference
     initial_fit_tol : float
         Fit tolerance of the first iteration when quantifying iteratively
+    ideal_ref_line_overvoltage, ideal_ref_line_energy_threshold : float
+        Minimum overvoltage and energy (keV) of the reference lines preferred for quantification
     """
     #  Reference lines for quantification
     xray_quant_ref_lines = ['Ka1', 'La1', 'Ma1', 'Mz1']
 
     # Tolerance of the first fit in iterative quantification, when elemental fractions are still free
     initial_fit_tol = 1e-2
+
+    # Reference lines preferred for quantification: above this energy (keV) and overvoltage
+    ideal_ref_line_energy_threshold = 2
+    ideal_ref_line_overvoltage = 1.65
     
     def __init__(
         self,
@@ -823,8 +829,8 @@ class XSp_Quantifier:
           The warning is suppressed when the missing line lies outside the fitted spectrum range
           (e.g. after cutting the spectrum below that line energy).
         """
-        IDEAL_REF_LINE_OVERVOLTAGE = 1.65
-        IDEAL_REF_LINE_ENERGY_THRESHOLD = 2
+        IDEAL_REF_LINE_OVERVOLTAGE = self.ideal_ref_line_overvoltage
+        IDEAL_REF_LINE_ENERGY_THRESHOLD = self.ideal_ref_line_energy_threshold
         # Get list of fitted lines for element el (only Ka, La, Ma lines considered)
         el_lines_list = [
             el_line for el_line in self.fitted_xray_lines

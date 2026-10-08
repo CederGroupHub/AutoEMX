@@ -79,6 +79,7 @@ import cvxpy as cp
 
 # Project-specific imports
 from autoemx.core.quantifier import XSp_Quantifier
+from autoemx.core.quantifier.peak_overlaps import warn_peak_overlaps
 from autoemx.core.fitter import DetectorResponseFunction
 from autoemx.core.em_runtime.controller import EM_Controller
 from autoemx.core.em_runtime.image_utilities import xsp_spot_annotation
@@ -4288,6 +4289,8 @@ class EMXSp_Composition_Analyzer:
         if self.verbose:
             print_double_separator()
             logger.info(f"▶️ Starting acquisition{quant_str} of {tot_spectra_to_collect} spectra.")
+        if is_spectral_quant:
+            self._warn_peak_overlaps()
         
         while tot_n_spectra < self.max_n_spectra:
             if self.verbose:
@@ -4366,7 +4369,7 @@ class EMXSp_Composition_Analyzer:
                 else:
                     logger.warning('⚠️ Phases could not be identified with confidence higher than 0.8.')
     
-                self.print_results()
+                self.print_results(warn_peak_overlaps=False)
     
             elif not is_acquisition_successful:
                 logger.warning('⚠️ This did not allow to determine which phases are present in the sample.')
@@ -4376,7 +4379,10 @@ class EMXSp_Composition_Analyzer:
                 is_converged = False
         else:
             is_analysis_successful = is_acquisition_successful
-    
+
+        if is_spectral_quant:
+            self._warn_peak_overlaps()
+
         return is_analysis_successful, is_converged
     
     
@@ -4504,6 +4510,7 @@ class EMXSp_Composition_Analyzer:
         interrupt_fits_bad_spectra: bool = True,
         num_CPU_cores: Optional[int] = None,
         max_spectra_to_quantify: Optional[int] = None,
+        warn_peak_overlaps_at_end: bool = True,
     ) -> None:
         """
         Perform quantification of all collected spectra and save the results.
@@ -4534,8 +4541,13 @@ class EMXSp_Composition_Analyzer:
         max_spectra_to_quantify : Optional[int], optional
             Quantify at most this number of spectra, among those that need quantification
             (in acquisition order), e.g. for quick tests. None quantifies all of them.
+        warn_peak_overlaps_at_end : bool, optional
+            Peak overlaps that may compromise the quantification are warned about at the start of the
+            quantification and, if True, also at its end. Set to False when the analysis follows, as
+            print_results warns again.
         """
         self._initialise_std_dict()
+        self._warn_peak_overlaps()
         self._fit_and_quantify_spectra(
             force_requantification=force_requantification,
             requantify_only_unquantified_spectra=requantify_only_unquantified_spectra,
@@ -4548,6 +4560,8 @@ class EMXSp_Composition_Analyzer:
         # the sample root.
         self._make_analysis_dir()
         self._save_analysis_summary(None, None)
+        if warn_peak_overlaps_at_end:
+            self._warn_peak_overlaps()
         
     
     def run_exp_std_collection(
@@ -5074,7 +5088,7 @@ class EMXSp_Composition_Analyzer:
         print_single_separator()
             
         
-    def print_results(self, n_cnd_to_print = 2, n_mix_to_print = 2) -> None:
+    def print_results(self, n_cnd_to_print = 2, n_mix_to_print = 2, warn_peak_overlaps = True) -> None:
         """
         Print a summary of clustering results, including clustering configuration, metrics,
         and a table of identified phases with elemental fractions, standard deviations,
@@ -5093,6 +5107,8 @@ class EMXSp_Composition_Analyzer:
         n_mix_to_print : int
             Max number of candidate mixtures and relative confidence scores to show. Mixtures with scores
             close to 0 are not shown.
+        warn_peak_overlaps : bool
+            If True, warns about peak overlaps that may compromise the quantification, after the results.
         
         Raises
         ------
@@ -5173,4 +5189,21 @@ class EMXSp_Composition_Analyzer:
                 logger.info("Identified phases:\n%s", phase_table)
         except Exception as e:
             raise RuntimeError(f"Error printing phase results: {e}")
+
+        if warn_peak_overlaps:
+            self._warn_peak_overlaps()
+
+
+    def _warn_peak_overlaps(self) -> None:
+        """Warn about overlaps between fitted peaks that may compromise the quantification of sample elements."""
+        energy_vals = getattr(self, 'energy_vals', None)
+        energy_range = (energy_vals[0], energy_vals[-1]) if energy_vals is not None and len(energy_vals) else None
+        warn_peak_overlaps(
+            self.measurement_cfg.type,
+            getattr(self, 'detectable_els_sample', []),
+            getattr(self, 'detectable_els_substrate', []),
+            beam_energy_keV=self.measurement_cfg.beam_energy_keV,
+            energy_range_keV=energy_range,
+            microscope_ID=self.microscope_cfg.ID,
+        )
  

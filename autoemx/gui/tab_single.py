@@ -30,6 +30,7 @@ from autoemx.gui.common import (
     get_analysis,
     get_info,
     param_sections,
+    peak_overlaps_view,
     ui_value,
 )
 
@@ -81,7 +82,8 @@ def layout() -> List[Any]:
                         html.Button("Use sample settings", id="s-reset", className="btn btn-small",
                                     title="Fill the form with the settings of the current sample's active quantification"),
                     ], className="side-title-row"),
-                    html.Div(param_sections(be.SINGLE_SPECS, be.SINGLE_SECTIONS, open_sections=("single", "sfit")),
+                    html.Div(param_sections(be.SINGLE_SPECS, be.SINGLE_SECTIONS, open_sections=("single", "sfit"),
+                                            extra={"single": [html.Div(id="s-overlap-msg")]}),
                              className="param-sections"),
                 ],
                 className="side-block side-params",
@@ -350,6 +352,44 @@ def register(app) -> None:
                                         show_bckgrnd_cnts=bool(bars), title=title, channel_lims=lims)
         return (fig, html.B(title or "No spectrum"), _metrics_view(fit), _composition_view(fit, stored),
                 rows, columns, zoom_options)
+
+    @app.callback(
+        Output("s-overlap-msg", "children"),
+        Input({"type": "sparam", "key": "single__els_sample"}, "value"),
+        Input({"type": "sparam", "key": "single__els_substrate"}, "value"),
+        Input("s-source", "value"),
+        Input("s-file-path", "value"),
+        Input("sample-dd", "value"),
+        Input({"type": "sparam", "key": "sfit__spectrum_lims__min"}, "value"),
+        Input({"type": "sparam", "key": "sfit__spectrum_lims__max"}, "value"),
+    )
+    def overlap_msg(els_sample, els_substrate, source, path, sample_dir, lim_min, lim_max):
+        """Warn, as the elements are edited, about peak overlaps that may compromise the quantification."""
+        try:
+            els_sample = be._elements_list(els_sample)
+            els_substrate = be._elements_list(els_substrate)
+            lims = be.coerce_values({"sfit.spectrum_lims": [lim_min, lim_max]}, [be.SPECS_BY_KEY["sfit.spectrum_lims"]])
+            lims = lims["sfit.spectrum_lims"]
+        except ValueError:
+            return None
+        try:
+            if source == "file":
+                if not path:
+                    return None
+                from autoemx.web.pipeline import load_uploaded_spectrum
+
+                _, _, geometry = load_uploaded_spectrum(path)
+                overlaps = be.peak_overlaps(be.dflt.measurement_type, els_sample, els_substrate,
+                                            geometry["beam_energy"], geometry["det_ch_offset"],
+                                            geometry["det_ch_width"], lims)
+            else:
+                info = get_info(sample_dir)
+                if info is None:
+                    return None
+                overlaps = be.sample_peak_overlaps(info, els_sample, els_substrate, lims)
+        except Exception:
+            return None
+        return peak_overlaps_view(overlaps)
 
     @app.callback(
         Output("s-run-btn", "children"),

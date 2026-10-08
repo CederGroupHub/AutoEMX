@@ -23,6 +23,10 @@ import autoemx.calibrations as calibs
 from autoemx.data.Xray_lines import get_el_xray_lines
 from .detector_response import DetectorResponseFunction
 
+# Free reference peaks closer than this many (RMS) detector sigmas are treated as overlapping,
+# and constrained to a common energy shift
+OVERLAP_SEPARATION_SIGMAS = 3
+
 
 class Peaks_Model:
     """
@@ -679,7 +683,7 @@ class Peaks_Model:
         Identify groups of overlapping reference peaks and constrain each group to a common energy shift.
 
         Two free reference peaks overlap if their centers are closer than
-        3 / sqrt(2) * sqrt(sigma1^2 + sigma2^2), i.e. 3 sigma for peaks of equal width.
+        OVERLAP_SEPARATION_SIGMAS * sqrt((sigma1^2 + sigma2^2) / 2), i.e. 3 sigma for peaks of equal width.
         Overlapping peaks are grouped transitively, so that chains of overlapping peaks form one group.
         """
         params = self.fitting_params
@@ -697,7 +701,7 @@ class Peaks_Model:
         # Overlap graph between free peaks
         neighbours = {peak: [] for peak in free_peaks}
         for peak1, peak2 in combinations(free_peaks, 2):
-            max_separation = 3 / np.sqrt(2) * np.sqrt(sigmas[peak1] ** 2 + sigmas[peak2] ** 2)
+            max_separation = OVERLAP_SEPARATION_SIGMAS * np.sqrt((sigmas[peak1] ** 2 + sigmas[peak2] ** 2) / 2)
             if abs(free_peaks[peak1] - free_peaks[peak2]) < max_separation:
                 neighbours[peak1].append(peak2)
                 neighbours[peak2].append(peak1)

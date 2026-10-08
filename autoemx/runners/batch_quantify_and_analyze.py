@@ -349,6 +349,7 @@ def batch_quantify_and_analyze(
                 interrupt_fits_bad_spectra=interrupt_fits_bad_spectra,
                 num_CPU_cores=num_CPU_cores,
                 max_spectra_to_quantify=max_spectra_to_quantify,
+                warn_peak_overlaps_at_end=not run_analysis,
             )
         except FileNotFoundError as e:
             logging.warning(f"Skipping sample '{sample_ID}': {e}")
@@ -372,6 +373,7 @@ def batch_quantify_and_analyze(
                 comp_analyzer.print_results()
             else:
                 logging.info(f"Analysis was not successful for '{sample_ID}'.")
+                comp_analyzer._warn_peak_overlaps()
 
         total_process_time = (time.time() - sample_processing_time_start) / 60
         print_double_separator()

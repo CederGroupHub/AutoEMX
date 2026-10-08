@@ -249,8 +249,9 @@ def param_sections(
     notes: Optional[Dict[str, str]] = None,
     open_sections: Sequence[str] = (),
     persist: bool = False,
+    extra: Optional[Dict[str, List[Any]]] = None,
 ) -> List[html.Details]:
-    """Collapsible sections of a parameter form."""
+    """Collapsible sections of a parameter form (``extra``: components appended to a section, by section key)."""
     out = []
     for key, title in sections:
         section_specs = [s for s in specs if s.section == key]
@@ -259,7 +260,8 @@ def param_sections(
         if note:
             summary.append(html.Span(note, className="section-note"))
         out.append(html.Details(
-            [html.Summary(summary)] + [_param_control(s, persist) for s in section_specs],
+            [html.Summary(summary)] + [_param_control(s, persist) for s in section_specs]
+            + list((extra or {}).get(key, [])),
             id={"type": FORM_ID_TYPES[key] + "-section", "key": key}, open=key in open_sections,
             className="param-section",
         ))
@@ -269,6 +271,22 @@ def param_sections(
 def _chip(label: str, value: Any, cls: str = "") -> html.Span:
     return html.Span([html.Span(label, className="chip-label"), html.Span(str(value), className="chip-value")],
                      className="chip " + cls)
+
+
+def peak_overlaps_view(overlaps: Sequence[Dict[str, Any]], title: str = "") -> Optional[html.Div]:
+    """Warning listing the peak overlaps that may compromise the quantification (None if there are none)."""
+    if not overlaps:
+        return None
+    from autoemx.core.quantifier.peak_overlaps import affected_elements, format_overlap
+
+    items = [html.Li(format_overlap(o)) for o in overlaps]
+    header = f"{title}: p" if title else "P"
+    return html.Div(
+        [html.Div(f"⚠️ {header}eak overlaps may cause inaccurate quantification of "
+                  f"{', '.join(affected_elements(overlaps))}:"),
+         html.Ul(items, className="overlap-list")],
+        className="warn overlap-warn",
+    )
 
 
 def _fmt(v: Any, nd: int = 1) -> str:
@@ -391,7 +409,7 @@ class SummaryLoader:
             for d in sample_dirs:
                 stamp = self._stamp(d)
                 cached = self._disk.get(d)
-                if cached and stamp is not None and cached.get("stamp") == stamp and "microscope" in cached["summary"]:
+                if cached and stamp is not None and cached.get("stamp") == stamp and "meas_type" in cached["summary"]:
                     out[d] = cached["summary"]
                 elif d in self._pending:
                     if d in self._summaries:

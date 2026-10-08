@@ -14,6 +14,7 @@ from pymatgen.core import Element
 
 import autoemx.config.defaults as dflt
 import autoemx.utils.constants as cnst
+from autoemx.core.quantifier.peak_overlaps import affected_elements, format_overlap, get_peak_overlaps
 from autoemx.runners.fit_and_quantify_spectrum import fit_and_quantify_spectrum
 from autoemx.utils import load_msa
 from autoemx.web.reader_report import SpectrumReadError, build_reader_failure_report
@@ -26,6 +27,8 @@ _DEFAULT_LIVETIME_S = 10.0
 # Shipped P/B standards are Phenom XL at 15 kV. Compositions are not valid otherwise.
 QUANT_BEAM_KV = 15.0
 _QUANT_BEAM_KV_TOLERANCE = 0.25
+# Nominal channel width (keV), to estimate the fitted energy range before a spectrum is uploaded
+_NOMINAL_CH_WIDTH_KEV = 0.01
 
 # ---------------------------------------------------------------------------
 # Quantifiable elements – derived from the shipped 15 kV EDS standards file.
@@ -98,6 +101,38 @@ class SpectrumFitResult:
     error_stage: Optional[str] = None
     reader_report: Optional[str] = None
     beam_energy_kV: Optional[float] = None
+    peak_overlaps: List[Dict[str, Any]] = field(default_factory=list)
+
+
+def find_peak_overlaps(
+    els_sample: Sequence[str],
+    els_substrate: Sequence[str],
+    beam_energy_keV: float = QUANT_BEAM_KV,
+    energy_range_keV: Optional[Tuple[float, float]] = None,
+    microscope_ID: str = dflt.microscope_ID,
+) -> List[Dict[str, Any]]:
+    """
+    Peak overlaps that may compromise the quantification of the sample elements.
+
+    Before a spectrum is available, the fitted energy range is estimated from the default
+    spectrum limits and a nominal channel width.
+    """
+    if energy_range_keV is None:
+        energy_range_keV = tuple(lim * _NOMINAL_CH_WIDTH_KEV for lim in dflt.spectrum_lims)
+    els_substrate = [el for el in els_substrate if el not in els_sample]
+    return get_peak_overlaps(
+        dflt.measurement_type, els_sample, els_substrate, beam_energy_keV, energy_range_keV, microscope_ID
+    )
+
+
+def peak_overlap_lines(overlaps: Sequence[Dict[str, Any]]) -> List[str]:
+    """One line per overlap, e.g. 'Severe overlap: Mo La1 (2.293 keV) and S Ka1 (2.307 keV), ΔE = 14 eV (0.4σ)'."""
+    return [format_overlap(o) for o in overlaps]
+
+
+def peak_overlap_affected_elements(overlaps: Sequence[Dict[str, Any]]) -> List[str]:
+    """Sample elements whose quantification may be compromised by the overlaps."""
+    return affected_elements(overlaps)
 
 
 def parse_elements(text: str) -> List[str]:
@@ -280,4 +315,9 @@ def fit_uploaded_spectrum(
         els_substrate=list(els_substrate),
         is_particle=is_particle,
         beam_energy_kV=float(geometry["beam_energy"]),
+        peak_overlaps=find_peak_overlaps(
+            els_sample, els_substrate, float(geometry["beam_energy"]),
+            (float(quantifier.energy_vals[0]), float(quantifier.energy_vals[-1])),
+            microscope_ID,
+        ),
     )
