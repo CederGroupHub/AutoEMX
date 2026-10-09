@@ -1200,8 +1200,9 @@ def acquisition_kwargs(values: Dict[str, Any]) -> Dict[str, Any]:
         beam_energy=values["aacq.beam_energy"],
         target_Xsp_counts=values["aacq.target_Xsp_counts"],
         max_XSp_acquisition_time=max_time,
-        # Without quantification, max_n_spectra spectra are collected
-        min_n_spectra=values["aacq.min_n_spectra"],
+        # Without quantification, "number of spectra" are collected: also the minimum, since the analyser
+        # raises max_n_spectra to min_n_spectra (the hidden "min spectra" field would set the number)
+        min_n_spectra=values["aacq.min_n_spectra"] if quantify else values["aacq.n_spectra"],
         max_n_spectra=values["aacq.max_n_spectra"] if quantify else values["aacq.n_spectra"],
         is_manual_navigation=values["aacq.is_manual_navigation"],
         auto_adjust_brightness_contrast=values["aacq.auto_adjust_brightness_contrast"],

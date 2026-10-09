@@ -184,6 +184,7 @@ def _import_modal() -> html.Div:
                                                       className="imp-num"),
                                             html.Span("keV", className="param-unit")], className="imp-inline")),
             html.Div([html.Button("Import", id="q-imp-run", className="btn btn-primary"),
+                      html.Button("Cancel", id="q-imp-cancel", className="btn btn-danger", disabled=True),
                       html.Div(id="q-imp-msg", className="run-msg")], className="imp-actions"),
         ], className="pt-window imp-window"),
         id="q-imp-modal", className="pt-backdrop", hidden=True,
@@ -425,6 +426,7 @@ def register(app) -> None:
         Output("q-imp-job", "data"),
         Output("q-imp-poll", "disabled"),
         Output("q-imp-msg", "children"),
+        Output("q-imp-cancel", "disabled"),
         Input("q-imp-run", "n_clicks"),
         State("q-imp-folder", "value"),
         State("folder", "value"),
@@ -440,20 +442,22 @@ def register(app) -> None:
     def import_run(_, folder, results_dir, sample_id, els, sub, sample_type, micro, kv, scan):
         if scan and not scan.get("calibration"):
             return no_update, no_update, html.Span(f"Cannot import: {scan.get('calibration_error')}.",
-                                                   className="err")
+                                                   className="err"), no_update
         try:
             kwargs = be.import_kwargs(folder, results_dir, sample_id, els, sub, sample_type, micro, kv)
             job = JOBS.start("import", "", {"kwargs": kwargs}, f"Import of {sample_id.strip()}")
         except (ValueError, RuntimeError) as exc:
-            return no_update, no_update, html.Span(str(exc), className="err")
-        return {"id": job.job_id, "sample": sample_id.strip()}, False, \
-            html.Span("Importing the spectra…", className="running")
+            return no_update, no_update, html.Span(str(exc), className="err"), no_update
+        sample_dir = str(Path(kwargs["results_path"]) / kwargs["samples"][0]["ID"])
+        return {"id": job.job_id, "sample": sample_id.strip(), "dir": sample_dir}, False, \
+            html.Span("Importing the spectra…", className="running"), False
 
     @app.callback(
         Output("q-imp-msg", "children", allow_duplicate=True),
         Output("q-imp-poll", "disabled", allow_duplicate=True),
         Output("scan-btn", "n_clicks", allow_duplicate=True),
         Output("q-run-msg", "children", allow_duplicate=True),
+        Output("q-imp-cancel", "disabled", allow_duplicate=True),
         Input("q-imp-poll", "n_intervals"),
         State("q-imp-job", "data"),
         State("scan-btn", "n_clicks"),
@@ -462,16 +466,32 @@ def register(app) -> None:
     def import_poll(_, job_data, n_scan):
         job = JOBS.get(job_data["id"]) if job_data else None
         if job is None:
-            return no_update, True, no_update, no_update
+            return no_update, True, no_update, no_update, True
         res = job.result()
         if res is None:
-            return no_update, False, no_update, no_update
+            return no_update, False, no_update, no_update, False
+        if job.cancelled:
+            return html.Span("Import cancelled.", className="warn"), True, no_update, no_update, True
         if not res.get("ok"):
             log = job.log_tail(3000).strip().splitlines()
             detail = res.get("error") or (log[-1] if log else "")
-            return html.Span(f"Import failed: {detail}", className="err"), True, no_update, no_update
+            return html.Span(f"Import failed: {detail}", className="err"), True, no_update, no_update, True
         text = f"Imported as sample {job_data['sample']}: tick it in the table to quantify it."
-        return html.Span(text, className="ok"), True, (n_scan or 0) + 1, html.Span(text, className="ok")
+        return html.Span(text, className="ok"), True, (n_scan or 0) + 1, html.Span(text, className="ok"), True
+
+    @app.callback(
+        Output("q-imp-msg", "children", allow_duplicate=True),
+        Input("q-imp-cancel", "n_clicks"),
+        State("q-imp-job", "data"),
+        prevent_initial_call=True,
+    )
+    def import_cancel(_, job_data):
+        if not job_data:
+            return no_update
+        JOBS.cancel(job_data["id"])
+        # The import removes its partly built sample folder only when it ends by itself
+        be.remove_unfinished_sample(job_data.get("dir"))
+        return html.Span("Import cancelled.", className="warn")
 
     @app.callback(
         Output("q-run-btn", "children"),
