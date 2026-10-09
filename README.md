@@ -5,6 +5,8 @@
   <img src="https://raw.githubusercontent.com/CederGroupHub/AutoEMX/main/docs/_static/logo/autoemx-logo.svg" alt="AutoEMX" width="420">
 </picture>
 
+<br>
+
 [![PyPI version](https://badge.fury.io/py/autoemx.svg)](https://pypi.org/project/autoemx/)
 [![Python Version](https://img.shields.io/pypi/pyversions/autoemx.svg)](https://pypi.org/project/autoemx/)
 [![CI](https://github.com/CederGroupHub/AutoEMX/actions/workflows/ci.yml/badge.svg)](https://github.com/CederGroupHub/AutoEMX/actions/workflows/ci.yml)
