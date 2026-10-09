@@ -139,6 +139,40 @@ def test_analysis_and_figures(powder_dir: Path):
     assert pl.spectrum_figure(raw).data
 
 
+def test_clustering_zoom(powder_dir: Path):
+    info = be.load_sample_info(str(powder_dir))
+    data = be.load_analysis(info, info.active_analysis)
+    assert [o["value"] for o in pl.zoom_options(None)] == [pl.ZOOM_FULL, pl.ZOOM_DATA]
+    options = pl.zoom_options(data)
+    assert [o["value"] for o in options][2:] == [f"{pl.ZOOM_CLUSTER}{i}" for i in range(len(data.centroids))]
+    assert options[2]["label"] == f"Cluster 0 ({data.n_points[0]})"
+
+    axes = ["Mg", "Al", "O"]
+    members = data.comps[(data.comps["status"] == "clustered") & (data.comps["cluster"] == 0)]
+    pts = members[axes].to_numpy(dtype=float) * 100
+    spans = {}
+    for zoom in (pl.ZOOM_FULL, pl.ZOOM_DATA, f"{pl.ZOOM_CLUSTER}0"):
+        scene = pl.clustering_figure(data, axes, "3d", zoom=zoom).layout.scene
+        ranges = [sorted(scene[f"{a}axis"].range) for a in "xyz"]
+        assert all(lo <= pts[:, i].min() and pts[:, i].max() <= hi for i, (lo, hi) in enumerate(ranges))
+        spans[zoom] = [hi - lo for lo, hi in ranges]
+    assert spans[pl.ZOOM_FULL] == [106, 106, 106]
+    assert all(c < d <= f for c, d, f in zip(spans[f"{pl.ZOOM_CLUSTER}0"], spans[pl.ZOOM_DATA],
+                                             spans[pl.ZOOM_FULL]))
+
+    # Ternary: the zoomed triangle contains the (normalised) cluster; 2D: the axes contain it
+    tern = pl.clustering_figure(data, axes, "ternary", zoom=f"{pl.ZOOM_CLUSTER}0").layout.ternary
+    norm = pts / pts.sum(axis=1, keepdims=True) * 100
+    mins = [tern.baxis.min, tern.caxis.min, tern.aaxis.min]  # b: x, c: y, a: z (as in _point_trace)
+    assert sum(mins) > 0 and all(m <= norm[:, i].min() for i, m in enumerate(mins))
+    lay = pl.clustering_figure(data, axes[:2], "2d", zoom=f"{pl.ZOOM_CLUSTER}0").layout
+    for i, ax in enumerate((lay.xaxis, lay.yaxis)):
+        assert ax.range[0] <= pts[:, i].min() and pts[:, i].max() <= ax.range[1] and ax.range[1] - ax.range[0] < 100
+    # Unknown cluster: zoomed on all spectra
+    assert pl.clustering_figure(data, axes, "3d", zoom=f"{pl.ZOOM_CLUSTER}99").layout.scene.xaxis.range == \
+        pl.clustering_figure(data, axes, "3d", zoom=pl.ZOOM_DATA).layout.scene.xaxis.range
+
+
 def test_low_confidence_mixtures_hidden_by_default(powder_dir: Path):
     info = be.load_sample_info(str(powder_dir))
     data = be.load_analysis(info, info.active_analysis)
@@ -150,7 +184,6 @@ def test_low_confidence_mixtures_hidden_by_default(powder_dir: Path):
         fig = pl.clustering_figure(data, ["Mg", "Al", "O"], "3d", **kw)
         return sum(1 for t in fig.data if t.legendgroup == "mixtures")
 
-    assert pl.OPT_ZOOM not in pl.DEFAULT_OPTIONS
     assert n_lines() == 0
     assert n_lines(min_mixture_conf=0.4) == 1
 
@@ -353,3 +386,14 @@ def test_windows_launcher_shortcut():
                                       LAUNCHER_ICON_WINDOWS, Path("C:/Users/O'Neil"))
     assert "'C:/Users/O''Neil/Desktop/AutoEMX.lnk'" in script.replace("\\", "/")  # quotes escaped
     assert f"{LAUNCHER_ICON_WINDOWS},0" in script and script.endswith("$s.Save()")
+
+
+def test_remove_unfinished_sample(tmp_path: Path):
+    unfinished = tmp_path / "unfinished"
+    (unfinished / cnst.SPECTRA_DIR).mkdir(parents=True)
+    finished = tmp_path / "finished"
+    finished.mkdir()
+    (finished / be.LEDGER_NAME).write_text("{}", encoding="utf-8")
+    for path in (unfinished, finished, tmp_path / "missing", None):
+        be.remove_unfinished_sample(str(path) if path else None)
+    assert not unfinished.exists() and finished.exists()

@@ -17,6 +17,7 @@ import multiprocessing as mp
 import os
 import re
 import signal
+import subprocess
 import sys
 import tempfile
 import threading
@@ -1662,6 +1663,14 @@ def import_kwargs(folder: str, results_dir: str, sample_id: str, elements: Any, 
     }
 
 
+def remove_unfinished_sample(sample_dir: Optional[str]) -> None:
+    """Delete a sample folder left by an import that did not finish (one without a ledger)."""
+    if sample_dir and os.path.isdir(sample_dir) and not os.path.exists(os.path.join(sample_dir, LEDGER_NAME)):
+        import shutil
+
+        shutil.rmtree(sample_dir, ignore_errors=True)
+
+
 def _run_import(_: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     """Copy a folder of EMSA spectra into a new sample folder and build its ledger (Quantification tab)."""
     from autoemx.runners.quantify_external_spectra import quantify_external_spectra
@@ -1672,10 +1681,7 @@ def _run_import(_: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     try:
         quantify_external_spectra(quantify=False, **payload["kwargs"])
     finally:
-        if not (sample_dir / LEDGER_NAME).exists():
-            import shutil
-
-            shutil.rmtree(sample_dir, ignore_errors=True)  # created by this import: no partial sample left
+        remove_unfinished_sample(str(sample_dir))  # created by this import: no partial sample left
     if not (sample_dir / LEDGER_NAME).exists():
         raise RuntimeError("The sample could not be imported. See the log for details.")
     return {"sample_dir": str(sample_dir)}
@@ -1832,8 +1838,11 @@ class JobManager:
             if hasattr(os, "killpg"):
                 os.killpg(job.process.pid, signal.SIGTERM)
             else:
+                # Windows: also stop the worker processes of the job (e.g. parallel quantification)
+                subprocess.run(["taskkill", "/T", "/F", "/PID", str(job.process.pid)], capture_output=True,
+                               timeout=30, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
                 job.process.terminate()
-        except ProcessLookupError:
+        except (OSError, subprocess.SubprocessError):  # ProcessLookupError: already ended
             pass
         job.process.join(timeout=5)
         if job.process.is_alive():

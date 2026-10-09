@@ -35,8 +35,12 @@ OPT_STD = "std"
 OPT_REFS = "refs"
 OPT_MIXTURES = "mixtures"
 OPT_CENTROIDS = "centroids"
-OPT_ZOOM = "zoom"
 DEFAULT_OPTIONS = [OPT_DISCARDED, OPT_STD, OPT_REFS, OPT_MIXTURES, OPT_CENTROIDS]
+# Zoom of the clustering plot (values of the "Zoom on" menu): whole 0-100 % range, all spectra, or one
+# cluster (ZOOM_CLUSTER + its number)
+ZOOM_FULL = "full"
+ZOOM_DATA = "data"
+ZOOM_CLUSTER = "cl"
 # Best mixtures with a lower confidence score are not drawn (unless the threshold is lowered in the GUI)
 DEFAULT_MIN_MIXTURE_CONF = 0.8
 
@@ -133,8 +137,13 @@ def clustering_figure(
     highlight: Optional[str] = None,
     uirevision: Optional[str] = None,
     min_mixture_conf: float = DEFAULT_MIN_MIXTURE_CONF,
+    zoom: str = ZOOM_FULL,
 ) -> go.Figure:
-    """Clustering plot: 3D (3 elements), ternary (3 elements, normalised) or 2D (2 elements)."""
+    """Clustering plot: 3D (3 elements), ternary (3 elements, normalised) or 2D (2 elements).
+
+    *zoom*: axis ranges on the whole 0-100 % range (``ZOOM_FULL``), on all spectra (``ZOOM_DATA``), or on
+    one cluster (``f"{ZOOM_CLUSTER}{i}"``).
+    """
     if data is None:
         return _empty_figure("Select a sample")
     options = set(options or [])
@@ -280,8 +289,40 @@ def clustering_figure(
                 name=f"Spectrum {highlight}", hoverinfo="skip", showlegend=True,
             ))
 
-    _layout_clustering(fig, data, axes, mode, unit, OPT_ZOOM in options, uirevision, OPT_REFS in options)
+    _layout_clustering(fig, data, axes, mode, unit, zoom, uirevision, OPT_REFS in options)
     return fig
+
+
+def zoom_options(data: Optional[AnalysisData]) -> List[Dict[str, str]]:
+    """Choices of the "Zoom on" menu for this analysis."""
+    options = [{"label": "Whole range", "value": ZOOM_FULL}, {"label": "All spectra", "value": ZOOM_DATA}]
+    if data is not None:
+        for i in range(len(data.centroids)):
+            n = data.n_points[i] if i < len(data.n_points) else None
+            options.append({"label": f"Cluster {i}" + (f" ({n})" if n is not None else ""),
+                            "value": f"{ZOOM_CLUSTER}{i}"})
+    return options
+
+
+def _zoom_points(data: AnalysisData, axes: Sequence[str], zoom: str, show_refs: bool, mode: str) -> np.ndarray:
+    """Points (percent) the axes are zoomed onto: all spectra and centroids, or the spectra and centroid of
+    one cluster."""
+    comps = data.comps[data.comps["status"] != "not quantified"]
+    idx = [data.elements.index(a) for a in axes]
+    if zoom.startswith(ZOOM_CLUSTER) and zoom[len(ZOOM_CLUSTER):].isdigit():
+        i = int(zoom[len(ZOOM_CLUSTER):])
+        members = comps[(comps["status"] == "clustered") & (pd.to_numeric(comps["cluster"], errors="coerce") == i)]
+        pts = members[list(axes)].to_numpy(dtype=float) * 100
+        if i < len(data.centroids):
+            pts = np.vstack([pts, data.centroids[i:i + 1, idx] * 100])
+        if len(pts):
+            return pts
+    pts = comps[list(axes)].to_numpy(dtype=float) * 100
+    if len(data.centroids):
+        pts = np.vstack([pts, data.centroids[:, idx] * 100])
+    if mode == "3d" and show_refs and len(data.ref_comps):
+        pts = np.vstack([pts, data.ref_comps[list(axes)].to_numpy(dtype=float) * 100])
+    return pts
 
 
 def _zoom_range(values: np.ndarray, pad: float = 0.08) -> List[float]:
@@ -289,7 +330,7 @@ def _zoom_range(values: np.ndarray, pad: float = 0.08) -> List[float]:
     if vals.size == 0:
         return [0, 100]
     lo, hi = float(vals.min()), float(vals.max())
-    span = max(hi - lo, 2.0)
+    span = max(hi - lo, 0.5)
     return [max(0.0, lo - pad * span), min(100.0, hi + pad * span)]
 
 
@@ -306,20 +347,21 @@ def _range_3d(values: np.ndarray, zoom: bool) -> List[float]:
     if vals.size == 0:
         return [-_WALL_GAP_3D, 100 + _WALL_GAP_3D]
     lo, hi = float(vals.min()), float(vals.max())
-    gap = max(0.15 * max(hi - lo, 2.0), 2.0)  # room for the labels above the markers
+    gap = 0.15 * max(hi - lo, 0.5)  # room for the labels above the markers
     return [max(-_WALL_GAP_3D, lo - gap), min(100 + _WALL_GAP_3D, hi + gap)]
 
 
 def _ticks(lo: float, hi: float, n: int = 6) -> List[float]:
     """Round tick values within [lo, hi], restricted to 0-100 %."""
     lo, hi = max(lo, 0.0), min(hi, 100.0)
-    step = next((s for s in (0.5, 1, 2, 5, 10, 20, 25) if (hi - lo) / s <= n), 25)
+    step = next((s for s in (0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 25) if (hi - lo) / s <= n), 25)
     start = np.ceil(lo / step) * step
     return [round(float(v), 2) for v in np.arange(start, hi + 1e-9, step)]
 
 
-def _ternary_zoom_mins(pts: np.ndarray, pad: float = 4.0) -> List[float]:
-    """Axis minima (percent) of a ternary diagram zoomed onto the normalised points."""
+def _ternary_zoom_mins(pts: np.ndarray, pad: float = 0.15) -> List[float]:
+    """Axis minima (percent) of a ternary diagram zoomed onto the normalised points, with a margin of
+    *pad* times their spread."""
     pts = np.asarray(pts, dtype=float)
     total = pts.sum(axis=1, keepdims=True)
     with np.errstate(invalid="ignore", divide="ignore"):
@@ -327,19 +369,18 @@ def _ternary_zoom_mins(pts: np.ndarray, pad: float = 4.0) -> List[float]:
     norm = norm[np.all(np.isfinite(norm), axis=1)]
     if norm.size == 0:
         return [0.0, 0.0, 0.0]
-    mins = np.clip(norm.min(axis=0) - pad, 0, None)
-    if mins.sum() > 90:  # keep a visible triangle
-        mins *= 90 / mins.sum()
-    return [float(np.floor(m)) for m in mins]
+    spread = max(float((norm.max(axis=0) - norm.min(axis=0)).max()), 0.5)
+    mins = np.clip(norm.min(axis=0) - pad * spread, 0, None)
+    if mins.sum() > 99.5:  # keep a visible triangle
+        mins *= 99.5 / mins.sum()
+    return [float(np.floor(m * 10) / 10) for m in mins]
 
 
 def _layout_clustering(fig: go.Figure, data: AnalysisData, axes: Sequence[str], mode: str, unit: str,
-                       zoom: bool, uirevision: Optional[str], show_refs: bool = False) -> None:
+                       zoom: str, uirevision: Optional[str], show_refs: bool = False) -> None:
     title = f"{data.config.method} clustering · {data.sample_id}"
-    comps = data.comps[data.comps["status"] != "not quantified"]
-    pts = comps[list(axes)].to_numpy(dtype=float) * 100
-    if len(data.centroids):
-        pts = np.vstack([pts, data.centroids[:, [data.elements.index(a) for a in axes]] * 100])
+    pts = _zoom_points(data, axes, zoom or ZOOM_FULL, show_refs, mode)
+    zoom = (zoom or ZOOM_FULL) != ZOOM_FULL
     common = dict(
         template="plotly_white",
         title=dict(text=title, x=0.01, font=dict(size=15)),
@@ -349,9 +390,6 @@ def _layout_clustering(fig: go.Figure, data: AnalysisData, axes: Sequence[str], 
         hoverlabel=dict(font_size=12),
     )
     if mode == "3d":
-        if show_refs and len(data.ref_comps):
-            pts = np.vstack([pts, data.ref_comps[list(axes)].to_numpy(dtype=float) * 100])
-
         def ax(i: int) -> Dict[str, Any]:
             rng = _range_3d(pts[:, i], zoom)
             ticks = _ticks(*rng)

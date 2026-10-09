@@ -70,7 +70,6 @@ _PLOT_OPTIONS = [
     {"label": "Candidates", "value": pl.OPT_REFS},
     {"label": "Best mixtures", "value": pl.OPT_MIXTURES},
     {"label": "Centroids", "value": pl.OPT_CENTROIDS},
-    {"label": "Zoom to data", "value": pl.OPT_ZOOM},
 ]
 _COLOR_BY = [
     {"label": "Cluster", "value": "cluster"},
@@ -197,6 +196,11 @@ def _plot_controls() -> html.Div:
             html.Div([html.Span("Colour", className="axis-tag"),
                       dcc.Dropdown(id="color-by", options=_COLOR_BY, value="cluster", clearable=False,
                                    className="color-dd")], className="axis-box"),
+            html.Div([html.Span("Zoom on", className="axis-tag"),
+                      dcc.Dropdown(id="zoom-on", options=pl.zoom_options(None), value=pl.ZOOM_FULL,
+                                   clearable=False, className="color-dd")],
+                     className="axis-box", title="Zoom the axes on all spectra or on one cluster. In 3D and "
+                     "ternary, the mouse wheel zooms further and right-drag pans (3D); double-click resets."),
             dcc.Checklist(id="plot-opts", options=_PLOT_OPTIONS, value=pl.DEFAULT_OPTIONS, inline=True,
                           className="plot-opts"),
             html.Div([html.Span("mix. conf ≥", className="axis-tag"),
@@ -227,6 +231,7 @@ def _spectrum_panel() -> html.Div:
             html.Div([
                 html.Button("Fit spectrum", id="fit-btn", className="btn",
                             title="Re-fit and quantify this spectrum to show the fitted model (≈10 s)"),
+                html.Button("Cancel", id="fit-cancel-btn", className="btn btn-danger", hidden=True),
                 html.Button("Show in SEM image", id="show-image-btn", className="btn",
                             title="Show the image of the particle where this spectrum was collected"),
                 html.Button("Open in Single spectrum", id="to-single-btn", className="btn",
@@ -246,7 +251,9 @@ def _tabs() -> dcc.Tabs:
         children=[
             dcc.Tab(label="Clustering", value="plot", children=[
                 _plot_controls(),
-                dcc.Loading(dcc.Graph(id="cluster-graph", config=_GRAPH_CONFIG, className="cluster-graph"),
+                # Mouse-wheel zoom: Plotly's in 2D; in 3D and ternary, assets/cluster_zoom.js
+                dcc.Loading(dcc.Graph(id="cluster-graph", config={**_GRAPH_CONFIG, "scrollZoom": "cartesian"},
+                                      className="cluster-graph"),
                             type="circle", delay_show=400, parent_className="graph-fill"),
             ]),
             dcc.Tab(label="Clusters", value="clusters", children=[html.Div(id="clusters-view", className="tab-body")]),
@@ -854,18 +861,37 @@ def create_app(results_dir: Optional[str] = None) -> Dash:
         Input("selected-spectrum", "data"),
         Input("analysis-dd", "value"),
         Input("data-version", "data"),
+        Input("zoom-on", "value"),
         State("sample-dd", "value"),
     )
-    def cluster_plot(mode, ax, ay, az, color_by, opts, mix_conf, selected, key, version, sample_dir):
+    def cluster_plot(mode, ax, ay, az, color_by, opts, mix_conf, selected, key, version, zoom, sample_dir):
         try:
             _, data = get_analysis(sample_dir, key)
         except Exception:
             data = None
         axes = [ax, ay] if mode == "2d" else [ax, ay, az]
-        uirev = f"{sample_dir}|{key}|{mode}|{'-'.join(map(str, axes))}|{version}"
+        # A new zoom choice resets the view; other changes (e.g. clicking a point) keep the user's zoom
+        uirev = f"{sample_dir}|{key}|{mode}|{'-'.join(map(str, axes))}|{version}|{zoom}"
         min_conf = float(mix_conf) if mix_conf not in (None, "") else pl.DEFAULT_MIN_MIXTURE_CONF
         return pl.clustering_figure(data, axes, mode, opts, color_by, highlight=selected, uirevision=uirev,
-                                    min_mixture_conf=min_conf)
+                                    min_mixture_conf=min_conf, zoom=zoom or pl.ZOOM_FULL)
+
+    @app.callback(
+        Output("zoom-on", "options"),
+        Output("zoom-on", "value"),
+        Input("analysis-dd", "value"),
+        Input("data-version", "data"),
+        State("sample-dd", "value"),
+        State("zoom-on", "value"),
+    )
+    def zoom_choices(key, _, sample_dir, current):
+        try:
+            _, data = get_analysis(sample_dir, key)
+        except Exception:
+            data = None
+        options = pl.zoom_options(data)
+        keep = current in {o["value"] for o in options}
+        return options, current if keep else pl.ZOOM_FULL
 
     # ---------------------------------------------------------------- spectrum selection
     @app.callback(
@@ -1179,6 +1205,7 @@ def create_app(results_dir: Optional[str] = None) -> Dash:
         Output("fit-msg", "children", allow_duplicate=True),
         Output("poll", "disabled", allow_duplicate=True),
         Output("log-details", "open"),
+        Output("fit-cancel-btn", "hidden"),
         Input("poll", "n_intervals"),
         State("job-store", "data"),
         State("fit-job-store", "data"),
@@ -1187,7 +1214,7 @@ def create_app(results_dir: Optional[str] = None) -> Dash:
     )
     def poll(_, job_data, fit_data, version):
         run_msg = log = data_version = job_out = fit_job_out = fit_result = fit_msg = no_update
-        run_disabled = cancel_disabled = log_open = no_update
+        run_disabled = cancel_disabled = log_open = fit_cancel_hidden = no_update
         any_running = False
 
         job = JOBS.get(job_data["id"]) if job_data else None
@@ -1217,19 +1244,22 @@ def create_app(results_dir: Optional[str] = None) -> Dash:
         fjob = JOBS.get(fit_data["id"]) if fit_data else None
         if fjob is not None and not fit_data.get("done"):
             res = fjob.result()
+            fit_cancel_hidden = res is not None
             if res is None:
                 any_running = True
                 fit_msg = f"Fitting… {fjob.elapsed():.0f} s"
             else:
                 fit_job_out = {**fit_data, "done": True}
-                if res.get("ok"):
+                if fjob.cancelled:
+                    fit_msg = "Fit cancelled."
+                elif res.get("ok"):
                     fit_result = {**res, "sample_dir": fjob.sample_dir}
                     r2 = res.get("r_squared")
                     fit_msg = f"Fitted in {fjob.elapsed():.0f} s" + (f" · R² {r2:.5f}" if r2 is not None else "")
                 else:
                     fit_msg = f"Fit failed: {res.get('error')}"
         return (run_msg, log, run_disabled, cancel_disabled, data_version, job_out, fit_job_out, fit_result,
-                fit_msg, not any_running, log_open)
+                fit_msg, not any_running, log_open, fit_cancel_hidden)
 
     @app.callback(
         Output("run-msg", "children", allow_duplicate=True),
@@ -1241,6 +1271,17 @@ def create_app(results_dir: Optional[str] = None) -> Dash:
         if job_data:
             JOBS.cancel(job_data["id"])
         return html.Span("Cancelling…", className="warn")
+
+    @app.callback(
+        Output("fit-msg", "children", allow_duplicate=True),
+        Input("fit-cancel-btn", "n_clicks"),
+        State("fit-job-store", "data"),
+        prevent_initial_call=True,
+    )
+    def fit_cancel(_, fit_data):
+        if fit_data:
+            JOBS.cancel(fit_data["id"])
+        return "Cancelling…"
 
     # ---------------------------------------------------------------- actions
     @app.callback(

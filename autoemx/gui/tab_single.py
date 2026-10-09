@@ -90,7 +90,8 @@ def layout() -> List[Any]:
             ),
             html.Div(
                 [
-                    html.Div([html.Button("Fit and quantify", id="s-run-btn", className="btn btn-primary")],
+                    html.Div([html.Button("Fit and quantify", id="s-run-btn", className="btn btn-primary"),
+                              html.Button("Cancel", id="s-cancel-btn", className="btn btn-danger", disabled=True)],
                              className="run-buttons"),
                     html.Div(id="s-run-msg", className="run-msg"),
                     html.Details([html.Summary("Log"), html.Pre(id="s-log", className="log")],
@@ -435,6 +436,7 @@ def register(app) -> None:
         Output("s-job-store", "data", allow_duplicate=True),
         Output("s-poll", "disabled", allow_duplicate=True),
         Output("s-run-btn", "disabled"),
+        Output("s-cancel-btn", "disabled"),
         Input("s-poll", "n_intervals"),
         State("s-job-store", "data"),
         prevent_initial_call=True,
@@ -442,18 +444,31 @@ def register(app) -> None:
     def poll(_, job_data):
         job = JOBS.get(job_data["id"]) if job_data else None
         if job is None or job_data.get("done"):
-            return no_update, no_update, no_update, no_update, True, False
+            return no_update, no_update, no_update, no_update, True, False, True
         log = job.log_tail()
         res = job.result()
         if res is None:
             return (html.Span(f"{job.description} running… {job.elapsed():.0f} s", className="running"), log,
-                    no_update, no_update, False, True)
-        if res.get("ok"):
+                    no_update, no_update, False, True, False)
+        if job.cancelled:
+            msg, result = html.Span(f"{job.description} cancelled.", className="warn"), no_update
+        elif res.get("ok"):
             msg = html.Span(f"{job.description} done in {job.elapsed():.0f} s.", className="ok")
             result = {**res, "key": job_data["key"]}
         else:
             msg, result = html.Span(f"{job.description} failed: {res.get('error')}", className="err"), no_update
-        return msg, log, result, {**job_data, "done": True}, True, False
+        return msg, log, result, {**job_data, "done": True}, True, False, True
+
+    @app.callback(
+        Output("s-run-msg", "children", allow_duplicate=True),
+        Input("s-cancel-btn", "n_clicks"),
+        State("s-job-store", "data"),
+        prevent_initial_call=True,
+    )
+    def cancel(_, job_data):
+        if job_data:
+            JOBS.cancel(job_data["id"])
+        return html.Span("Cancelling…", className="warn")
 
     @app.callback(
         Output("s-download", "data"),
