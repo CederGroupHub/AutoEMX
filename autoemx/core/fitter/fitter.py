@@ -177,6 +177,60 @@ logger = get_logger(__name__)
 parent_dir = str(Path(__file__).resolve().parent.parent)
 
 #%% XSp_Fitter class
+def get_reference_xray_line(el, line, el_xRays_dict, xray_quant_ref_lines):
+    """
+    Determines the reference X-ray line of a given characteristic line, i.e. the line of the same family
+    whose fitted area sets the area of `line` through the line weights. Reference lines are their own
+    reference, and their area is fitted freely.
+
+    Parameters
+    ----------
+    el : str
+        Element symbol.
+    line : str
+        Line name (e.g. 'Kb1').
+    el_xRays_dict : dict
+        X-ray lines of the element (from get_el_xray_lines).
+    xray_quant_ref_lines : sequence of str
+        Reference lines used for quantification (e.g. XSp_Quantifier.xray_quant_ref_lines).
+
+    Returns
+    -------
+    str
+        Reference line, as '{el}_{line}'.
+    """
+    if line[0] == 'N':
+        ref_line_start = 'M'
+    else:
+        ref_line_start = line[0]
+
+    ref_line_l = [ref_line for ref_line in xray_quant_ref_lines if ref_line_start == ref_line[0]]
+
+    el_line = f"{el}_{line}"
+    if len(ref_line_l) == 0:
+        raise RefLineError(f"K, L or M references not found for {el_line} line.")
+    elif len(ref_line_l) > 1 and ref_line_start in ['K', 'L']:
+        raise RefLineError(f"Multiple reference lines found for {el_line}. Only one should be present.")
+    elif ref_line_start == 'M':
+        if len(ref_line_l) > 2:
+            raise RefLineError(f"Multiple reference lines found for {el_line}. Only one should be present.")
+        else:
+            if Element(el).Z > 58:
+                ref_line = [ref_line for ref_line in ref_line_l if ref_line.startswith('Ma')][0]
+            else:
+                ref_line = [ref_line for ref_line in ref_line_l if ref_line.startswith('Mz')][0]
+    elif ref_line_start == 'K':
+        ref_line = ref_line_l[0]
+    elif ref_line_start == 'L':
+        if 'La1' in el_xRays_dict:
+            ref_line = ref_line_l[0]
+        else:
+            ref_line = 'Ll'
+
+    el_ref_line = f"{el}_{ref_line}"
+    return el_ref_line
+
+
 class XSp_Fitter:
     """
     Fitter for EDS spectra.
@@ -360,36 +414,7 @@ class XSp_Fitter:
 
     def _get_reference_xray_line(self, el, line, el_xRays_dict):
         """Determines the appropriate reference X-ray line for a given characteristic line."""
-        if line[0] == 'N':
-            ref_line_start = 'M'
-        else:
-            ref_line_start = line[0]
-    
-        ref_line_l = [ref_line for ref_line in self.xray_quant_ref_lines if ref_line_start == ref_line[0]]
-    
-        el_line = f"{el}_{line}"
-        if len(ref_line_l) == 0:
-            raise RefLineError(f"K, L or M references not found for {el_line} line.")
-        elif len(ref_line_l) > 1 and ref_line_start in ['K', 'L']:
-            raise RefLineError(f"Multiple reference lines found for {el_line}. Only one should be present.")
-        elif ref_line_start == 'M':
-            if len(ref_line_l) > 2:
-                raise RefLineError(f"Multiple reference lines found for {el_line}. Only one should be present.")
-            else:
-                if Element(el).Z > 58:
-                    ref_line = [ref_line for ref_line in ref_line_l if ref_line.startswith('Ma')][0]
-                else:
-                    ref_line = [ref_line for ref_line in ref_line_l if ref_line.startswith('Mz')][0]
-        elif ref_line_start == 'K':
-            ref_line = ref_line_l[0]
-        elif ref_line_start == 'L':
-            if 'La1' in el_xRays_dict:
-                ref_line = ref_line_l[0]
-            else:
-                ref_line = 'Ll'
-    
-        el_ref_line = f"{el}_{ref_line}"
-        return el_ref_line
+        return get_reference_xray_line(el, line, el_xRays_dict, self.xray_quant_ref_lines)
 
 
 

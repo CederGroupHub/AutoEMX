@@ -929,8 +929,9 @@ def peak_overlaps(
     det_ch_width: Optional[float] = None,
     spectrum_lims: Optional[Any] = None,
     microscope_ID: Optional[str] = None,
+    free_area_el_lines: Optional[List[str]] = None,
 ) -> List[Dict[str, Any]]:
-    """Peak overlaps that may compromise the quantification (see autoemx.core.quantifier.peak_overlaps)."""
+    """Reference peaks of sample elements overlapping with peaks of free area (see autoemx.core.quantifier.peak_overlaps)."""
     from autoemx.core.quantifier.peak_overlaps import get_peak_overlaps
 
     lims = spectrum_lims or dflt.spectrum_lims
@@ -942,14 +943,15 @@ def peak_overlaps(
     try:
         return get_peak_overlaps(meas_type or dflt.measurement_type, els_sample, els_substrate,
                                  float(beam_energy_keV) if beam_energy_keV else None, energy_range,
-                                 microscope_ID or dflt.microscope_ID)
+                                 microscope_ID or dflt.microscope_ID, free_area_el_lines)
     except Exception:
         return []
 
 
 def sample_peak_overlaps(info: SampleInfo, els_sample: Optional[List[str]] = None,
                          els_substrate: Optional[List[str]] = None,
-                         spectrum_lims: Optional[Any] = None) -> List[Dict[str, Any]]:
+                         spectrum_lims: Optional[Any] = None,
+                         free_area_el_lines: Optional[List[str]] = None) -> List[Dict[str, Any]]:
     """Peak overlaps for a sample, with its saved elements unless others are given."""
     cfgs = info.ledger.configs
     return peak_overlaps(
@@ -961,6 +963,7 @@ def sample_peak_overlaps(info: SampleInfo, els_sample: Optional[List[str]] = Non
         cfgs.microscope_cfg.bin_width,
         spectrum_lims or quant_options(info).spectrum_lims,
         cfgs.microscope_cfg.ID,
+        free_area_el_lines,
     )
 
 

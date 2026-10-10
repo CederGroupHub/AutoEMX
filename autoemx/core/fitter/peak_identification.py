@@ -48,6 +48,7 @@ from scipy.signal import find_peaks
 
 from autoemx._logging import get_logger
 from autoemx.core.fitter.detector_response import DetectorResponseFunction
+from autoemx.core.fitter.fitter import get_reference_xray_line
 from autoemx.core.fitter.peaks import OVERLAP_SEPARATION_SIGMAS
 from autoemx.data.Xray_lines import get_el_xray_lines
 
@@ -428,13 +429,11 @@ def _xray_lines(el: str) -> Dict[str, dict]:
 
 
 def _family_reference_line(el: str, line: str, el_lines: Dict[str, dict]) -> str:
-    """Reference line of the family of a line, following XSp_Fitter._get_reference_xray_line."""
-    family = 'M' if line[0] == 'N' else line[0]
-    if family == 'K':
-        return 'Ka1'
-    if family == 'L':
-        return 'La1' if 'La1' in el_lines else 'Ll'
-    return 'Ma1' if Element(el).Z > 58 else 'Mz1'
+    """Reference line of the family of a line, as in XSp_Fitter (see get_reference_xray_line)."""
+    # Imported here: the quantifier imports this module
+    from autoemx.core.quantifier.quantifier import XSp_Quantifier
+    el_ref_line = get_reference_xray_line(el, line, el_lines, XSp_Quantifier.xray_quant_ref_lines)
+    return el_ref_line.split('_', 1)[1]
 
 
 @lru_cache(maxsize=None)

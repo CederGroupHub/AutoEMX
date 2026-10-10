@@ -132,14 +132,13 @@ def find_peak_overlaps(
     microscope_ID: str = dflt.microscope_ID,
 ) -> List[Dict[str, Any]]:
     """
-    Peak overlaps that may compromise the quantification of the sample elements.
+    Reference peaks of the sample elements overlapping with other peaks whose area is fitted freely.
 
     Before a spectrum is available, the fitted energy range is estimated from the default
     spectrum limits and a nominal channel width.
     """
     if energy_range_keV is None:
         energy_range_keV = tuple(lim * _NOMINAL_CH_WIDTH_KEV for lim in dflt.spectrum_lims)
-    els_substrate = [el for el in els_substrate if el not in els_sample]
     return get_peak_overlaps(
         dflt.measurement_type, els_sample, els_substrate, beam_energy_keV, energy_range_keV, microscope_ID
     )

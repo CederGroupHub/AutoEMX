@@ -367,14 +367,18 @@ def register(app) -> None:
         Input("sample-dd", "value"),
         Input({"type": "sparam", "key": "sfit__spectrum_lims__min"}, "value"),
         Input({"type": "sparam", "key": "sfit__spectrum_lims__max"}, "value"),
+        Input({"type": "sparam", "key": "sfit__free_area_el_lines"}, "value"),
     )
-    def overlap_msg(els_sample, els_substrate, source, path, sample_dir, lim_min, lim_max):
+    def overlap_msg(els_sample, els_substrate, source, path, sample_dir, lim_min, lim_max, free_area_el_lines):
         """Warn, as the elements are edited, about peak overlaps that may compromise the quantification."""
         try:
             els_sample = be._elements_list(els_sample)
             els_substrate = be._elements_list(els_substrate)
-            lims = be.coerce_values({"sfit.spectrum_lims": [lim_min, lim_max]}, [be.SPECS_BY_KEY["sfit.spectrum_lims"]])
-            lims = lims["sfit.spectrum_lims"]
+            fit_values = be.coerce_values(
+                {"sfit.spectrum_lims": [lim_min, lim_max], "sfit.free_area_el_lines": free_area_el_lines},
+                [be.SPECS_BY_KEY["sfit.spectrum_lims"], be.SPECS_BY_KEY["sfit.free_area_el_lines"]],
+            )
+            lims, free_area_el_lines = fit_values["sfit.spectrum_lims"], fit_values["sfit.free_area_el_lines"]
         except ValueError:
             return None
         from autoemx.web.pipeline import substrate_elements_note
@@ -390,12 +394,12 @@ def register(app) -> None:
                 _, _, geometry = load_uploaded_spectrum(path)
                 overlaps = be.peak_overlaps(be.dflt.measurement_type, els_sample, els_substrate,
                                             geometry["beam_energy"], geometry["det_ch_offset"],
-                                            geometry["det_ch_width"], lims)
+                                            geometry["det_ch_width"], lims, None, free_area_el_lines)
             else:
                 info = get_info(sample_dir)
                 if info is None:
                     return note
-                overlaps = be.sample_peak_overlaps(info, els_sample, els_substrate, lims)
+                overlaps = be.sample_peak_overlaps(info, els_sample, els_substrate, lims, free_area_el_lines)
         except Exception:
             return note
         return [note, peak_overlaps_view(overlaps)]

@@ -5356,7 +5356,7 @@ class EMXSp_Composition_Analyzer:
 
 
     def _warn_peak_overlaps(self) -> None:
-        """Warn about overlaps between fitted peaks that may compromise the quantification of sample elements."""
+        """Warn about reference peaks of sample elements overlapping with other peaks whose area is fitted freely."""
         energy_vals = getattr(self, 'energy_vals', None)
         energy_range = (energy_vals[0], energy_vals[-1]) if energy_vals is not None and len(energy_vals) else None
         warn_peak_overlaps(

@@ -171,11 +171,12 @@ def fit_and_quantify_spectrum(
     def _warn_peak_overlaps():
         warn_peak_overlaps(
             meas_type,
-            quantifier.els_sample,
+            quantifier.els_to_quantify,
             quantifier.els_substrate,
             beam_energy_keV=beam_energy,
             energy_range_keV=(quantifier.energy_vals[0], quantifier.energy_vals[-1]),
             microscope_ID=microscope_ID,
+            free_area_el_lines=free_area_el_lines,
         )
 
     if quantify_plot:

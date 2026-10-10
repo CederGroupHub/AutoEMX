@@ -823,6 +823,33 @@ class XSp_Quantifier:
 
     #%% Setup compositional quantification
     # =============================================================================
+    @classmethod
+    def get_candidate_quant_lines(cls, lines_energies: Dict[str, float], beam_energy: float) -> List[str]:
+        """
+        Returns the lines that may be used to quantify an element, among its fitted reference lines
+        (lines in `xray_quant_ref_lines`): those above `ideal_ref_line_energy_threshold` keV and with
+        overvoltage above `ideal_ref_line_overvoltage` if any, otherwise all of them.
+        The line used for quantification is the candidate with the largest fitted peak area.
+
+        Parameters
+        ----------
+        lines_energies : dict
+            Energy (keV) of each fitted reference line of the element, keyed by line name.
+        beam_energy : float
+            Beam energy (keV).
+
+        Returns
+        -------
+        list of str
+            Candidate lines (keys of `lines_energies`).
+        """
+        best_lines = [
+            line for line, energy in lines_energies.items()
+            if energy > cls.ideal_ref_line_energy_threshold and beam_energy / energy > cls.ideal_ref_line_overvoltage
+        ]
+        return best_lines or list(lines_energies)
+
+
     def _get_el_line_to_quantify(self, el: str) -> Optional[str]:
         """
         Returns the characteristic X-ray line (e.g., 'Si_Ka', 'Mn_La') to use for quantification
@@ -868,28 +895,14 @@ class XSp_Quantifier:
                 f'Element {el} was not quantified because it did not possess Ka, La, nor Ma lines'
             )
             el_line_qnt = None
-        elif n_lines == 1:
-            el_line_qnt = el_lines_list[0]
         else:
-            # Get energies of lines
-            lines_energies = [
-                self.fitted_peaks_info[el_line][cnst.PEAK_TH_ENERGY_KEY] for el_line in el_lines_list
-            ]
-            # Define ideal reference lines as those above 2 keV and overvoltage > 1.65
-            best_lines = [
-                el_line for el_line, energy in zip(el_lines_list, lines_energies)
-                if energy > IDEAL_REF_LINE_ENERGY_THRESHOLD and self.beam_energy / energy > IDEAL_REF_LINE_OVERVOLTAGE
-            ]
-    
-            # Select ideal el_line for quantification
-            if len(best_lines) == 1:
-                el_line_qnt = best_lines[0]
-            elif len(best_lines) > 1:
-                # Select line with largest intensity among ideal lines
-                el_line_qnt = max(best_lines, key=lambda el_line: self.fitted_peaks_info[el_line][cnst.PEAK_AREA_KEY])
-            else:
-                # Select line with largest intensity among all available lines
-                el_line_qnt = max(el_lines_list, key=lambda el_line: self.fitted_peaks_info[el_line][cnst.PEAK_AREA_KEY])
+            # Ideal reference lines (above 2 keV and overvoltage > 1.65) if any, otherwise all lines
+            candidate_lines = self.get_candidate_quant_lines(
+                {el_line: self.fitted_peaks_info[el_line][cnst.PEAK_TH_ENERGY_KEY] for el_line in el_lines_list},
+                self.beam_energy,
+            )
+            # Select line with largest intensity among candidates
+            el_line_qnt = max(candidate_lines, key=lambda el_line: self.fitted_peaks_info[el_line][cnst.PEAK_AREA_KEY])
     
         if el_line_qnt is not None:
             selected_energy = self.fitted_peaks_info[el_line_qnt][cnst.PEAK_TH_ENERGY_KEY]

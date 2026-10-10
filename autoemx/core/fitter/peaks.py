@@ -27,6 +27,9 @@ from .detector_response import DetectorResponseFunction
 # and constrained to a common energy shift
 OVERLAP_SEPARATION_SIGMAS = 3
 
+# Lines whose area is fitted freely by default, in addition to the reference lines
+DEFAULT_FREE_AREA_EL_LINES = ('Ge_Lb1', 'Ce_Mz1')
+
 
 class Peaks_Model:
     """
@@ -136,7 +139,7 @@ class Peaks_Model:
         Notes
         -----
         - If `xray_weight_refs_dict` is not provided, it defaults to an empty dictionary.
-        - If `free_area_el_lines` is not provided, it defaults to ['Ge_Lb1'].
+        - If `free_area_el_lines` is not provided, it defaults to DEFAULT_FREE_AREA_EL_LINES.
         - If `free_peak_shapes_els` is not provided, it defaults to an empty list.
         - `icc_freq_spectra` is reset for each new instance.
         """
@@ -161,7 +164,7 @@ class Peaks_Model:
 
         # Elements/lines whose area is fitted freely (for weight calibration)
         if free_area_el_lines is None:
-            free_area_el_lines = ['Ge_Lb1', 'Ce_Mz1']
+            free_area_el_lines = list(DEFAULT_FREE_AREA_EL_LINES)
         self.free_area_el_lines = free_area_el_lines
 
         # Elements whose peak shapes are calibrated (for shape calibration)

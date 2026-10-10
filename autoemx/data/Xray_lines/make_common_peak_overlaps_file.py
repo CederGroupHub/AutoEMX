@@ -25,11 +25,10 @@ LineEnergies.csv, LineWeights.csv or the reference-line logic of XSp_Fitter.
 import json
 import os
 from itertools import combinations
-from types import SimpleNamespace
 
 from pymatgen.core import Element
 
-from autoemx.core.fitter.fitter import XSp_Fitter
+from autoemx.core.fitter.fitter import get_reference_xray_line
 from autoemx.core.fitter.peaks import OVERLAP_SEPARATION_SIGMAS
 from autoemx.core.quantifier.quantifier import XSp_Quantifier
 from autoemx.data.Xray_lines import LINE_ENERGIES_DF, get_el_xray_lines
@@ -81,11 +80,9 @@ NEWBURY2009_REGIONS = [
 def _get_free_lines(el):
     """Return the lines of element `el` that are their own weight reference in XSp_Fitter."""
     el_xray_lines = get_el_xray_lines(el)
-    # _get_reference_xray_line only depends on the reference lines used for quantification
-    fitter_stub = SimpleNamespace(xray_quant_ref_lines=XSp_Quantifier.xray_quant_ref_lines)
     free_lines = []
     for line, info in el_xray_lines.items():
-        ref_el_line = XSp_Fitter._get_reference_xray_line(fitter_stub, el, line, el_xray_lines)
+        ref_el_line = get_reference_xray_line(el, line, el_xray_lines, XSp_Quantifier.xray_quant_ref_lines)
         if ref_el_line == f"{el}_{line}":
             free_lines.append({
                 "element": el,
