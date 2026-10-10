@@ -214,8 +214,10 @@ def layout() -> List[Any]:
     )
     return [
         dcc.Store(id="a-job-store"),
-        # Run ID and samples given in the page URL by an external program, to report the runs to it
-        dcc.Store(id="a-link"),
+        # Run ID and samples given in the page URL by an external program, to report the runs to it. Kept for
+        # the browser tab (the URL no longer has them after loading), so that runs started after a reload are
+        # reported too
+        dcc.Store(id="a-link", storage_type="session"),
         # Sample list, kept in the browser between sessions
         dcc.Store(id="a-saved-rows", storage_type="local"),
         dcc.Interval(id="a-poll", interval=2000, disabled=True),
@@ -344,9 +346,10 @@ def register(app) -> None:
         Output("main-tabs", "value", allow_duplicate=True),
         Output("a-link", "data"),
         Input("url", "search"),
+        State("a-link", "data"),
         prevent_initial_call="initial_duplicate",
     )
-    def prefill(search):
+    def prefill(search, stored_link):
         # Results folder and samples given in the URL (the rows are drawn by render_rows)
         try:
             data = prefill_from_query(search)
@@ -354,15 +357,21 @@ def register(app) -> None:
             return html.Span(f"The samples given in the link could not be read: {exc}", className="err"), \
                 no_update, "acq", None
         if data is None:
-            return no_update, no_update, no_update, no_update
+            if not (stored_link and stored_link.get("run_id")):
+                return no_update, no_update, no_update, no_update
+            # Page reloaded (the URL no longer has the link): its results folder again, still reported
+            return _reported_msg(stored_link["run_id"]), stored_link.get("folder") or no_update, no_update, no_update
         n = len(data["rows"])
         msg = [html.Span(f"{n} sample{'s' if n != 1 else ''} loaded from the link.", className="ok")] if n else []
         link = None
         if data["run_id"]:
-            link = {"run_id": data["run_id"], "requested": [r["ID"] for r in data["rows"]]}
-            msg.append(html.Span(f" Runs are reported to the program that opened this page "
-                                 f"(run {data['run_id']}).", className="muted"))
+            link = {"run_id": data["run_id"], "requested": [r["ID"] for r in data["rows"]], "folder": data["folder"]}
+            msg.append(_reported_msg(data["run_id"]))
         return msg, data["folder"] or no_update, "acq", link
+
+    def _reported_msg(run_id):
+        return html.Span(f" Runs are reported to the program that opened this page (run {run_id}).",
+                         className="muted")
 
     # Remove the samples from the address bar once loaded, so that reloading the page keeps the edits
     app.clientside_callback(

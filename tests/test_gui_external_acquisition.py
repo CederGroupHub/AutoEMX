@@ -159,7 +159,7 @@ def test_render_rows_without_url_samples(client):
     assert _render_rows(client, "?acq=%7Bbad", cells=_cells(SAVED_ROW), saved=[SAVED_ROW]) is None
 
 
-def _prefill(app, client, search):
+def _prefill(app, client, search, stored_link=None):
     # Outputs with allow_duplicate carry a hash in the callback key: take it from the callback map
     key = next(k for k in app.callback_map if k.startswith("..a-prefill-msg.children"))
     body = {
@@ -167,7 +167,7 @@ def _prefill(app, client, search):
         "outputs": [{"id": "a-prefill-msg", "property": "children"}, {"id": "folder", "property": "value"},
                     {"id": "main-tabs", "property": "value"}, {"id": "a-link", "property": "data"}],
         "inputs": [{"id": "url", "property": "search", "value": search}],
-        "state": [],
+        "state": [{"id": "a-link", "property": "data", "value": stored_link}],
         "changedPropIds": ["url.search"],
     }
     res = client.post("/_dash-update-component", json=body)
@@ -182,7 +182,12 @@ def test_prefill_callback(app, client, tmp_path: Path):
     assert "a-link" not in res or res["a-link"]["data"] is None  # no run ID: runs are not reported
 
     res = _prefill(app, client, _query(acquisition_url(SAMPLES, str(tmp_path), run_id="run-1")))
-    assert res["a-link"]["data"] == {"run_id": "run-1", "requested": ["LaNbO4_A", "Hematite"]}
+    assert res["a-link"]["data"] == {"run_id": "run-1", "requested": ["LaNbO4_A", "Hematite"], "folder": str(tmp_path)}
+    assert "run-1" in json.dumps(res["a-prefill-msg"])
+
+    # Page reloaded (no link in the URL any more): the stored link gives the folder back, still reported
+    res = _prefill(app, client, "", stored_link={"run_id": "run-1", "requested": ["A"], "folder": str(tmp_path)})
+    assert res["folder"]["value"] == str(tmp_path) and "a-link" not in res and "main-tabs" not in res
     assert "run-1" in json.dumps(res["a-prefill-msg"])
 
     res = _prefill(app, client, "?acq=%7Bbad")

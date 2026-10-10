@@ -284,8 +284,11 @@ def test_acquisition_settings():
     assert kwargs["max_XSp_acquisition_time"] == 25  # 50000 counts / 10000 * 5 s, as in Run_Acquisition.py
     assert kwargs["els_substrate"] == ["C", "O", "Al"]
     # Without quantification, "number of spectra" sets the spectra collected; with it, min and max
-    assert be.acquisition_kwargs({**values, "aacq.n_spectra": 30})["max_n_spectra"] == 30
-    assert be.acquisition_kwargs({**values, "aacq.quantify_spectra": True, "aacq.n_spectra": 30})["max_n_spectra"] == 100
+    # (also as the minimum: the analyser raises max_n_spectra to min_n_spectra)
+    no_quant = be.acquisition_kwargs({**values, "aacq.n_spectra": 5})
+    assert (no_quant["min_n_spectra"], no_quant["max_n_spectra"]) == (5, 5)
+    quant = be.acquisition_kwargs({**values, "aacq.quantify_spectra": True, "aacq.n_spectra": 5})
+    assert (quant["min_n_spectra"], quant["max_n_spectra"]) == (50, 100)
     assert kwargs["powder_meas_cfg_kwargs"]["max_area_par"] == 10000.0
     assert "par_spot_selection_mode" not in kwargs["powder_meas_cfg_kwargs"]
 
