@@ -40,8 +40,7 @@ DOI: [https://doi.org/10.1038/s41467-026-76633-x](https://doi.org/10.1038/s41467
     - **Rule-based filtering** of compositions to discard poorly quantified spectra from the analysis
     - **Unsupervised machine learning–based analysis** to identify the compositions of individual phases in the sample  
 
-- **AutoEMX GUI** — acquire spectra with the microscope, quantify the samples of a project, run their clustering analysis with every parameter and explore the clusters in interactive 3D / ternary / 2D plots linked to the spectra and SEM images, and fit/quantify single spectra. Run `python -m autoemx.gui --create-launcher` once to create a double-click app on your Desktop (or start it with `python -m autoemx.gui path/to/Results`)
-- Scripts for **fitting and quantification** of single EDS spectra exported by proprietary commercial software (`.msa`, `.emsa`, `.msg`)
+- **AutoEMX GUI** — acquire spectra with the microscope, quantify the samples of a project, run their clustering analysis with every parameter and explore the clusters in interactive 3D / ternary / 2D plots linked to the spectra and SEM images, and fit/quantify single spectra. Works also with spectra acquired and exported with commercial software (`.msa`, `.emsa`, `.msg`)
 
 - **Automated experimental standard collection** scripts
 
