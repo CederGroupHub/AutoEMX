@@ -102,6 +102,26 @@ class SpectrumFitResult:
     reader_report: Optional[str] = None
     beam_energy_kV: Optional[float] = None
     peak_overlaps: List[Dict[str, Any]] = field(default_factory=list)
+    identify_elements: bool = False
+    added_elements: List[str] = field(default_factory=list)  # found and quantified
+    added_unquantified_elements: List[str] = field(default_factory=list)  # found, fitted, no standard
+    possible_elements: List[str] = field(default_factory=list)  # possibly present, not added
+    element_check_note: Optional[str] = None
+
+    def element_check_message(self) -> Optional[str]:
+        """Elements added by the identification and those possibly present (None if it was not run)."""
+        if not self.identify_elements:
+            return None
+        parts = []
+        if self.added_elements:
+            parts.append(f"added and quantified: {', '.join(self.added_elements)}")
+        if self.added_unquantified_elements:
+            parts.append("added, fitted but not quantified (no standard): "
+                         f"{', '.join(self.added_unquantified_elements)}")
+        if self.possible_elements:
+            parts.append(f"possibly present (not added): {', '.join(self.possible_elements)}")
+        msg = "; ".join(parts) if parts else "no missing elements found"
+        return msg + (f" ({self.element_check_note})" if self.element_check_note else "")
 
 
 def find_peak_overlaps(
@@ -249,6 +269,23 @@ def load_uploaded_spectrum(spectrum_path: str | Path) -> Tuple[Any, Dict[str, st
     return spectrum_vals, metadata, geometry
 
 
+SUBSTRATE_ELEMENTS_HINT = (
+    "Substrate elements are fitted but never quantified, and their peaks are never attributed to the sample, "
+    "not even when missing elements are identified. List only the elements coming from the substrate that "
+    "you do not want quantified: to quantify an element also present in the substrate (e.g. O in an oxide on "
+    "carbon tape), list it among the known sample elements, not the substrate elements."
+)
+
+
+def substrate_elements_note(els_sample: Sequence[str], els_substrate: Sequence[str]) -> Optional[str]:
+    """Reminder that the listed substrate elements will not be quantified (None if there are none)."""
+    only_substrate = [el for el in els_substrate if el not in set(els_sample)]
+    if not only_substrate:
+        return None
+    return (f"{', '.join(only_substrate)} will not be quantified, nor identified as sample elements. "
+            "To quantify one of them, add it to the known sample elements.")
+
+
 def fit_uploaded_spectrum(
     spectrum_path: str | Path,
     els_sample: Sequence[str],
@@ -259,11 +296,16 @@ def fit_uploaded_spectrum(
     microscope_ID: str = dflt.microscope_ID,
     meas_type: str = dflt.measurement_type,
     meas_mode: str = dflt.measurement_mode,
+    identify_elements: bool = False,
 ) -> SpectrumFitResult:
-    """Fit and quantify one EMSA file. Does not open a matplotlib window."""
+    """Fit and quantify one EMSA file. Does not open a matplotlib window.
+
+    With ``identify_elements``, elements missing from the known ones (which may then be empty) are looked for
+    before the fit: those surely present are added (quantified if a standard exists), doubtful ones reported.
+    """
     path = Path(spectrum_path)
-    if not els_sample:
-        raise ValueError("Sample elements are required (the fitter does not auto-identify peaks).")
+    if not els_sample and not identify_elements:
+        raise ValueError("Known sample elements are required, unless missing elements are identified.")
 
     spectrum_vals, _metadata, geometry = load_uploaded_spectrum(path)
 
@@ -289,9 +331,12 @@ def fit_uploaded_spectrum(
         print_results=False,
         quant_verbose=False,
         fitting_verbose=False,
+        identify_missing_elements=identify_elements,
     )
     if quantifier is None or getattr(quantifier, "fit_result", None) is None:
         raise RuntimeError(f"Fitting failed for '{path.name}'.")
+    added = list(getattr(quantifier, "added_elements", None) or [])
+    added_unquantified = list(getattr(quantifier, "added_unquantified_elements", None) or [])
 
     energy, counts, fitted, background = _plot_series(quantifier)
     quant_result = getattr(quantifier, "quant_result", None) or {}
@@ -315,8 +360,13 @@ def fit_uploaded_spectrum(
         els_substrate=list(els_substrate),
         is_particle=is_particle,
         beam_energy_kV=float(geometry["beam_energy"]),
+        identify_elements=identify_elements,
+        added_elements=added,
+        added_unquantified_elements=added_unquantified,
+        possible_elements=list(getattr(quantifier, "possible_elements", None) or []),
+        element_check_note=getattr(quantifier, "identification_note", None),
         peak_overlaps=find_peak_overlaps(
-            els_sample, els_substrate, float(geometry["beam_energy"]),
+            list(els_sample) + added, list(els_substrate) + added_unquantified, float(geometry["beam_energy"]),
             (float(quantifier.energy_vals[0]), float(quantifier.energy_vals[-1])),
             microscope_ID,
         ),

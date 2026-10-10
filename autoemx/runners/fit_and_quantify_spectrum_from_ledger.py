@@ -80,6 +80,7 @@ def fit_and_quantify_spectrum_from_ledger(
     free_area_el_lines: Optional[List[str]] = None,
     peaks_to_annotate: str = 'main',
     ledger: Optional[Any] = None,
+    identify_missing_elements: Optional[bool] = None,
 ):  
     """
     Fit and (optionally) quantify a single spectrum.
@@ -130,6 +131,11 @@ def fit_and_quantify_spectrum_from_ledger(
         If True, prints quantification operations
     fitting_verbose : bool, optional
         If True, prints fitting operations
+    identify_missing_elements : bool, optional
+        If True, look for elements missing from the fit before fitting (see XSp_Quantifier). Elements confirmed
+        by the fit are added (and quantified if a standard is available); weaker detections are reported.
+        If None (default), uses the setting of the sample's active quantification run (off for runs saved
+        before this option existed).
         
     Returns
     -------
@@ -367,6 +373,8 @@ def fit_and_quantify_spectrum_from_ledger(
         fitting_verbose = fitting_verbose,
         free_area_el_lines=free_area_el_lines,
         peaks_to_annotate=peaks_to_annotate,
+        identify_missing_elements=(bool(getattr(quant_cfg, 'identify_missing_elements', False))
+                             if identify_missing_elements is None else identify_missing_elements),
     )
 
     return quantifier

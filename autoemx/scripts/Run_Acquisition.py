@@ -50,7 +50,7 @@ import os
 results_dir = os.path.dirname(os.path.abspath(__file__)) # Default: save and load results in the same folder as this script. Set to None to use the current working directory, or replace with another path.
 
 # Elements present in the substrate (may depend on target_Xsp_counts). These are ignored during quantification, unless present in the sample.
-els_substrate = ['C', 'O', 'Al']  # N and F may also be detectable with >100k counts
+els_substrate = ['C']  # N and F may also be detectable with >100k counts
 
 # =============================================================================
 # Acquisition Options

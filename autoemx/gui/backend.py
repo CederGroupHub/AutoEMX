@@ -486,6 +486,10 @@ _SUBMODEL_SECTIONS: Dict[str, type] = {
     "merge": ClusterMergeParams,
     "mixture": MixtureParams,
 }
+# Sub-models with only some fields exposed (the others keep their default values)
+_SUBMODEL_FIELDS: Dict[str, List[str]] = {
+    "mixture": ["max_n_phases", "collapse_equivalent_mixtures", "equivalent_span_tol"],
+}
 
 _HELP: Dict[str, str] = {
     # Quantification
@@ -495,6 +499,7 @@ _HELP: Dict[str, str] = {
     "quant.fit_tolerance": "Tolerance for fit convergence. Empty = keep each sample's saved value (default 1e-4).",
     "quant.use_project_specific_std_dict": "Load the P/B standards file from the results folder instead of the default calibration file. 'saved' keeps each sample's setting.",
     "quant.is_known_precursor_mixture": "Sample is a mixture of known powders: characterizes their extent of intermixing. 'saved' keeps each sample's setting.",
+    "quant.identify_missing_elements": "Before fitting each spectrum, look for peaks of elements missing from the known elements. Elements surely present are added (quantified if a standard exists, otherwise only fitted); doubtful ones are only reported. The elements found are listed per spectrum and per sample. Slower. 'saved' keeps each sample's setting.",
     "qrun.interrupt_fits_bad_spectra": "Stop fitting spectra as soon as they are found to give a poor quantification. Much faster.",
     "qrun.force_requantification": "Quantify all spectra again, in a new quantification run, even if a run with the same settings exists.",
     "qrun.requantify_only_unquantified_spectra": "Re-quantify only spectra without a composition (never quantified, or previously skipped/flagged).",
@@ -503,11 +508,12 @@ _HELP: Dict[str, str] = {
     "qafter.run_analysis": "Run the clustering analysis with each sample's saved settings after quantifying it.",
     "qafter.max_analytical_error": "Maximum analytical error (w%) of the spectra used by the analysis.",
     # Single spectrum
-    "single.els_sample": "Elements to quantify. Required for external spectra.",
-    "single.els_substrate": "Elements fitted but not quantified (e.g. C, O, Al for carbon tape).",
+    "single.els_sample": "Elements known to be in the sample, quantified. Required for external spectra, unless 'identify missing elements' is on.",
+    "single.els_substrate": "Elements fitted but not quantified (e.g. C, O, Al for carbon tape). They are never identified as sample elements either: to quantify an element also present in the substrate (e.g. O in an oxide), list it among the known sample elements instead.",
     "single.is_standard": "The spectrum is from a standard of known composition: report the measured P/B ratios.",
     "single.std_formula": "Formula of the standard (e.g. Al2O3). Empty = composition saved in the ledger.",
     "sfit.quantify": "Quantify the spectrum after fitting it. If off, only fits it.",
+    "sfit.identify_elements": "Before the fit, look for peaks of elements missing from the known elements (which may be empty). Elements surely present are added (quantified if a standard exists, otherwise only fitted); doubtful ones are only reported. Slower.",
     "sfit.is_particle": "Apply particle (rough sample) geometry corrections. Off for flat samples.",
     "sfit.fit_tol": "Tolerance for fit convergence.",
     "sfit.spectrum_lims": "Lower and upper channel indices of the fitted range. Empty = saved value (or default for external spectra).",
@@ -599,7 +605,7 @@ def _model_specs(section: str, model: type, names: Optional[List[str]] = None) -
             ParamSpec(
                 section=section,
                 name=name,
-                label=name.replace("_", " "),
+                label=" ".join("elements" if w == "els" else w for w in name.split("_")),
                 kind=kind,
                 default=default,
                 choices=_CHOICES.get(key),
@@ -632,7 +638,7 @@ def build_param_specs() -> List[ParamSpec]:
          "auto_merge_clusters", "ref_formulae", "do_matrix_decomposition"],
     )
     for section, model in _SUBMODEL_SECTIONS.items():
-        specs += _model_specs(section, model)
+        specs += _model_specs(section, model, _SUBMODEL_FIELDS.get(section))
     specs += _model_specs(
         "plot", PlotConfig,
         ["els_to_plot", "els_excluded_clust_plot", "show_unused_comps_clust",
@@ -662,6 +668,7 @@ def build_quant_specs() -> List[ParamSpec]:
         ParamSpec("quant", "use_project_specific_std_dict", "project-specific standards", "choice", SAVED,
                   choices=tri),
         ParamSpec("quant", "is_known_precursor_mixture", "known precursor mixture", "choice", SAVED, choices=tri),
+        ParamSpec("quant", "identify_missing_elements", "identify missing elements", "choice", SAVED, choices=tri),
         ParamSpec("qrun", "interrupt_fits_bad_spectra", "interrupt fits of bad spectra", "bool", True),
         ParamSpec("qrun", "force_requantification", "force requantification (new run)", "bool", False),
         ParamSpec("qrun", "requantify_only_unquantified_spectra", "re-quantify only unquantified spectra",
@@ -677,11 +684,12 @@ def build_single_specs() -> List[ParamSpec]:
     """Parameters of the single-spectrum form."""
     qdef = QuantificationOptionsConfig()
     return _finish_specs([
-        ParamSpec("single", "els_sample", "sample elements", "text", ""),
-        ParamSpec("single", "els_substrate", "substrate elements", "text", ", ".join(dflt.substrate_els)),
+        ParamSpec("single", "els_sample", "known sample elements", "text", ""),
+        ParamSpec("single", "els_substrate", "known substrate elements", "text", ", ".join(dflt.substrate_els)),
         ParamSpec("single", "is_standard", "standard of known composition", "bool", False),
         ParamSpec("single", "std_formula", "standard formula", "text", "", placeholder="from ledger"),
         ParamSpec("sfit", "quantify", "quantify", "bool", True),
+        ParamSpec("sfit", "identify_elements", "identify missing elements", "bool", dflt.identify_missing_elements),
         ParamSpec("sfit", "is_particle", "particle geometry", "bool", True),
         ParamSpec("sfit", "fit_tol", "fit tolerance", "float", qdef.fit_tolerance),
         ParamSpec("sfit", "spectrum_lims", "spectrum limits (channels)", "pair_opt", None, placeholder="saved"),
@@ -722,7 +730,7 @@ def build_acq_specs() -> List[ParamSpec]:
         "aacq.auto_adjust_brightness_contrast": "Adjust brightness and contrast automatically.",
         "aacq.contrast": "Contrast, used when automatic brightness/contrast is off.",
         "aacq.brightness": "Brightness, used when automatic brightness/contrast is off.",
-        "asample.els_substrate": "Substrate elements, ignored during quantification unless present in the sample.",
+        "asample.els_substrate": "Substrate elements, fitted but not quantified unless also listed among the sample elements. They are never identified as sample elements either: list only elements you do not want quantified.",
         "aacq.n_spectra": "Number of spectra collected per sample.",
         "aimg.saved_images_extension": "Format of the saved SEM images (png: light; tif: lossless, larger).",
         "aimg.annotate_particle_images": "Draw the spectrum spots and scale bar on the particle images. If off, annotated copies can be made with Annotate_Particle_Images.py.",
@@ -747,7 +755,7 @@ def build_acq_specs() -> List[ParamSpec]:
         ParamSpec("asample", "sample_halfwidth", "sample half-width (mm)", "float", 3.0),
         ParamSpec("asample", "sample_substrate_type", "substrate", "choice", cnst.CTAPE_SUBSTRATE_TYPE,
                   choices=[cnst.CTAPE_SUBSTRATE_TYPE, cnst.NONE_SUBSTRATE_TYPE]),
-        ParamSpec("asample", "els_substrate", "substrate elements", "text", ", ".join(dflt.substrate_els)),
+        ParamSpec("asample", "els_substrate", "known substrate elements", "text", ", ".join(dflt.substrate_els)),
         ParamSpec("asample", "sample_substrate_shape", "substrate shape", "choice", cnst.CIRCLE_SUBSTRATE_SHAPE,
                   choices=[cnst.CIRCLE_SUBSTRATE_SHAPE, cnst.SQUARE_SUBSTRATE_SHAPE]),
         ParamSpec("asample", "sample_substrate_width_mm", "substrate width (mm)", "float", 12.0),
@@ -877,7 +885,8 @@ def sample_param_values(info: SampleInfo, analysis: Optional[AnalysisRef] = None
     for section, attr in (("dbscan", "dbscan"), ("aitchison", "aitchison"),
                           ("merge", "cluster_merge"), ("mixture", "mixture")):
         for name, value in getattr(cfg, attr).model_dump().items():
-            values[f"{section}.{name}"] = value
+            if f"{section}.{name}" in values:  # fields shown in the form
+                values[f"{section}.{name}"] = value
     plot_cfg = ledger.configs.plot_cfg
     for name in ("els_to_plot", "els_excluded_clust_plot", "show_unused_comps_clust",
                  "show_legend_clustering", "plot_best_mixture"):
@@ -905,6 +914,7 @@ def single_param_values(info: Optional[SampleInfo]) -> Dict[str, Any]:
     values["sfit.is_particle"] = bool(info.ledger.configs.sample_cfg.is_surface_rough)
     values["sfit.fit_tol"] = opts.fit_tolerance
     values["sfit.spectrum_lims"] = [int(round(v)) for v in opts.spectrum_lims]
+    values["sfit.identify_elements"] = bool(getattr(opts, "identify_missing_elements", False))
     exp_cfg = info.ledger.configs.measurement_cfg.exp_stds_cfg
     values["single.is_standard"] = bool(exp_cfg is not None and getattr(exp_cfg, "is_exp_std_measurement", False))
     return values
@@ -1047,7 +1057,7 @@ def _validate_models(values: Dict[str, Any]) -> List[str]:
             section_values = _section_dict(values, section)
             if not section_values:
                 continue  # not part of this form
-            if len(section_values) < len(model.model_fields):
+            if len(section_values) < len(_SUBMODEL_FIELDS.get(section) or model.model_fields):
                 continue  # a field failed coercion, already reported
             model.model_validate(section_values)
         except Exception as exc:
@@ -1132,6 +1142,7 @@ def quantification_kwargs(values: Dict[str, Any]) -> Dict[str, Any]:
         fit_tolerance=values["quant.fit_tolerance"],
         use_project_specific_std_dict=_TRISTATE[values["quant.use_project_specific_std_dict"]],
         is_known_precursor_mixture=_TRISTATE[values["quant.is_known_precursor_mixture"]],
+        identify_missing_elements=_TRISTATE[values["quant.identify_missing_elements"]],
         interrupt_fits_bad_spectra=values["qrun.interrupt_fits_bad_spectra"],
         force_requantification=values["qrun.force_requantification"],
         requantify_only_unquantified_spectra=values["qrun.requantify_only_unquantified_spectra"],
@@ -1308,6 +1319,7 @@ def single_fit_kwargs(values: Dict[str, Any]) -> Dict[str, Any]:
         is_standard=values["single.is_standard"],
         els_w_frs=w_frs,
         quantify=values["sfit.quantify"],
+        identify_missing_elements=values["sfit.identify_elements"],
         is_particle=values["sfit.is_particle"],
         fit_tol=values["sfit.fit_tol"],
         spectrum_lims=tuple(lims) if lims else None,
@@ -1461,7 +1473,37 @@ def _fit_payload(quantifier: Any, quant_flag: Optional[int] = None) -> Dict[str,
         "r_squared": quant.get(cnst.R_SQ_KEY, getattr(fit_result, "rsquared", None)),
         "redchi_sq": quant.get(cnst.REDCHI_SQ_KEY, getattr(fit_result, "redchi", None)),
         "quant_flag": quant_flag,
+        **_element_check_payload(quantifier),
     }
+
+
+def _element_check_payload(quantifier: Any) -> Dict[str, Any]:
+    """Elements added to the fit by the element identification, and those possibly present (empty if not run)."""
+    if getattr(quantifier, "added_elements", None) is None:
+        return {"element_check": None}
+    return {"element_check": {
+        "added_quantified": list(quantifier.added_elements or []),
+        "added_not_quantified": list(quantifier.added_unquantified_elements or []),
+        "possible": list(quantifier.possible_elements or []),
+        "note": quantifier.identification_note,
+    }}
+
+
+def element_check_message(check: Optional[Dict[str, Any]]) -> Optional[str]:
+    """One-line summary of the element identification of a fit (None if it was not run)."""
+    if check is None:
+        return None
+    parts = []
+    if check["added_quantified"]:
+        parts.append(f"added and quantified: {', '.join(check['added_quantified'])}")
+    if check["added_not_quantified"]:
+        parts.append(f"added, fitted but not quantified (no standard): {', '.join(check['added_not_quantified'])}")
+    if check["possible"]:
+        parts.append(f"possibly present (not added): {', '.join(check['possible'])}")
+    msg = "; ".join(parts) if parts else "no missing elements found"
+    if check.get("note"):
+        msg += f" ({check['note']})"
+    return msg
 
 
 def _run_fit(sample_dir: str, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -1481,6 +1523,7 @@ def _run_fit(sample_dir: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         fit_tol=float(opts.fit_tolerance),
         is_particle=bool(info.ledger.configs.sample_cfg.is_surface_rough),
         use_instrument_background=bool(opts.use_instrument_background),
+        identify_missing_elements=bool(getattr(opts, "identify_missing_elements", False)),
         print_results=False,
         quant_verbose=True,
         fitting_verbose=False,

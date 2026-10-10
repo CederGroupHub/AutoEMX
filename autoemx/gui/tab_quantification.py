@@ -38,8 +38,8 @@ _COLUMNS = [
     {"name": "Spectra", "id": "n_spectra", "type": "numeric", "editable": False},
     {"name": "Quantified", "id": "n_quantified", "type": "numeric", "editable": False},
     {"name": "Runs", "id": "n_runs", "type": "numeric", "editable": False},
-    {"name": "Sample elements", "id": "elements", "editable": True},
-    {"name": "Substrate", "id": "substrate", "editable": True},
+    {"name": "Known sample elements", "id": "elements", "editable": True},
+    {"name": "Known substrate elements", "id": "substrate", "editable": True},
 ]
 
 
@@ -82,7 +82,9 @@ def layout() -> List[Any]:
                     html.Div([
                         html.B("Samples"),
                         html.Span(" · tick the samples to quantify · click a column header to sort (e.g. by "
-                                  "acquisition date) · edit the elements in the table to change them",
+                                  "acquisition date) · edit the elements in the table to change them · "
+                                  "substrate elements are not quantified, nor identified as sample elements: "
+                                  "to quantify one (e.g. O in oxides), add it to the known sample elements",
                                   className="muted"),
                     ], className="q-table-title"),
                     html.Div([
@@ -168,11 +170,12 @@ def _import_modal() -> html.Div:
             html.Div(id="q-imp-info", className="imp-info"),
             _field("Sample ID", dcc.Input(id="q-imp-id", type="text", className="imp-input"),
                    "name of the new sample folder"),
-            _field("Sample elements", dcc.Input(id="q-imp-els", type="text", placeholder="e.g. Pb, Mo, O",
+            _field("Known sample elements", dcc.Input(id="q-imp-els", type="text", placeholder="e.g. Pb, Mo, O",
                                                 className="imp-input")),
-            _field("Substrate elements", dcc.Input(id="q-imp-sub", type="text", value="C, O, Al",
+            _field("Known substrate elements", dcc.Input(id="q-imp-sub", type="text", value="C",
                                                    className="imp-input"),
-                   "elements of the substrate (e.g. carbon tape), empty if none"),
+                   "elements of the substrate (e.g. carbon tape), empty if none; they are not quantified: "
+                   "to quantify one (e.g. O in oxides), list it among the sample elements"),
             _field("Sample type", dcc.Dropdown(id="q-imp-type", value=be.cnst.S_POWDER_SAMPLE_TYPE, clearable=False,
                                                options=[{"label": t, "value": t} for t in be.IMPORT_SAMPLE_TYPES],
                                                className="imp-dd")),
@@ -624,7 +627,7 @@ def register(app) -> None:
                 except ValueError as exc:
                     errors.append(f"{Path(d).name}: {exc}")
             if entry.get("els_sample") == []:
-                errors.append(f"{Path(d).name}: no sample elements")
+                errors.append(f"{Path(d).name}: no known sample elements")
             samples.append(entry)
         if errors:
             return no_update, no_update, html.Div([html.B("Invalid elements: "), "; ".join(errors)], className="err")

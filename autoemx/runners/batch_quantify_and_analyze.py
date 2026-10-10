@@ -79,6 +79,7 @@ def batch_quantify_and_analyze(
     results_path: Optional[str] = None,
     min_bckgrnd_cnts: Optional[float] = None,
     min_total_counts_fraction: Optional[float] = None,
+    identify_missing_elements: Optional[bool] = None,
     output_filename_suffix: str = "",
     use_instrument_background: bool = dflt.use_instrument_background,
     max_analytical_error: float = 5,
@@ -125,6 +126,11 @@ def batch_quantify_and_analyze(
         Spectra below this threshold are flagged ``quant_flag = 2`` ("Total counts too low").
         If None, uses the value already on the quantification config (default ``0.9``).
         Lower this to quantify shorter acquisitions; ``0`` disables the check.
+    identify_missing_elements : bool, optional
+        If True, each spectrum is checked for elements missing from its fit before quantification
+        (e.g. contaminants, or elements of an unknown material), and a report of the elements found is printed
+        for each sample and for the batch. If None, uses the value of the quantification config (default True;
+        off for quantification runs saved before this option existed).
     output_filename_suffix : str, optional
         Suffix to append to output filenames.
     use_instrument_background : bool, optional
@@ -300,6 +306,8 @@ def batch_quantify_and_analyze(
             clustering_cfg.min_bckgrnd_cnts = min_bckgrnd_cnts
         if min_total_counts_fraction is not None:
             quant_cfg.min_total_counts_fraction = min_total_counts_fraction
+        if identify_missing_elements is not None:
+            quant_cfg.identify_missing_elements = bool(identify_missing_elements)
         if quantification_method is not None:
             quant_cfg.method = quantification_method
         if spectrum_lims is not None:
@@ -386,5 +394,14 @@ def batch_quantify_and_analyze(
 
         
         quant_results.append(comp_analyzer)
-    
+
+    # Elements found in the batch
+    checked = [a for a in quant_results if a._identify_missing_elements()]
+    if len(checked) > 1:
+        print_double_separator()
+        logging.info("Element identification — batch summary:\n" + "\n".join(
+            EMXSp_Composition_Analyzer.format_element_identification_summary(a.element_identification_summary(), a.sample_cfg.ID)
+            for a in checked
+        ))
+
     return quant_results

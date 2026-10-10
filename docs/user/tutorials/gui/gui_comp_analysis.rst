@@ -198,11 +198,17 @@ or on a more performant one (e.g. with more CPU cores) with access to the result
    quantify only the samples just added to a project. Sort the table by clicking a column
    header, e.g. **Acquired** to show the latest samples first, and filter it by typing in the
    row below the headers. **Select/Unselect all** ticks (or unticks) all the samples listed.
-2. **Elements.** The sample and substrate elements of each sample can be edited in the table.
-   Unchanged elements keep the values saved in the sample's ledger.
+2. **Elements.** The known sample and substrate elements of each sample can be edited in the
+   table. Unchanged elements keep the values saved in the sample's ledger.
 3. **Settings.** Options left empty (or set to *saved*) keep each sample's saved value. When the
    ticked samples share the same saved value, it is shown in grey in the empty field (and as
    e.g. *saved (no)* in the menus); *saved* means that their values differ.
+   **Identify missing elements**: before fitting each spectrum, look for peaks of elements missing
+   from the known elements. Elements surely present are added to that spectrum (quantified if a
+   standard is available, otherwise only fitted); doubtful ones are only reported. The elements
+   found are listed per spectrum (*Added elements* and *Possible elements* columns of ``Compositions.csv``), per sample
+   (``Element_identification_report.txt``) and per batch (at the end of the log). On by default (slower);
+   quantification runs saved before this option existed keep it off.
    *Which spectra*: interrupt fits of bad spectra, **force requantification** (new
    quantification run), **re-quantify only unquantified spectra** (e.g. after lowering the
    minimum background counts), and **max spectra per sample** to quantify only the first N

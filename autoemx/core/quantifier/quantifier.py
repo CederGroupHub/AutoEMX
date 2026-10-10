@@ -211,6 +211,9 @@ class XSp_Quantifier:
         verbose=False,
         fitting_verbose=False,
         free_area_el_lines=None,
+        identify_missing_elements=False,
+        identification_pool=None,
+        identification_settings=None,
     ):
         """
         Initialize an XSp_Quantifier for quantitative EDS spectrum analysis.
@@ -260,6 +263,15 @@ class XSp_Quantifier:
             If True, print information during quantification.
         fitting_verbose : bool, optional
             If True, print detailed information during each fitting step.
+        identify_missing_elements : bool, optional
+            If True, before fitting, look for elements missing from the fit (see
+            autoemx.core.fitter.peak_identification.identify_elements). Elements confirmed by the fit ('strong')
+            are added: quantified if a standard is available, otherwise only fitted. Weaker detections are only
+            recorded as possibly present.
+        identification_pool : list of str, optional
+            Elements likely to be present (e.g. found in other spectra of the sample), tested first.
+        identification_settings : PeakIDSettings, optional
+            Thresholds of the identification of missing elements (default settings if None).
     
         Notes
         -----
@@ -342,6 +354,16 @@ class XSp_Quantifier:
         self.verbose = verbose
         self.fitting_verbose = fitting_verbose
         self.free_area_el_lines = free_area_el_lines
+
+        # Identification of elements missing from the fit
+        self.identify_missing_elements = bool(identify_missing_elements)
+        self.identification_pool = list(identification_pool or [])
+        self.identification_settings = identification_settings
+        self.identification_result = None
+        self.added_elements: Optional[List[str]] = None
+        self.added_unquantified_elements: Optional[List[str]] = None
+        self.possible_elements: Optional[List[str]] = None
+        self.identification_note: Optional[str] = None
         
     #%% Fit spectrum
     # =============================================================================
@@ -424,6 +446,9 @@ class XSp_Quantifier:
             K_val = self.get_starting_K_val()
             if K_val is not None:
                 initial_par_vals = {'K': K_val}
+
+        if self.identify_missing_elements:
+            self._run_element_identification(initial_par_vals)
     
         # Initialize the fitter (no fitting performed yet)
         self._initialize_spectrum_fitter()
@@ -892,6 +917,114 @@ class XSp_Quantifier:
         return el_line_qnt
     
     
+    def _has_standard(self, el: str) -> bool:
+        """
+        Whether an element can be quantified: all the lines that may be used to quantify it (fitted reference
+        lines above the ideal energy and overvoltage thresholds if any, otherwise all fitted reference lines,
+        as in _get_el_line_to_quantify) have a valid 'Mean' standard.
+        """
+        if self.standards is None:
+            try:
+                self._load_EDS_standards()
+            except Exception:
+                return False
+        try:
+            el_lines = get_el_xray_lines(el)
+        except (KeyError, ValueError):
+            return False
+        e_min, e_max = float(self.energy_vals[0]), float(self.energy_vals[-1])
+        ref_lines = {
+            line: float(info['energy (keV)']) for line, info in el_lines.items()
+            if line in self.xray_quant_ref_lines and self.beam_energy / float(info['energy (keV)']) > 1.2
+            and e_min <= float(info['energy (keV)']) <= e_max
+        }
+        ideal = {
+            line for line, en in ref_lines.items()
+            if en > self.ideal_ref_line_energy_threshold and self.beam_energy / en > self.ideal_ref_line_overvoltage
+        }
+        candidates = ideal or set(ref_lines)
+        if not candidates:
+            return False
+
+        def valid(entries) -> bool:
+            return any(
+                std.get(cnst.STD_ID_KEY) == cnst.STD_MEAN_ID_KEY and std.get(cnst.COR_PB_DF_KEY) is not None
+                and std[cnst.COR_PB_DF_KEY] > 0
+                for std in (entries or [])
+            )
+        return all(valid(self.standards.get(f"{el}_{line}")) for line in candidates)
+
+
+    def _run_element_identification(self, initial_par_vals: Optional[Dict[str, float]]) -> None:
+        """
+        Look for elements missing from the fit before fitting (see peak_identification.identify_elements).
+
+        Elements confirmed by the fit ('strong') are added to the elements to quantify if they have a standard,
+        or to the fitted-only elements otherwise. Weaker detections are only recorded as possibly present.
+        If the background of the starting fit is off, the identification is repeated with the background scale K
+        fixed at the value fitted above 5 keV (initial_par_vals['K']), so that particle geometry parameters do not
+        compensate for the background intensity.
+        """
+        # Imported here: peak_identification imports the quantifier
+        from autoemx.core.fitter import peak_identification as pid
+
+        self.added_elements, self.added_unquantified_elements, self.possible_elements = [], [], []
+        if not self.fit_background:
+            self.identification_note = "identification of missing elements not performed: requires a fitted background"
+            return
+
+        common = dict(
+            spectrum_vals=self.spectrum_vals, energy_vals=self.energy_vals, spectrum_lims=self.spectrum_lims,
+            microscope_ID=self.microscope_ID, meas_mode=self.meas_mode, det_ch_offset=self.det_ch_offset,
+            det_ch_width=self.det_ch_width, beam_energy=self.beam_energy, emergence_angle=self.emergence_angle,
+            tot_sp_counts=self.tot_sp_counts, substrate_elements=list(self.els_substrate),
+            is_particle=self.is_particle, sp_collection_time=self.sp_collection_time,
+        )
+        k_val = (initial_par_vals or {}).get('K')
+        fit = pid.make_xsp_fit_function(**common, initial_par_vals=initial_par_vals)
+        refit = pid.make_xsp_fit_function(**common, fixed_par_vals={'K': k_val}) if k_val is not None else None
+        try:
+            result = pid.identify_elements(
+                self.spectrum_vals, self.energy_vals, fit, self.beam_energy,
+                pid.get_sigma_function(self.microscope_ID),
+                fixed_elements=list(self.els_to_quantify),
+                substrate_elements=list(self.els_substrate),
+                settings=self.identification_settings,
+                has_standard=self._has_standard,
+                priority_elements=self.identification_pool,
+                background_refit_function=refit,
+                meas_type=self.meas_type,
+                verbose=self.verbose,
+            )
+        except Exception as e:
+            self.identification_note = f"identification of missing elements failed: {type(e).__name__}: {e}"
+            logger.warning(f"⚠️ {self.identification_note}")
+            return
+
+        self.identification_result = result
+        self.identification_note = result.background_note or None
+        for el in result.quantifiable_new_elements:
+            if el not in self.els_to_quantify:
+                self.els_to_quantify.append(el)
+                self.els_sample.append(el)
+            self.added_elements.append(el)
+        for el in result.unquantifiable_new_elements:
+            if el not in self.els_substrate and el not in self.els_to_quantify:
+                self.els_substrate.append(el)
+            self.added_unquantified_elements.append(el)
+        self.possible_elements = list(result.possible_new_elements)
+
+        if self.added_elements or self.added_unquantified_elements or self.possible_elements:
+            parts = []
+            if self.added_elements:
+                parts.append(f"added and quantified: {', '.join(self.added_elements)}")
+            if self.added_unquantified_elements:
+                parts.append(f"added, not quantified (no standard): {', '.join(self.added_unquantified_elements)}")
+            if self.possible_elements:
+                parts.append(f"possibly present (check manually): {', '.join(self.possible_elements)}")
+            logger.info("🔎 Element identification — " + "; ".join(parts))
+
+
     def _load_EDS_standards(self) -> None:
         """
         Load EDS standards for the current beam energy and EDS mode.
@@ -966,6 +1099,9 @@ class XSp_Quantifier:
             k_val = self.get_starting_K_val()
             if k_val is not None:
                 initial_param_values = {'K': k_val}
+
+        if self.identify_missing_elements:
+            self._run_element_identification(initial_param_values)
     
         # Initialize the spectrum fitter (no fitting is performed yet)
         self._initialize_spectrum_fitter()
@@ -1265,6 +1401,10 @@ class XSp_Quantifier:
                 interrupted=(quant_result is None),
                 min_background_ref_lines=min_background_ref_lines,
                 missing_reference_peaks=list(self.missing_reference_peaks),
+                added_elements=self.added_elements,
+                added_unquantified_elements=self.added_unquantified_elements,
+                possible_elements=self.possible_elements,
+                identification_note=self.identification_note,
             ),
         )
     

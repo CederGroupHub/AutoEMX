@@ -85,7 +85,7 @@ beam_energy = 15  # keV.  Critical: must match the beam energy used for acquisit
 # Substrate Options
 # =============================================================================
 
-els_substrate            = ['C', 'O', 'Al']  # Elements in the substrate; excluded from
+els_substrate            = ['C']  # Elements in the substrate; excluded from
                                               # quantification unless also in sample elements
 sample_substrate_type    = 'Ctape'            # 'Ctape' or 'None'
 sample_substrate_shape   = 'circle'           # 'circle' or 'square'

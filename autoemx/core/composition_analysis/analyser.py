@@ -295,6 +295,17 @@ def _worker_check_fit_quant_validity(
     return quant_flag, comment
 
 
+def _identification_settings(worker_payload: Dict[str, Any]):
+    """Settings of the identification of missing elements from a worker payload (None: defaults)."""
+    if not worker_payload.get('identify_missing_elements', False):
+        return None
+    from autoemx.core.fitter.peak_identification import PeakIDSettings
+    return PeakIDSettings(
+        z_range=tuple(worker_payload.get('identification_z_range', dflt.identification_z_range)),
+        excluded_elements=tuple(worker_payload.get('identification_excluded_elements', dflt.identification_excluded_elements)),
+    )
+
+
 def _quantify_spectrum_worker(worker_payload: Dict[str, Any]) -> tuple[int, Optional[Dict[str, Any]], QuantificationResult, Optional[float]]:
     """Process-safe worker for one spectrum quantification or fitting-only."""
     spectrum_index = int(worker_payload['spectrum_index'])
@@ -366,6 +377,9 @@ def _quantify_spectrum_worker(worker_payload: Dict[str, Any]) -> tuple[int, Opti
         standards_dict=worker_payload['standards_dict'],
         verbose=False,
         fitting_verbose=False,
+        identify_missing_elements=bool(worker_payload.get('identify_missing_elements', False)),
+        identification_pool=worker_payload.get('identification_pool'),
+        identification_settings=_identification_settings(worker_payload),
     )
 
     try:
@@ -424,6 +438,11 @@ def _quantify_spectrum_worker(worker_payload: Dict[str, Any]) -> tuple[int, Opti
         comment=comment,
     )
     return spectrum_index, quant_result, quant_record, time.time() - start_quant_time
+
+# Columns of Compositions.csv written when the identification of missing elements is enabled
+ADDED_ELEMENTS_DF_KEY = 'Added elements'
+POSSIBLE_ELEMENTS_DF_KEY = 'Possible elements'
+
 
 #%% EMXSp_Composition_Analyzer class
 class EMXSp_Composition_Analyzer:
@@ -2596,6 +2615,16 @@ class EMXSp_Composition_Analyzer:
             "det_ch_offset": float(self.det_ch_offset),
             "det_ch_width": float(self.det_ch_width),
             "min_total_counts_fraction": self._min_total_counts_fraction(),
+            "identify_missing_elements": bool(getattr(self.quant_cfg, "identify_missing_elements", dflt.identify_missing_elements)),
+            "identification_seed_spectra": int(
+                getattr(self.quant_cfg, "identification_seed_spectra", dflt.identification_seed_spectra)
+            ),
+            "identification_z_range": [
+                int(z) for z in getattr(self.quant_cfg, "identification_z_range", dflt.identification_z_range)
+            ],
+            "identification_excluded_elements": sorted(
+                getattr(self.quant_cfg, "identification_excluded_elements", dflt.identification_excluded_elements)
+            ),
         }
         return options
 
@@ -3182,6 +3211,92 @@ class EMXSp_Composition_Analyzer:
             )
         )
 
+    def _include_quantified_added_elements(self) -> None:
+        """
+        Add the elements found and quantified by the identification of missing elements to the elements of the
+        analysis (clustering, reference phases, plots). The original element list is restored by run_quantification, so that it does
+        not change the quantification run.
+        """
+        if not hasattr(self, '_els_sample_before_added'):
+            self._els_sample_before_added = list(self.all_els_sample)
+        added_elements = [
+            el for el, found in self.element_identification_summary().items()
+            if found['quantified'] and el not in self._els_sample_before_added
+        ]
+        self.all_els_sample = list(self._els_sample_before_added) + added_elements
+        self.detectable_els_sample = [el for el in self.all_els_sample if el not in calibs.undetectable_els]
+        self.detectable_els_substrate = [el for el in self.detectable_els_substrate if el not in self.detectable_els_sample]
+        if added_elements:
+            logger.info(f"🔎 Added elements quantified and included in the analysis: {', '.join(added_elements)}")
+
+    def _restore_elements_without_added(self) -> None:
+        """Undo _include_quantified_added_elements (the quantification run is defined by the original elements)."""
+        original = getattr(self, '_els_sample_before_added', None)
+        if original is not None:
+            self.all_els_sample = list(original)
+            self.detectable_els_sample = [el for el in self.all_els_sample if el not in calibs.undetectable_els]
+            del self._els_sample_before_added
+
+    def element_identification_summary(self) -> Dict[str, Dict[str, List[int]]]:
+        """
+        Elements found by the identification of missing elements in the spectra of the current quantification run.
+
+        Returns
+        -------
+        dict
+            {element: {'quantified': [spectrum indices], 'not quantified': [...], 'possible': [...]}}, where
+            'not quantified' elements were added to the fit but have no standard, and 'possible' ones were not
+            confirmed by the fit (to be checked manually).
+        """
+        summary: Dict[str, Dict[str, List[int]]] = {}
+        for i, record in enumerate(getattr(self, 'spectra_quant_records', None) or []):
+            diag = getattr(record, 'diagnostics', None) if record is not None else None
+            if diag is None:
+                continue
+            for key, els in (('quantified', diag.added_elements), ('not quantified', diag.added_unquantified_elements),
+                             ('possible', diag.possible_elements)):
+                for el in els or []:
+                    summary.setdefault(el, {'quantified': [], 'not quantified': [], 'possible': []})[key].append(i)
+        return summary
+
+    @staticmethod
+    def format_element_identification_summary(summary: Dict[str, Dict[str, List[int]]], sample_ID: str = '') -> str:
+        """Text report of element_identification_summary()."""
+        title = f"Element identification{f' — {sample_ID}' if sample_ID else ''}"
+        if not summary:
+            return f"{title}: no missing elements found."
+        lines = [f"{title}:"]
+        labels = {'quantified': 'added and quantified', 'not quantified': 'added, not quantified (no standard)',
+                  'possible': 'possibly present, check manually'}
+        for el in sorted(summary, key=lambda e: -sum(len(v) for v in summary[e].values())):
+            for key, label in labels.items():
+                spectra = summary[el][key]
+                if spectra:
+                    lines.append(f"   • {el}: {label} in {len(spectra)} spectra (#{', #'.join(map(str, spectra))})")
+        return "\n".join(lines)
+
+    def report_added_elements(self) -> Dict[str, Dict[str, List[int]]]:
+        """Log the elements found in the sample and write them to Element_identification_report.txt in the analysis folder."""
+        summary = self.element_identification_summary()
+        text = self.format_element_identification_summary(summary, getattr(self.sample_cfg, 'ID', ''))
+        print_double_separator()
+        logger.info(text)
+        try:
+            if getattr(self, 'analysis_dir', None):
+                with open(os.path.join(self.analysis_dir, 'Element_identification_report.txt'), 'w', encoding='utf-8') as file:
+                    file.write(text + "\n")
+        except OSError as e:
+            logger.warning(f"⚠️ Could not write the element identification report: {e}")
+        return summary
+
+    def _identify_missing_elements(self) -> bool:
+        """Whether the identification of missing elements (elements missing from the fit) is enabled."""
+        return bool(getattr(self.quant_cfg, "identify_missing_elements", dflt.identify_missing_elements))
+
+    def _identification_seed_spectra(self) -> int:
+        """Number of spectra checked before the elements found in them are tested first in the others."""
+        return int(getattr(self.quant_cfg, "identification_seed_spectra", dflt.identification_seed_spectra))
+
     def _detect_prefit_spectrum_issues(
         self,
         spectrum: Optional[np.ndarray],
@@ -3735,6 +3850,10 @@ class EMXSp_Composition_Analyzer:
                         'standards_dict': self.standards_dict,
                         'interrupt_fits_bad_spectra': bool(interrupt_fits_bad_spectra),
                         'quantify': False,
+                        'identify_missing_elements': self._identify_missing_elements(),
+                        'identification_pool': [],
+                        'identification_z_range': list(getattr(self.quant_cfg, 'identification_z_range', dflt.identification_z_range)),
+                        'identification_excluded_elements': list(getattr(self.quant_cfg, 'identification_excluded_elements', dflt.identification_excluded_elements)),
                     })
 
             n_spectra_to_quant = len(indices_to_process)
@@ -3797,6 +3916,10 @@ class EMXSp_Composition_Analyzer:
                         'standards_dict': self.standards_dict,
                         'interrupt_fits_bad_spectra': bool(interrupt_fits_bad_spectra),
                         'quantify': True,
+                        'identify_missing_elements': self._identify_missing_elements(),
+                        'identification_pool': [],
+                        'identification_z_range': list(getattr(self.quant_cfg, 'identification_z_range', dflt.identification_z_range)),
+                        'identification_excluded_elements': list(getattr(self.quant_cfg, 'identification_excluded_elements', dflt.identification_excluded_elements)),
                     })
         
             def _finalize_quant_result(idx, result, quant_record, quantification_time):
@@ -3874,47 +3997,69 @@ class EMXSp_Composition_Analyzer:
                     )
                     self._persist_quantification_record(idx, quant_record, overwrite=overwrite)
             
-            try:
-                if not use_parallel:
-                    for payload in quant_worker_payloads:
+            def _execute(payloads):
+                try:
+                    if not use_parallel:
+                        for payload in payloads:
+                            idx, result, quant_record, quantification_time = _quantify_spectrum_worker(payload)
+                            _finalize_quant_result(idx, result, quant_record, quantification_time)
+                    else:
+                        # Compute/load convolution matrices once on the main process so workers
+                        # never race on a cold detector-cache miss.
+                        if payloads:
+                            DetectorResponseFunction.ensure_conv_matrices_cached(
+                                float(self.det_ch_offset),
+                                float(self.det_ch_width),
+                                self.microscope_cfg.ID,
+                                verbose=bool(self.verbose),
+                            )
+
+                        # Stream completed tasks back to the main process so progress is visible in real time.
+                        try:
+                            completed = Parallel(
+                                n_jobs=_n_cores,
+                                backend=parallel_backend,
+                                return_as='generator_unordered',
+                            )(
+                                delayed(_quantify_spectrum_worker)(payload) for payload in payloads
+                            )
+                        except TypeError:
+                            # Compatibility fallback for joblib versions without return_as.
+                            completed = Parallel(n_jobs=_n_cores, backend=parallel_backend)(
+                                delayed(_quantify_spectrum_worker)(payload) for payload in payloads
+                            )
+
+                        for idx, result, quant_record, quantification_time in completed:
+                            _finalize_quant_result(idx, result, quant_record, quantification_time)
+                except Exception as e:
+                    logger.warning(
+                        f"⚠️ Parallel spectrum processing failed ({type(e).__name__}: {e}), "
+                        "falling back to sequential execution."
+                    )
+                    for payload in payloads:
                         idx, result, quant_record, quantification_time = _quantify_spectrum_worker(payload)
                         _finalize_quant_result(idx, result, quant_record, quantification_time)
-                else:
-                    # Compute/load convolution matrices once on the main process so workers
-                    # never race on a cold detector-cache miss.
-                    if quant_worker_payloads:
-                        DetectorResponseFunction.ensure_conv_matrices_cached(
-                            float(self.det_ch_offset),
-                            float(self.det_ch_width),
-                            self.microscope_cfg.ID,
-                            verbose=bool(self.verbose),
-                        )
 
-                    # Stream completed tasks back to the main process so progress is visible in real time.
-                    try:
-                        completed = Parallel(
-                            n_jobs=_n_cores,
-                            backend=parallel_backend,
-                            return_as='generator_unordered',
-                        )(
-                            delayed(_quantify_spectrum_worker)(payload) for payload in quant_worker_payloads
-                        )
-                    except TypeError:
-                        # Compatibility fallback for joblib versions without return_as.
-                        completed = Parallel(n_jobs=_n_cores, backend=parallel_backend)(
-                            delayed(_quantify_spectrum_worker)(payload) for payload in quant_worker_payloads
-                        )
-
-                    for idx, result, quant_record, quantification_time in completed:
-                        _finalize_quant_result(idx, result, quant_record, quantification_time)
-            except Exception as e:
-                logger.warning(
-                    f"⚠️ Parallel spectrum processing failed ({type(e).__name__}: {e}), "
-                    "falling back to sequential execution."
-                )
-                for payload in quant_worker_payloads:
-                    idx, result, quant_record, quantification_time = _quantify_spectrum_worker(payload)
-                    _finalize_quant_result(idx, result, quant_record, quantification_time)
+            n_seed = self._identification_seed_spectra()
+            if self._identify_missing_elements() and 0 < n_seed < len(quant_worker_payloads):
+                # Element pool: elements confirmed in the first spectra are tested first in the others
+                seed_payloads, other_payloads = quant_worker_payloads[:n_seed], quant_worker_payloads[n_seed:]
+                _execute(seed_payloads)
+                pool = []
+                for payload in seed_payloads:
+                    record = self.spectra_quant_records[int(payload['spectrum_index'])]
+                    diag = getattr(record, 'diagnostics', None) if record is not None else None
+                    for el in (getattr(diag, 'added_elements', None) or []) + (getattr(diag, 'added_unquantified_elements', None) or []):
+                        if el not in pool:
+                            pool.append(el)
+                if pool:
+                    logger.info(f"🔎 Element identification: elements found in the first {n_seed} spectra, "
+                                f"tested first in the others: {', '.join(pool)}")
+                for payload in other_payloads:
+                    payload['identification_pool'] = list(pool)
+                _execute(other_payloads)
+            else:
+                _execute(quant_worker_payloads)
 
 
     def _persist_resolved_k_on_active_clustering_config(self, resolved_k: Optional[int]) -> None:
@@ -4051,6 +4196,10 @@ class EMXSp_Composition_Analyzer:
             if tot > 0:
                 self._ensure_quant_tracking_length(tot)
                 self._sync_existing_quantification_from_ledger()
+
+        # Elements found and quantified by the identification of missing elements become additional elements of the
+        # analysis (zero in the spectra without them), so that particles containing them can form their own clusters
+        self._include_quantified_added_elements()
 
         # 1. Make analysis directory to save results
         self._make_analysis_dir()
@@ -4546,6 +4695,7 @@ class EMXSp_Composition_Analyzer:
             quantification and, if True, also at its end. Set to False when the analysis follows, as
             print_results warns again.
         """
+        self._restore_elements_without_added()
         self._initialise_std_dict()
         self._warn_peak_overlaps()
         self._fit_and_quantify_spectra(
@@ -4560,6 +4710,8 @@ class EMXSp_Composition_Analyzer:
         # the sample root.
         self._make_analysis_dir()
         self._save_analysis_summary(None, None)
+        if self._identify_missing_elements():
+            self.report_added_elements()
         if warn_peak_overlaps_at_end:
             self._warn_peak_overlaps()
         
@@ -4882,6 +5034,14 @@ class EMXSp_Composition_Analyzer:
             if record is not None:
                 data_row[cnst.COMMENTS_DF_KEY] = record.comment
                 data_row[cnst.QUANT_FLAG_DF_KEY] = record.quant_flag
+                # Results of the identification of missing elements (only when the check was run)
+                diag = getattr(record, 'diagnostics', None)
+                if diag is not None and getattr(diag, 'added_elements', None) is not None:
+                    found = list(diag.added_elements or []) + [
+                        f"{el} (not quantified)" for el in (diag.added_unquantified_elements or [])
+                    ]
+                    data_row[ADDED_ELEMENTS_DF_KEY] = ', '.join(found)
+                    data_row[POSSIBLE_ELEMENTS_DF_KEY] = ', '.join(diag.possible_elements or [])
     
             data_list.append(data_row)
     
@@ -4900,6 +5060,7 @@ class EMXSp_Composition_Analyzer:
         columns = data_df.columns.tolist()
         last_columns = [
             cnst.R_SQ_KEY, cnst.REDCHI_SQ_KEY,
+            ADDED_ELEMENTS_DF_KEY, POSSIBLE_ELEMENTS_DF_KEY,
             cnst.QUANT_FLAG_DF_KEY, cnst.COMMENTS_DF_KEY,
         ]
         remaining_columns = [col for col in columns if col not in last_columns]

@@ -31,7 +31,7 @@ parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 spectrum_path = os.path.join('input', 'Example_spectrum.msa')
 
 els_sample = ['Bi','Fe','O']
-els_substrate = ['C', 'O', 'Al']
+els_substrate = ['C']
 
 is_particle = True
 

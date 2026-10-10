@@ -35,6 +35,7 @@ DOI: [https://doi.org/10.1038/s41467-026-76633-x](https://doi.org/10.1038/s41467
 ### ✨ Key Features
 - **Fully automated SEM-EDS phase-level compositional analysis workflow**, which includes:
     - **Acquisition of EDS spectra**, including particle localization if sample is powder. Compatible also with bulk samples, or manual navigation. 
+    - **Automated peak identification and element assignment** for unknown samples
     - **Quantification of compositions** using the peak-to-background method
     - **Rule-based filtering** of compositions to discard poorly quantified spectra from the analysis
     - **Unsupervised machine learning–based analysis** to identify the compositions of individual phases in the sample  

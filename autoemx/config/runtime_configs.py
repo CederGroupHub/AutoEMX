@@ -200,7 +200,7 @@ class SampleSubstrateConfig(BaseModel):
         - Element symbols are validated. An error is raised if any symbol is unrecognized.
     """
 
-    elements: List[str] = Field(default_factory=lambda: ['C', 'O', 'Al'])
+    elements: List[str] = Field(default_factory=lambda: ['C'])
     type: str = cnst.CTAPE_SUBSTRATE_TYPE
     shape: str = cnst.CIRCLE_SUBSTRATE_SHAPE
     auto_detection: bool = True
@@ -315,6 +315,16 @@ class QuantificationOptionsConfig(BaseModel):
             ``target_acquisition_counts``. Spectra below this threshold are flagged
             ``quant_flag = 2`` ("Total counts too low"). Default is ``0.9`` (90%).
             Lower this to quantify shorter acquisitions; ``0`` disables the check.
+        identify_missing_elements (bool): If True, each spectrum is checked for elements missing from its fit
+            before quantification (see autoemx.core.fitter.peak_identification). Elements whose addition
+            surely improves the fit of the peaks are added and quantified (or only fitted, if no standard is
+            available); weaker detections are only reported as possibly present. Default is False.
+        identification_seed_spectra (int): Number of spectra checked without prior knowledge; the elements
+            found in them are then tested first in the remaining spectra, to save time. Default is 10.
+        identification_z_range (Tuple[int, int]): Atomic numbers of the elements the identification of missing elements may
+            propose. Default is (5, 83), B to Bi; use (5, 92) to include Th and U.
+        identification_excluded_elements (List[str]): Elements never proposed. Default: Tc, Pm (no stable
+            isotopes) and the noble gases Ne, Kr, Xe, Rn.
     """
     DEFAULT_MIN_TOTAL_COUNTS_FRACTION: ClassVar[float] = dflt.min_total_counts_fraction
 
@@ -324,6 +334,10 @@ class QuantificationOptionsConfig(BaseModel):
     use_instrument_background: bool = dflt.use_instrument_background
     use_project_specific_std_dict: bool = False
     min_total_counts_fraction: float = dflt.min_total_counts_fraction
+    identify_missing_elements: bool = dflt.identify_missing_elements
+    identification_seed_spectra: int = dflt.identification_seed_spectra
+    identification_z_range: Tuple[int, int] = dflt.identification_z_range
+    identification_excluded_elements: List[str] = Field(default_factory=lambda: list(dflt.identification_excluded_elements))
 
     ALLOWED_METHODS: ClassVar[List[str]] = ['PB']
 
@@ -355,6 +369,14 @@ class QuantificationOptionsConfig(BaseModel):
         if not np.isfinite(fraction) or fraction < 0 or fraction > 1:
             raise ValueError("min_total_counts_fraction must be a finite value in [0, 1]")
         self.min_total_counts_fraction = fraction
+        if int(self.identification_seed_spectra) < 0:
+            raise ValueError("identification_seed_spectra must be non-negative")
+        self.identification_seed_spectra = int(self.identification_seed_spectra)
+        z_lo, z_hi = (int(z) for z in self.identification_z_range)
+        if not 1 <= z_lo <= z_hi <= 118:
+            raise ValueError("identification_z_range must satisfy 1 <= low <= high <= 118")
+        self.identification_z_range = (z_lo, z_hi)
+        self.identification_excluded_elements = [str(el) for el in self.identification_excluded_elements]
         return self
 
 

@@ -35,6 +35,18 @@ use_instrument_background : bool
 min_total_counts_fraction : float
     Minimum accepted total spectrum counts as a fraction of ``target_acquisition_counts``.
     Default is `0.9` (QuantificationOptionsConfig.min_total_counts_fraction).
+identify_missing_elements : bool
+    Whether to look for elements missing from the fit of each spectrum (added_elements) before quantifying it.
+    Default is `True` (QuantificationOptionsConfig.identify_missing_elements). Quantification runs of ledgers saved
+    before this option existed load with it off.
+identification_seed_spectra : int
+    Number of spectra checked without prior knowledge before the elements found in them are tested first
+    in the remaining spectra. Default is `10` (QuantificationOptionsConfig.identification_seed_spectra).
+identification_z_range : tuple of int
+    Atomic numbers of the elements the identification of missing elements may propose. Default is `(5, 83)` (B to Bi).
+identification_excluded_elements : tuple of str
+    Elements the identification of missing elements never proposes. Default: Tc and Pm (no stable isotopes) and the noble
+    gases Ne, Kr, Xe, Rn.
 RAW_SPECTRUM_EXT : str
     File extension used when writing per-spectrum raw data pointer files.
     Default is `'.msa'` (EMSA/MAS format).
@@ -68,11 +80,19 @@ quantification_method: str = 'PB'
 
 spectrum_lims: Tuple[int, int] = (14, 1100)
 
-substrate_els = ['C', 'O', 'Al']
+substrate_els = ['C']  # O and Al (e.g. Al stub) are found by the identification of missing elements if present
 
 use_instrument_background: bool = False
 
 min_total_counts_fraction: float = 0.9
+
+identify_missing_elements: bool = True
+
+identification_seed_spectra: int = 10
+
+identification_z_range: tuple = (5, 83)
+
+identification_excluded_elements: tuple = ('Tc', 'Pm', 'Ne', 'Kr', 'Xe', 'Rn')
 
 RAW_SPECTRUM_EXT: str = '.msa'
 

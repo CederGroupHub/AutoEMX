@@ -186,7 +186,7 @@ def batch_acquire_experimental_stds(
         Default is `None` (MeasurementConfig.max_acquisition_time).
     els_substrate : list of str, optional
         List of substrate element symbols.  
-        Default is `['C', 'O', 'Al']` (SampleSubstrateConfig.elements).
+        Default is `['C', 'O', 'Al']` (carbon tape on an Al stub; standards are fitted without identification of missing elements).
     powder_meas_cfg_kwargs : dict, optional
         Additional keyword arguments for PowderMeasurementConfig.
     bulk_meas_cfg_kwargs : dict, optional
@@ -227,7 +227,7 @@ def batch_acquire_experimental_stds(
     if max_XSp_acquisition_time is None:
         max_XSp_acquisition_time = target_Xsp_counts / 10000 * 5
     if els_substrate is None:
-        els_substrate = dflts.substrate_els
+        els_substrate = ['C', 'O', 'Al']
     
     # --- Configuration objects
     microscope_cfg = MicroscopeConfig(

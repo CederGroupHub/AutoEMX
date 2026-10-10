@@ -18,6 +18,7 @@ from autoemx.utils import print_double_separator
 from autoemx.core.quantifier import XSp_Quantifier
 from autoemx.core.quantifier.peak_overlaps import warn_peak_overlaps
 import autoemx.utils.constants as cnst
+import autoemx.config.defaults as dflt
 from autoemx.utils import (
     print_double_separator,
 )
@@ -63,6 +64,7 @@ def fit_and_quantify_spectrum(
     fitting_verbose: bool = True,
     free_area_el_lines=None,
     peaks_to_annotate: str = 'main',
+    identify_missing_elements: bool = dflt.identify_missing_elements,
 ):
     """
     Fit and (optionally) quantify a single spectrum.
@@ -122,6 +124,10 @@ def fit_and_quantify_spectrum(
         Line to zoom on.
     peaks_to_annotate : str, optional
         Which peaks to annotate in `plot_quantified_spectrum` ('all', 'main', 'most).
+    identify_missing_elements : bool, optional
+        If True, look for elements missing from the fit before fitting (see XSp_Quantifier). Elements confirmed
+        by the fit are added (and quantified if a standard is available); weaker detections are reported.
+        Default: True (defaults.identify_missing_elements).
     print_results : bool, optional
         If True, prints all fitted parameters and their values (default: True).
     quant_verbose : bool, optional
@@ -159,6 +165,7 @@ def fit_and_quantify_spectrum(
         fitting_verbose=fitting_verbose,
         standards_dict = standards_dict,
         free_area_el_lines=free_area_el_lines,
+        identify_missing_elements=identify_missing_elements,
     )
 
     def _warn_peak_overlaps():

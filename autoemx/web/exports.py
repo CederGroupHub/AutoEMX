@@ -27,11 +27,13 @@ def format_composition_txt(result: SpectrumFitResult) -> str:
     lines = [
         "# AutoEMX quantification",
         f"# File: {result.filename}",
-        f"# Sample elements: {', '.join(result.els_sample) or '(none)'}",
-        f"# Substrate elements: {', '.join(result.els_substrate) or '(none)'}",
+        f"# Known sample elements: {', '.join(result.els_sample) or '(none)'}",
+        f"# Known substrate elements: {', '.join(result.els_substrate) or '(none)'}",
         f"# Particle geometry: {result.is_particle}",
         f"# Required beam energy for a valid composition: {QUANT_BEAM_KV:.0f} kV",
     ]
+    if result.element_check_message() is not None:
+        lines.append(f"# Element identification: {result.element_check_message()}")
     if result.beam_energy_kV is not None:
         lines.append(f"# Spectrum beam energy (header): {result.beam_energy_kV:.3f} kV")
         if not beam_energy_supports_quantification(result.beam_energy_kV):

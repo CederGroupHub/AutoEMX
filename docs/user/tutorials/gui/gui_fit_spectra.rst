@@ -51,10 +51,13 @@ quantification; **Use sample settings** restores them.
 
 *Elements*:
 
-- **sample elements**: elements in the sample. The fitter does not identify unknown elements,
-  so all elements giving peaks must be listed (in the sample or substrate elements).
-- **substrate elements**: elements fitted but not quantified, e.g. ``C, O, Al`` for carbon
-  tape on an Al stub.
+- **known sample elements**: elements known to be in the sample, quantified. Elements giving
+  peaks but not listed (in the sample or substrate elements) distort the fit, unless
+  **identify missing elements** is ticked.
+- **known substrate elements**: elements fitted but not quantified, e.g. ``C, O, Al`` for carbon
+  tape on an Al stub. Their peaks are never attributed to the sample, not even by **identify missing
+  elements**: list only elements you do not want quantified. To quantify an element also present in
+  the substrate (e.g. O in an oxide), list it among the known sample elements.
 - **standard of known composition** and **standard formula**: the spectrum is from a standard
   of known composition: report its measured P/B ratios. For spectra of a sample, an empty
   formula uses the composition saved in the ledger.
@@ -62,6 +65,11 @@ quantification; **Use sample settings** restores them.
 *Fit and quantification*:
 
 - **quantify**: untick to only fit the spectrum, without quantifying it.
+- **identify missing elements**: before the fit, look for peaks of elements missing from the
+  known elements (which may then be empty). Elements surely present are added: quantified if a
+  standard is available, otherwise only fitted. Doubtful ones are only reported. The result is
+  shown in the *element check* field above the composition. On by default (slower); for spectra
+  of a sample, it follows the setting of the sample's active quantification.
 - **particle geometry**: tick for particles and powders, untick for bulk or flat samples.
 - **fit tolerance**: tolerance for the convergence of the fit.
 - **spectrum limits**: first and last channel of the fitted range. Empty uses the saved value
@@ -130,7 +138,7 @@ Put the spectra of each sample in a folder, then:
 2. Set:
 
    - **Sample ID**: name of the new sample folder (by default, the name of the spectra folder).
-   - **Sample elements** and **substrate elements** (empty if there is no substrate).
+   - **Known sample elements** and **known substrate elements** (empty if there is no substrate).
    - **Sample type**: ``powder``, ``powder_continuous``, ``bulk`` or ``bulk_rough``.
    - **Microscope**: its P/B standards are used for the quantification.
    - **Beam energy**: filled in from the headers.

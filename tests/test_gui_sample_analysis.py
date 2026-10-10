@@ -56,8 +56,11 @@ def test_param_specs_cover_every_clustering_submodel_field():
     keys = set(be.SPECS_BY_KEY)
     for section, model in (("dbscan", DBSCANParams), ("aitchison", AitchisonParams),
                            ("merge", ClusterMergeParams), ("mixture", MixtureParams)):
-        for name in model.model_fields:
+        for name in be._SUBMODEL_FIELDS.get(section) or model.model_fields:
             assert f"{section}.{name}" in keys
+    # Mixture decomposition: only the main parameters are exposed
+    assert {k for k in keys if k.startswith("mixture.")} == {
+        "mixture.max_n_phases", "mixture.collapse_equivalent_mixtures", "mixture.equivalent_span_tol"}
 
 
 def test_kwargs_match_runner_signatures(results_dir: Path):
@@ -282,7 +285,7 @@ def test_acquisition_settings():
     kwargs = be.acquisition_kwargs(values)
     assert set(kwargs) <= set(inspect.signature(batch_acquire_and_analyze).parameters)
     assert kwargs["max_XSp_acquisition_time"] == 25  # 50000 counts / 10000 * 5 s, as in Run_Acquisition.py
-    assert kwargs["els_substrate"] == ["C", "O", "Al"]
+    assert kwargs["els_substrate"] == ["C"]
     # Without quantification, "number of spectra" sets the spectra collected; with it, min and max
     # (also as the minimum: the analyser raises max_n_spectra to min_n_spectra)
     no_quant = be.acquisition_kwargs({**values, "aacq.n_spectra": 5})

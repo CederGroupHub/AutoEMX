@@ -195,6 +195,10 @@ def _metrics_view(fit: Optional[Dict[str, Any]]) -> List[Any]:
         _chip("an. err", f"{_fmt(an_err * 100 if an_err is not None else None)} w%"),
         _chip("flag", pl.flag_label(fit.get("quant_flag"))),
     ]
+    check = fit.get("element_check")
+    if check is not None:
+        found = check["added_quantified"] or check["added_not_quantified"] or check["possible"]
+        chips.append(_chip("element check", be.element_check_message(check), "chip-warn" if found else ""))
     kv = fit.get("beam_energy_kV")
     if kv is not None:
         ok = beam_energy_supports_quantification(kv)
@@ -373,10 +377,14 @@ def register(app) -> None:
             lims = lims["sfit.spectrum_lims"]
         except ValueError:
             return None
+        from autoemx.web.pipeline import substrate_elements_note
+
+        note = substrate_elements_note(els_sample, els_substrate)
+        note = html.Div(note, className="hint") if note else None
         try:
             if source == "file":
                 if not path:
-                    return None
+                    return note
                 from autoemx.web.pipeline import load_uploaded_spectrum
 
                 _, _, geometry = load_uploaded_spectrum(path)
@@ -386,11 +394,11 @@ def register(app) -> None:
             else:
                 info = get_info(sample_dir)
                 if info is None:
-                    return None
+                    return note
                 overlaps = be.sample_peak_overlaps(info, els_sample, els_substrate, lims)
         except Exception:
-            return None
-        return peak_overlaps_view(overlaps)
+            return note
+        return [note, peak_overlaps_view(overlaps)]
 
     @app.callback(
         Output("s-run-btn", "children"),

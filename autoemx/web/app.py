@@ -31,6 +31,7 @@ from autoemx.web.exports import (
 from autoemx.web.pipeline import (
     QUANT_BEAM_KV,
     QUANTIFIABLE_ELEMENTS,
+    SUBSTRATE_ELEMENTS_HINT,
     SUPPORTED_UPLOAD_EXTENSIONS,
     SpectrumFitResult,
     beam_energy_supports_quantification,
@@ -39,6 +40,7 @@ from autoemx.web.pipeline import (
     parse_elements,
     peak_overlap_affected_elements,
     peak_overlap_lines,
+    substrate_elements_note,
     validate_elements_quantifiable,
 )
 from autoemx.web.reader_report import (
@@ -187,6 +189,16 @@ def _render_peak_overlap_warning(overlaps) -> None:
     st.warning(f"**Peak overlaps may cause inaccurate quantification of {affected}:**\n{items}")
 
 
+def _render_substrate_note(els_sample_text: str, els_substrate_text: str) -> None:
+    """Reminder, under the substrate elements, that they will not be quantified."""
+    try:
+        note = substrate_elements_note(parse_elements(els_sample_text), parse_elements(els_substrate_text))
+    except ValueError:
+        return
+    if note:
+        st.caption(f"⚠️ {note}")
+
+
 def _render_sidebar_peak_overlap_warning(els_sample_text: str, els_substrate_text: str) -> None:
     """Live warning in the sidebar, for the elements as typed and the required beam energy."""
     try:
@@ -251,8 +263,8 @@ def main() -> None:
         )
     else:
         st.markdown(
-            "Local AutoEMX GUI. You must specify which elements are present — "
-            "the engine does not auto-identify unknown peaks."
+            "Local AutoEMX GUI. Specify the elements known to be present. "
+            "Turn on *Identify missing elements* to also look for elements that were not listed."
         )
 
     st.markdown(
@@ -267,23 +279,35 @@ def main() -> None:
     with st.sidebar:
         st.header("Sample")
         els_sample_text = st.text_input(
-            "Sample elements",
+            "Known sample elements",
             value="Bi, Fe, O",
-            help="Elements to be quantified in the sample. Comma-separated symbols. Required.",
-        )
-        els_substrate_text = st.text_input(
-            "Substrate elements",
-            value="C, O, Al",
             help=(
-                "Elements to be fitted, but to be ignored from quantification. "
-                "It is recommended not to quantify substrate elements for improved accuracy. "
-                "Typical carbon-tape substrate is C, O, Al."
+                "Elements known to be in the sample, to be quantified. Comma-separated symbols. "
+                "Required, unless missing elements are identified."
             ),
         )
+        els_substrate_text = st.text_input(
+            "Known substrate elements",
+            value="C",
+            help=(
+                "Elements to be fitted, but to be ignored from quantification. "
+                "Typical carbon-tape substrate is C (add O and Al for an Al stub, if not to be quantified). " + SUBSTRATE_ELEMENTS_HINT
+            ),
+        )
+        _render_substrate_note(els_sample_text, els_substrate_text)
         is_particle = st.checkbox(
             "Particle / rough sample geometry",
             value=True,
             help="Uncheck if your sample is flat, with roughness lower than 50nm.",
+        )
+        identify_elements = st.checkbox(
+            "Identify missing elements",
+            value=True,
+            help=(
+                "Before fitting, look for peaks of elements missing from the known elements "
+                "(which may then be empty). Elements surely present are added: quantified if a "
+                "standard exists, otherwise only fitted. Doubtful ones are only reported. Slower."
+            ),
         )
         _render_sidebar_peak_overlap_warning(els_sample_text, els_substrate_text)
         st.header("Files")
@@ -323,8 +347,8 @@ def main() -> None:
         st.error(str(exc))
         return
 
-    if not els_sample:
-        st.error("Enter at least one sample element.")
+    if not els_sample and not identify_elements:
+        st.error("Enter at least one known sample element, or turn on *Identify missing elements*.")
         return
 
     try:
@@ -377,6 +401,7 @@ def main() -> None:
                     els_sample=els_sample,
                     els_substrate=els_substrate,
                     is_particle=is_particle,
+                    identify_elements=identify_elements,
                 )
             except SpectrumReadError as exc:
                 result = _failed_result(
@@ -402,6 +427,18 @@ def main() -> None:
 
     st.session_state.results = results
     _render_results(results)
+
+
+def _render_element_check(result: SpectrumFitResult) -> None:
+    """Elements added by the identification of missing elements, and those possibly present."""
+    msg = result.element_check_message()
+    if msg is None:
+        return
+    found = result.added_elements or result.added_unquantified_elements or result.possible_elements
+    if found:
+        st.warning(f"**Element identification:** {msg}.")
+    else:
+        st.caption(f"Element identification: {msg}.")
 
 
 def _render_results(results: list[SpectrumFitResult]) -> None:
@@ -460,6 +497,7 @@ def _render_results(results: list[SpectrumFitResult]) -> None:
                     "with the shipped 15 kV standards."
                 )
 
+        _render_element_check(result)
         _render_peak_overlap_warning(result.peak_overlaps)
 
         fig = fitted_spectrum_figure(result)

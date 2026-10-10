@@ -97,6 +97,36 @@ from test_web_pipeline import (  # noqa: F401
     test_parse_emsa_geometry_from_phenom_header,
     test_reader_failure_builds_report,
 )
+from test_identify_missing_elements import (  # noqa: F401
+    test_batch_quantification_reports_added_elements,
+    test_enabling_identify_missing_elements_changes_fingerprint,
+    test_has_standard,
+    test_legacy_options_default_to_no_identify_missing_elements,
+    test_missing_element_is_added_and_quantified,
+    test_nothing_added_with_complete_element_list,
+    test_options_config_validates_seed_spectra,
+)
+from test_peak_identification import (  # noqa: F401
+    test_background_band_ratios_detect_wrong_shape,
+    test_detector_artifact_bound,
+    test_residual_peak_check,
+    test_strong_elements_have_residual_peaks,
+    test_z_range_limits_candidates,
+    test_confirmation_lines_required,
+    test_excluded_and_standards_reporting,
+    test_fixed_elements_are_not_reidentified,
+    test_identifies_elements_from_scratch,
+    test_peaks_assigned_before_starting_fit,
+    test_nothing_to_identify,
+    test_overlap_partners_from_table,
+    test_priority_pool_saves_candidate_tests,
+    test_residual_peak_energy_and_area,
+    test_sulfur_not_confused_with_mo_or_pb,
+    test_top_hat_removes_linear_background,
+    test_wrong_pool_element_falls_back_to_full_search,
+    test_wulfenite_missing_element_found,
+    test_wulfenite_identification_from_scratch,
+)
 
 
 def test_ci_fixtures_present():

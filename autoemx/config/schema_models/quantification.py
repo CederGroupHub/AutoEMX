@@ -35,6 +35,15 @@ class QuantificationDiagnostics(BaseModel):
         Minimum background counts under any reference peak used for quantification.
     missing_reference_peaks : list of str, optional
         Reference peaks that were absent or below the minimum acceptable PB ratio.
+    added_elements : list of str, optional
+        Elements found by the identification of missing elements, added to the fit and quantified.
+    added_unquantified_elements : list of str, optional
+        Elements found by the identification of missing elements and added to the fit, but not quantified (no standard).
+    possible_elements : list of str, optional
+        Elements whose presence is suggested by the identification of missing elements, but not confirmed by the fit
+        (only reported, for manual checking).
+    identification_note : str, optional
+        Note of the identification of missing elements (e.g. unreliable background of the starting fit).
     """
 
     iterations_run: Optional[int] = None
@@ -42,6 +51,10 @@ class QuantificationDiagnostics(BaseModel):
     interrupted: Optional[bool] = None
     min_background_ref_lines: Optional[float] = None
     missing_reference_peaks: Optional[List[str]] = None
+    added_elements: Optional[List[str]] = None
+    added_unquantified_elements: Optional[List[str]] = None
+    possible_elements: Optional[List[str]] = None
+    identification_note: Optional[str] = None
 
     model_config = ConfigDict(extra="forbid")
 
@@ -243,6 +256,19 @@ class QuantificationConfig(BaseModel):
                 "options['min_total_counts_fraction'] must be a finite value in [0, 1]"
             )
         normalized["min_total_counts_fraction"] = fraction
+        # Old ledgers predate the identification of missing elements: it was off (not the current default)
+        normalized["identify_missing_elements"] = bool(normalized.get("identify_missing_elements", False))
+        seed = int(normalized.get("identification_seed_spectra", dflt.identification_seed_spectra))
+        if seed < 0:
+            raise ValueError("options['identification_seed_spectra'] must be non-negative")
+        normalized["identification_seed_spectra"] = seed
+        z_range = normalized.get("identification_z_range", dflt.identification_z_range)
+        if not isinstance(z_range, (list, tuple)) or len(z_range) != 2:
+            raise ValueError("options['identification_z_range'] must contain exactly two values")
+        normalized["identification_z_range"] = [int(z_range[0]), int(z_range[1])]
+        normalized["identification_excluded_elements"] = sorted(
+            str(el) for el in normalized.get("identification_excluded_elements", dflt.identification_excluded_elements)
+        )
 
         for float_key in (
             "beam_energy_keV",
