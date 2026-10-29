@@ -122,20 +122,33 @@ Output
 In the sample output directory, the workflow writes:
 
 - ``ledger.json``
-	Sample ledger whose ``particles`` list holds ``ParticleInfo`` records used for
-	the size-distribution analysis (including absolute stage coordinates in mm and
-	hierarchical ``frame_id`` values when multiple size bands are scanned).
+	Everything recorded by the measurement: the frames acquired with the particles
+	found in them, the segmentation settings, the size bands, and the statistics
+	(see :ref:`particle_size_statistics` for its contents). An interrupted measurement
+	resumes when the script is run again with the same settings.
 
 - ``<SampleID>_Par_sizes.csv``
-	Per-particle table with particle ID, frame ID, area, and equivalent diameter.
+	One row per particle: frame ID, particle number in the frame, area, equivalent
+	diameter, and its ``Weight`` in the statistics (relative, 1 on average).
 
 - ``<SampleID>_Par_size_stats.csv``
-	Summary statistics (mean, stdev, median, min, max, D10, D25, D75, D90).
+	Statistics of the equivalent diameters, weighted to describe the sample:
+	number-weighted (mean, standard deviation, min, max, D10, D25, D50, D75, D90),
+	volume-weighted (D43, Dv10, Dv50, Dv90), and the 95 % confidence intervals
+	(``<name>_CI95_low``, ``<name>_CI95_high``). See :ref:`psd_reported_statistics`.
 
 - ``<SampleID>_Par_size_distribution_hist.png``
-	Histogram plot of equivalent particle diameters.
+	Plot of the weighted size distribution, with cumulative number and volume curves
+	and D10, D50, D90 marked (format set by ``size_stats_plot_format``).
 
-- SEM images collected during the scan (depending on script options).
+- ``SEM images/``
+	Every frame analysed, as ``<SampleID>_fr<FrameID>_particles.png`` with its particle
+	mask ``_par_mask.png``, saved without annotations so that it can be segmented again
+	(``Reanalyse_Particle_Stats.py``). Annotated copies can be made with
+	``Annotate_Particle_Images.py``.
+
+- ``particle_outlines/``
+	Outline of each particle found, per segmentation and frame (shown in the GUI).
 
 
 Optional: Reprocess particle statistics after filtering

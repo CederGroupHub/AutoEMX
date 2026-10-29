@@ -35,8 +35,9 @@ Step 2 - Define Spectrum to Fit
 Set the spectrum to analyse by defining:
 
 - ``sample_ID``: name of the sample folder. Include any counter if present (e.g. 'Wulfenite_2').
-- ``spectrum_ID``: ID of the spectrum to fit. You'll find this int number in the first column of `Data.csv`
-  inside the folder named ``sample_ID``.
+- ``spectrum_ID``: ID of the spectrum to fit: the number in its file name, ``spectra/spectrum_<ID>.msa``, inside
+  the folder named ``sample_ID``. It is also in the ``Spectrum #`` column of ``Compositions.csv`` (in the
+  sample's ``analysis_quant<i>_clust<j>`` folder) and on the annotated particle images.
 - ``results_path``: absolute or relative path to the project folder, containing the ``sample_ID`` data.
   `AutoEMX` will search for a folder named ``sample_ID`` in any of the subfolders within ``results_path``.
         

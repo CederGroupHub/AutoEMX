@@ -37,7 +37,7 @@ couple of small differences:
   chemistries, if available. If not available, the regular P/B reference
   values are used instead.
 
-- In the ``Analysis`` folder, the output will include a violin plot showing the
+- In the analysis folder (``analysis_quant<i>_clust<j>``), the output will include a violin plot showing the
   distribution of molar fractions (`x`) of the two precursors measured with each EDS
   spot spectrum, such as the example below. A violin plot is drawn for each mixture
   reported in ``Clusters.csv``; for mixtures of three or more precursors, it shows one

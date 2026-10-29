@@ -117,10 +117,11 @@ Output
 
 For each successfully processed sample, AutoEMX writes:
 
-- ``ledger.json`` with spectra registry and quantification configuration
-- copied/standardized spectra files under ``spectra/``
-- quantification outputs in the sample folder
-- clustering outputs when ``run_analysis=True``
+- ``spectra/``: a copy of each spectrum, ``spectrum_<ID>.msa``
+- ``ledger.json``: the spectra, the settings, and the quantification and analysis results
+- an analysis folder ``analysis_quant<i>_clust<j>`` with ``Compositions.csv`` (composition of each
+  spectrum) and, when ``run_analysis=True``, the clustering outputs (``Clusters.csv`` and plots), as
+  described in :ref:`comp_analysis_tutorial`
 
 
 Notes and troubleshooting
