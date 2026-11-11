@@ -514,16 +514,23 @@ def _clusters_view(data: be.AnalysisData) -> List[Any]:
     if not len(data.centroids):
         return [html.Div("No clusters for this analysis. Run the analysis to cluster the spectra.", className="hint")]
     unit = data.unit
+    other = "w%" if unit == "at%" else "at%"
+    clustered = data.comps[data.comps["status"] == "clustered"]
     cards = []
     for i, (c, sd) in enumerate(zip(data.centroids, data.stdevs)):
         n = data.n_points[i] if i < len(data.n_points) else "?"
+        # Clustering unit: the stored centroid; the other unit: mean ± σ of the cluster's spectra (as in Clusters.csv)
+        pts = clustered[clustered["cluster"] == i]
+        rows = {unit: [f"{v * 100:.1f} ± {e * 100:.1f}" for v, e in zip(c, sd)],
+                other: [f"{pts[f'{el} {other}'].mean():.1f} ± {pts[f'{el} {other}'].std():.1f}"
+                        if len(pts) and f"{el} {other}" in pts else "—" for el in data.elements]}
         comp = html.Table(
-            [html.Tr([html.Th(el) for el in data.elements])]
-            + [html.Tr([html.Td(f"{v * 100:.1f} ± {e * 100:.1f}") for v, e in zip(c, sd)])],
+            [html.Tr([html.Th("")] + [html.Th(el) for el in data.elements])]
+            + [html.Tr([html.Td(u)] + [html.Td(v) for v in rows[u]]) for u in ("at%", "w%")],
             className="comp-table",
         )
         body = [html.Div([html.Span(className="swatch", style={"background": pl.cluster_color(i)}),
-                          html.B(f"Cluster {i}"), html.Span(f"  {n} spectra · {unit}", className="muted")],
+                          html.B(f"Cluster {i}"), html.Span(f"  {n} spectra · clustered in {unit}", className="muted")],
                          className="card-title"), comp]
         cand = data.candidates[i] if i < len(data.candidates) else None
         if cand:
