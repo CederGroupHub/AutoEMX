@@ -2199,7 +2199,8 @@ def quant_progress(log_text: str, sample_names: List[str]) -> List[Dict[str, Any
         progress[i]["total"] = int(total[-1]) if total else None
         if total:
             after = text[text.rfind("Starting quantification of"):]
-            progress[i]["done"] = len(re.findall(r"^ Spectrum #\d+/\d+:", after, flags=re.M))
+            # One ' Spectrum #i/n:' line per processed spectrum; log lines may carry a 'HH:MM:SS INFO: ' prefix
+            progress[i]["done"] = len(re.findall(r"^(?:.*?: )? Spectrum #\d+/\d+:\s*$", after, flags=re.M))
     started = [i for i, p in enumerate(progress) if p["state"] == "running"]
     for i in started[:-1]:
         progress[i]["state"] = "done"

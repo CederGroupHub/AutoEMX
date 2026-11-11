@@ -270,10 +270,11 @@ def test_sample_summary_and_quant_progress(results_dir: Path):
 
     log = (f"{be.QUANT_SAMPLE_MARKER} 1/2: A\nINFO: Starting quantification of 3 spectra on up to 6 cores.\n"
            f" Spectrum #1/5:\n  x\n Spectrum #0/5:\n\n{be.QUANT_SAMPLE_MARKER} 2/2: B\n"
-           "INFO: Starting quantification of 4 spectra\n Spectrum #3/9:\n")
+           "INFO: Starting quantification of 4 spectra\n Spectrum #3/9:\n"
+           "10:52:06 INFO:  Spectrum #4/9:\n10:52:07 INFO:   Fe at%: 1.00%\n")  # GUI job logs prefix the time
     progress = be.quant_progress(log, ["A", "B"])
     assert progress[0] == {"sample": "A", "state": "done", "done": 2, "total": 3}
-    assert progress[1] == {"sample": "B", "state": "running", "done": 1, "total": 4}
+    assert progress[1] == {"sample": "B", "state": "running", "done": 2, "total": 4}
 
 
 def test_acquisition_settings():
