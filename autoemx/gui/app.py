@@ -843,6 +843,12 @@ def _spectrum_info(data: be.AnalysisData, sid: str, fit: Optional[Dict[str, Any]
 # =============================================================================
 # Helpers
 # =============================================================================
+def _forced_axes(els_to_plot: Optional[List[str]], els: List[str]) -> Optional[List[str]]:
+    """Axes set by the Plot output elements (as for the saved clustering plot): 2 or 3 of the sample's elements."""
+    forced = list(dict.fromkeys(el for el in (els_to_plot or []) if el in els))
+    return forced if len(forced) in (2, 3) else None
+
+
 def _default_axes(data: be.AnalysisData, current: List[Optional[str]]) -> List[str]:
     """Keep the current axes if valid; else use the elements spreading most between clusters."""
     els = data.detectable or data.elements
@@ -1443,6 +1449,8 @@ def create_app(results_dir: Optional[str] = None) -> Dash:
         Output("mode-forced", "data"),
         Input("analysis-dd", "value"),
         Input("data-version", "data"),
+        # Elements of Plot output: the axes of the clustering plot follow them
+        Input(_pid("plot.els_to_plot"), "value"),
         State("sample-dd", "value"),
         State("axis-x", "value"),
         State("axis-y", "value"),
@@ -1450,7 +1458,10 @@ def create_app(results_dir: Optional[str] = None) -> Dash:
         State("plot-mode", "value"),
         State("mode-forced", "data"),
     )
-    def analysis_changed(key, _, sample_dir, ax, ay, az, mode, mode_forced):
+    def analysis_changed(key, _, els_to_plot, sample_dir, ax, ay, az, mode, mode_forced):
+        # Only the Plot output elements changed: update the axes of the clustering plot, nothing else
+        only_axes = bool(ctx.triggered_prop_ids) and all(
+            isinstance(i, dict) for i in ctx.triggered_prop_ids.values())
         empty = ([], [html.Div("Select a sample.", className="hint")], [], [], [], [], [], pl.distribution_figure(None),
                  None, [], [], [], None, None, None, mode, mode_forced)
         try:
@@ -1459,19 +1470,30 @@ def create_app(results_dir: Optional[str] = None) -> Dash:
             msg = html.Div(f"Cannot load this analysis: {exc}", className="err")
             return ([msg],) + empty[1:]
         if data is None:
-            return empty
+            return (no_update,) * len(empty) if only_axes else empty
+        els = data.detectable or data.elements
+        opts = [{"label": e, "value": e} for e in els]
+        forced = _forced_axes(els_to_plot, els)
+        if forced:
+            axes = list(forced)
+            if len(forced) == 2 and mode != "2d":
+                # 2D for 2 elements; restore 3D afterwards (mode_forced) when they are no longer 2
+                mode, mode_forced = "2d", True
+            elif len(forced) == 3 and mode == "2d":
+                mode, mode_forced = "3d", False
+        else:
+            axes = _default_axes(data, [ax, ay, az][:min(3, len(els))])
+            # Samples with 2 elements can only be shown in 2D; restore 3D afterwards if 2D was forced.
+            if len(els) < 3:
+                mode, mode_forced = "2d", mode != "2d" or bool(mode_forced)
+            elif mode_forced:
+                mode, mode_forced = "3d", False
+        axes = (axes + [None, None, None])[:3]
+        if only_axes:
+            return (no_update,) * 9 + (opts, opts, opts, axes[0], axes[1], axes[2], mode, mode_forced)
         records, columns, styles = _table_payload(data)
         settings = [html.Pre(data.config_summary or "No Analysis_config_summary.txt for this analysis.",
                              className="settings-pre")]
-        els = data.detectable or data.elements
-        opts = [{"label": e, "value": e} for e in els]
-        axes = _default_axes(data, [ax, ay, az][:min(3, len(els))])
-        axes = (axes + [None, None, None])[:3]
-        # Samples with 2 elements can only be shown in 2D; restore 3D afterwards if 2D was forced.
-        if len(els) < 3:
-            mode, mode_forced = "2d", mode != "2d" or bool(mode_forced)
-        elif mode_forced:
-            mode, mode_forced = "3d", False
         return (
             _summary_view(info, data), _clusters_view(data), records, columns, styles,
             _figures_view(data), settings, pl.distribution_figure(data), data.folder or info.sample_dir,
