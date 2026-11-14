@@ -144,13 +144,14 @@ def test_render_rows_uses_samples_of_the_url(client):
     search = _query(acquisition_url(SAMPLES))
     for changed in ((), ("url.search",)):  # page load, or URL read just after
         assert _cell_values(_render_rows(client, search, saved=[SAVED_ROW], changed=changed)) == [
-            ["LaNbO4_A", "La, Nb, O", 1.5, -2, "LaNbO4"],
-            ["Hematite", "Fe, O", 3, 4, ""],
+            # Slot (None): set from the position by the slot_sync callback once the rows are drawn
+            ["LaNbO4_A", "La, Nb, O", None, 1.5, -2, "LaNbO4"],
+            ["Hematite", "Fe, O", None, 3, 4, ""],
         ]
 
 
 def test_render_rows_without_url_samples(client):
-    saved = [SAVED_ROW["ID"], SAVED_ROW["els"], SAVED_ROW["x"], SAVED_ROW["y"], SAVED_ROW["cnd"]]
+    saved = [SAVED_ROW["ID"], SAVED_ROW["els"], None, SAVED_ROW["x"], SAVED_ROW["y"], SAVED_ROW["cnd"]]
     # Page load: rows saved in the browser, or the example
     assert _cell_values(_render_rows(client, "", saved=[SAVED_ROW], changed=())) == [saved]
     assert _cell_values(_render_rows(client, "", changed=("url.search",)))[0][0] == ta._EXAMPLE_ROW["ID"]
