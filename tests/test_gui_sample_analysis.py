@@ -277,6 +277,25 @@ def test_sample_summary_and_quant_progress(results_dir: Path):
     assert progress[1] == {"sample": "B", "state": "running", "done": 2, "total": 4}
 
 
+def test_slot_positions():
+    # PhenomXL: 6 x 6 holder, numbered left to right then top to bottom
+    slots = be.slot_positions("PhenomXL")
+    assert len(slots) == 36
+    assert (slots["1"], slots["2"], slots["6"], slots["7"], slots["36"]) == (
+        [-37.5, 37.5], [-22.5, 37.5], [37.5, 37.5], [-37.5, 22.5], [37.5, -37.5])
+    assert be.slot_at(slots, -22.5, 37.5) == "2" and be.slot_at(slots, 0, 0) is None
+    assert be.slot_at(slots, None, 1) is None
+    # Positions edited in the GUI replace the predefined ones; no slots for other microscopes
+    assert be.slot_positions("PhenomXL", {"PhenomXL": {"A": [1, 2]}}) == {"A": [1.0, 2.0]}
+    assert be.slot_positions("PhenomXL", {"PhenomXL": {}}) == {}
+    assert be.slot_positions("Other") == {}
+    # Text of the editor
+    assert be.parse_slot_positions(be.format_slot_positions(slots)) == slots
+    assert be.parse_slot_positions("A: 1, -2.5\n\nB: 3;4") == {"A": [1.0, -2.5], "B": [3.0, 4.0]}
+    with pytest.raises(ValueError, match="line 1.*line 2"):
+        be.parse_slot_positions("A 1 2\nB: x, 3")
+
+
 def test_acquisition_settings():
     from autoemx.gui.tab_acquisition import active_acq_params
     from autoemx.runners.batch_acquire_and_analyze import batch_acquire_and_analyze
@@ -326,6 +345,11 @@ def test_acquisition_settings():
            "no particles found\nTraceback...\nSample 'B'\n🔬 Acquiring spectrum #0...")
     progress = be.acquisition_progress(log, ["A", "B"], 100)
     assert [(p["state"], p["error"]) for p in progress] == [("failed", "no particles found"), ("running", None)]
+    # Samples whose spectra were all acquired earlier
+    log = ("Sample 'A'\n12:00:00 INFO: ℹ️ 203 spectrum/spectra already acquired (maximum 50). Skipping acquisition. "
+           "If more spectra are desired, increase max_n_spectra and restart acquisition.\nSample 'B'\n")
+    progress = be.acquisition_progress(log, ["A", "B"], 50)
+    assert [(p["state"], p["done"]) for p in progress] == [("already", 203), ("running", 0)]
 
 
 def test_import_spectra_folder(tmp_path: Path):

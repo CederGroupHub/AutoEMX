@@ -1488,6 +1488,69 @@ def quantification_kwargs(values: Dict[str, Any]) -> Dict[str, Any]:
     )
 
 
+def _slot_grid(n_cols: int, n_rows: int, x0: float, y0: float, step: float) -> Dict[str, List[float]]:
+    """Slots of a rectangular sample holder, numbered from 1 left to right, then top to bottom: slot 1 at (x0, y0)
+    (top left), x increasing along a row and y decreasing between rows."""
+    return {str(r * n_cols + c + 1): [x0 + c * step, y0 - r * step] for r in range(n_rows) for c in range(n_cols)}
+
+
+# Predefined slot positions of the sample holder of each microscope: {slot: [x, y]} (mm, stage coordinates)
+SLOT_POSITION_PRESETS: Dict[str, Dict[str, List[float]]] = {
+    # 6 x 6 holder: x and y from -37.5 to 37.5 mm, 15 mm apart; slot 1 (-37.5, 37.5), 2 (-22.5, 37.5), ...
+    "PhenomXL": _slot_grid(6, 6, -37.5, 37.5, 15.0),
+}
+
+
+def slot_positions(microscope_id: Optional[str], saved: Optional[Dict[str, Any]] = None) -> Dict[str, List[float]]:
+    """Slot positions of a microscope: those saved in the GUI for it (``saved``: {microscope: {slot: [x, y]}}),
+    else its predefined ones (none for microscopes without a preset)."""
+    microscope_id = microscope_id or dflt.microscope_ID
+    if saved and isinstance(saved.get(microscope_id), dict):
+        return {str(k): [float(v[0]), float(v[1])] for k, v in saved[microscope_id].items()}
+    return {k: list(v) for k, v in SLOT_POSITION_PRESETS.get(microscope_id, {}).items()}
+
+
+def format_slot_positions(slots: Dict[str, List[float]]) -> str:
+    """Slot positions as text, one slot per line: ``slot: x, y``."""
+    return "\n".join(f"{slot}: {x:g}, {y:g}" for slot, (x, y) in slots.items())
+
+
+def parse_slot_positions(text: Optional[str]) -> Dict[str, List[float]]:
+    """Slot positions from text with one slot per line, ``slot: x, y`` (mm); empty lines are skipped.
+
+    Raises ``ValueError`` listing every invalid line.
+    """
+    slots: Dict[str, List[float]] = {}
+    errors = []
+    for n, line in enumerate((text or "").splitlines(), start=1):
+        if not line.strip():
+            continue
+        slot, sep, pos = line.partition(":")
+        slot = slot.strip()
+        try:
+            if not sep or not slot:
+                raise ValueError
+            x, y = (float(v) for v in pos.replace(";", ",").split(","))
+        except ValueError:
+            errors.append(f"line {n} ('{line.strip()}'): expected 'slot: x, y'")
+            continue
+        if slot in slots:
+            errors.append(f"line {n}: slot {slot} is listed twice")
+        slots[slot] = [x, y]
+    if errors:
+        raise ValueError("; ".join(errors))
+    return slots
+
+
+def slot_at(slots: Dict[str, List[float]], x: Any, y: Any, tol: float = 1e-6) -> Optional[str]:
+    """Slot at position (x, y), or None if no slot is there (or the position is not a number)."""
+    try:
+        x, y = float(x), float(y)
+    except (TypeError, ValueError):
+        return None
+    return next((s for s, (sx, sy) in slots.items() if abs(sx - x) <= tol and abs(sy - y) <= tol), None)
+
+
 def acquisition_samples(rows: List[Dict[str, Any]], require_elements: bool = True) -> List[Dict[str, Any]]:
     """Sample definitions for ``batch_acquire_and_analyze`` from the rows of the samples table (elements optional
     without ``require_elements``, e.g. for particle size statistics only).
@@ -1683,6 +1746,10 @@ def acquisition_progress(log_text: str, sample_ids: List[str], max_n: int) -> Li
         progress[i]["state"] = "running"
         section = log_text[start:end]
         progress[i]["done"] = len(re.findall(r"Acquiring spectrum #\d+", section))
+        # All spectra were acquired earlier (the sample folder already had max_n_spectra or more)
+        already = re.search(r"(\d+) spectrum/spectra already acquired \(maximum \d+\)\. Skipping acquisition", section)
+        if already:
+            progress[i]["state"], progress[i]["done"] = "already", int(already.group(1))
         # Particle size statistics: particles collected in the size band being measured
         bands = list(re.finditer(r"Size band (\d+):", section))
         if bands:
@@ -2101,7 +2168,7 @@ def import_kwargs(folder: str, results_dir: str, sample_id: str, elements: Any, 
     if not sample_id or not re.fullmatch(r"[A-Za-z0-9_.+\-]+", sample_id):
         raise ValueError("The sample ID can only contain letters, digits and _ . + -")
     if not results_dir or not Path(results_dir).expanduser().is_dir():
-        raise ValueError("Choose the results folder at the top of the page first.")
+        raise ValueError("Choose where to save: pick a results folder at the top of the page (Browse…).")
     results_dir = str(Path(results_dir).expanduser())
     if (Path(results_dir) / sample_id).exists():
         raise ValueError(f"A folder '{sample_id}' already exists in the results folder.")

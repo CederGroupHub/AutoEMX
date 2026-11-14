@@ -2262,7 +2262,7 @@ class EMXSp_Composition_Analyzer:
             quant_str, quant_verb_str = '', ''
 
         
-        if self.verbose:
+        if self.verbose and tot_n_spectra < self.max_n_spectra:  # else all spectra were already acquired (logged)
             print_double_separator(f"▶️ Starting acquisition{quant_str} of {tot_spectra_to_collect} spectra.")
         if is_spectral_quant:
             self._warn_peak_overlaps()

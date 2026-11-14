@@ -1237,7 +1237,7 @@ class LedgerModule:
 
         if self.verbose and not self._spectrum_acquisition_needed:
             logger.info(
-                "ℹ️ %d spectrum/spectra already acquired (maximum %d). Skipping acquisition.",
+                "ℹ️ %d spectrum/spectra already acquired (maximum %d). Skipping acquisition. "
                 "If more spectra are desired, increase max_n_spectra and restart acquisition.",
                 resume_state["tot_n_spectra"],
                 self.max_n_spectra,

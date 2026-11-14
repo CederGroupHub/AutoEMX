@@ -21,7 +21,7 @@ import uuid
 from typing import Any, Dict, List, Optional
 from urllib.parse import parse_qs
 
-from dash import ALL, Input, Output, State, ctx, dcc, html, no_update
+from dash import ALL, MATCH, Input, Output, State, ctx, dcc, html, no_update
 
 from autoemx.gui import backend as be
 from autoemx.gui import run_report
@@ -39,6 +39,8 @@ _NOTES = {
 _COLUMNS = [
     ("ID", "Sample ID", "e.g. Anorthite_mineral"),
     ("els", "Elements", "e.g. Ca, Al, Si, O"),
+    # Slot of the sample holder (shown when the microscope has slot positions): sets x and y
+    ("slot", "Slot #", "—"),
     ("x", "x (mm)", "x"),
     ("y", "y (mm)", "y"),
     ("cnd", "Candidate phases (optional)", "e.g. CaAl2Si2O8, CaO"),
@@ -55,6 +57,10 @@ def _sample_rows(rows: List[Dict[str, Any]]) -> List[Any]:
     for row in rows:
         uid = row["uid"]
         cells = [
+            # Options of the slots: set by the slot_sync callback (they depend on the microscope)
+            dcc.Dropdown(id={"type": "a-cell", "uid": uid, "col": key}, options=[], value=row.get(key),
+                         placeholder=placeholder, clearable=True, className=f"a-col a-col-{key} a-slot-dd")
+            if key == "slot" else
             dcc.Input(id={"type": "a-cell", "uid": uid, "col": key}, value=row.get(key),
                       type="number" if key in ("x", "y") else "text", step="any", placeholder=placeholder,
                       className=f"param-input a-col a-col-{key}")
@@ -193,6 +199,8 @@ def layout() -> List[Any]:
                                   "elements quantified (substrate elements are set in the settings)",
                                   className="muted"),
                     ], className="q-table-title"),
+                    # Results folder of the samples (a warning while none is chosen)
+                    html.Div(id="a-folder-msg", className="a-folder-msg"),
                     html.Div([
                         html.Button("Add sample", id="a-add-row", className="btn btn-small"),
                         html.Button("Quantifiable elements", id="a-pt-btn", className="btn btn-small",
@@ -201,10 +209,12 @@ def layout() -> List[Any]:
                         html.Button("Save as script…", id="a-script-btn", className="btn btn-small",
                                     title="Download a Python script running this acquisition, e.g. to run it "
                                           "on the microscope computer"),
-                        html.Span(id="a-folder-msg", className="muted"),
+                        html.Button("Predefined slot positions", id="a-slots-btn", className="btn btn-small a-slots-btn",
+                                    title="Positions of the slots of the sample holder of the chosen microscope: "
+                                          "choose a sample's slot in the samples list to set its position"),
                     ], className="q-table-actions"),
                     html.Div(id="a-prefill-msg", className="run-msg"),
-                    html.Div(id="a-rows", className="a-rows"),
+                    html.Div(id="a-rows", className="a-rows a-no-slots"),
                     html.Div(id="a-table-msg", className="run-msg"),
                 ],
                 className="q-table-box",
@@ -221,6 +231,7 @@ def layout() -> List[Any]:
                 ]),
             ], className="q-details a-notes"),
             dcc.Download(id="a-download"),
+            _slots_modal(),
         ],
         className="main q-main",
     )
@@ -232,10 +243,37 @@ def layout() -> List[Any]:
         dcc.Store(id="a-link", storage_type="session"),
         # Sample list, kept in the browser between sessions
         dcc.Store(id="a-saved-rows", storage_type="local"),
+        # Slot positions edited in the GUI, per microscope ({microscope: {slot: [x, y]}}), kept in the browser;
+        # microscopes not listed use their predefined positions (backend.SLOT_POSITION_PRESETS)
+        dcc.Store(id="a-slots", storage_type="local"),
         dcc.Interval(id="a-poll", interval=2000, disabled=True),
         sidebar,
         main,
     ]
+
+
+def _slots_modal() -> html.Div:
+    """Editor of the slot positions of the chosen microscope."""
+    return html.Div(
+        html.Div([
+            html.Div([html.B(id="a-slots-title"),
+                      html.Button("×", id="a-slots-close", className="btn btn-small", title="Close")],
+                     className="pt-head"),
+            html.Div("One slot per line, as 'slot: x, y' (stage position of the slot centre, in mm). Choosing a "
+                     "slot in the samples list sets the position of the sample; a position typed in the list "
+                     "shows its slot. Saved in this browser.", className="hint"),
+            dcc.Textarea(id="a-slots-text", className="param-input a-slots-text", spellCheck=False),
+            html.Div([
+                html.Button("Save", id="a-slots-save", className="btn btn-primary btn-small"),
+                html.Button("Predefined", id="a-slots-default", className="btn btn-small",
+                            title="Restore the predefined slot positions of this microscope (if any)"),
+                html.Button("No slots", id="a-slots-clear", className="btn btn-small",
+                            title="Use no slots with this microscope (the Slot # column is hidden)"),
+                html.Span(id="a-slots-msg", className="run-msg"),
+            ], className="q-table-actions"),
+        ], className="pt-window a-slots-window"),
+        id="a-slots-modal", className="pt-backdrop", hidden=True,
+    )
 
 
 ON, OFF, HIDDEN = "on", "off", "hidden"  # parameter shown, greyed out, or not shown
@@ -294,7 +332,8 @@ def _progress_view(progress: List[Dict[str, Any]]) -> List[Any]:
     for p in progress:
         frac = min(1.0, p["done"] / p["total"]) if p["total"] else 0.0
         label = {"waiting": "waiting", "running": f"{p['done']} / {p['total']} spectra",
-                 "done": f"done · {p['done']} spectra" if p["total"] else "done", "failed": "failed"}[p["state"]]
+                 "done": f"done · {p['done']} spectra" if p["total"] else "done", "failed": "failed",
+                 "already": f"already acquired · {p['done']} spectra"}[p["state"]]
         sizes = p.get("sizes")
         if sizes and p["state"] == "running":  # particle size statistics (after the spectra, if any)
             total = sizes["total"]
@@ -341,7 +380,11 @@ def register(app) -> None:
         Input("folder", "value"),
     )
     def folder_msg(folder):
-        return f"Saved in: {folder}" if folder else "Choose the results folder at the top."
+        if folder:
+            return [html.Span("Saved in: ", className="muted"), html.Code(folder)]
+        return html.Span("⚠️ Choose where to save the samples: pick a results folder at the top of the page "
+                         "(Browse…).",
+                         className="a-folder-missing")
 
     @app.callback(
         Output("a-rows", "children"),
@@ -365,7 +408,7 @@ def register(app) -> None:
         else:
             rows = _rows_from_cells(ctx.states_list[0])
             if trig == "a-add-row":
-                rows.append({"ID": "", "els": "", "x": None, "y": None, "cnd": ""})
+                rows.append({"ID": "", "els": "", "slot": None, "x": None, "y": None, "cnd": ""})
             elif isinstance(trig, dict) and trig.get("type") in ("a-del", "a-copy"):
                 # New rows also trigger this callback (with n_clicks 0): only act on a real click
                 if not ctx.triggered[0].get("value"):
@@ -384,6 +427,85 @@ def register(app) -> None:
         for r in rows:
             r.setdefault("uid", uuid.uuid4().hex[:8])
         return _sample_rows(rows)
+
+    # ---------------------------------------------------------------- slots of the sample holder
+    @app.callback(
+        Output({"type": "a-cell", "uid": MATCH, "col": "slot"}, "options"),
+        Output({"type": "a-cell", "uid": MATCH, "col": "slot"}, "value"),
+        Output({"type": "a-cell", "uid": MATCH, "col": "x"}, "value"),
+        Output({"type": "a-cell", "uid": MATCH, "col": "y"}, "value"),
+        Input({"type": "a-cell", "uid": MATCH, "col": "slot"}, "value"),
+        Input({"type": "a-cell", "uid": MATCH, "col": "x"}, "value"),
+        Input({"type": "a-cell", "uid": MATCH, "col": "y"}, "value"),
+        Input(_pid("amicro.microscope_ID"), "value"),
+        Input("a-slots", "data"),
+    )
+    def slot_sync(slot, x, y, microscope, saved):
+        # A slot chosen sets the position of the sample; otherwise the slot follows the position (none if no slot
+        # is there), e.g. for a typed position, rows loaded from a link or the browser, or another microscope
+        slots = be.slot_positions(microscope, saved)
+        options = [{"label": s, "value": s} for s in slots]
+        trig = ctx.triggered_id
+        if isinstance(trig, dict) and trig.get("col") == "slot":
+            if slot in slots:
+                sx, sy = slots[slot]
+                return options, no_update, sx, sy
+            return options, no_update, no_update, no_update  # slot cleared: the position is kept
+        at = be.slot_at(slots, x, y)
+        return options, (at if at != slot else no_update), no_update, no_update
+
+    @app.callback(
+        Output("a-rows", "className"),
+        Input(_pid("amicro.microscope_ID"), "value"),
+        Input("a-slots", "data"),
+    )
+    def slot_column(microscope, saved):
+        return "a-rows" + ("" if be.slot_positions(microscope, saved) else " a-no-slots")
+
+    @app.callback(
+        Output("a-slots-modal", "hidden"),
+        Output("a-slots-title", "children"),
+        Output("a-slots-text", "value"),
+        Output("a-slots-msg", "children"),
+        Output("a-slots", "data"),
+        Input("a-slots-btn", "n_clicks"),
+        Input("a-slots-close", "n_clicks"),
+        Input("a-slots-save", "n_clicks"),
+        Input("a-slots-default", "n_clicks"),
+        Input("a-slots-clear", "n_clicks"),
+        State("a-slots-text", "value"),
+        State(_pid("amicro.microscope_ID"), "value"),
+        State("a-slots", "data"),
+        prevent_initial_call=True,
+    )
+    def edit_slots(_open, _close, _save, _default, _clear, text, microscope, saved):
+        microscope = microscope or be.dflt.microscope_ID
+        saved = dict(saved or {})
+        trig = ctx.triggered_id
+        title = f"Slot positions · {microscope}"
+        if trig == "a-slots-close":
+            return True, no_update, no_update, "", no_update
+        if trig == "a-slots-save":
+            try:
+                saved[microscope] = be.parse_slot_positions(text)
+            except ValueError as exc:
+                return False, title, no_update, html.Span(str(exc), className="err"), no_update
+            n = len(saved[microscope])
+            return False, title, be.format_slot_positions(saved[microscope]), \
+                html.Span(f"{n} slot{'s' if n != 1 else ''} saved.", className="ok"), saved
+        if trig == "a-slots-default":
+            saved.pop(microscope, None)
+            slots = be.slot_positions(microscope, saved)
+            msg = (f"Predefined positions restored ({len(slots)} slots)." if slots
+                   else f"No predefined slot positions for {microscope}.")
+            return False, title, be.format_slot_positions(slots), html.Span(msg, className="ok"), saved
+        if trig == "a-slots-clear":
+            saved[microscope] = {}
+            return False, title, "", html.Span("No slots used with this microscope.", className="ok"), saved
+        slots = be.slot_positions(microscope, saved)  # opened
+        msg = "" if slots else html.Span(f"No slot positions defined for {microscope}: add them here.",
+                                         className="muted")
+        return False, title, be.format_slot_positions(slots), msg, no_update
 
     @app.callback(
         Output("a-prefill-msg", "children"),
@@ -514,7 +636,7 @@ def register(app) -> None:
         values = be.coerce_values(form_values(states_form), be.ACQ_SPECS)
         samples = be.acquisition_samples(rows, require_elements=mode != "sizes")
         if not folder:
-            raise ValueError("Choose the results folder at the top")
+            raise ValueError("Choose where to save the samples: pick a results folder at the top of the page")
         if mode == "sizes":
             return [{"ID": s["ID"], "pos": s["pos"]} for s in samples], be.psd_acquisition_kwargs(values)
         return samples, be.acquisition_kwargs(values, mode)
