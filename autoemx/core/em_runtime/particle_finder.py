@@ -2065,17 +2065,22 @@ class EM_Particle_Finder:
         Plan the frames of a size band (diameters ``d_range_um``): the sample grid (first band) or subframes of the
         frames recorded in the previous band. When counting the frames searched by EDS (see
         :meth:`get_particle_stats`), these are also parent frames of the second band, and the frames overlapping
-        an EDS frame searching the same sizes are left out. Returns False if the previous band has no frame.
+        an EDS frame searching the same sizes are left out. A band after one without frames (e.g. whose target was
+        reached by the particles of the frames searched by EDS) is searched on the whole sample, as the first band.
+        Returns False if no frame can be planned.
         """
-        if band_idx == 0:
+        previous_band_empty = band_idx > 0 and not self._band_frame_descriptors(progress.bands[band_idx - 1])
+        if band_idx == 0 or previous_band_empty:
             if (
-                reuse_grid
+                reuse_grid and band_idx == 0
                 and navigator.grid_search_fw_mm is not None
                 and np.isclose(float(navigator.grid_search_fw_mm), fw_mm, rtol=1e-6, atol=1e-9)
             ):
                 navigator.reset_frame_cursor()
             else:
                 navigator.configure_top_level_particle_frames(fw_mm)
+            if previous_band_empty and self.verbose:
+                logger.info("ℹ️ No frame in the previous size band: frames of this band planned on the whole sample.")
         else:
             parent_frames = self._band_frame_descriptors(progress.bands[band_idx - 1])
             if band_idx == 1:
@@ -2134,9 +2139,14 @@ class EM_Particle_Finder:
         if not self._plan_band_frames(navigator, progress, band_idx, band.frame_width_um / 1000.0,
                                       d_range_um=(band.d_min_um, band.d_max_um)):
             return False
-        # Frames analysed already, by their navigation label
+        # Frames analysed already, by their navigation label, and the planned frames overlapping them (planned
+        # otherwise, e.g. on the whole sample while the previous band had no frame, then in its frames)
         records = [self._ledger.frame(f.frame_id) if self._ledger is not None else None for f in band.frames]
         navigator.skip_frames([r.label if r is not None else f.frame_id for f, r in zip(band.frames, records)])
+        navigator.skip_frames_overlapping([
+            ((f.center_mm.x, f.center_mm.y), (f.frame_width_um / 2000, f.area_um2 / f.frame_width_um / 2000))
+            for f in band.frames if f.center_mm is not None and f.frame_width_um
+        ])
         self._collect_in_band(band, band_idx, n_par_target)
         return True
 

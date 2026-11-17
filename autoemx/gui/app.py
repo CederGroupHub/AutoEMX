@@ -733,7 +733,10 @@ def _psd_tables(data: be.ParticleSizeData) -> List[Any]:
         return html.Div([html.Div(title, className="psd-table-title"),
                          html.Table([head] + body, className="comp-table")])
 
-    return [stats_table, scans_table("Size bands", r.bands), scans_table("Frames searched by EDS", r.eds_scans)]
+    # Frames searched by EDS right above the size bands, in one column next to the statistics
+    scans = [t for t in (scans_table("Frames searched by EDS", r.eds_scans), scans_table("Size bands", r.bands))
+             if t is not None]
+    return [stats_table] + ([html.Div(scans, className="psd-scan-tables")] if scans else [])
 
 
 def _natural_key(text: str) -> List[Any]:

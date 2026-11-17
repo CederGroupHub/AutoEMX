@@ -14,6 +14,7 @@ script; see ``prefill_from_query``. With a run ID, the runs started from that pa
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import threading
@@ -37,6 +38,8 @@ _NOTES = {
 }
 # Columns of the samples list: (key, header, placeholder)
 _COLUMNS = [
+    # Ticked: acquired; unticked samples stay in the list (commented out in saved scripts)
+    ("on", "Acquire", ""),
     ("ID", "Sample ID", "e.g. Anorthite_mineral"),
     ("els", "Elements", "e.g. Ca, Al, Si, O"),
     # Slot of the sample holder (shown when the microscope has slot positions): sets x and y
@@ -61,6 +64,10 @@ def _sample_rows(rows: List[Dict[str, Any]]) -> List[Any]:
             dcc.Dropdown(id={"type": "a-cell", "uid": uid, "col": key}, options=[], value=row.get(key),
                          placeholder=placeholder, clearable=True, className=f"a-col a-col-{key} a-slot-dd")
             if key == "slot" else
+            dcc.Checklist(id={"type": "a-cell", "uid": uid, "col": key}, options=[{"label": "", "value": "on"}],
+                          value=row["on"] if row.get("on") is not None else ["on"],  # rows of old lists: ticked
+                          className=f"a-col a-col-{key}", inputClassName="a-acquire")
+            if key == "on" else
             dcc.Input(id={"type": "a-cell", "uid": uid, "col": key}, value=row.get(key),
                       type="number" if key in ("x", "y") else "text", step="any", placeholder=placeholder,
                       className=f"param-input a-col a-col-{key}")
@@ -208,7 +215,12 @@ def layout() -> List[Any]:
                                           "microscope and beam energy"),
                         html.Button("Save as script…", id="a-script-btn", className="btn btn-small",
                                     title="Download a Python script running this acquisition, e.g. to run it "
-                                          "on the microscope computer"),
+                                          "on the microscope computer (samples not ticked are commented out)"),
+                        dcc.Upload(html.Button("Load script…", className="btn btn-small",
+                                               title="Load the settings and samples of an acquisition script (e.g. "
+                                                     "Run_Acquisition.py, or one saved here): samples commented out "
+                                                     "in it are loaded unticked. The script is read, not run."),
+                                   id="a-load-script", accept=".py", multiple=False),
                         html.Button("Predefined slot positions", id="a-slots-btn", className="btn btn-small a-slots-btn",
                                     title="Positions of the slots of the sample holder of the chosen microscope: "
                                           "choose a sample's slot in the samples list to set its position"),
@@ -408,7 +420,7 @@ def register(app) -> None:
         else:
             rows = _rows_from_cells(ctx.states_list[0])
             if trig == "a-add-row":
-                rows.append({"ID": "", "els": "", "slot": None, "x": None, "y": None, "cnd": ""})
+                rows.append({"on": ["on"], "ID": "", "els": "", "slot": None, "x": None, "y": None, "cnd": ""})
             elif isinstance(trig, dict) and trig.get("type") in ("a-del", "a-copy"):
                 # New rows also trigger this callback (with n_clicks 0): only act on a real click
                 if not ctx.triggered[0].get("value"):
@@ -642,6 +654,47 @@ def register(app) -> None:
         return samples, be.acquisition_kwargs(values, mode)
 
     @app.callback(
+        Output("a-rows", "children", allow_duplicate=True),
+        Output({"type": "aparam", "key": ALL}, "value", allow_duplicate=True),
+        Output("a-mode", "value"),
+        Output("folder", "value", allow_duplicate=True),
+        Output("a-prefill-msg", "children", allow_duplicate=True),
+        Output("a-load-script", "contents"),
+        Input("a-load-script", "contents"),
+        State("a-load-script", "filename"),
+        prevent_initial_call=True,
+    )
+    def load_script(contents, filename):
+        from autoemx.gui.common import ui_value
+        from autoemx.gui.script_import import load_acquisition_script
+
+        n_params = len(ctx.outputs_list[1])
+        nothing = (no_update, [no_update] * n_params, no_update, no_update)
+        if not contents:
+            return nothing + (no_update, no_update)
+        try:
+            source = base64.b64decode(contents.split(",", 1)[1]).decode("utf-8")
+            loaded = load_acquisition_script(source, [s.key for s in be.ACQ_SPECS])
+        except (ValueError, UnicodeDecodeError) as exc:
+            return nothing + (html.Span(f"{filename} could not be loaded: {exc}", className="err"), None)
+        values = loaded["values"]
+        params = [ui_value(o["id"], values) if _spec(o["id"]).key in values else no_update
+                  for o in ctx.outputs_list[1]]
+        folder = loaded["folder"]
+        not_loaded = list(loaded["not_loaded"])
+        if folder and not os.path.isdir(os.path.expanduser(folder)):
+            not_loaded.append(f"results_dir ('{folder}' does not exist on this computer)")
+            folder = None
+        rows = loaded["rows"]
+        n_on = sum(bool(r["on"]) for r in rows)
+        msg = [html.Span(f"Loaded {filename}: {len(values)} settings, {len(rows)} sample{'s' if len(rows) != 1 else ''}"
+                         f" ({n_on} ticked for acquisition){', results folder' if folder else ''}.", className="ok")]
+        if not_loaded:
+            msg.append(html.Span(" Not loaded (set in another way, or not in this tab): " + ", ".join(not_loaded) +
+                                 ".", className="warn"))
+        return _sample_rows(rows), params, loaded["mode"], folder or no_update, msg, None
+
+    @app.callback(
         Output("a-download", "data"),
         Output("a-run-msg", "children", allow_duplicate=True),
         Input("a-script-btn", "n_clicks"),
@@ -652,13 +705,28 @@ def register(app) -> None:
         prevent_initial_call=True,
     )
     def script(_, __, ___, folder, mode):
+        rows = _rows_from_cells(ctx.states_list[1])
         try:
-            samples, kwargs = _settings(ctx.states_list[0], _rows_from_cells(ctx.states_list[1]), folder, mode)
+            samples, kwargs = _settings(ctx.states_list[0], rows, folder, mode)
         except ValueError as exc:
             return no_update, html.Div([html.B("Invalid settings: "), str(exc)], className="err")
+        # Samples not ticked: commented out in the script (loaded unticked by "Load script…")
+        unticked = [{**r, "on": ["on"]} for r in rows if r.get("on") == []]
+        try:
+            skipped = be.acquisition_samples(unticked, require_elements=False) if unticked else []
+        except ValueError:
+            skipped = [s for r in unticked for s in _valid_samples([r])]
+        if mode == "sizes":
+            skipped = [{"ID": s["ID"], "pos": s["pos"]} for s in skipped]
         name = "Collect_Particle_Statistics_GUI.py" if mode == "sizes" else "Run_Acquisition_GUI.py"
-        return dict(content=be.acquisition_script(samples, kwargs, folder, mode), filename=name), \
+        return dict(content=be.acquisition_script(samples, kwargs, folder, mode, skipped), filename=name), \
             html.Span("Script downloaded.", className="ok")
+
+    def _valid_samples(rows):
+        try:
+            return be.acquisition_samples(rows, require_elements=False)
+        except ValueError:
+            return []
 
     @app.callback(
         Output("a-job-store", "data"),

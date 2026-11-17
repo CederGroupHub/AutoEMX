@@ -145,16 +145,18 @@ def test_render_rows_uses_samples_of_the_url(client):
     for changed in ((), ("url.search",)):  # page load, or URL read just after
         assert _cell_values(_render_rows(client, search, saved=[SAVED_ROW], changed=changed)) == [
             # Slot (None): set from the position by the slot_sync callback once the rows are drawn
-            ["LaNbO4_A", "La, Nb, O", None, 1.5, -2, "LaNbO4"],
-            ["Hematite", "Fe, O", None, 3, 4, ""],
+            # Ticked for acquisition (["on"])
+            [["on"], "LaNbO4_A", "La, Nb, O", None, 1.5, -2, "LaNbO4"],
+            [["on"], "Hematite", "Fe, O", None, 3, 4, ""],
         ]
 
 
 def test_render_rows_without_url_samples(client):
-    saved = [SAVED_ROW["ID"], SAVED_ROW["els"], None, SAVED_ROW["x"], SAVED_ROW["y"], SAVED_ROW["cnd"]]
+    # Rows saved before the Acquire column: ticked
+    saved = [["on"], SAVED_ROW["ID"], SAVED_ROW["els"], None, SAVED_ROW["x"], SAVED_ROW["y"], SAVED_ROW["cnd"]]
     # Page load: rows saved in the browser, or the example
     assert _cell_values(_render_rows(client, "", saved=[SAVED_ROW], changed=())) == [saved]
-    assert _cell_values(_render_rows(client, "", changed=("url.search",)))[0][0] == ta._EXAMPLE_ROW["ID"]
+    assert _cell_values(_render_rows(client, "", changed=("url.search",)))[0][1] == ta._EXAMPLE_ROW["ID"]
     # URL read once the rows are drawn (or invalid): rows kept
     assert _render_rows(client, "", cells=_cells(SAVED_ROW), saved=[SAVED_ROW]) is None
     assert _render_rows(client, "?acq=%7Bbad", cells=_cells(SAVED_ROW), saved=[SAVED_ROW]) is None

@@ -87,6 +87,9 @@ class _FakeFrameNavigator:
     def skip_frames(self, frame_labels):
         self._set_frames(label for label in self._labels if label not in set(frame_labels))
 
+    def skip_frames_overlapping(self, areas_mm):  # frames without real positions: none overlapping
+        return 0
+
     def get_visited_band_frames(self):
         return [(label, (0.0, 0.0), self.grid_search_fw_mm) for label in self._labels[:self._cursor]]
 
@@ -797,6 +800,20 @@ def test_frames_searched_by_eds_are_parents_of_the_second_band(tmp_path: Path):
     # Sizes also searched by EDS: subframes inside the EDS frame left out
     assert finder._plan_band_frames(nav, progress, 1, 0.1, d_range_um=(3.0, 6.0))
     assert nav._labels == ["A0_a0"]
+
+
+def test_band_after_a_band_without_frames_searched_on_the_whole_sample(tmp_path: Path):
+    # Target of the first band reached by the particles of the frames searched by EDS (no frame of its own): the
+    # second band is searched on the whole sample, leaving out the frames overlapping the EDS frame (A0 here),
+    # not only in subframes of the EDS frame, all left out as searched by EDS for overlapping sizes
+    finder = EM_Particle_Finder.__new__(EM_Particle_Finder)
+    finder.verbose = False
+    finder._eds_frames = [particle_statistics.EdsSearchFrame("EDS-A0", (0.0, 0.0), (40.0, 30.0), (3.0, 100.0), 80.0)]
+    nav = _PositionedFrameNavigator(0.75)
+    band0 = ParticleSizeBand(d_min_um=13.0, d_max_um=20.0, frame_width_um=500.0, n_frames=0, scanned_area_um2=0)
+    progress = particle_finder_mod.StatsProgress(n_par_target=5, powder_meas_cfg=PowderMeasurementConfig(), bands=[band0])
+    assert finder._plan_band_frames(nav, progress, 1, 0.1, reuse_grid=True, d_range_um=(0.7, 13.0))
+    assert nav.grid_search_fw_mm == 0.1 and nav._labels == [f"A{i}" for i in range(1, N_FRAMES)]
 
 
 class _FakeRunnerAnalyzer:

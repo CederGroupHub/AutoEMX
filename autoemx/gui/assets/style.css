@@ -180,6 +180,7 @@ body, .dash-spreadsheet-container .dash-spreadsheet-inner td, .dash-spreadsheet-
 .psd-graph { height: 420px; }
 .psd-table-title { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 2px; }
 .psd-tables { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; margin-top: 8px; }
+.psd-scan-tables { display: flex; flex-direction: column; gap: 14px; }
 .hint { color: var(--muted); margin-bottom: 8px; }
 
 .plot-controls {
@@ -448,3 +449,6 @@ body, .dash-spreadsheet-container .dash-spreadsheet-inner td, .dash-spreadsheet-
 .a-folder-msg { margin: 2px 0 8px; font-size: 13px; overflow-wrap: anywhere; }
 .a-folder-missing { display: inline-block; padding: 5px 10px; border-radius: 6px; background: #fff4e0;
                     border: 1px solid #f0c27a; color: var(--warn); font-weight: 600; }
+.a-col-on { flex: 0 0 58px; display: flex; justify-content: center; }
+.a-head .a-col-on { justify-content: center; text-align: center; }
+.a-acquire { width: 16px; height: 16px; margin: 0; cursor: pointer; }

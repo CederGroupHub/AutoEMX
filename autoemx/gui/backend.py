@@ -1562,6 +1562,8 @@ def acquisition_samples(rows: List[Dict[str, Any]], require_elements: bool = Tru
         sid = str(row.get("ID") or "").strip()
         if not sid and not any(str(row.get(k) or "").strip() for k in ("els", "x", "y", "cnd")):
             continue  # empty row
+        if row.get("on") == []:
+            continue  # not ticked for acquisition (rows without "on", e.g. of older lists: ticked)
         name = sid or f"row {i}"
         if not sid:
             errors.append(f"{name}: missing sample ID")
@@ -1698,9 +1700,10 @@ def psd_acquisition_kwargs(values: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def acquisition_script(samples: List[Dict[str, Any]], kwargs: Dict[str, Any], results_dir: Optional[str],
-                       mode: str = "eds") -> str:
+                       mode: str = "eds", skipped: Optional[List[Dict[str, Any]]] = None) -> str:
     """A runnable Python script performing the acquisition with these settings (like Run_Acquisition.py), or the
-    particle size statistics measurement (``mode`` 'sizes', like Collect_Particle_Statistics.py)."""
+    particle size statistics measurement (``mode`` 'sizes', like Collect_Particle_Statistics.py). Samples in
+    ``skipped`` (not ticked for acquisition) are listed commented out."""
     is_psd = mode == "sizes"
     what = "Particle size statistics" if is_psd else "Automated acquisition of X-ray spectra"
     runner = "collect_particle_statistics" if is_psd else "batch_acquire_and_analyze"
@@ -1716,7 +1719,10 @@ def acquisition_script(samples: List[Dict[str, Any]], kwargs: Dict[str, Any], re
         "Run this script on the microscope computer to acquire the samples below with the same settings.",
         '"""',
         "",
-        "samples = " + pprint.pformat(samples, sort_dicts=False, width=100),
+        "samples = [",
+        *[f"    {pprint.pformat(s, sort_dicts=False, width=1000)}," for s in samples],
+        *[f"    # {pprint.pformat(s, sort_dicts=False, width=1000)}," for s in skipped or []],
+        "]",
         "",
         f"results_dir = {results_dir!r} # Folder where a sub-folder is created for each sample",
         "",
