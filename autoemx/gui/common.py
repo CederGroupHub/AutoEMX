@@ -229,6 +229,14 @@ def _param_control(spec: be.ParamSpec, persist: bool = False) -> html.Div:
     if spec.kind in ("int", "int_opt", "float", "float_opt"):
         ctrl = dcc.Input(id=pid, type="number", value=value, step="any", debounce=True,
                          placeholder=placeholder, className="param-input", **keep)
+    elif spec.kind == "erange_opt":
+        lo, hi = (value or [None, None])[:2]
+        ctrl = html.Div([
+            dcc.Input(id=_pid(spec.key, "__min"), type="number", value=lo, step="any", min=0, debounce=True,
+                      placeholder="min", className="param-input", **keep),
+            dcc.Input(id=_pid(spec.key, "__max"), type="number", value=hi, step="any", min=0, debounce=True,
+                      placeholder="max", className="param-input", **keep),
+        ], className="pair-inputs")
     elif spec.kind in ("pair", "pair_opt"):
         lo, hi = (value or [None, None])[:2]
         ctrl = html.Div([
@@ -258,11 +266,11 @@ def _param_control(spec: be.ParamSpec, persist: bool = False) -> html.Div:
     else:
         ctrl = dcc.Input(id=pid, type="text", value=value, debounce=True, placeholder=placeholder,
                          className="param-input", **keep)
-    if spec.unit or spec.kind in ("int_opt", "float_opt", "pair_opt"):
+    if spec.unit or spec.kind in ("int_opt", "float_opt", "pair_opt", "erange_opt"):
         parts = [ctrl]
         if spec.unit:
             parts.append(html.Span(spec.unit, className="param-unit"))
-        if spec.kind in ("int_opt", "float_opt", "pair_opt"):
+        if spec.kind in ("int_opt", "float_opt", "pair_opt", "erange_opt"):
             parts.append(_clear_button(spec))
         ctrl = html.Div(parts, className="param-ctrl")
     children = [html.Label([spec.label, help_icon], className="param-label", title=spec.help), ctrl]

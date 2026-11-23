@@ -26,7 +26,7 @@ Created on Fri Aug 20 09:34:34 2025
 microscope_ID = 'PhenomXL'
 microscope_type = 'SEM'
 measurement_type = 'EDS'
-spectrum_lims = (14, 1100)  # eV
+energy_range_keV = (0.1, None)  # Fitted energy range (keV); upper None = beam energy / overvoltage (defaults.fit_max_energy_overvoltage)
 
 use_instrument_background = False
 
@@ -141,7 +141,7 @@ exp_std_maker = batch_acquire_experimental_stds(
     sample_substrate_shape=sample_substrate_shape,
     working_distance = working_distance,
     beam_energy=beam_energy,
-    spectrum_lims=spectrum_lims,
+    energy_range_keV=energy_range_keV,
     use_instrument_background=use_instrument_background,
     min_bckgrnd_cnts=min_bckgrnd_cnts,
     is_manual_meas=is_manual_meas,

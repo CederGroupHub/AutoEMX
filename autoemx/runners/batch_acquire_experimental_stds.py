@@ -74,7 +74,8 @@ def batch_acquire_experimental_stds(
     working_distance: float = dflts.working_distance_mm, #mm
     working_distance_tolerance: float = dflts.working_distance_tolerance_mm, #mm
     beam_energy: float = dflts.beam_energy_keV,
-    spectrum_lims: Tuple[float, float] = dflts.spectrum_lims,
+    energy_range_keV: Tuple[float, Optional[float]] = dflts.energy_range_keV,
+    spectrum_lims: Optional[Tuple[int, int]] = None,
     use_instrument_background: bool = dflts.use_instrument_background,
     min_bckgrnd_cnts: Optional[float] = dflts.min_bckgrnd_cnts,
     fit_during_collection= True,
@@ -145,9 +146,12 @@ def batch_acquire_experimental_stds(
     beam_energy : float, optional
         Electron beam energy in keV.  
         Default is `15.0` (MeasurementConfig.beam_energy_keV).
-    spectrum_lims : tuple of float, optional
-        Lower and upper energy limits for spectrum fitting in eV.  
-        Default is `(14, 1100)` (QuantificationOptionsConfig.spectrum_lims).
+    energy_range_keV : tuple(float, float or None), optional
+        Lower and upper energy (keV) of the fitted spectral range. An upper value of None is set from the beam
+        energy as ``beam_energy / defaults.fit_max_energy_overvoltage``.
+        Default is `(0.1, None)` (QuantificationOptionsConfig.energy_range_keV).
+    spectrum_lims : tuple of int, optional
+        Fitted detector channels (start, end exclusive), overriding energy_range_keV. Default is None.
     use_instrument_background : bool, optional
         Whether to use instrument background files during fitting.  
         If False, background is computed during fitting.  
@@ -243,6 +247,7 @@ def batch_acquire_experimental_stds(
     calibs.load_microscope_calibrations(microscope_ID, measurement_mode)
 
     quant_cfg = QuantificationOptionsConfig(
+        energy_range_keV=energy_range_keV,
         spectrum_lims=spectrum_lims,
         use_instrument_background=use_instrument_background,
     )

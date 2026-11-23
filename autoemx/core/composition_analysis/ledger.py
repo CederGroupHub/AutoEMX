@@ -48,6 +48,7 @@ from autoemx.config.schema_models import (
     SpotCoordinates,
 )
 from autoemx.config.runtime_configs import PowderMeasurementConfig
+from autoemx.utils.helper import resolve_energy_range_keV
 from autoemx.utils.legacy.ledger_bootstrap import create_analyzer_ledger_from_legacy_data_csv
 from autoemx.utils.legacy.legacy_config_loader import has_legacy_data_csv
 from autoemx.core import particle_statistics
@@ -779,12 +780,16 @@ class LedgerModule:
 
     def _build_quantification_options(self: Any) -> Dict[str, Any]:
         """Build the subset of quantification options that defines result reuse."""
+        # Fitted range: the resolved energy range, or the channel limits when given (older ledgers)
+        if self.quant_cfg.spectrum_lims is not None:
+            fitted_range: Dict[str, Any] = {"spectrum_lims": [int(v) for v in self.quant_cfg.spectrum_lims]}
+        else:
+            fitted_range = {"energy_range_keV": list(resolve_energy_range_keV(
+                self.quant_cfg.energy_range_keV, float(self.measurement_cfg.beam_energy_keV)
+            ))}
         options: Dict[str, Any] = {
             "method": self.quant_cfg.method,
-            "spectrum_lims": [
-                float(self.quant_cfg.spectrum_lims[0]),
-                float(self.quant_cfg.spectrum_lims[1]),
-            ],
+            **fitted_range,
             "fit_tolerance": float(self.quant_cfg.fit_tolerance),
             "use_instrument_background": bool(self.quant_cfg.use_instrument_background),
             # Effective quantifier state values that materially affect quantification output.
@@ -1545,10 +1550,9 @@ class LedgerModule:
             ))
             detectable_els_substrate = [el for el in self.all_els_substrate if el not in calibs.undetectable_els]
             self.detectable_els_substrate = [el for el in detectable_els_substrate if el not in self.detectable_els_sample]
-            active_spectrum_lims = (active_quant_config.options or {}).get("spectrum_lims")
-            if active_spectrum_lims is not None:
-                self.sp_start = int(round(active_spectrum_lims[0]))
-                self.sp_end = int(round(active_spectrum_lims[1]))
+            active_channel_lims = active_quant_config.fitted_channel_lims()
+            if active_channel_lims is not None:
+                self.sp_start, self.sp_end = active_channel_lims
                 if self.det_ch_offset is not None and self.det_ch_width:
                     self.energy_vals = np.array([
                         self.det_ch_offset + self.det_ch_width * i

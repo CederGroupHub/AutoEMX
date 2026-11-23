@@ -17,6 +17,7 @@ import autoemx.utils.constants as cnst
 from autoemx.core.quantifier.peak_overlaps import affected_elements, format_overlap, get_peak_overlaps
 from autoemx.runners.fit_and_quantify_spectrum import fit_and_quantify_spectrum
 from autoemx.utils import load_msa
+from autoemx.utils.helper import energy_range_to_channel_lims, resolve_energy_range_keV
 from autoemx.web.reader_report import SpectrumReadError, build_reader_failure_report
 
 SUPPORTED_UPLOAD_EXTENSIONS = frozenset(cnst.EMSA_SPECTRUM_EXTENSIONS)
@@ -27,8 +28,6 @@ _DEFAULT_LIVETIME_S = 10.0
 # Shipped P/B standards are Phenom XL at 15 kV. Compositions are not valid otherwise.
 QUANT_BEAM_KV = 15.0
 _QUANT_BEAM_KV_TOLERANCE = 0.25
-# Nominal channel width (keV), to estimate the fitted energy range before a spectrum is uploaded
-_NOMINAL_CH_WIDTH_KEV = 0.01
 
 # ---------------------------------------------------------------------------
 # Quantifiable elements – derived from the shipped 15 kV EDS standards file.
@@ -134,11 +133,10 @@ def find_peak_overlaps(
     """
     Reference peaks of the sample elements overlapping with other peaks whose area is fitted freely.
 
-    Before a spectrum is available, the fitted energy range is estimated from the default
-    spectrum limits and a nominal channel width.
+    Before a spectrum is available, the default fitted energy range is used.
     """
     if energy_range_keV is None:
-        energy_range_keV = tuple(lim * _NOMINAL_CH_WIDTH_KEV for lim in dflt.spectrum_lims)
+        energy_range_keV = resolve_energy_range_keV(dflt.energy_range_keV, beam_energy_keV)
     return get_peak_overlaps(
         dflt.measurement_type, els_sample, els_substrate, beam_energy_keV, energy_range_keV, microscope_ID
     )
@@ -290,7 +288,7 @@ def fit_uploaded_spectrum(
     els_sample: Sequence[str],
     els_substrate: Sequence[str],
     is_particle: bool = True,
-    spectrum_lims: Tuple[int, int] = dflt.spectrum_lims,
+    spectrum_lims: Optional[Tuple[int, int]] = None,
     fit_tol: float = 1e-3,
     microscope_ID: str = dflt.microscope_ID,
     meas_type: str = dflt.measurement_type,
@@ -301,12 +299,19 @@ def fit_uploaded_spectrum(
 
     With ``identify_elements``, elements missing from the known ones (which may then be empty) are looked for
     before the fit: those surely present are added (quantified if a standard exists), doubtful ones reported.
+    The fitted channels are ``spectrum_lims`` if given, else those of the default energy range
+    (``dflt.energy_range_keV``) with the detector calibration of the file.
     """
     path = Path(spectrum_path)
     if not els_sample and not identify_elements:
         raise ValueError("Known sample elements are required, unless missing elements are identified.")
 
     spectrum_vals, _metadata, geometry = load_uploaded_spectrum(path)
+    if spectrum_lims is None:
+        spectrum_lims = energy_range_to_channel_lims(
+            dflt.energy_range_keV, geometry["det_ch_offset"], geometry["det_ch_width"], geometry["beam_energy"],
+            n_channels=len(spectrum_vals),
+        )
 
     quantifier = fit_and_quantify_spectrum(
         spectrum_vals=spectrum_vals,

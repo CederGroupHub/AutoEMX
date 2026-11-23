@@ -13,7 +13,7 @@ Main Class:
 import re
 import numpy as np
 from itertools import combinations
-from scipy.special import erfc
+from scipy.special import erfc, erfcx
 from scipy.signal import find_peaks, peak_prominences
 from lmfit import Model, Parameters, Parameter
 from pymatgen.core import Element
@@ -239,12 +239,24 @@ class Peaks_Model:
     
     @staticmethod
     def _gaussian_tail(x, area, center, sigma, gamma):
-        """Return a skewed tail function for low-Z X-ray peaks."""
-        return area / (2 * gamma * sigma * np.exp(-1 / (2 * gamma**2))) \
-            * np.exp((x - center) / (gamma * sigma)) \
-            * erfc((x - center) / (np.sqrt(2) * sigma) + 1 / (np.sqrt(2) * gamma))
-    
-    
+        """Return a skewed tail function for low-Z X-ray peaks.
+
+        Far above the peak, exp(a) overflows while erfc(b) underflows, giving NaN: there, exp(a) * erfc(b) is
+        evaluated with the identical exp(a - b**2) * erfcx(b). Elsewhere the direct form is kept, so that results are
+        bit-for-bit unchanged where it was already finite.
+        """
+        prefactor = area / (2 * gamma * sigma * np.exp(-1 / (2 * gamma**2)))
+        a = (x - center) / (gamma * sigma)
+        b = (x - center) / (np.sqrt(2) * sigma) + 1 / (np.sqrt(2) * gamma)
+        with np.errstate(over="ignore", invalid="ignore"):
+            values = prefactor * np.exp(a) * erfc(b)
+            bad = ~np.isfinite(values)
+            if np.any(bad):
+                stable = prefactor * (np.exp(a - b**2) * erfcx(np.maximum(b, 0)))
+                values = np.where(bad, stable, values)
+        return values
+
+
     @staticmethod
     def _gaussian_with_tail(x, area, center, sigma, gamma, f_tail):
         """Return a Gaussian with a low-energy tail."""

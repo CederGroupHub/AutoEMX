@@ -221,18 +221,20 @@ def _details_view(info: be.SampleInfo) -> Tuple[List[Any], List[Any]]:
     if not runs:
         return head, [html.Div("Not quantified yet.", className="hint")]
     header = html.Tr([html.Th(h) for h in ("Run", "Elements", "Substrate", "Quantified", "Processed",
-                                           "Fit tol.", "Channels", "Min counts", "Analyses", "Quant flags")])
+                                           "Fit tol.", "Energy range (keV)", "Min counts", "Analyses", "Quant flags")])
     rows = []
     for r in reversed(runs):
         flags = " · ".join(f"{f}: {n}" for f, n in sorted(r["flags"].items()))
-        lims = r["spectrum_lims"]
+        energy_range = r["energy_range_keV"]
         rows.append(html.Tr([
             html.Td([str(r["id"]), html.Span(" active", className="badge badge-ok")] if r["active"] else str(r["id"])),
             html.Td(r["elements"]), html.Td(r["substrate"]),
             html.Td(f"{r['n_quantified']} / {r['n_spectra']}"),
             html.Td(f"{r['n_processed']} / {r['n_spectra']}"),
             html.Td(f"{r['fit_tolerance']:.0e}" if r["fit_tolerance"] else "—"),
-            html.Td(f"{int(lims[0])}–{int(lims[1])}" if lims else "—"),
+            html.Td(f"{energy_range[0]:.3g}–{energy_range[1]:.3g}" if energy_range else "—",
+                    title=(f"Channels {int(r['spectrum_lims'][0])}–{int(r['spectrum_lims'][1])} (saved as channels)"
+                           if r.get("spectrum_lims") else None)),
             html.Td(f"{r['min_total_counts_fraction']:.0%}" if r["min_total_counts_fraction"] is not None else "—"),
             html.Td(str(r["n_analyses"])), html.Td(flags or "—"),
         ], className="active-run" if r["active"] else ""))
@@ -353,8 +355,8 @@ def register(app) -> None:
 
     @app.callback(
         [Output(_pid(k), "placeholder") for k in _number_keys]
-        + [Output(_pid("quant.spectrum_lims", "__min"), "placeholder"),
-           Output(_pid("quant.spectrum_lims", "__max"), "placeholder")]
+        + [Output(_pid("quant.energy_range_keV", "__min"), "placeholder"),
+           Output(_pid("quant.energy_range_keV", "__max"), "placeholder")]
         + [Output(_pid(k), "options") for k in _choice_keys],
         Input("q-table", "selected_rows"),
         Input("q-table", "data"),
@@ -364,8 +366,8 @@ def register(app) -> None:
         summaries, _n = SUMMARIES.get(selected)
         common = be.common_saved_values(list(summaries.values())) if selected and len(summaries) == len(selected) else {}
         out: List[Any] = [_fmt_saved(k, common[k]) if k in common else "saved" for k in _number_keys]
-        lims = common.get("quant.spectrum_lims")
-        out += [str(lims[0]) if lims else "min", str(lims[1]) if lims else "max"]
+        energy_range = common.get("quant.energy_range_keV")
+        out += [f"{energy_range[0]:g}" if energy_range else "min", f"{energy_range[1]:g}" if energy_range else "max"]
         for k in _choice_keys:
             saved_label = "saved" + (f" ({'yes' if common[k] else 'no'})" if k in common else "")
             out.append([{"label": saved_label if c == be.SAVED else c, "value": c}

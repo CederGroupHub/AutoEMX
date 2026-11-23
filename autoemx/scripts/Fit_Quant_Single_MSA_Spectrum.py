@@ -38,7 +38,7 @@ is_particle = True
 #%% Fit and Quant definitions
 quantify = True
 
-spectrum_lims = (14, 1100)
+energy_range_keV = (0.1, None)  # Fitted energy range (keV); upper None = beam energy / overvoltage (defaults.fit_max_energy_overvoltage)
 fit_tol = 1e-3
 max_undetectable_w_fr = 0
 
@@ -90,7 +90,8 @@ quantifier = fit_and_quantify_spectrum(
     background_vals=None,
     els_sample = els_sample,
     els_substrate = els_substrate,
-    spectrum_lims = spectrum_lims,
+    spectrum_lims = None,
+    energy_range_keV = energy_range_keV,
     quantify = quantify,
     plot_signal = plot_signal,
     fit_tol = fit_tol,

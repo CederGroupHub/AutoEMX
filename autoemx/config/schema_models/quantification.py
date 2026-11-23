@@ -238,30 +238,43 @@ class QuantificationConfig(BaseModel):
     @field_validator("options")
     @classmethod
     def validate_options(cls, value: Dict[str, Any]) -> Dict[str, Any]:
-        required_keys = {"method", "spectrum_lims", "fit_tolerance", "use_instrument_background"}
+        required_keys = {"method", "fit_tolerance", "use_instrument_background"}
         missing_keys = required_keys - set(value)
         if missing_keys:
             missing = ", ".join(sorted(missing_keys))
             raise ValueError(f"options is missing required quantification keys: {missing}")
 
-        spectrum_lims = value.get("spectrum_lims")
-        if not isinstance(spectrum_lims, (list, tuple)) or len(spectrum_lims) != 2:
-            raise ValueError("options['spectrum_lims'] must contain exactly two values")
-
-        low_raw = float(spectrum_lims[0])
-        high_raw = float(spectrum_lims[1])
-        if not np.isfinite(low_raw) or not np.isfinite(high_raw):
-            raise ValueError("options['spectrum_lims'] values must be finite")
-        if not low_raw.is_integer() or not high_raw.is_integer():
-            raise ValueError("options['spectrum_lims'] values must be integer channel indices")
-
-        low = int(low_raw)
-        high = int(high_raw)
-        if low >= high:
-            raise ValueError("options['spectrum_lims'] must satisfy low < high")
+        # Fitted range: 'energy_range_keV' (keV), or 'spectrum_lims' (channel indices) in older ledgers
+        has_energy_range = value.get("energy_range_keV") is not None
+        has_spectrum_lims = value.get("spectrum_lims") is not None
+        if has_energy_range == has_spectrum_lims:
+            raise ValueError("options must contain exactly one of 'energy_range_keV' and 'spectrum_lims'")
 
         normalized = dict(value)
-        normalized["spectrum_lims"] = [low, high]
+        if has_energy_range:
+            normalized.pop("spectrum_lims", None)
+            energy_range = value["energy_range_keV"]
+            if not isinstance(energy_range, (list, tuple)) or len(energy_range) != 2:
+                raise ValueError("options['energy_range_keV'] must contain exactly two values")
+            low, high = float(energy_range[0]), float(energy_range[1])
+            if not np.isfinite(low) or not np.isfinite(high) or not 0 < low < high:
+                raise ValueError("options['energy_range_keV'] must be finite and satisfy 0 < low < high")
+            normalized["energy_range_keV"] = [low, high]
+        else:
+            normalized.pop("energy_range_keV", None)
+            spectrum_lims = value["spectrum_lims"]
+            if not isinstance(spectrum_lims, (list, tuple)) or len(spectrum_lims) != 2:
+                raise ValueError("options['spectrum_lims'] must contain exactly two values")
+            low_raw = float(spectrum_lims[0])
+            high_raw = float(spectrum_lims[1])
+            if not np.isfinite(low_raw) or not np.isfinite(high_raw):
+                raise ValueError("options['spectrum_lims'] values must be finite")
+            if not low_raw.is_integer() or not high_raw.is_integer():
+                raise ValueError("options['spectrum_lims'] values must be integer channel indices")
+            if int(low_raw) >= int(high_raw):
+                raise ValueError("options['spectrum_lims'] must satisfy low < high")
+            normalized["spectrum_lims"] = [int(low_raw), int(high_raw)]
+
         normalized["fit_tolerance"] = float(normalized["fit_tolerance"])
         normalized["use_instrument_background"] = bool(normalized["use_instrument_background"])
         if "use_project_specific_std_dict" in normalized:
@@ -426,12 +439,43 @@ class QuantificationConfig(BaseModel):
             "sample_elements": sorted(self.sample_elements),
             "substrate_elements": sorted(self.substrate_elements),
             "els_w_fr": _canonicalize_json_value(self.els_w_fr),
-            "options": _canonicalize_json_value(
-                {key: value for key, value in self.options.items() if key not in self.NON_FINGERPRINT_OPTIONS}
-            ),
+            "options": _canonicalize_json_value(self._fingerprint_options()),
             "reference_values_by_el_line": _canonicalize_json_value(reference_values_for_signature),
             "reference_lines_by_element": _canonicalize_json_value(reference_lines_for_signature),
         }
+
+    def fitted_channel_lims(self) -> Optional[Tuple[int, int]]:
+        """Channel limits ``(sp_start, sp_end)`` of the fitted range, or None if they cannot be determined.
+
+        Older ledgers store them as ``spectrum_lims``; newer ones store ``energy_range_keV``, converted with the
+        stored detector calibration (``det_ch_offset``, ``det_ch_width``) and beam energy.
+        """
+        if self.options.get("spectrum_lims") is not None:
+            low, high = self.options["spectrum_lims"]
+            return int(low), int(high)
+        keys = ("energy_range_keV", "det_ch_offset", "det_ch_width", "beam_energy_keV")
+        if any(self.options.get(key) is None for key in keys):
+            return None
+        from autoemx.utils.helper import energy_range_to_channel_lims
+        return energy_range_to_channel_lims(
+            self.options["energy_range_keV"],
+            float(self.options["det_ch_offset"]),
+            float(self.options["det_ch_width"]),
+            float(self.options["beam_energy_keV"]),
+        )
+
+    def _fingerprint_options(self) -> Dict[str, Any]:
+        """Options entering the fingerprint.
+
+        The fitted range enters as the fitted channels (``spectrum_lims``), so that an energy range matches the
+        channel limits stored by older ledgers when it selects the same channels.
+        """
+        options = {key: value for key, value in self.options.items() if key not in self.NON_FINGERPRINT_OPTIONS}
+        channel_lims = self.fitted_channel_lims()
+        if channel_lims is not None:
+            options.pop("energy_range_keV", None)
+            options["spectrum_lims"] = [int(channel_lims[0]), int(channel_lims[1])]
+        return options
 
     def fingerprint(self) -> str:
         """Compute deterministic SHA-256 fingerprint for quantification scientific inputs."""

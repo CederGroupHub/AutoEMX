@@ -101,6 +101,7 @@ from autoemx.utils.helper import (
     print_double_separator,
     make_unique_path,
     composition_as_weight_dict,
+    energy_range_to_channel_lims,
 )
 from autoemx.config import (
     MicroscopeConfig,
@@ -624,11 +625,18 @@ class EMXSp_Composition_Analyzer:
             )
 
         if is_XSp_measurement:
-            # Set EDS detector channels to include in the quantification
-            self.sp_start, self.sp_end = (
-                int(round(quant_cfg.spectrum_lims[0])),
-                int(round(quant_cfg.spectrum_lims[1])),
-            )
+            # Set EDS detector channels to include in the quantification: the channels of the fitted energy range,
+            # or the channel limits of older ledgers (quant_cfg.spectrum_lims)
+            if quant_cfg.spectrum_lims is not None:
+                self.sp_start, self.sp_end = (int(quant_cfg.spectrum_lims[0]), int(quant_cfg.spectrum_lims[1]))
+            elif energy_zero is not None and bin_width:
+                self.sp_start, self.sp_end = energy_range_to_channel_lims(
+                    quant_cfg.energy_range_keV, float(energy_zero), float(bin_width),
+                    float(measurement_cfg.beam_energy_keV),
+                )
+            else:
+                # No detector calibration: channels cannot be set, nor spectra be quantified
+                self.sp_start, self.sp_end = None, None
             # Compute values of energies corresponding to detector channels
             if energy_zero is not None and bin_width is not None and float(bin_width) != 0.0:
                 self.energy_vals = np.array([energy_zero + bin_width * i for i in range(self.sp_start, self.sp_end)])
@@ -975,13 +983,10 @@ class EMXSp_Composition_Analyzer:
             if det_ch_width_used is not None
             else None
         )
-        spectrum_lims_used = active_options.get("spectrum_lims", q.spectrum_lims)
-        if isinstance(spectrum_lims_used, (list, tuple)) and len(spectrum_lims_used) == 2:
-            sp_low = int(float(spectrum_lims_used[0]))
-            sp_high = int(float(spectrum_lims_used[1]))
-        else:
-            sp_low = int(float(q.spectrum_lims[0]))
-            sp_high = int(float(q.spectrum_lims[1]))
+        energy_range_used = active_options.get("energy_range_keV")
+        channel_lims_used = qc.fitted_channel_lims() if qc is not None else None
+        if channel_lims_used is None:
+            channel_lims_used = (getattr(self, "sp_start", None), getattr(self, "sp_end", None))
 
         lines.append("=" * 60)
         lines.append("QUANTIFICATION CONFIGURATIONS")
@@ -995,7 +1000,10 @@ class EMXSp_Composition_Analyzer:
             if qc.substrate_elements:
                 lines.append(f"  Substrate elements   : {', '.join(qc.substrate_elements)}")
         lines.append(f"  Method               : {method_used}")
-        lines.append(f"  Spectrum limits      : {sp_low} - {sp_high} channels")
+        if energy_range_used is not None:
+            lines.append(f"  Energy range         : {float(energy_range_used[0]):.3f} - "
+                         f"{float(energy_range_used[1]):.3f} keV")
+        lines.append(f"  Spectrum limits      : {channel_lims_used[0]} - {channel_lims_used[1]} channels")
         lines.append(f"  Fit tolerance        : {fit_tolerance_used:.2e}")
         lines.append(f"  Instrument background: {'yes' if use_instr_background_used else 'no'}")
         lines.append(f"  Project std dict     : {'yes' if use_proj_std_dict_used else 'no'}")

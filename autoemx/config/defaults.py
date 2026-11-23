@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Optional, Tuple
 
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
@@ -25,9 +25,17 @@ detector_type : str
 quantification_method : str
     Quantification method. Currently only `'PB'` (Phi-Rho-Z) is implemented.
     Default is `'PB'` (QuantificationOptionsConfig.method).
-spectrum_lims : tuple of float
-    Lower and upper energy limits for spectrum fitting in eV.
-    Default is `(14, 1100)` (QuantificationOptionsConfig.spectrum_lims).
+energy_range_keV : tuple of (float, float or None)
+    Lower and upper energy of the fitted spectral range, in keV (QuantificationOptionsConfig.energy_range_keV).
+    An upper value of None sets it from the beam energy as ``beam_energy / fit_max_energy_overvoltage``.
+    Default is `(0.1, None)`.
+fit_max_energy_overvoltage : float
+    Overvoltage ``U = beam_energy / E_max`` defining the default upper energy of the fitted range. Default is
+    `1.377`: the upper fitted energy formerly used at the default 15 keV beam energy (channel 1100 of the PhenomXL
+    point-mode calibration, 10.895 keV).
+spectrum_lims : tuple of int
+    Legacy fitted range as detector channel indices, kept only to reproduce quantifications stored with channel
+    limits in older ledgers. Default is `(14, 1100)`.
 use_instrument_background : bool
     Whether to use instrument background files during fitting.
     If False, background is computed during fitting.
@@ -150,7 +158,11 @@ detector_type: str = 'BSD'
 
 quantification_method: str = 'PB'
 
-spectrum_lims: Tuple[int, int] = (14, 1100)
+energy_range_keV: Tuple[float, Optional[float]] = (0.1, None)
+
+fit_max_energy_overvoltage: float = 1.377
+
+spectrum_lims: Tuple[int, int] = (14, 1100)  # legacy channel limits (older ledgers only)
 
 substrate_els = ['C']  # O and Al (e.g. Al stub) are found by the identification of missing elements if present
 

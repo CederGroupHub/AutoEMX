@@ -45,7 +45,7 @@ fitted_extra_peaks = ['Pr' + '_' + line for line in ['Ma1', 'Mg', 'M2N4', 'Mb', 
 # =============================================================================
 # Fitting options
 # =============================================================================
-spectrum_lims = None
+energy_range_keV = None  # Fitted energy range (keV), e.g. (0.1, None); None = saved range
 els_substrate = None
 is_particle = False
 use_instrument_background = False
@@ -67,7 +67,7 @@ calibrate_peak_weights_experimental_standard(
     free_area_el_lines=fitted_extra_peaks,
     spectrum_IDs_to_fit=spectrum_IDs_to_fit,
     results_path=results_path,
-    spectrum_lims=spectrum_lims,
+    energy_range_keV=energy_range_keV,
     els_substrate=els_substrate,
     is_particle=is_particle,
     use_instrument_background=use_instrument_background,

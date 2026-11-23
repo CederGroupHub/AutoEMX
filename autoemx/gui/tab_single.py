@@ -323,24 +323,39 @@ def register(app) -> None:
         Input("s-zoom", "value"),
         Input("s-bars", "value"),
         Input("sample-dd", "value"),
-        Input({"type": "sparam", "key": "sfit__spectrum_lims__min"}, "value"),
-        Input({"type": "sparam", "key": "sfit__spectrum_lims__max"}, "value"),
+        Input({"type": "sparam", "key": "sfit__energy_range_keV__min"}, "value"),
+        Input({"type": "sparam", "key": "sfit__energy_range_keV__max"}, "value"),
     )
     def view(source, sid, path, result, log_y, zoom, bars, sample_dir, lim_min, lim_max):
         key = _source_key(source, sample_dir, sid, path)
         fit = result if result and result.get("key") == key else None
         raw, title = None, ""
+        beam_energy, saved_range = None, None
         try:
             if source == "file" and path:
                 from autoemx.utils import load_msa
+                from autoemx.web.pipeline import parse_emsa_geometry
 
-                energy, counts, _meta = load_msa(path)
+                energy, counts, meta = load_msa(path)
                 raw = {"energy": energy, "counts": counts}
                 title = Path(path).name
+                try:
+                    geometry = parse_emsa_geometry(meta)
+                    beam_energy = geometry["beam_energy"]
+                    # Energy axis in keV, whatever the units of the file
+                    raw["energy"] = geometry["det_ch_offset"] + geometry["det_ch_width"] * np.arange(len(counts))
+                except Exception:
+                    beam_energy = None
             elif source == "sample" and sample_dir and sid is not None:
                 info = get_info(sample_dir)
                 raw = be.load_raw_spectrum(info, sid)
                 title = f"{info.sample_id} · spectrum {sid}"
+                cfgs = info.ledger.configs
+                beam_energy = cfgs.measurement_cfg.beam_energy_keV
+                active_q = be._active_quant_config(info.ledger)
+                saved_range = be.saved_energy_range_keV(
+                    active_q.options if active_q is not None else None, cfgs.microscope_cfg.energy_zero,
+                    cfgs.microscope_cfg.bin_width, beam_energy)
         except Exception as exc:
             return (pl.single_spectrum_figure(None), html.Span(f"Cannot read the spectrum: {exc}", className="err"),
                     [], [], [], [], [])
@@ -349,14 +364,20 @@ def register(app) -> None:
         stored = _stored_record(sample_dir, sid) if source == "sample" else None
         rows, columns = _peaks_payload(fit)
         zoom_options = [{"label": p["line"].replace("_", " "), "value": p["line"]} for p in (fit or {}).get("peaks", [])]
-        # Before fitting, show the range that will be fitted (spectrum limits of the form, or the defaults)
+        # Before fitting, show the range that will be fitted (energy range of the form, else the saved or default one)
+        energy_lims = None
         try:
-            lims = be.coerce_values({"sfit.spectrum_lims": [lim_min, lim_max]}, [be.SPECS_BY_KEY["sfit.spectrum_lims"]])
-            lims = lims["sfit.spectrum_lims"] or list(be.dflt.spectrum_lims)
+            form_range = be.coerce_values({"sfit.energy_range_keV": [lim_min, lim_max]},
+                                          [be.SPECS_BY_KEY["sfit.energy_range_keV"]])["sfit.energy_range_keV"]
+            if beam_energy:
+                from autoemx.utils.helper import resolve_energy_range_keV
+
+                energy_lims = resolve_energy_range_keV(form_range or saved_range or be.dflt.energy_range_keV,
+                                                       float(beam_energy))
         except ValueError:
-            lims = list(be.dflt.spectrum_lims)
+            energy_lims = None
         fig = pl.single_spectrum_figure(raw, fit, log_y=bool(log_y), zoom_line=zoom if fit else None,
-                                        show_bckgrnd_cnts=bool(bars), title=title, channel_lims=lims)
+                                        show_bckgrnd_cnts=bool(bars), title=title, energy_lims=energy_lims)
         return (fig, html.B(title or "No spectrum"), _metrics_view(fit), _composition_view(fit, stored),
                 rows, columns, zoom_options)
 
@@ -367,8 +388,8 @@ def register(app) -> None:
         Input("s-source", "value"),
         Input("s-file-path", "value"),
         Input("sample-dd", "value"),
-        Input({"type": "sparam", "key": "sfit__spectrum_lims__min"}, "value"),
-        Input({"type": "sparam", "key": "sfit__spectrum_lims__max"}, "value"),
+        Input({"type": "sparam", "key": "sfit__energy_range_keV__min"}, "value"),
+        Input({"type": "sparam", "key": "sfit__energy_range_keV__max"}, "value"),
         Input({"type": "sparam", "key": "sfit__free_area_el_lines"}, "value"),
     )
     def overlap_msg(els_sample, els_substrate, source, path, sample_dir, lim_min, lim_max, free_area_el_lines):
@@ -377,10 +398,10 @@ def register(app) -> None:
             els_sample = be._elements_list(els_sample)
             els_substrate = be._elements_list(els_substrate)
             fit_values = be.coerce_values(
-                {"sfit.spectrum_lims": [lim_min, lim_max], "sfit.free_area_el_lines": free_area_el_lines},
-                [be.SPECS_BY_KEY["sfit.spectrum_lims"], be.SPECS_BY_KEY["sfit.free_area_el_lines"]],
+                {"sfit.energy_range_keV": [lim_min, lim_max], "sfit.free_area_el_lines": free_area_el_lines},
+                [be.SPECS_BY_KEY["sfit.energy_range_keV"], be.SPECS_BY_KEY["sfit.free_area_el_lines"]],
             )
-            lims, free_area_el_lines = fit_values["sfit.spectrum_lims"], fit_values["sfit.free_area_el_lines"]
+            energy_range, free_area_el_lines = fit_values["sfit.energy_range_keV"], fit_values["sfit.free_area_el_lines"]
         except ValueError:
             return None
         from autoemx.web.pipeline import substrate_elements_note
@@ -395,13 +416,12 @@ def register(app) -> None:
 
                 _, _, geometry = load_uploaded_spectrum(path)
                 overlaps = be.peak_overlaps(be.dflt.measurement_type, els_sample, els_substrate,
-                                            geometry["beam_energy"], geometry["det_ch_offset"],
-                                            geometry["det_ch_width"], lims, None, free_area_el_lines)
+                                            geometry["beam_energy"], energy_range, None, free_area_el_lines)
             else:
                 info = get_info(sample_dir)
                 if info is None:
                     return note
-                overlaps = be.sample_peak_overlaps(info, els_sample, els_substrate, lims, free_area_el_lines)
+                overlaps = be.sample_peak_overlaps(info, els_sample, els_substrate, energy_range, free_area_el_lines)
         except Exception:
             return note
         return [note, peak_overlaps_view(overlaps)]

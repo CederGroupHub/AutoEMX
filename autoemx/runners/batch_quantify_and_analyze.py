@@ -82,6 +82,7 @@ def batch_quantify_and_analyze(
     intermixing_violin_plots: Optional[bool] = None,
     standards_dict: Optional[dict] = None,
     spectrum_lims: Optional[tuple] = None,
+    energy_range_keV: Optional[tuple] = None,
     els_substrate: Optional[List[str]] = None,
     fit_tolerance: Optional[float] = None,
     requantify_only_unquantified_spectra: bool = False,
@@ -106,8 +107,12 @@ def batch_quantify_and_analyze(
     quantification_method : str, optional
         Method to use for quantification. Uses quant_cfg.method if unspecified. Currently only supports 'PB'.
     spectrum_lims : tuple, optional
-        Lower and upper channel-index limits for spectrum fitting. If None, uses
-        ``spectrum_lims`` from the active quantification configuration in each ledger.
+        Lower and upper detector channels (end exclusive) of the fitted range. Overrides energy_range_keV. Mainly
+        to reproduce the channel limits of older ledgers.
+    energy_range_keV : tuple, optional
+        Lower and upper energy (keV) of the fitted range; an upper value of None is set from the beam energy as
+        ``beam_energy / defaults.fit_max_energy_overvoltage``. If both this and spectrum_lims are None, the
+        fitted range of the active quantification of each ledger is kept.
     results_path : str, optional
         Base directory where results are stored. Default: autoemx/Results
     min_bckgrnd_cnts : float, optional
@@ -270,7 +275,10 @@ def batch_quantify_and_analyze(
         if quantification_method is not None:
             quant_cfg.method = quantification_method
         if spectrum_lims is not None:
-            quant_cfg.spectrum_lims = spectrum_lims
+            quant_cfg.spectrum_lims = (int(spectrum_lims[0]), int(spectrum_lims[1]))
+        elif energy_range_keV is not None:
+            quant_cfg.energy_range_keV = tuple(energy_range_keV)
+            quant_cfg.spectrum_lims = None
         if fit_tolerance is not None:
             quant_cfg.fit_tolerance = float(fit_tolerance)
         if use_project_specific_std_dict is not None:

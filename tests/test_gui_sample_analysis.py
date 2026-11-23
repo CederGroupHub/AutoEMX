@@ -74,7 +74,7 @@ def test_kwargs_match_runner_signatures(results_dir: Path):
     qkwargs = be.quantification_kwargs(qvalues)
     assert set(qkwargs) <= set(inspect.signature(batch_quantify_and_analyze).parameters)
     # Empty / 'saved' options keep each sample's saved value
-    assert qkwargs["spectrum_lims"] is None and qkwargs["use_project_specific_std_dict"] is None
+    assert qkwargs["energy_range_keV"] is None and qkwargs["use_project_specific_std_dict"] is None
     assert "use_instrument_background" not in qkwargs and qkwargs["run_analysis"] is True
     assert qkwargs["max_spectra_to_quantify"] is None
 

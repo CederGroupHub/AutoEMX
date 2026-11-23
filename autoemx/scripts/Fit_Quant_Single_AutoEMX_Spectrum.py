@@ -53,7 +53,7 @@ force_single_iteration = False
 interrupt_fits_bad_spectra = False
 
 # Params loaded from configuration file when left unspecified
-spectrum_lims = None # (80, 1100)
+energy_range_keV = None  # Fitted energy range (keV), e.g. (0.1, None); None = saved range
 els_substrate = None # ['C', 'O', 'Al']
 
 
@@ -66,7 +66,7 @@ quantifier = fit_and_quantify_spectrum_from_ledger(
     sample_ID=sample_ID,
     spectrum_ID=spectrum_ID,
     is_standard = is_standard,
-    spectrum_lims = spectrum_lims,
+    energy_range_keV = energy_range_keV,
     use_instrument_background=use_instrument_background,
     quantify=quantify,
     plot_signal=plot_signal,

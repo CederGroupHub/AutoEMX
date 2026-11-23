@@ -275,10 +275,16 @@ class SampleLedger(BaseModel):
                         if not in_data_section:
                             continue
 
-                        # Accept only counts (no index). Reject lines with commas.
+                        # DATATYPE Y: one count per line (optionally comma-terminated).
+                        # DATATYPE XY: 'energy, counts' per line -> keep the counts column.
                         token = line.rstrip(",")
                         if "," in token:
-                            raise ValueError(f"Pointer file '{file_path}' contains invalid spectrum data line with comma: '{line}'")
+                            parts = [p.strip() for p in token.split(",")]
+                            if len(parts) != 2:
+                                raise ValueError(
+                                    f"Pointer file '{file_path}' contains invalid spectrum data line: '{line}'"
+                                )
+                            token = parts[1]
                         try:
                             counts.append(float(token))
                         except ValueError:

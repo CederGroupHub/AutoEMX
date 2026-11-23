@@ -597,13 +597,13 @@ def single_spectrum_figure(
     zoom_line: Optional[str] = None,
     show_bckgrnd_cnts: bool = True,
     title: str = "",
-    channel_lims: Optional[Sequence[int]] = None,
+    energy_lims: Optional[Sequence[float]] = None,
 ) -> go.Figure:
     """
     Large spectrum plot: raw spectrum, or data/fit/background with a residuals panel underneath.
 
     As in ``XSp_Quantifier.plot_quantified_spectrum``, only the fitted energy range is shown: the
-    channels ``channel_lims`` of the raw spectrum, or the energies of the fit.
+    energies ``energy_lims`` (keV) of the raw spectrum, or the energies of the fit.
     """
     from plotly.subplots import make_subplots
 
@@ -612,10 +612,10 @@ def single_spectrum_figure(
     if fit is None:
         e = np.asarray(spectrum["energy"], dtype=float)
         counts = np.asarray(spectrum["counts"], dtype=float)
-        if channel_lims is not None and len(channel_lims) == 2:
-            lo, hi = max(0, int(channel_lims[0])), min(len(e), int(channel_lims[1]))
-            if hi > lo:
-                e, counts = e[lo:hi], counts[lo:hi]
+        if energy_lims is not None and len(energy_lims) == 2:
+            keep = (e >= float(energy_lims[0])) & (e <= float(energy_lims[1]))
+            if np.count_nonzero(keep) > 1:
+                e, counts = e[keep], counts[keep]
         fig = go.Figure(go.Scatter(x=e, y=counts, mode="lines", name="Counts", line=dict(color="#1f77b4", width=1.2)))
         fig.update_layout(
             template="plotly_white",

@@ -129,6 +129,35 @@ def _acquisition_date(sample_dir: Path, ledger: Dict[str, Any]) -> str:
     return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M")
 
 
+def saved_energy_range_keV(options: Optional[Dict[str, Any]], det_ch_offset: Any, det_ch_width: Any,
+                           beam_energy_keV: Any) -> Optional[List[float]]:
+    """Fitted energy range (keV) of saved quantification options, for display.
+
+    Options of older ledgers store channel limits (``spectrum_lims``): they are shown as the energies of the first and
+    last fitted channel. Without saved options, the default range at the beam energy is returned.
+    """
+    from autoemx.utils.helper import resolve_energy_range_keV
+
+    opts = options or {}
+    try:
+        if opts.get("energy_range_keV") is not None:
+            low, high = opts["energy_range_keV"]
+            return [round(float(low), 3), round(float(high), 3)]
+        offset = opts.get("det_ch_offset", det_ch_offset)
+        width = opts.get("det_ch_width", det_ch_width)
+        if opts.get("spectrum_lims") is not None:
+            if offset is None or not width:
+                return None
+            sp_start, sp_end = opts["spectrum_lims"]
+            return [round(float(offset) + float(width) * int(sp_start), 3),
+                    round(float(offset) + float(width) * (int(sp_end) - 1), 3)]
+        if beam_energy_keV:
+            return [round(v, 3) for v in resolve_energy_range_keV(dflt.energy_range_keV, float(beam_energy_keV))]
+    except (TypeError, ValueError):
+        return None
+    return None
+
+
 def _saved_quant_options(cfgs: Dict[str, Any], active: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """Values of the quantification-form options saved for a sample (keys of QUANT_SPECS)."""
     defaults = QuantificationOptionsConfig()
@@ -137,11 +166,13 @@ def _saved_quant_options(cfgs: Dict[str, Any], active: Optional[Dict[str, Any]])
     idx = (active or {}).get("active_clustering_analysis_index")
     cluster_cfg = (analyses[idx] if idx is not None and idx < len(analyses) else (analyses[-1] if analyses else {}))
     min_cnts = (cluster_cfg.get("config") or {}).get("min_bckgrnd_cnts", ClusteringConfig().min_bckgrnd_cnts)
-    lims = opts.get("spectrum_lims", defaults.spectrum_lims)
+    micro = cfgs.get("microscope_cfg") or {}
+    energy_range = saved_energy_range_keV(opts, micro.get("energy_zero"), micro.get("bin_width"),
+                                          (cfgs.get("measurement_cfg") or {}).get("beam_energy_keV"))
     return {
         "quant.min_bckgrnd_cnts": min_cnts,
         "quant.min_total_counts_fraction": opts.get("min_total_counts_fraction", defaults.min_total_counts_fraction),
-        "quant.spectrum_lims": [int(round(v)) for v in lims] if lims else None,
+        "quant.energy_range_keV": energy_range,
         "quant.fit_tolerance": opts.get("fit_tolerance", defaults.fit_tolerance),
         "quant.use_project_specific_std_dict": bool(opts.get("use_project_specific_std_dict",
                                                             defaults.use_project_specific_std_dict)),
@@ -292,6 +323,9 @@ def quantification_runs(info: "SampleInfo") -> List[Dict[str, Any]]:
             "n_spectra": len(info.ledger.spectra),
             "flags": flags,
             "fit_tolerance": opts.get("fit_tolerance"),
+            "energy_range_keV": saved_energy_range_keV(
+                opts, info.ledger.configs.microscope_cfg.energy_zero, info.ledger.configs.microscope_cfg.bin_width,
+                info.ledger.configs.measurement_cfg.beam_energy_keV),
             "spectrum_lims": opts.get("spectrum_lims"),
             "min_total_counts_fraction": opts.get("min_total_counts_fraction"),
             "n_analyses": len(q.clustering_analyses),
@@ -689,7 +723,8 @@ class ParamSpec:
     section: str
     name: str
     label: str
-    kind: str  # bool, int, float, int_opt, float_opt, choice, text, formulae, elements, flags, pair, pair_opt
+    kind: str  # bool, int, float, int_opt, float_opt, choice, text, formulae, elements, flags, pair, pair_opt,
+    # erange_opt (fitted energy range in keV: [low, high or None], or None)
     default: Any = None
     choices: Optional[List[Any]] = None
     choice_labels: Dict[Any, str] = field(default_factory=dict)  # shown instead of the choice (default: itself)
@@ -760,7 +795,10 @@ _HELP: Dict[str, str] = {
     # Quantification
     "quant.min_bckgrnd_cnts": "Minimum background counts under the reference peaks; spectra below are flagged (quant_flag 8). Empty = keep each sample's saved value.",
     "quant.min_total_counts_fraction": "Minimum total counts, as a fraction of the target acquisition counts; spectra below are flagged (quant_flag 2). 0 disables the check. Empty = keep each sample's saved value.",
-    "quant.spectrum_lims": "Lower and upper channel indices of the fitted spectral range, e.g. 14, 1100. Empty = keep each sample's saved value.",
+    "quant.energy_range_keV": ("Lower and upper energy (keV) of the fitted spectral range. Empty lower = "
+                               f"{dflt.energy_range_keV[0]:g} keV; empty upper = beam energy / "
+                               f"{dflt.fit_max_energy_overvoltage:g} (overvoltage). Both empty = keep each sample's "
+                               "saved range."),
     "quant.fit_tolerance": "Tolerance for fit convergence. Empty = keep each sample's saved value (default 1e-4).",
     "quant.use_project_specific_std_dict": "Load the P/B standards file from the results folder instead of the default calibration file. 'saved' keeps each sample's setting.",
     "quant.is_known_phase_mixture": "Sample is a mixture of known phases (its candidate phases): quantified with the P/B values of their standards. 'saved' keeps each sample's setting.",
@@ -781,7 +819,10 @@ _HELP: Dict[str, str] = {
     "sfit.identify_elements": "Before the fit, look for peaks of elements missing from the known elements (which may be empty). Elements surely present are added (quantified if a standard exists, otherwise only fitted); doubtful ones are only reported. Slower.",
     "sfit.is_particle": "Apply particle (rough sample) geometry corrections. Off for flat samples.",
     "sfit.fit_tol": "Tolerance for fit convergence.",
-    "sfit.spectrum_lims": "Lower and upper channel indices of the fitted range. Empty = saved value (or default for external spectra).",
+    "sfit.energy_range_keV": ("Lower and upper energy (keV) of the fitted range. Empty lower = "
+                              f"{dflt.energy_range_keV[0]:g} keV; empty upper = beam energy / "
+                              f"{dflt.fit_max_energy_overvoltage:g} (overvoltage). Both empty = saved range (or "
+                              "default for external spectra)."),
     "sfit.max_undetectable_w_fr": "Maximum mass fraction of undetectable elements (e.g. Li); the total of fitted elements is constrained to [1 - value, 1].",
     "sfit.force_single_iteration": "Run a single quantification iteration.",
     "sfit.interrupt_fits_bad_spectra": "Stop the fit as soon as the spectrum is found to give a poor quantification.",
@@ -933,7 +974,7 @@ def build_quant_specs() -> List[ParamSpec]:
         ParamSpec("quant", "min_bckgrnd_cnts", "min background counts", "float_opt", None, placeholder="saved"),
         ParamSpec("quant", "min_total_counts_fraction", "min total counts fraction", "float_opt", None,
                   placeholder="saved"),
-        ParamSpec("quant", "spectrum_lims", "spectrum limits (channels)", "pair_opt", None, placeholder="saved"),
+        ParamSpec("quant", "energy_range_keV", "energy range", "erange_opt", None, placeholder="saved", unit="keV"),
         ParamSpec("quant", "fit_tolerance", "fit tolerance", "float_opt", None, placeholder="saved"),
         ParamSpec("quant", "use_project_specific_std_dict", "project-specific standards", "choice", SAVED,
                   choices=tri),
@@ -962,7 +1003,7 @@ def build_single_specs() -> List[ParamSpec]:
         ParamSpec("sfit", "identify_elements", "identify missing elements", "bool", dflt.identify_missing_elements),
         ParamSpec("sfit", "is_particle", "particle geometry", "bool", True),
         ParamSpec("sfit", "fit_tol", "fit tolerance", "float", qdef.fit_tolerance),
-        ParamSpec("sfit", "spectrum_lims", "spectrum limits (channels)", "pair_opt", None, placeholder="saved"),
+        ParamSpec("sfit", "energy_range_keV", "energy range", "erange_opt", None, placeholder="saved", unit="keV"),
         ParamSpec("sfit", "max_undetectable_w_fr", "max undetectable mass fraction", "float", 0.0),
         ParamSpec("sfit", "force_single_iteration", "single iteration", "bool", False),
         ParamSpec("sfit", "interrupt_fits_bad_spectra", "interrupt fit of bad spectra", "bool", False),
@@ -1238,7 +1279,8 @@ def single_param_values(info: Optional[SampleInfo]) -> Dict[str, Any]:
     values["single.els_substrate"] = ", ".join(info.substrate)
     values["sfit.is_particle"] = bool(info.ledger.configs.sample_cfg.is_surface_rough)
     values["sfit.fit_tol"] = opts.fit_tolerance
-    values["sfit.spectrum_lims"] = [int(round(v)) for v in opts.spectrum_lims]
+    # Saved range (older ledgers save channels: the field is left empty, so that they are used as saved)
+    values["sfit.energy_range_keV"] = list(opts.energy_range_keV) if opts.spectrum_lims is None else None
     values["sfit.identify_elements"] = bool(getattr(opts, "identify_missing_elements", False))
     exp_cfg = info.ledger.configs.measurement_cfg.exp_stds_cfg
     values["single.is_standard"] = bool(exp_cfg is not None and getattr(exp_cfg, "is_exp_std_measurement", False))
@@ -1250,19 +1292,24 @@ def peak_overlaps(
     els_sample: List[str],
     els_substrate: List[str],
     beam_energy_keV: Optional[float],
-    det_ch_offset: Optional[float] = None,
-    det_ch_width: Optional[float] = None,
-    spectrum_lims: Optional[Any] = None,
+    energy_range_keV: Optional[Any] = None,
     microscope_ID: Optional[str] = None,
     free_area_el_lines: Optional[List[str]] = None,
 ) -> List[Dict[str, Any]]:
-    """Reference peaks of sample elements overlapping with peaks of free area (see autoemx.core.quantifier.peak_overlaps)."""
-    from autoemx.core.quantifier.peak_overlaps import get_peak_overlaps
+    """Reference peaks of sample elements overlapping with peaks of free area (see autoemx.core.quantifier.peak_overlaps).
 
-    lims = spectrum_lims or dflt.spectrum_lims
+    ``energy_range_keV`` is the fitted range (default: ``dflt.energy_range_keV``; an upper value of None is set from
+    the beam energy).
+    """
+    from autoemx.core.quantifier.peak_overlaps import get_peak_overlaps
+    from autoemx.utils.helper import resolve_energy_range_keV
+
     energy_range = None
-    if det_ch_offset is not None and det_ch_width:
-        energy_range = (det_ch_offset + det_ch_width * lims[0], det_ch_offset + det_ch_width * lims[1])
+    if beam_energy_keV:
+        try:
+            energy_range = resolve_energy_range_keV(energy_range_keV or dflt.energy_range_keV, float(beam_energy_keV))
+        except ValueError:
+            energy_range = None
     els_sample = [el for el in els_sample if el not in _DEFAULT_UNDETECTABLE_ELS]
     els_substrate = [el for el in els_substrate if el not in _DEFAULT_UNDETECTABLE_ELS and el not in els_sample]
     try:
@@ -1275,18 +1322,21 @@ def peak_overlaps(
 
 def sample_peak_overlaps(info: SampleInfo, els_sample: Optional[List[str]] = None,
                          els_substrate: Optional[List[str]] = None,
-                         spectrum_lims: Optional[Any] = None,
+                         energy_range_keV: Optional[Any] = None,
                          free_area_el_lines: Optional[List[str]] = None) -> List[Dict[str, Any]]:
-    """Peak overlaps for a sample, with its saved elements unless others are given."""
+    """Peak overlaps for a sample, with its saved elements and fitted range unless others are given."""
     cfgs = info.ledger.configs
+    if energy_range_keV is None:
+        active_q = _active_quant_config(info.ledger)
+        energy_range_keV = saved_energy_range_keV(
+            active_q.options if active_q is not None else None, cfgs.microscope_cfg.energy_zero,
+            cfgs.microscope_cfg.bin_width, cfgs.measurement_cfg.beam_energy_keV)
     return peak_overlaps(
         cfgs.measurement_cfg.type,
         info.elements if els_sample is None else els_sample,
         info.substrate if els_substrate is None else els_substrate,
         cfgs.measurement_cfg.beam_energy_keV,
-        cfgs.microscope_cfg.energy_zero,
-        cfgs.microscope_cfg.bin_width,
-        spectrum_lims or quant_options(info).spectrum_lims,
+        energy_range_keV,
         cfgs.microscope_cfg.ID,
         free_area_el_lines,
     )
@@ -1351,6 +1401,17 @@ def coerce_values(raw: Dict[str, Any], specs: Optional[List[ParamSpec]] = None) 
                 if len(vals) != 2 or vals[0] >= vals[1]:
                     raise ValueError("enter both the minimum and the maximum, with min < max")
                 out[key] = vals
+            elif spec.kind == "erange_opt":
+                lo, hi = (list(value) + [None, None])[:2] if isinstance(value, (list, tuple)) else (None, None)
+                lo = None if lo is None or str(lo).strip() == "" else float(lo)
+                hi = None if hi is None or str(hi).strip() == "" else float(hi)
+                if lo is None and hi is None:
+                    out[key] = None
+                    continue
+                lo = float(dflt.energy_range_keV[0]) if lo is None else lo
+                if lo <= 0 or (hi is not None and hi <= lo):
+                    raise ValueError("the energy range must satisfy 0 < min < max")
+                out[key] = [lo, hi]
             elif spec.kind == "flags":
                 out[key] = sorted({int(v) for v in (value or [])})
             elif spec.kind == "multi":
@@ -1468,12 +1529,12 @@ def quantification_kwargs(values: Dict[str, Any]) -> Dict[str, Any]:
 
     Options left empty (or 'saved') are None, i.e. each sample keeps its saved value.
     """
-    lims = values["quant.spectrum_lims"]
+    energy_range = values["quant.energy_range_keV"]
     return dict(
         quantification_method="PB",
         min_bckgrnd_cnts=values["quant.min_bckgrnd_cnts"],
         min_total_counts_fraction=values["quant.min_total_counts_fraction"],
-        spectrum_lims=tuple(lims) if lims else None,
+        energy_range_keV=tuple(energy_range) if energy_range else None,
         fit_tolerance=values["quant.fit_tolerance"],
         use_project_specific_std_dict=_TRISTATE[values["quant.use_project_specific_std_dict"]],
         is_known_phase_mixture=_TRISTATE[values["quant.is_known_phase_mixture"]],
@@ -1797,7 +1858,7 @@ def single_fit_kwargs(values: Dict[str, Any]) -> Dict[str, Any]:
         from autoemx.utils import composition_as_weight_dict
 
         w_frs = composition_as_weight_dict(Composition(values["single.std_formula"]))
-    lims = values["sfit.spectrum_lims"]
+    energy_range = values["sfit.energy_range_keV"]
     return dict(
         els_sample=values["single.els_sample"],
         els_substrate=values["single.els_substrate"],
@@ -1807,7 +1868,7 @@ def single_fit_kwargs(values: Dict[str, Any]) -> Dict[str, Any]:
         identify_missing_elements=values["sfit.identify_elements"],
         is_particle=values["sfit.is_particle"],
         fit_tol=values["sfit.fit_tol"],
-        spectrum_lims=tuple(lims) if lims else None,
+        energy_range_keV=tuple(energy_range) if energy_range else None,
         max_undetectable_w_fr=values["sfit.max_undetectable_w_fr"],
         force_single_iteration=values["sfit.force_single_iteration"],
         interrupt_fits_bad_spectra=values["sfit.interrupt_fits_bad_spectra"],
@@ -2041,6 +2102,7 @@ def _run_single(sample_dir: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     if payload["source"] == "file":
         import autoemx.config.defaults as defaults
         from autoemx.runners.fit_and_quantify_spectrum import fit_and_quantify_spectrum
+        from autoemx.utils.helper import energy_range_to_channel_lims
         from autoemx.web.pipeline import load_uploaded_spectrum
 
         path = Path(payload["path"])
@@ -2052,7 +2114,9 @@ def _run_single(sample_dir: str, payload: Dict[str, Any]) -> Dict[str, Any]:
               f"{geometry['emergence_angle']}°, live time {geometry['sp_collection_time']} s", flush=True)
         quantifier = fit_and_quantify_spectrum(
             spectrum_vals=spectrum_vals,
-            spectrum_lims=kw.pop("spectrum_lims") or defaults.spectrum_lims,
+            spectrum_lims=energy_range_to_channel_lims(
+                kw.pop("energy_range_keV") or defaults.energy_range_keV, geometry["det_ch_offset"],
+                geometry["det_ch_width"], geometry["beam_energy"], n_channels=len(spectrum_vals)),
             microscope_ID=defaults.microscope_ID,
             meas_type=defaults.measurement_type,
             meas_mode=defaults.measurement_mode,

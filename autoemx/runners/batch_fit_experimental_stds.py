@@ -42,7 +42,8 @@ __all__ = ["batch_fit_experimental_stds"]
 
 def batch_fit_experimental_stds(
     std_ids: List[str],
-    spectrum_lims: Tuple[float, float] = dflts.spectrum_lims,
+    energy_range_keV: Optional[Tuple[float, Optional[float]]] = None,
+    spectrum_lims: Optional[Tuple[int, int]] = None,
     use_instrument_background: bool = dflts.use_instrument_background,
     min_bckgrnd_cnts: Optional[float] = None,
     update_std_library: bool = True,
@@ -66,8 +67,12 @@ def batch_fit_experimental_stds(
     ----------
     std_ids : list of str
         List of identifiers for the experimental standards.
-    spectrum_lims : tuple of float, optional
-        Lower and upper energy limits for spectrum fitting in eV.
+    energy_range_keV : tuple(float, float or None), optional
+        Lower and upper energy (keV) of the fitted range; an upper value of None is set from the beam energy as
+        ``beam_energy / defaults.fit_max_energy_overvoltage``. If both this and spectrum_lims are None, the fitted
+        range of the active quantification of each ledger is kept.
+    spectrum_lims : tuple of int, optional
+        Fitted detector channels (start, end exclusive), overriding energy_range_keV. Default is None.
     use_instrument_background : bool, optional
         Whether to use instrument background files during fitting.
     min_bckgrnd_cnts : float, optional
@@ -237,7 +242,10 @@ def batch_fit_experimental_stds(
         if use_instrument_background is not None:
             quant_cfg.use_instrument_background = use_instrument_background
         if spectrum_lims is not None:
-            quant_cfg.spectrum_lims = spectrum_lims
+            quant_cfg.spectrum_lims = (int(spectrum_lims[0]), int(spectrum_lims[1]))
+        elif energy_range_keV is not None:
+            quant_cfg.energy_range_keV = tuple(energy_range_keV)
+            quant_cfg.spectrum_lims = None
 
         # Track info for the post-loop standards report
         try:

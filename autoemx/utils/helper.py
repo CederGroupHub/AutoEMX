@@ -610,6 +610,52 @@ def get_sample_dir(
     raise FileNotFoundError("\n".join(debug_msg_lines))
         
 
+def resolve_energy_range_keV(
+    energy_range_keV: Optional[Sequence[Optional[float]]],
+    beam_energy_keV: float,
+) -> Tuple[float, float]:
+    """
+    Fitted energy range in keV, with defaults filled in.
+
+    A missing range or lower value uses the default lower energy; a missing upper value is set from the beam
+    energy as ``beam_energy_keV / fit_max_energy_overvoltage``.
+    """
+    import autoemx.config.defaults as dflt
+
+    low, high = (energy_range_keV if energy_range_keV is not None else (None, None))
+    low = float(dflt.energy_range_keV[0]) if low is None else float(low)
+    high = float(beam_energy_keV) / dflt.fit_max_energy_overvoltage if high is None else float(high)
+    if not (0 < low < high):
+        raise ValueError(f"Invalid fitted energy range ({low}, {high}) keV: it must satisfy 0 < low < high")
+    return low, high
+
+
+def energy_range_to_channel_lims(
+    energy_range_keV: Optional[Sequence[Optional[float]]],
+    det_ch_offset: float,
+    det_ch_width: float,
+    beam_energy_keV: float,
+    n_channels: Optional[int] = None,
+) -> Tuple[int, int]:
+    """
+    Channel limits ``(sp_start, sp_end)`` (end exclusive) of the channels whose energy lies in the fitted range.
+
+    The energy of channel ``i`` is ``det_ch_offset + det_ch_width * i`` (keV). The range is resolved with
+    :func:`resolve_energy_range_keV`, and the limits are clipped to ``n_channels`` when given.
+    """
+    low, high = resolve_energy_range_keV(energy_range_keV, beam_energy_keV)
+    if not det_ch_width or det_ch_width <= 0:
+        raise ValueError(f"Invalid detector channel width {det_ch_width} keV")
+    eps = 1e-6  # tolerance against floating-point error when a limit falls on a channel energy
+    sp_start = max(int(np.ceil((low - det_ch_offset) / det_ch_width - eps)), 0)
+    sp_end = int(np.floor((high - det_ch_offset) / det_ch_width + eps)) + 1
+    if n_channels is not None:
+        sp_end = min(sp_end, int(n_channels))
+    if sp_end <= sp_start:
+        raise ValueError(f"Fitted energy range ({low:.3f}, {high:.3f}) keV contains no detector channels")
+    return sp_start, sp_end
+
+
 def load_msa(filepath: str) -> Tuple[np.ndarray, np.ndarray, Dict[str, str]]:
     """
     Load an EMSA/MAS spectrum file (``.msa``, ``.msg``, or ``.emsa``) containing

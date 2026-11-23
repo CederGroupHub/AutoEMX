@@ -60,6 +60,7 @@ def fit_and_quantify_spectrum_from_ledger(
     els_substrate: Optional[List[str]] = None,
     is_standard: bool = False,
     spectrum_lims: Optional[tuple] = None,
+    energy_range_keV: Optional[tuple] = None,
     results_path: Optional[str] = None,
     use_instrument_background: bool = dflt.use_instrument_background,
     quantify: bool = True,
@@ -102,6 +103,13 @@ def fit_and_quantify_spectrum_from_ledger(
         list loaded from the ledger; otherwise, the provided list replaces it.
     is_standard : bool
         Defines whether measurement is from an experimental standard (i.e., sample of known composition)
+    spectrum_lims : tuple(int, int), optional
+        Fitted detector channels (start, end exclusive). Overrides energy_range_keV. Default: the fitted range of
+        the active quantification in the ledger.
+    energy_range_keV : tuple(float, float or None), optional
+        Fitted energy range in keV; an upper value of None is set from the beam energy (see
+        ``defaults.fit_max_energy_overvoltage``). Default: the fitted range of the active quantification in the
+        ledger, else ``defaults.energy_range_keV``.
     results_path : str, optional
         Base directory where results are stored. Default: autoemx/Results
     use_instrument_background : bool, optional
@@ -262,19 +270,21 @@ def fit_and_quantify_spectrum_from_ledger(
     elif (els_substrate[0] == "" or els_substrate[0] is None):
         els_substrate = sample_substrate_cfg.elements + els_substrate[1:]
         
-    # Spectral limits
-    if spectrum_lims is None:
+    # Spectral limits: explicit channels, else explicit energy range, else the range stored in the ledger
+    if spectrum_lims is None and energy_range_keV is None:
         spectrum_lims = quant_cfg.spectrum_lims
-    
-    # Ensure spectrum_lims are integers for array slicing
-    if spectrum_lims is not None:
-        try:
+        energy_range_keV = quant_cfg.energy_range_keV
+    try:
+        if spectrum_lims is not None:
             spectrum_lims = (int(spectrum_lims[0]), int(spectrum_lims[1]))
-        except (TypeError, ValueError, IndexError):
-            logging.error(f"Invalid spectrum_lims: {spectrum_lims}")
-            return
-    else:
-        logging.error("spectrum_lims could not be determined")
+        else:
+            if offset is None or not scale:
+                raise ValueError("missing detector calibration (energy_zero, bin_width) in the ledger")
+            spectrum_lims = utils.energy_range_to_channel_lims(
+                energy_range_keV, float(offset), float(scale), float(beam_energy), n_channels=len(spectrum)
+            )
+    except (TypeError, ValueError, IndexError) as e:
+        logging.error(f"Could not determine the fitted spectral range: {e}")
         return
 
     # Keep static typing explicit for downstream function signature.

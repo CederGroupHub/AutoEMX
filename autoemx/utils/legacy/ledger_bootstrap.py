@@ -171,9 +171,13 @@ def _load_legacy_quant_cfg(sample_result_dir: str) -> Optional[Any]:
     if raw_quant_cfg is None:
         return None
     try:
-        return QuantificationOptionsConfig.model_validate(raw_quant_cfg)
+        quant_cfg = QuantificationOptionsConfig.model_validate(raw_quant_cfg)
     except Exception:
         return None
+    if quant_cfg.spectrum_lims is None:
+        # Legacy data were always fitted over channel limits
+        quant_cfg.spectrum_lims = tuple(dflt.spectrum_lims)
+    return quant_cfg
 
 
 def _load_legacy_config_payload(sample_result_dir: str) -> Optional[Dict[str, Any]]:
@@ -555,7 +559,7 @@ def build_legacy_import_quantification_config(
     fit_tolerance = float(getattr(quant_cfg, "fit_tolerance", 1e-4) or 1e-4)
     use_instrument_background = bool(getattr(quant_cfg, "use_instrument_background", False))
 
-    _default_lims = list(dflt.spectrum_lims)
+    _default_lims = list(dflt.spectrum_lims)  # Legacy data were always fitted over channel limits
     spectrum_lims_raw = getattr(quant_cfg, "spectrum_lims", _default_lims)
     if not isinstance(spectrum_lims_raw, (list, tuple)) or len(spectrum_lims_raw) != 2:
         spectrum_lims_raw = _default_lims
@@ -1057,10 +1061,9 @@ def create_analyzer_ledger_from_legacy_data_csv(
         # Recompute energy axis using recovered legacy calibration values.
         legacy_energy_zero = _parse_optional_float(getattr(analyzer.microscope_cfg, "energy_zero", None))
         legacy_bin_width = _parse_optional_float(getattr(analyzer.microscope_cfg, "bin_width", None))
-        analyzer.sp_start, analyzer.sp_end = (
-            int(round(analyzer.quant_cfg.spectrum_lims[0])),
-            int(round(analyzer.quant_cfg.spectrum_lims[1])),
-        )
+        # Legacy data were always fitted over channel limits (default: dflt.spectrum_lims)
+        legacy_lims = analyzer.quant_cfg.spectrum_lims or dflt.spectrum_lims
+        analyzer.sp_start, analyzer.sp_end = (int(round(legacy_lims[0])), int(round(legacy_lims[1])))
         if legacy_energy_zero is not None and legacy_bin_width is not None and float(legacy_bin_width) != 0.0:
             analyzer.energy_vals = np.array(
                 [legacy_energy_zero + legacy_bin_width * i for i in range(analyzer.sp_start, analyzer.sp_end)]

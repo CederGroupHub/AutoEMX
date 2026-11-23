@@ -21,7 +21,7 @@ Created on Fri Aug 20 09:34:34 2025
 # =============================================================================
 # General Configuration
 # =============================================================================
-spectrum_lims = (14, 1100)  # eV
+energy_range_keV = (0.1, None)  # Fitted energy range (keV); upper None = beam energy / overvoltage (defaults.fit_max_energy_overvoltage)
 
 use_instrument_background = False
 
@@ -62,7 +62,7 @@ from autoemx.runners.batch_fit_experimental_stds import batch_fit_experimental_s
 
 exp_std_maker = batch_fit_experimental_stds(
     std_ids=std_ids,
-    spectrum_lims=spectrum_lims,
+    energy_range_keV=energy_range_keV,
     use_instrument_background=use_instrument_background,
     min_bckgrnd_cnts=min_bckgrnd_cnts,
     update_std_library = update_std_library,

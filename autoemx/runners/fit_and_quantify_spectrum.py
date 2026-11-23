@@ -23,6 +23,7 @@ import autoemx.config.defaults as dflt
 from autoemx.utils import (
     print_double_separator,
 )
+from autoemx.utils.helper import energy_range_to_channel_lims
 
 # Configure logging
 logging.basicConfig(
@@ -70,6 +71,7 @@ def fit_and_quantify_spectrum(
     peaks_to_annotate: str = 'main',
     identify_missing_elements: bool = dflt.identify_missing_elements,
     quantify_plot: Optional[bool] = None,
+    energy_range_keV: Optional[tuple] = dflt.energy_range_keV,
 ):
     """
     Fit and (optionally) quantify a single spectrum.
@@ -78,8 +80,9 @@ def fit_and_quantify_spectrum(
     ----------
     spectrum_vals : numpy.ndarray
         The measured EDS spectrum (counts per channel).
-    spectrum_lims : tuple of int
-        Tuple specifying the start and end indices for the spectrum region to analyze.
+    spectrum_lims : tuple of int or None
+        Start and end (exclusive) detector channels of the fitted range. If None, they are the channels of
+        ``energy_range_keV``, with the detector calibration (det_ch_offset, det_ch_width).
     microscope_ID : str
         Microscope identifier for detector calibration data.
     meas_type : str
@@ -141,12 +144,19 @@ def fit_and_quantify_spectrum(
         If True, prints fitting operations
     quantify_plot : bool, optional
         Deprecated, use `quantify`.
+    energy_range_keV : tuple(float, float or None), optional
+        Fitted energy range (keV), used when spectrum_lims is None; an upper value of None is set from the beam
+        energy as ``beam_energy / defaults.fit_max_energy_overvoltage``. Default: ``defaults.energy_range_keV``.
         
     Returns
     -------
     quantifier : XSp_Quantifier
         The quantifier object containing the results, fit parameters, and methods for further analysis and plotting.
     """
+    if spectrum_lims is None:
+        spectrum_lims = energy_range_to_channel_lims(
+            energy_range_keV, det_ch_offset, det_ch_width, beam_energy, n_channels=len(spectrum_vals)
+        )
     if quantify_plot is not None:
         warnings.warn("'quantify_plot' is deprecated, use 'quantify' instead.", FutureWarning, stacklevel=2)
         quantify = quantify_plot

@@ -307,7 +307,11 @@ class QuantificationOptionsConfig(BaseModel):
 
     Attributes:
         method (str): Method to use for quantification. Currently only accepts 'PB'
-        spectrum_lims (Tuple[float, float]): Lower and upper spectral index limits.
+        energy_range_keV (Tuple[float, Optional[float]]): Lower and upper energy of the fitted spectral range, in keV.
+            An upper value of None sets it from the beam energy as ``beam_energy / dflt.fit_max_energy_overvoltage``.
+            Default is (0.1, None).
+        spectrum_lims (Optional[Tuple[int, int]]): Legacy fitted range as detector channel indices. If given, it
+            overrides energy_range_keV; used to reproduce quantifications of older ledgers. Default is None.
         fit_tolerance (float): lmfit tolerance for fit convergence
         use_instrument_background (bool): Whether to use the instrument background in the fit (Default: False).
             If False, AutoEMX computes the background while fitting.
@@ -336,7 +340,8 @@ class QuantificationOptionsConfig(BaseModel):
     DEFAULT_MIN_TOTAL_COUNTS_FRACTION: ClassVar[float] = dflt.min_total_counts_fraction
 
     method: str = dflt.quantification_method
-    spectrum_lims: Tuple[float, float] = dflt.spectrum_lims
+    energy_range_keV: Tuple[float, Optional[float]] = dflt.energy_range_keV
+    spectrum_lims: Optional[Tuple[int, int]] = None
     fit_tolerance: float = dflt.fit_tolerance
     use_instrument_background: bool = dflt.use_instrument_background
     use_project_specific_std_dict: bool = False
@@ -385,6 +390,17 @@ class QuantificationOptionsConfig(BaseModel):
             raise ValueError("identification_z_range must satisfy 1 <= low <= high <= 118")
         self.identification_z_range = (z_lo, z_hi)
         self.identification_excluded_elements = [str(el) for el in self.identification_excluded_elements]
+        low, high = self.energy_range_keV
+        low = dflt.energy_range_keV[0] if low is None else float(low)
+        high = None if high is None else float(high)
+        if not low > 0 or (high is not None and not high > low):
+            raise ValueError("energy_range_keV must satisfy 0 < low < high")
+        self.energy_range_keV = (low, high)
+        if self.spectrum_lims is not None:
+            sp_start, sp_end = (int(round(float(v))) for v in self.spectrum_lims)
+            if not 0 <= sp_start < sp_end:
+                raise ValueError("spectrum_lims must satisfy 0 <= low < high")
+            self.spectrum_lims = (sp_start, sp_end)
         return self
 
 
