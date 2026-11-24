@@ -98,8 +98,9 @@ def batch_quantify_and_analyze(
     sample_IDs : List[str]
         List of sample identifiers.
     els_sample : list(str), optional
-        List of elements in the sample. If the first entry is "" or None, the rest of the list is appended to the 
-        list loaded from the ledger; otherwise, the provided list replaces it.
+        List of elements in the sample. If None, uses the sample elements of the active quantification configuration
+        in each ledger (or of its sample configuration, if it has no quantification). If the first entry is "" or
+        None, the rest of the list is appended to them; otherwise, the provided list replaces them.
     els_substrate : list(str), optional
         List of substrate elements. If None, uses the substrate elements from the
         active quantification configuration in each ledger. If the first entry is
@@ -250,11 +251,19 @@ def batch_quantify_and_analyze(
         clustering_cfg       = ledger_cfgs.clustering_cfg
         plot_cfg             = ledger_cfgs.plot_cfg
         
-        # Sample elements
-        if els_sample is not None and (els_sample[0] == "" or els_sample[0] is None):
-            sample_cfg.elements = sample_cfg.elements + els_sample[1:]
+        # Sample elements. By default, retain the elements of the active quantification (those shown for the
+        # sample, e.g. in the GUI) rather than the ledger's base config, as for the substrate elements below.
+        ledger_sample_elements = (
+            list(active_quant_config.sample_elements)
+            if active_quant_config is not None and active_quant_config.sample_elements
+            else list(sample_cfg.elements)
+        )
+        if els_sample is not None and len(els_sample) > 0 and (els_sample[0] == "" or els_sample[0] is None):
+            sample_cfg.elements = ledger_sample_elements + list(els_sample[1:])
         elif els_sample is not None and len(els_sample) > 0:
             sample_cfg.elements = els_sample
+        else:
+            sample_cfg.elements = ledger_sample_elements
 
         # Sample substrate elements. By default, retain the elements recorded for
         # the active quantification rather than the ledger's current base config.
