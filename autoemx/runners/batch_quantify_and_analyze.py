@@ -78,6 +78,7 @@ def batch_quantify_and_analyze(
     force_requantification: bool = False,
     interrupt_fits_bad_spectra: bool = False,
     use_project_specific_std_dict: Optional[bool] = None,
+    project_std_dict_path: Optional[str] = None,
     is_known_phase_mixture: Optional[bool] = None,
     intermixing_violin_plots: Optional[bool] = None,
     standards_dict: Optional[dict] = None,
@@ -165,6 +166,10 @@ def batch_quantify_and_analyze(
     use_project_specific_std_dict : bool, optional
         If True, loads standards from project folder (i.e. results_dir) during quantification.
         Default: None. Loads it from quant_cfg file
+    project_std_dict_path : str, optional
+        Standards file to quantify with (any name and folder). Implies use_project_specific_std_dict. Quantification
+        fails if it does not exist. Default: None, keeps the saved file, unless use_project_specific_std_dict is given:
+        then the file of the project folder (True) or of the microscope (False) is used.
     is_known_phase_mixture : bool, optional
         Whether the sample is a mixture of known phases (the candidate phases). If True, spectra are quantified with
         the reference P/B values of these phases, and the analysis characterizes their intermixing.
@@ -281,8 +286,12 @@ def batch_quantify_and_analyze(
             quant_cfg.spectrum_lims = None
         if fit_tolerance is not None:
             quant_cfg.fit_tolerance = float(fit_tolerance)
-        if use_project_specific_std_dict is not None:
+        if project_std_dict_path:
+            quant_cfg.use_project_specific_std_dict = True
+            quant_cfg.project_std_dict_path = os.path.abspath(os.path.expanduser(str(project_std_dict_path)))
+        elif use_project_specific_std_dict is not None:
             quant_cfg.use_project_specific_std_dict = use_project_specific_std_dict
+            quant_cfg.project_std_dict_path = None
         if use_instrument_background is not None:
             quant_cfg.use_instrument_background = use_instrument_background
 

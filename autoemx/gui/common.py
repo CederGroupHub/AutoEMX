@@ -208,6 +208,12 @@ def _clear_button(spec: be.ParamSpec) -> html.Button:
                        className="clear-btn", title=f"Clear: use the {spec.placeholder or 'default'} value")
 
 
+def pick_button_id(key: str) -> Dict[str, str]:
+    """Id of the "Select…" button of a file parameter (kind file_opt)."""
+    pid = _pid(key)
+    return {"type": pid["type"] + "-pick", "key": pid["key"]}
+
+
 def segmentation_note_id(key: str) -> Dict[str, str]:
     """Id of the note below a segmentation model setting (filled when the selected model is not installed)."""
     return {"type": "seg-note", "key": key.replace(".", "__")}
@@ -260,17 +266,23 @@ def _param_control(spec: be.ParamSpec, persist: bool = False) -> html.Div:
     elif spec.kind == "multi":
         ctrl = dcc.Checklist(id=pid, value=value, className="flag-list", inline=True,
                              options=[{"label": str(c), "value": c} for c in spec.choices], **keep)
+    elif spec.kind == "file_opt":
+        ctrl = dcc.Input(id=pid, type="text", value=value, debounce=True, placeholder=placeholder,
+                         className="param-input param-path", **keep)
     elif spec.kind == "formulae":
         ctrl = dcc.Textarea(id=pid, value=value, placeholder="MgO\nAl2O3\nMgAl2O4", className="param-text",
                             rows=3)
     else:
         ctrl = dcc.Input(id=pid, type="text", value=value, debounce=True, placeholder=placeholder,
                          className="param-input", **keep)
-    if spec.unit or spec.kind in ("int_opt", "float_opt", "pair_opt", "erange_opt"):
+    if spec.unit or spec.kind in ("int_opt", "float_opt", "pair_opt", "erange_opt", "file_opt"):
         parts = [ctrl]
         if spec.unit:
             parts.append(html.Span(spec.unit, className="param-unit"))
-        if spec.kind in ("int_opt", "float_opt", "pair_opt", "erange_opt"):
+        if spec.kind == "file_opt":
+            parts.append(html.Button("Select…", id=pick_button_id(spec.key), n_clicks=0, className="btn btn-small",
+                                     title="Choose the file"))
+        if spec.kind in ("int_opt", "float_opt", "pair_opt", "erange_opt", "file_opt"):
             parts.append(_clear_button(spec))
         ctrl = html.Div(parts, className="param-ctrl")
     children = [html.Label([spec.label, help_icon], className="param-label", title=spec.help), ctrl]
@@ -353,17 +365,38 @@ def _fmt(v: Any, nd: int = 1) -> str:
         return str(v)
 
 
-def _pick_file(prompt: str = "Select a spectrum file") -> Optional[str]:
-    """Native file dialog (in a subprocess, so it never blocks the server thread)."""
+_SPECTRUM_FILETYPES = [("EMSA spectra", "*.msa *.emsa *.msg"), ("All files", "*")]
+
+
+def _applescript_text(text: str) -> str:
+    return '"' + str(text).replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _pick_file(prompt: str = "Select a spectrum file", default_dir: Optional[str] = None,
+               filetypes: Optional[List[Tuple[str, str]]] = None) -> Optional[str]:
+    """Native file dialog (in a subprocess, so it never blocks the server thread).
+
+    ``default_dir``: folder shown first (if it exists). ``filetypes``: (description, patterns) pairs, e.g.
+    ``[("JSON", "*.json")]``, used by the dialog of Windows/Linux. The macOS dialog does not filter: its type filter
+    takes type identifiers (e.g. public.json), with which some files cannot be selected.
+    """
+    filetypes = filetypes or _SPECTRUM_FILETYPES
+    if default_dir and not os.path.isdir(default_dir):
+        default_dir = None
     try:
         if sys.platform == "darwin":
-            res = subprocess.run(["osascript", "-e", f'POSIX path of (choose file with prompt "{prompt}")'],
+            script = f"choose file with prompt {_applescript_text(prompt)}"
+            if default_dir:
+                script += f" default location (POSIX file {_applescript_text(default_dir)})"
+            res = subprocess.run(["osascript", "-e", f"POSIX path of ({script})"],
                                  capture_output=True, text=True, timeout=600)
         else:
-            code = ("import tkinter as tk; from tkinter import filedialog; r = tk.Tk(); r.withdraw(); "
-                    "r.attributes('-topmost', True); print(filedialog.askopenfilename(title='" + prompt + "', "
-                    "filetypes=[('EMSA spectra', '*.msa *.emsa *.msg'), ('All files', '*')]))")
-            res = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=600)
+            code = ("import ast, sys, tkinter as tk; from tkinter import filedialog; r = tk.Tk(); r.withdraw(); "
+                    "r.attributes('-topmost', True); "
+                    "print(filedialog.askopenfilename(title=sys.argv[1], initialdir=sys.argv[2] or None, "
+                    "filetypes=ast.literal_eval(sys.argv[3])))")
+            res = subprocess.run([sys.executable, "-c", code, prompt, default_dir or "", repr(filetypes)],
+                                 capture_output=True, text=True, timeout=600)
     except Exception:
         return None
     return res.stdout.strip() or None

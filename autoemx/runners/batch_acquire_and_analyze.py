@@ -81,6 +81,7 @@ def batch_acquire_and_analyze(
     spectrum_lims: Optional[Tuple[int, int]] = None,
     use_instrument_background: bool = dflt.use_instrument_background,
     use_project_specific_std_dict: bool = False,
+    project_std_dict_path: Optional[str] = None,
     interrupt_fits_bad_spectra: bool = True,
     max_analytical_error_percent: float = dflt.max_analytical_error_percent,
     min_bckgrnd_cnts: Optional[float] = dflt.min_bckgrnd_cnts,
@@ -183,6 +184,9 @@ def batch_acquire_and_analyze(
     use_project_specific_std_dict : bool, optional
         If True, loads standards from project folder (i.e. results_dir) during quantification.
         Default: False
+    project_std_dict_path : str, optional
+        Standards file to quantify with (any name and folder). Implies use_project_specific_std_dict. Quantification
+        fails if it does not exist. Default: None.
     interrupt_fits_bad_spectra : bool, optional
         If True, fitting stops early for poor-quality spectra.
         Default is `True`.
@@ -377,6 +381,7 @@ def batch_acquire_and_analyze(
         spectrum_lims=spectrum_lims,
         use_instrument_background=use_instrument_background,
         use_project_specific_std_dict = use_project_specific_std_dict,
+        project_std_dict_path=project_std_dict_path,
         is_known_phase_mixture=is_known_phase_mixture,
     )
 

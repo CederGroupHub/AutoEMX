@@ -148,9 +148,10 @@ class QuantificationConfig(BaseModel):
     runs to detect whether line selection changed, which would require requantification.
     """
 
-    # Options stored with the run but not compared: is_known_phase_mixture selects the reference P/B values, which are
-    # compared through reference_values_by_el_line
-    NON_FINGERPRINT_OPTIONS: ClassVar[Tuple[str, ...]] = ("is_known_phase_mixture",)
+    # Options stored with the run but not compared: is_known_phase_mixture, use_project_specific_std_dict and
+    # project_std_dict_path select the reference P/B values, which are compared through reference_values_by_el_line
+    NON_FINGERPRINT_OPTIONS: ClassVar[Tuple[str, ...]] = ("is_known_phase_mixture", "use_project_specific_std_dict",
+                                                          "project_std_dict_path")
 
     quantification_id: int
     label: Optional[str] = None

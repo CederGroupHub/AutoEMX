@@ -800,6 +800,8 @@ class LedgerModule:
             "det_ch_width": float(self.det_ch_width),
             "min_total_counts_fraction": self._min_total_counts_fraction(),
             "is_known_phase_mixture": bool(getattr(self.quant_cfg, "is_known_phase_mixture", False)),
+            "use_project_specific_std_dict": bool(getattr(self.quant_cfg, "use_project_specific_std_dict", False)),
+            "project_std_dict_path": getattr(self.quant_cfg, "project_std_dict_path", None),
             "identify_missing_elements": bool(getattr(self.quant_cfg, "identify_missing_elements", dflt.identify_missing_elements)),
             "identification_seed_spectra": int(
                 getattr(self.quant_cfg, "identification_seed_spectra", dflt.identification_seed_spectra)

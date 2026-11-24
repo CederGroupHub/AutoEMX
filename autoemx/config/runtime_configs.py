@@ -26,6 +26,7 @@ Each dataclass includes attribute documentation and input validation.
 """
 import numpy as np
 import multiprocessing
+import os
 from typing import Any, ClassVar, Dict, List, Literal, Optional, Tuple
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -318,6 +319,9 @@ class QuantificationOptionsConfig(BaseModel):
         use_project_specific_std_dict (bool): If True, tries to load the dictionary of reference standards from the project folder.
             If not found, uses the file "EDS_Stds_{beamenergy}keV.json" in the local calibration folder of the microscope
             (~/.autoemx/calibrations/<microscope_ID>/).
+        project_std_dict_path (Optional[str]): Standards file to quantify with, instead of the one of the project folder.
+            Setting it sets use_project_specific_std_dict. Unlike the project folder file, it is required: quantification
+            fails if it does not exist. Default is None.
         min_total_counts_fraction (float): Minimum accepted total spectrum counts as a fraction of
             ``target_acquisition_counts``. Spectra below this threshold are flagged
             ``quant_flag = 2`` ("Total counts too low"). Default is ``0.9`` (90%).
@@ -345,6 +349,7 @@ class QuantificationOptionsConfig(BaseModel):
     fit_tolerance: float = dflt.fit_tolerance
     use_instrument_background: bool = dflt.use_instrument_background
     use_project_specific_std_dict: bool = False
+    project_std_dict_path: Optional[str] = None
     min_total_counts_fraction: float = dflt.min_total_counts_fraction
     is_known_phase_mixture: bool = False
     identify_missing_elements: bool = dflt.identify_missing_elements
@@ -373,6 +378,11 @@ class QuantificationOptionsConfig(BaseModel):
 
     @model_validator(mode="after")
     def _validate(self) -> "QuantificationOptionsConfig":
+        if self.project_std_dict_path:  # a chosen standards file: project-specific standards
+            self.project_std_dict_path = os.path.abspath(os.path.expanduser(str(self.project_std_dict_path)))
+            self.use_project_specific_std_dict = True
+        else:
+            self.project_std_dict_path = None
         if self.method not in self.ALLOWED_METHODS:
             raise ValueError(
                 f"Quantification method must be one of {self.ALLOWED_METHODS}, got '{self.method}'."

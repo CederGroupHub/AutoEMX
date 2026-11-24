@@ -297,6 +297,7 @@ def load_standards_model(
     meas_type: str,
     beam_energy: int,
     std_f_dir: Optional[str] = None,
+    std_file: Optional[str] = None,
 ) -> tuple[EDSStandardsFile, str]:
     """
     Load standards data for a specified technique and beam energy.
@@ -313,6 +314,9 @@ def load_standards_model(
         Directory of reference standards file. Default : None; uses the default directory
         Typically only specified when using a special reference file, such as the case of
         measuring the extent of precursor intermixing.
+    std_file : str, optional
+        Path of the standards file to load (any name). Overrides std_f_dir and, unlike it, never falls back to the
+        default file: a missing file raises FileNotFoundError.
 
     Returns
     -------
@@ -338,7 +342,9 @@ def load_standards_model(
     std_dict_filename = paths.standards_filename(meas_type, beam_energy)
     global standards_dir # So that it can be loaded from EMXSp_comp_analyser
 
-    if std_f_dir is not None:
+    if std_file is not None:
+        std_f_dir = None
+    elif std_f_dir is not None:
         standards_dir = os.path.join(std_f_dir, std_dict_filename)
         if not os.path.exists(std_f_dir): # Check if path exists
             logger.warning(f"⚠️ Warning: The provided path for reference standards {std_f_dir} does not exist.")
@@ -349,7 +355,9 @@ def load_standards_model(
         if std_f_dir is None:
             logger.info(f"ℹ️ Using standard reference file at {paths.user_calibration_dir(_loaded_microscope_ID())}")
 
-    if std_f_dir is None:
+    if std_file is not None:
+        standards_dir = os.path.abspath(os.path.expanduser(str(std_file)))
+    elif std_f_dir is None:
         standards_dir = str(paths.user_standards_file(_loaded_microscope_ID(), meas_type, beam_energy))
     else:
         standards_dir = os.path.join(std_f_dir, std_dict_filename)

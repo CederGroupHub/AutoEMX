@@ -27,7 +27,8 @@ from dash import ALL, MATCH, Input, Output, State, ctx, dcc, html, no_update
 from autoemx.gui import backend as be
 from autoemx.gui import run_report
 from autoemx.gui.common import (
-    JOBS, _chip, _pid, _row_class, _spec, form_values, param_sections, segmentation_note_id,
+    JOBS, _chip, _pick_file, _pid, _row_class, _spec, form_values, param_sections, pick_button_id,
+    segmentation_note_id,
 )
 
 _NOTES = {
@@ -371,14 +372,19 @@ def register(app) -> None:
         Input("main-tabs", "value"),
         Input(_pid("amicro.microscope_ID"), "value"),
         Input(_pid("aacq.beam_energy"), "value"),
+        Input(_pid("aquant.use_project_specific_std_dict"), "value"),
+        Input(_pid("aquant.project_std_dict_path"), "value"),
+        Input("folder", "value"),
     )
-    def status(_, microscope, beam_kv):
+    def status(_, microscope, beam_kv, use_project_stds, std_file, folder):
         microscope = microscope or be.dflt.microscope_ID
         ok, text = be.microscope_status(microscope)
         chips = [_chip("microscope", text, "chip-ok" if ok else "chip-warn")]
         energies = be.standards_beam_energies(microscope)
+        project_dir = os.path.expanduser(folder) if use_project_stds and folder else None
         try:
-            has_stds = be.quantifiable_elements(microscope, float(beam_kv)) is not None
+            has_stds = be.quantifiable_elements(microscope, float(beam_kv), project_dir=project_dir,
+                                                std_file=_std_file(std_file)) is not None
         except (TypeError, ValueError):
             has_stds = False
         chips.append(_chip("P/B standards",
@@ -386,6 +392,24 @@ def register(app) -> None:
                            f"none at {beam_kv} kV (available: {', '.join(f'{e:g} kV' for e in energies) or 'none'})",
                            "chip-ok" if has_stds else "chip-warn"))
         return chips
+
+    @app.callback(
+        Output(_pid("aquant.project_std_dict_path"), "value", allow_duplicate=True),
+        Output(_pid("aquant.use_project_specific_std_dict"), "value", allow_duplicate=True),
+        Input(pick_button_id("aquant.project_std_dict_path"), "n_clicks"),
+        State("folder", "value"),
+        prevent_initial_call=True,
+    )
+    def pick_standards_file(n_clicks, folder):
+        if not n_clicks:
+            return no_update, no_update
+        # Shown first: the results folder, where project-specific standards are kept
+        path = _pick_file("Select the P/B standards file",
+                          default_dir=os.path.expanduser(folder) if folder else None,
+                          filetypes=[("Standards files", "*.json"), ("All files", "*")])
+        if not path:
+            return no_update, no_update
+        return path, ["on"]
 
     @app.callback(
         Output("a-folder-msg", "children"),
@@ -615,15 +639,26 @@ def register(app) -> None:
         Input(_pid("amicro.microscope_ID"), "value"),
         Input(_pid("aacq.beam_energy"), "value"),
         Input("a-mode", "value"),
+        Input(_pid("aquant.use_project_specific_std_dict"), "value"),
+        Input(_pid("aquant.project_std_dict_path"), "value"),
+        Input("folder", "value"),
         State("sample-dd", "options"),
     )
-    def check_table(_, microscope, beam_kv, mode, options):
+    def check_table(_, microscope, beam_kv, mode, use_project_stds, std_file, folder, options):
         rows = _rows_from_cells(ctx.inputs_list[0])
         if not ctx.inputs_list[0]:
             return html.Span("Add the samples to acquire.", className="muted"), no_update
-        return _check_message(rows, options, microscope or be.dflt.microscope_ID, beam_kv, mode), rows
+        # Project-specific standards are read from the results folder, where the samples are saved
+        project_dir = os.path.expanduser(folder) if use_project_stds and folder else None
+        return _check_message(rows, options, microscope or be.dflt.microscope_ID, beam_kv, mode,
+                              project_dir=project_dir, std_file=_std_file(std_file)), rows
 
-    def _check_message(rows, options, microscope, beam_kv, mode="eds"):
+    def _std_file(value):
+        """Chosen standards file (expanded path), or None."""
+        text = str(value or "").strip()
+        return os.path.expanduser(text) if text else None
+
+    def _check_message(rows, options, microscope, beam_kv, mode="eds", project_dir=None, std_file=None):
         try:
             samples = be.acquisition_samples(rows, require_elements=mode != "sizes")
         except ValueError as exc:
@@ -634,9 +669,19 @@ def register(app) -> None:
         if again:
             out.append(html.Span(f" Already in the results folder (spectra will be added): {', '.join(again)}.",
                                  className="warn"))
+        if std_file and mode != "sizes":
+            if not os.path.isfile(std_file):
+                out.append(html.Span(f" Standards file not found: {std_file}.", className="err"))
+                return out
+        elif project_dir is not None and mode != "sizes":
+            project_file = be.project_standards_file(project_dir, beam_kv)
+            if project_file is not None and not project_file.exists():
+                out.append(html.Span(f" No project-specific standards file ({project_file.name}) in the results "
+                                     "folder: the standards of the microscope are used.", className="warn"))
         missing = []
         for smp in samples if mode != "sizes" else []:
-            no_std = be.elements_without_standards(smp["els"], microscope, beam_kv)
+            no_std = be.elements_without_standards(smp["els"], microscope, beam_kv, project_dir=project_dir,
+                                                   std_file=std_file)
             if no_std:
                 missing.append(f"{smp['ID']}: {', '.join(no_std)}")
         if missing:

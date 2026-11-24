@@ -176,6 +176,7 @@ def _saved_quant_options(cfgs: Dict[str, Any], active: Optional[Dict[str, Any]])
         "quant.fit_tolerance": opts.get("fit_tolerance", defaults.fit_tolerance),
         "quant.use_project_specific_std_dict": bool(opts.get("use_project_specific_std_dict",
                                                             defaults.use_project_specific_std_dict)),
+        "quant.project_std_dict_path": opts.get("project_std_dict_path"),
         "quant.is_known_phase_mixture": bool(opts.get("is_known_phase_mixture", False)),
     }
 
@@ -203,16 +204,38 @@ def standards_beam_energies(microscope_id: str, meas_type: str = dflt.measuremen
     return sorted(energies)
 
 
+def project_standards_file(project_dir: Any, beam_energy_keV: Any,
+                           meas_type: str = dflt.measurement_type) -> Optional[Path]:
+    """Project-specific standards file, ``<project_dir>/<type>_Stds_<E>keV.json`` (None: invalid beam energy)."""
+    try:
+        kv = float(beam_energy_keV)
+    except (TypeError, ValueError):
+        return None
+    return Path(project_dir) / paths.standards_filename(meas_type, round(kv))
+
+
 def quantifiable_elements(microscope_id: str, beam_energy_keV: Any, meas_mode: str = dflt.measurement_mode,
-                          meas_type: str = dflt.measurement_type) -> Optional[List[str]]:
-    """Elements with at least one P/B standard for this microscope, beam energy and mode (None: no standards file)."""
+                          meas_type: str = dflt.measurement_type,
+                          project_dir: Optional[Any] = None,
+                          std_file: Optional[Any] = None) -> Optional[List[str]]:
+    """Elements with at least one P/B standard for this microscope, beam energy and mode (None: no standards file).
+
+    With ``std_file`` (a chosen standards file), only that file is used. With ``project_dir`` (project-specific
+    standards), its standards file is used when present, as in quantification (which otherwise falls back to the
+    standards of the microscope).
+    """
     try:
         kv = float(beam_energy_keV)
     except (TypeError, ValueError):
         return None
     if abs(kv - round(kv)) > 0.25:
         return None
-    path = paths.user_standards_file(microscope_id, meas_type, round(kv))
+    if std_file:
+        path = Path(std_file).expanduser()
+    else:
+        path = project_standards_file(project_dir, kv, meas_type) if project_dir is not None else None
+        if path is None or not path.exists():
+            path = paths.user_standards_file(microscope_id, meas_type, round(kv))
     if not path.exists():
         return None
     try:
@@ -226,9 +249,12 @@ def quantifiable_elements(microscope_id: str, beam_energy_keV: Any, meas_mode: s
 
 
 def elements_without_standards(elements: List[str], microscope_id: str, beam_energy_keV: Any,
-                               meas_mode: str = dflt.measurement_mode) -> Optional[List[str]]:
-    """Detectable elements that cannot be quantified (None: no standards file at all)."""
-    available = quantifiable_elements(microscope_id, beam_energy_keV, meas_mode)
+                               meas_mode: str = dflt.measurement_mode,
+                               project_dir: Optional[Any] = None,
+                               std_file: Optional[Any] = None) -> Optional[List[str]]:
+    """Detectable elements that cannot be quantified (None: no standards file at all). See quantifiable_elements."""
+    available = quantifiable_elements(microscope_id, beam_energy_keV, meas_mode, project_dir=project_dir,
+                                      std_file=std_file)
     if available is None:
         return None
     return [el for el in elements if el not in available and el not in _DEFAULT_UNDETECTABLE_ELS]
@@ -724,7 +750,7 @@ class ParamSpec:
     name: str
     label: str
     kind: str  # bool, int, float, int_opt, float_opt, choice, text, formulae, elements, flags, pair, pair_opt,
-    # erange_opt (fitted energy range in keV: [low, high or None], or None)
+    # erange_opt (fitted energy range in keV: [low, high or None], or None), file_opt (path of an existing file, or None)
     default: Any = None
     choices: Optional[List[Any]] = None
     choice_labels: Dict[Any, str] = field(default_factory=dict)  # shown instead of the choice (default: itself)
@@ -801,6 +827,7 @@ _HELP: Dict[str, str] = {
                                "saved range."),
     "quant.fit_tolerance": "Tolerance for fit convergence. Empty = keep each sample's saved value (default 1e-4).",
     "quant.use_project_specific_std_dict": "Load the P/B standards file from the results folder instead of the default calibration file. 'saved' keeps each sample's setting.",
+    "quant.project_std_dict_path": "P/B standards file to quantify with (any name). Choosing one sets project-specific standards. Empty: with 'saved', the file saved with each sample; with 'yes', <results folder>/EDS_Stds_<E>keV.json.",
     "quant.is_known_phase_mixture": "Sample is a mixture of known phases (its candidate phases): quantified with the P/B values of their standards. 'saved' keeps each sample's setting.",
     "quant.identify_missing_elements": "Before fitting each spectrum, look for peaks of elements missing from the known elements. Elements surely present are added (quantified if a standard exists, otherwise only fitted); doubtful ones are only reported. The elements found are listed per spectrum and per sample. Slower. 'saved' keeps each sample's setting.",
     "qrun.interrupt_fits_bad_spectra": "Stop fitting spectra as soon as they are found to give a poor quantification. Much faster.",
@@ -978,6 +1005,7 @@ def build_quant_specs() -> List[ParamSpec]:
         ParamSpec("quant", "fit_tolerance", "fit tolerance", "float_opt", None, placeholder="saved"),
         ParamSpec("quant", "use_project_specific_std_dict", "project-specific standards", "choice", SAVED,
                   choices=tri),
+        ParamSpec("quant", "project_std_dict_path", "standards file", "file_opt", None, placeholder="saved"),
         ParamSpec("quant", "is_known_phase_mixture", "known phase mixture", "choice", SAVED, choices=tri),
         ParamSpec("quant", "identify_missing_elements", "identify missing elements", "choice", SAVED, choices=tri),
         ParamSpec("qrun", "interrupt_fits_bad_spectra", "interrupt fits of bad spectra", "bool", True),
@@ -1057,6 +1085,7 @@ def build_acq_specs() -> List[ParamSpec]:
         "aimg.save_raw_images": "Also save the non-annotated version of annotated images.",
         "aacq.quantify_spectra": "Quantify spectra during acquisition, and stop when the clustering converges (between min and max spectra). Not recommended on slow microscope computers.",
         "aquant.use_project_specific_std_dict": "Load the P/B standards from the results folder.",
+        "aquant.project_std_dict_path": "P/B standards file to quantify with (any name). Choosing one sets project-specific standards. Empty: <results folder>/EDS_Stds_<E>keV.json.",
         "aquant.is_known_phase_mixture": "The samples are mixtures of known phases (their candidate phases): quantified with the P/B values of their standards, and their intermixing is characterized.",
         "aquant.interrupt_fits_bad_spectra": "Stop fitting spectra expected to give gross quantification errors.",
         "aquant.max_analytical_error_percent": "Maximum analytical error of the spectra used for clustering (can be changed later).",
@@ -1212,6 +1241,8 @@ def build_acq_specs() -> List[ParamSpec]:
     specs += powder + size + bulk
     specs += [
         ParamSpec("aquant", "use_project_specific_std_dict", "project-specific standards", "bool", False),
+        ParamSpec("aquant", "project_std_dict_path", "standards file", "file_opt", None,
+                  placeholder="results folder"),
         ParamSpec("aquant", "is_known_phase_mixture", "known phase mixture", "bool", False),
         ParamSpec("aquant", "interrupt_fits_bad_spectra", "interrupt fits of bad spectra", "bool", True),
         ParamSpec("aquant", "max_analytical_error_percent", "max analytical error (w%)", "float", 5.0),
@@ -1412,6 +1443,15 @@ def coerce_values(raw: Dict[str, Any], specs: Optional[List[ParamSpec]] = None) 
                 if lo <= 0 or (hi is not None and hi <= lo):
                     raise ValueError("the energy range must satisfy 0 < min < max")
                 out[key] = [lo, hi]
+            elif spec.kind == "file_opt":
+                text = str(value or "").strip()
+                if not text:
+                    out[key] = None
+                    continue
+                path = os.path.abspath(os.path.expanduser(text))
+                if not os.path.isfile(path):
+                    raise ValueError(f"file not found: {path}")
+                out[key] = path
             elif spec.kind == "flags":
                 out[key] = sorted({int(v) for v in (value or [])})
             elif spec.kind == "multi":
@@ -1537,6 +1577,7 @@ def quantification_kwargs(values: Dict[str, Any]) -> Dict[str, Any]:
         energy_range_keV=tuple(energy_range) if energy_range else None,
         fit_tolerance=values["quant.fit_tolerance"],
         use_project_specific_std_dict=_TRISTATE[values["quant.use_project_specific_std_dict"]],
+        project_std_dict_path=values["quant.project_std_dict_path"],
         is_known_phase_mixture=_TRISTATE[values["quant.is_known_phase_mixture"]],
         identify_missing_elements=_TRISTATE[values["quant.identify_missing_elements"]],
         interrupt_fits_bad_spectra=values["qrun.interrupt_fits_bad_spectra"],
@@ -1714,7 +1755,9 @@ def acquisition_kwargs(values: Dict[str, Any], mode: str = "eds") -> Dict[str, A
         powder_meas_cfg_kwargs=_powder_kwargs(values),
         bulk_meas_cfg_kwargs=_section_dict(values, "abulk"),
         quantify_spectra=quantify,
-        use_project_specific_std_dict=values["aquant.use_project_specific_std_dict"],
+        use_project_specific_std_dict=bool(values["aquant.use_project_specific_std_dict"]
+                                           or values["aquant.project_std_dict_path"]),
+        project_std_dict_path=values["aquant.project_std_dict_path"],
         is_known_phase_mixture=values["aquant.is_known_phase_mixture"],
         interrupt_fits_bad_spectra=values["aquant.interrupt_fits_bad_spectra"],
         max_analytical_error_percent=values["aquant.max_analytical_error_percent"],
@@ -1919,6 +1962,16 @@ def _job_entry(kind: str, sample_dir: str, payload: Dict[str, Any], log_path: st
         with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(result, fh, default=_json_default)
         os.replace(tmp, result_path)
+    # Idle workers of a parallel pool (joblib/loky) can keep the process from exiting: stop them, then exit
+    try:
+        from joblib.externals.loky import reusable_executor
+        if reusable_executor._executor is not None:  # do not start a pool just to stop it
+            reusable_executor._executor.shutdown(wait=False, kill_workers=True)
+    except Exception:
+        pass
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(0)
 
 
 def _json_default(obj: Any) -> Any:
@@ -2365,6 +2418,22 @@ def collapse_redraws(text: str) -> str:
                      for line in text.replace("\r\n", "\n").split("\n"))
 
 
+def _end_process_group(process: Any) -> None:
+    """End a job process and the worker processes it started (e.g. of a parallel quantification)."""
+    try:
+        if hasattr(os, "killpg"):
+            os.killpg(process.pid, signal.SIGTERM)  # the job runs in its own process group (see _job_entry)
+        else:
+            subprocess.run(["taskkill", "/T", "/F", "/PID", str(process.pid)], capture_output=True,
+                           timeout=30, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            process.terminate()
+    except (OSError, subprocess.SubprocessError):  # ProcessLookupError: already ended
+        pass
+    process.join(timeout=5)
+    if process.is_alive():
+        process.kill()
+
+
 @dataclass
 class Job:
     job_id: str
@@ -2381,13 +2450,20 @@ class Job:
         return self.process.is_alive()
 
     def result(self) -> Optional[Dict[str, Any]]:
-        if self.is_running() or not os.path.exists(self.result_path):
-            if not self.is_running() and not os.path.exists(self.result_path):
-                msg = "Cancelled." if self.cancelled else f"Process exited unexpectedly (code {self.process.exitcode})."
-                return {"ok": False, "error": msg}
+        # The result file is written (atomically) at the end of the job: it is done even if its process has not
+        # exited yet, e.g. held by idle workers of a parallel pool. Such a process is then ended.
+        if os.path.exists(self.result_path):
+            with open(self.result_path, encoding="utf-8") as fh:
+                result = json.load(fh)
+            if self.is_running():
+                self.process.join(timeout=2)
+                if self.is_running():
+                    _end_process_group(self.process)
+            return result
+        if self.is_running():
             return None
-        with open(self.result_path, encoding="utf-8") as fh:
-            return json.load(fh)
+        msg = "Cancelled." if self.cancelled else f"Process exited unexpectedly (code {self.process.exitcode})."
+        return {"ok": False, "error": msg}
 
     def log_tail(self, max_chars: int = 20000) -> str:
         try:
@@ -2443,19 +2519,7 @@ class JobManager:
         if job is None or not job.is_running():
             return
         job.cancelled = True
-        try:
-            if hasattr(os, "killpg"):
-                os.killpg(job.process.pid, signal.SIGTERM)
-            else:
-                # Windows: also stop the worker processes of the job (e.g. parallel quantification)
-                subprocess.run(["taskkill", "/T", "/F", "/PID", str(job.process.pid)], capture_output=True,
-                               timeout=30, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-                job.process.terminate()
-        except (OSError, subprocess.SubprocessError):  # ProcessLookupError: already ended
-            pass
-        job.process.join(timeout=5)
-        if job.process.is_alive():
-            job.process.kill()
+        _end_process_group(job.process)
 
     def shutdown(self) -> None:
         for job_id in list(self._jobs):

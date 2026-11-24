@@ -7,6 +7,7 @@ Quantification tab of the AutoEMX GUI: quantify the spectra of the selected samp
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -20,12 +21,14 @@ from autoemx.gui.common import (
     JOBS,
     SUMMARIES,
     _info_cache,
+    _pick_file,
     _pick_folder,
     _pid,
     form_values,
     get_info,
     param_sections,
     peak_overlaps_view,
+    pick_button_id,
 )
 
 _NOTES = {
@@ -357,7 +360,8 @@ def register(app) -> None:
         [Output(_pid(k), "placeholder") for k in _number_keys]
         + [Output(_pid("quant.energy_range_keV", "__min"), "placeholder"),
            Output(_pid("quant.energy_range_keV", "__max"), "placeholder")]
-        + [Output(_pid(k), "options") for k in _choice_keys],
+        + [Output(_pid(k), "options") for k in _choice_keys]
+        + [Output(_pid("quant.project_std_dict_path"), "placeholder")],
         Input("q-table", "selected_rows"),
         Input("q-table", "data"),
     )
@@ -372,7 +376,30 @@ def register(app) -> None:
             saved_label = "saved" + (f" ({'yes' if common[k] else 'no'})" if k in common else "")
             out.append([{"label": saved_label if c == be.SAVED else c, "value": c}
                         for c in be.SPECS_BY_KEY[k].choices])
+        saved_file = common.get("quant.project_std_dict_path")
+        out.append(f"saved: {saved_file}" if saved_file else "saved")
         return out
+
+    @app.callback(
+        Output(_pid("quant.project_std_dict_path"), "value", allow_duplicate=True),
+        Output(_pid("quant.use_project_specific_std_dict"), "value", allow_duplicate=True),
+        Input(pick_button_id("quant.project_std_dict_path"), "n_clicks"),
+        State("q-table", "selected_rows"),
+        State("q-table", "data"),
+        prevent_initial_call=True,
+    )
+    def pick_standards_file(n_clicks, selected_rows, rows):
+        if not n_clicks:
+            return no_update, no_update
+        # Shown first: the results folder of the ticked samples (where project-specific standards are kept)
+        selected = _selected_ids(selected_rows, rows)
+        folders = {str(Path(d).parent) for d in selected}
+        default_dir = folders.pop() if len(folders) == 1 else None
+        path = _pick_file("Select the P/B standards file", default_dir=default_dir,
+                          filetypes=[("Standards files", "*.json"), ("All files", "*")])
+        if not path:
+            return no_update, no_update
+        return path, be.YES
 
     # ---------------------------------------------------------------- import a folder of spectra
     @app.callback(
@@ -509,8 +536,10 @@ def register(app) -> None:
         Output("q-selected-msg", "children"),
         Input("q-table", "selected_rows"),
         Input("q-table", "data"),
+        Input(_pid("quant.use_project_specific_std_dict"), "value"),
+        Input(_pid("quant.project_std_dict_path"), "value"),
     )
-    def selected_msg(selected_rows, rows):
+    def selected_msg(selected_rows, rows, project_stds_choice, std_file):
         selected = _selected_ids(selected_rows, rows)
         n = len(selected)
         if not n:
@@ -519,7 +548,11 @@ def register(app) -> None:
         # Elements (as edited in the table) without P/B standards for the microscope and beam energy of each sample
         summaries, _n = SUMMARIES.get(selected)
         by_id = {r["id"]: r for r in rows or []}
-        missing, no_stds = [], []
+        missing, no_stds, no_project_stds, no_std_file = [], [], [], []
+        std_file = os.path.expanduser(str(std_file).strip()) if std_file and str(std_file).strip() else None
+        if std_file and not os.path.isfile(std_file):
+            out.append(html.Span(f" Standards file not found: {std_file}.", className="err"))
+            return out
         for d in selected:
             summ = summaries.get(d)
             if not summ:
@@ -528,14 +561,37 @@ def register(app) -> None:
                 els = be._elements_list(by_id.get(d, {}).get("elements") or summ.get("elements"))
             except ValueError:
                 continue
+            # Standards file: chosen in the form, or project-specific standards chosen in the form or saved with the
+            # active run of the sample (its chosen file, or the one of the results folder)
+            saved = summ.get("quant_opts") or {}
+            sample_std_file = std_file or (saved.get("quant.project_std_dict_path")
+                                           if project_stds_choice in (None, be.SAVED) else None)
+            use_project = project_stds_choice == be.YES or (
+                project_stds_choice in (None, be.SAVED) and bool(saved.get("quant.use_project_specific_std_dict")))
+            project_dir = str(Path(d).parent) if use_project and not sample_std_file else None
+            if sample_std_file and not os.path.isfile(sample_std_file):
+                no_std_file.append(f"{summ['sample']} ({sample_std_file})")
+            elif project_dir is not None:
+                std_file = be.project_standards_file(project_dir, summ.get("beam_energy_keV"))
+                if std_file is not None and not std_file.exists():
+                    no_project_stds.append(f"{summ['sample']} ({std_file.name})")
             no_std = be.elements_without_standards(els, summ.get("microscope") or be.dflt.microscope_ID,
-                                                   summ.get("beam_energy_keV"), summ.get("meas_mode") or "point")
+                                                   summ.get("beam_energy_keV"), summ.get("meas_mode") or "point",
+                                                   project_dir=project_dir, std_file=sample_std_file)
             if no_std is None:
                 no_stds.append(summ["sample"])
             elif no_std:
                 missing.append(f"{summ['sample']}: {', '.join(no_std)}")
         if missing:
             out.append(html.Span(f" No P/B standard for {'; '.join(missing)}.", className="err"))
+        if no_std_file:
+            out.append(html.Span(f" Saved standards file not found for {', '.join(no_std_file)}: quantification "
+                                 "will fail. Choose another file or set project-specific standards.",
+                                 className="err"))
+        if no_project_stds:
+            out.append(html.Span(f" No project-specific standards file in the results folder of "
+                                 f"{', '.join(no_project_stds)}: the standards of the microscope are used.",
+                                 className="warn"))
         if no_stds:
             out.append(html.Span(f" No standards at the beam energy of {', '.join(no_stds)}.", className="err"))
         return out

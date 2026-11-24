@@ -428,7 +428,16 @@ class StandardsModule:
         update_separate_std_dict = self.exp_stds_cfg.is_exp_std_measurement and self.exp_stds_cfg.generate_separate_std_dict
         project_dir: Optional[str] = None
 
-        if self.standards is None:
+        # Standards file chosen by the user: required (no fallback), except when collecting standards
+        chosen_std_file = None if update_separate_std_dict else getattr(self.quant_cfg, "project_std_dict_path", None)
+        if self.standards is None and chosen_std_file:
+            standards, stds_filepath = calibs.load_standards_model(
+                self.measurement_cfg.type,
+                self.measurement_cfg.beam_energy_keV,
+                std_file=chosen_std_file,
+            )
+            logger.info(f"ℹ️ Using the standards file {stds_filepath}")
+        elif self.standards is None:
             std_f_dir = None
             if update_separate_std_dict or self.quant_cfg.use_project_specific_std_dict:
                 project_dir = os.path.dirname(self.sample_result_dir)
