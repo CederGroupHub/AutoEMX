@@ -380,6 +380,8 @@ class XSp_Quantifier:
         self.iterations_run: Optional[int] = None
         self.quant_converged: Optional[bool] = None
         self.ref_lines_for_quant: List[str] = []
+        self.ref_line_fallbacks: Dict[str, str] = {}  # element: note, for elements quantified with a fallback line
+        self.fit_error: Optional[str] = None  # Error that interrupted the fit, if any
         self.missing_reference_peaks: List[str] = []
 
         self.verbose = verbose
@@ -885,6 +887,110 @@ class XSp_Quantifier:
         ]
         return best_lines or list(lines_energies)
 
+    @classmethod
+    def select_quant_line(
+        cls,
+        lines_energies: Dict[str, float],
+        beam_energy: float,
+        has_standard: Optional[Any] = None,
+        areas: Optional[Dict[str, float]] = None,
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Line used to quantify an element, and a note when it is a fallback line.
+
+        The preferred line is the candidate of `get_candidate_quant_lines` with the largest fitted peak area
+        (`areas`), or, without areas, the first in the order of `xray_quant_ref_lines` (Ka1, La1, ...). When the
+        preferred line has no standard (`has_standard(el_line)` is False), the next candidate with a standard is used,
+        then any other reference line with a standard (e.g. Br_La1 at 20 keV when the standards have no Br_Ka1).
+
+        Parameters
+        ----------
+        lines_energies : dict
+            Energy (keV) of each fitted reference line of the element, keyed by line name (e.g. 'Br_Ka1').
+        beam_energy : float
+            Beam energy (keV).
+        has_standard : callable, optional
+            Whether a line has a valid standard. None: standards are not considered.
+        areas : dict, optional
+            Fitted peak area of each line.
+
+        Returns
+        -------
+        el_line : str or None
+            Line to quantify the element with (None if it has no reference line). It has no standard only if no
+            reference line of the element has one; quantification then fails (see _get_k_ratios).
+        fallback_note : str or None
+            Why a line other than the preferred one is used.
+        """
+        if not lines_energies:
+            return None, None
+
+        def rank(el_line: str) -> float:
+            if areas is not None and el_line in areas:
+                return areas[el_line]
+            line = el_line.split('_', 1)[1]
+            order = cls.xray_quant_ref_lines
+            return -(order.index(line) if line in order else len(order))
+
+        candidates = sorted(cls.get_candidate_quant_lines(lines_energies, beam_energy), key=rank, reverse=True)
+        preferred = candidates[0]
+        if has_standard is None or has_standard(preferred):
+            return preferred, None
+        others = sorted((line for line in lines_energies if line not in candidates), key=rank, reverse=True)
+        for el_line in candidates[1:] + others:
+            if has_standard(el_line):
+                return el_line, f"{el_line} used instead of {preferred}, which has no standard"
+        return preferred, None
+
+    def _line_has_standard(self, el_line: str) -> Optional[bool]:
+        """Whether a line has a valid 'Mean' standard (None: the standards cannot be loaded)."""
+        if self.standards is None:
+            try:
+                self._load_EDS_standards()
+            except Exception:
+                return None
+        return any(
+            std.get(cnst.STD_ID_KEY) == cnst.STD_MEAN_ID_KEY and std.get(cnst.COR_PB_DF_KEY) is not None
+            and std[cnst.COR_PB_DF_KEY] > 0
+            for std in (self.standards.get(el_line) or [])
+        )
+
+    @classmethod
+    def reference_lines_for_elements(
+        cls,
+        elements: Iterable[str],
+        lines_with_standard: Iterable[str],
+        beam_energy: float,
+        energy_range_keV: Tuple[float, float],
+        fallback_notes: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, str]:
+        """
+        Line used to quantify each element (as in _get_el_line_to_quantify, ranking lines by `xray_quant_ref_lines`
+        instead of peak areas), from the reference lines fitted for the beam energy and fitted energy range and the
+        lines with a standard. Elements without a line with a standard are left out. ``fallback_notes``, if given, is
+        filled with the note of each element quantified with a fallback line.
+        """
+        with_std = set(lines_with_standard)
+        e_min, e_max = float(energy_range_keV[0]), float(energy_range_keV[1])
+        min_overvoltage = max(beam_energy / e_max * 0.99, 1.2)  # lines fitted (XSp_Fitter._define_xray_lines)
+        out: Dict[str, str] = {}
+        for el in elements:
+            try:
+                el_lines = get_el_xray_lines(el)
+            except (KeyError, ValueError):
+                continue
+            lines_energies = {
+                f"{el}_{line}": float(info['energy (keV)']) for line, info in el_lines.items()
+                if line in cls.xray_quant_ref_lines and beam_energy / float(info['energy (keV)']) > min_overvoltage
+                and float(info['energy (keV)']) > e_min
+            }
+            el_line, note = cls.select_quant_line(lines_energies, beam_energy, has_standard=lambda l: l in with_std)
+            if el_line is not None and el_line in with_std:
+                out[el] = el_line
+                if note and fallback_notes is not None:
+                    fallback_notes[el] = note
+        return dict(sorted(out.items()))
+
 
     def _get_el_line_to_quantify(self, el: str) -> Optional[str]:
         """
@@ -932,13 +1038,19 @@ class XSp_Quantifier:
             )
             el_line_qnt = None
         else:
-            # Ideal reference lines (above 2 keV and overvoltage > 1.65) if any, otherwise all lines
-            candidate_lines = self.get_candidate_quant_lines(
+            # Ideal reference lines (above 2 keV and overvoltage > 1.65) if any, otherwise all lines; the one with
+            # the largest intensity, or, if it has no standard, another one with a standard
+            has_std = None if self._line_has_standard(el_lines_list[0]) is None else self._line_has_standard
+            el_line_qnt, fallback_note = self.select_quant_line(
                 {el_line: self.fitted_peaks_info[el_line][cnst.PEAK_TH_ENERGY_KEY] for el_line in el_lines_list},
                 self.beam_energy,
+                has_standard=has_std,
+                areas={el_line: self.fitted_peaks_info[el_line][cnst.PEAK_AREA_KEY] for el_line in el_lines_list},
             )
-            # Select line with largest intensity among candidates
-            el_line_qnt = max(candidate_lines, key=lambda el_line: self.fitted_peaks_info[el_line][cnst.PEAK_AREA_KEY])
+            if fallback_note:
+                if el not in self.ref_line_fallbacks:
+                    logger.warning(f"⚠️ {el} quantified with a fallback line: {fallback_note}.")
+                self.ref_line_fallbacks[el] = fallback_note
     
         if el_line_qnt is not None:
             selected_energy = self.fitted_peaks_info[el_line_qnt][cnst.PEAK_TH_ENERGY_KEY]
@@ -968,9 +1080,8 @@ class XSp_Quantifier:
     
     def _has_standard(self, el: str) -> bool:
         """
-        Whether an element can be quantified: all the lines that may be used to quantify it (fitted reference
-        lines above the ideal energy and overvoltage thresholds if any, otherwise all fitted reference lines,
-        as in _get_el_line_to_quantify) have a valid 'Mean' standard.
+        Whether an element can be quantified: one of its fitted reference lines has a valid 'Mean' standard (the
+        preferred line, or a fallback one, as in _get_el_line_to_quantify).
         """
         if self.standards is None:
             try:
@@ -987,12 +1098,7 @@ class XSp_Quantifier:
             if line in self.xray_quant_ref_lines and self.beam_energy / float(info['energy (keV)']) > 1.2
             and e_min <= float(info['energy (keV)']) <= e_max
         }
-        ideal = {
-            line for line, en in ref_lines.items()
-            if en > self.ideal_ref_line_energy_threshold and self.beam_energy / en > self.ideal_ref_line_overvoltage
-        }
-        candidates = ideal or set(ref_lines)
-        if not candidates:
+        if not ref_lines:
             return False
 
         def valid(entries) -> bool:
@@ -1001,7 +1107,7 @@ class XSp_Quantifier:
                 and std[cnst.COR_PB_DF_KEY] > 0
                 for std in (entries or [])
             )
-        return all(valid(self.standards.get(f"{el}_{line}")) for line in candidates)
+        return any(valid(self.standards.get(f"{el}_{line}")) for line in ref_lines)
 
 
     def _run_element_identification(self, initial_par_vals: Optional[Dict[str, float]]) -> None:
@@ -1195,6 +1301,7 @@ class XSp_Quantifier:
             )
         except Exception as e:
             is_fit_valid = False
+            self.fit_error = f"{type(e).__name__}: {e}"
             tb_str = traceback.format_exc()  # get full traceback as a string
             logger.error("❌ Fit and quantification iteration unsuccessful due to the following error:")
             logger.error(f"❌ {type(e).__name__}: {e}")
@@ -1608,9 +1715,12 @@ class XSp_Quantifier:
             if el_line in self.standards:
                 std_vals_list = self.standards[el_line]
             else:
+                el = el_line.split('_', 1)[0]
+                tried = [line for line in self.fitted_xray_lines
+                         if any(line == f"{el}_{ref}" for ref in self.xray_quant_ref_lines)]
                 raise EDSError(
-                    f"The {el_line} characteristic X-ray is not present in the standards database "
-                    f"of the '{self.meas_mode}' EDS mode"
+                    f"No standard for any reference line of {el} ({', '.join(tried) or el_line}) in the "
+                    f"'{self.meas_mode}' EDS mode standards"
                 )
     
             # Get measured PB ratio (=0 if element was not found in spectrum)

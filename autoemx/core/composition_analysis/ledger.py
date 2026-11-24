@@ -995,10 +995,25 @@ class LedgerModule:
             reference_values_by_el_line,
             relevant_elements=set(sample_elements),
         )
-        reference_lines_by_element = QuantificationConfig.derive_reference_lines_by_element(
-            reference_values_by_el_line=sample_reference_values,
-            preferred_lines=XSp_Quantifier.xray_quant_ref_lines,
-        )
+        # Line used to quantify each element: chosen as by the quantifier, from the lines with a standard, the beam
+        # energy and the fitted range (e.g. Br_La1 at 20 keV when there is no Br_Ka1 standard)
+        energy_range = options.get("energy_range_keV") if isinstance(options, dict) else None
+        if energy_range:
+            fallback_notes: Dict[str, str] = {}
+            reference_lines_by_element = XSp_Quantifier.reference_lines_for_elements(
+                elements=sample_elements,
+                lines_with_standard=sample_reference_values,
+                beam_energy=float(self.measurement_cfg.beam_energy_keV),
+                energy_range_keV=(float(energy_range[0]), float(energy_range[1])),
+                fallback_notes=fallback_notes,
+            )
+            for el, note in fallback_notes.items():
+                logger.warning(f"⚠️ {el} is quantified with a fallback line: {note}.")
+        else:  # fitted range given as detector channels (older ledgers)
+            reference_lines_by_element = QuantificationConfig.derive_reference_lines_by_element(
+                reference_values_by_el_line=sample_reference_values,
+                preferred_lines=XSp_Quantifier.xray_quant_ref_lines,
+            )
         return QuantificationConfig(
             quantification_id=quantification_id,
             label=label,

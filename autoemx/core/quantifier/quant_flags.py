@@ -151,7 +151,8 @@ def check_fit_quant_validity(
         comment = start_str_comments + 'excessive X-ray absorption'
         quant_flag = 6
     elif not is_quant_fit_valid:
-        comment = 'Fit interrupted for unknown reasons'
+        fit_error = getattr(quantifier, "fit_error", None)
+        comment = f'Fit interrupted: {fit_error}' if fit_error else 'Fit interrupted for unknown reasons'
         quant_flag = 9
     else:
         _, quant_flag, comment = flag_spectrum_for_clustering(

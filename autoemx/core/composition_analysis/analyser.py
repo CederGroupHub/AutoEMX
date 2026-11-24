@@ -284,10 +284,11 @@ def _quantify_spectrum_worker(worker_payload: Dict[str, Any]) -> tuple[int, Opti
             logger.error(f"❌ {type(exc).__name__}: {exc}")
         except BaseException:
             pass
+        quantifier.fit_error = f"{type(exc).__name__}: {exc}"
         quant_flag, comment = check_fit_quant_validity(
             is_quant_fit_valid=False,
             bad_quant_flag=None,
-            quantifier=None,
+            quantifier=quantifier,
             min_bckgrnd_ref_lines=None,
             detectable_els_substrate=worker_payload['detectable_els_substrate'],
             min_bckgrnd_cnts=worker_payload['min_bckgrnd_cnts'],
